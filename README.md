@@ -21,10 +21,9 @@ ChamaPay transforms community-based circular savings by leveraging smart contrac
 
 ### Prerequisites
 
-- Node.js (v16 or higher)
-- npm or yarn
-- Expo CLI
-- iOS Simulator or Android Emulator
+- Node.js
+- npm
+- iOS or Android Device
 - Google Cloud Console account (for Google Sign-In)
 - Celo wallet for testing
 
@@ -33,7 +32,7 @@ ChamaPay transforms community-based circular savings by leveraging smart contrac
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/jeffIshmael/chamapay-minipay.git
+   git clone https://github.com/jeffIshmael/chamapay-app.git
    cd chamapay-mobile
    ```
 
@@ -41,41 +40,7 @@ ChamaPay transforms community-based circular savings by leveraging smart contrac
 
    ```bash
    npm install
-   # or
-   yarn install
    ```
-
-3. **Install Expo CLI globally**
-   ```bash
-   npm install -g expo-cli
-   # or
-   yarn global add expo-cli
-   ```
-
-### Environment Configuration
-
-1. **Create environment file**
-
-   ```bash
-   cp .env.example .env
-   ```
-
-2. **Configure environment variables**
-
-   ```bash
-   # .env
-   EXPO_PUBLIC_CELO_RPC_URL=https://alfajores-forno.celo-testnet.org
-   EXPO_PUBLIC_SMART_CONTRACT_ADDRESS=0x9Ac9977Ce606089fcABBfb311eE5FCf2Bf789481
-   EXPO_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
-   EXPO_PUBLIC_API_BASE_URL=https://your-backend-api.com
-   EXPO_PUBLIC_NETWORK=alfajores
-   ```
-
-3. **Google Sign-In Setup**
-   - Create a project in [Google Cloud Console](https://console.cloud.google.com)
-   - Enable Google+ API
-   - Create OAuth 2.0 credentials for mobile app
-   - Add the client ID to your environment variables
 
 ### Running the App
 
@@ -94,49 +59,11 @@ ChamaPay transforms community-based circular savings by leveraging smart contrac
 
 ```
 chamapay-mobile/
-├── src/
-│   ├── components/           # Reusable UI components
-│   │   ├── common/          # Generic components
-│   │   ├── chama/           # Chama-specific components
-│   │   └── forms/           # Form components
-│   ├── screens/             # App screens
-│   │   ├── auth/            # Authentication screens
-│   │   ├── chama/           # Chama-related screens
-│   │   ├── chat/            # Chat functionality
-│   │   └── profile/         # User profile screens
-│   ├── services/            # API and blockchain services
-│   │   ├── api.js           # REST API calls
-│   │   ├── blockchain.js    # Celo blockchain interactions
-│   │   └── wallet.js        # Wallet management
-│   ├── hooks/               # Custom React hooks
-│   ├── utils/               # Utility functions
-│   ├── constants/           # App constants
-│   ├── navigation/          # Navigation configuration
-│   └── store/               # State management (Redux/Context)
+├── app/
 ├── assets/                  # Images, fonts, icons
 ├── app.json                 # Expo configuration
 ├── package.json
 └── README.md
-```
-
-## 🔧 Key Dependencies
-
-```json
-{
-  "@expo/vector-icons": "^13.0.0",
-  "@react-navigation/native": "^6.1.0",
-  "@react-navigation/stack": "^6.3.0",
-  "@celo/contractkit": "^5.0.0",
-  "expo": "~49.0.0",
-  "expo-auth-session": "~5.0.0",
-  "expo-crypto": "~12.4.0",
-  "expo-secure-store": "~12.3.0",
-  "react": "18.2.0",
-  "react-native": "0.72.0",
-  "react-native-elements": "^3.4.0",
-  "react-native-gifted-chat": "^2.4.0",
-  "react-native-paper": "^5.10.0"
-}
 ```
 
 ## 🔐 Authentication Flow
@@ -145,32 +72,6 @@ chamapay-mobile/
 2. **Smart Wallet Creation**: App automatically generates a Celo wallet
 3. **Secure Storage**: Wallet credentials stored in device secure storage
 4. **Session Management**: JWT tokens for API authentication
-
-## 💼 Core Functionality
-
-### Chama Management
-
-```javascript
-// Create a new chama
-const createChama = async (chamaData) => {
-  const contract = await getChamaContract();
-  const tx = await contract.createChama(
-    chamaData.contributionAmount,
-    chamaData.members,
-    chamaData.payoutInterval
-  );
-  return tx;
-};
-```
-
-### Blockchain Integration
-
-```javascript
-// Connect to Celo network
-import { newKit } from "@celo/contractkit";
-
-const kit = newKit(process.env.EXPO_PUBLIC_CELO_RPC_URL);
-```
 
 ### Payment Processing
 
@@ -196,57 +97,6 @@ const kit = newKit(process.env.EXPO_PUBLIC_CELO_RPC_URL);
 - **Payout Order**: Visual rotation schedule
 - **Transactions**: Complete transaction history
 - **Profile**: User settings and account management
-
-## 🧪 Testing
-
-### Running Tests
-
-```bash
-# Run unit tests
-npm test
-
-# Run E2E tests
-npm run test:e2e
-```
-
-### Test Structure
-
-- **Unit Tests**: Component and utility function testing
-- **Integration Tests**: API and blockchain interaction testing
-- **E2E Tests**: Complete user flow testing
-
-## 🚀 Deployment
-
-### Building for Production
-
-1. **Configure app for production**
-
-   ```bash
-   expo build:android
-   expo build:ios
-   ```
-
-2. **Generate standalone apps**
-
-   ```bash
-   # Android APK
-   expo build:android -t apk
-
-   # iOS IPA
-   expo build:ios -t archive
-   ```
-
-### App Store Deployment
-
-1. **Google Play Store**
-   - Build signed APK/AAB
-   - Upload to Google Play Console
-   - Configure store listing
-
-2. **Apple App Store**
-   - Build IPA file
-   - Upload via Xcode or Application Loader
-   - Configure App Store Connect
 
 ## 🔒 Security Considerations
 
@@ -280,15 +130,6 @@ npm run test:e2e
 - [Expo Documentation](https://docs.expo.dev)
 - [Celo Documentation](https://docs.celo.org)
 - [React Navigation](https://reactnavigation.org)
-- [ChamaPay Web Platform](https://github.com/jeffIshmael/chamapay-minipay)
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ### Development Guidelines
 
@@ -298,27 +139,8 @@ npm run test:e2e
 - Follow the established code style
 - Update documentation as needed
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 👥 Team
-
-- **Lead Developer**: [Jeff Ishmael](https://github.com/jeffIshmael)
-- **Contributors**: See [CONTRIBUTORS.md](CONTRIBUTORS.md)
-
-## 🙏 Acknowledgments
-
-- Celo Foundation for blockchain infrastructure
-- Expo team for the development platform
-- African communities for the traditional chama system inspiration
-
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/jeffIshmael/chamapay-minipay/issues)
+- **Issues**: [GitHub Issues](https://github.com/jeffIshmael/chamapay-app/issues)
 - **Email**: support@chamapay.com
 - **Discord**: [ChamaPay Community](https://discord.gg/chamapay)
-
----
-
-**Built with ❤️ for the global African diaspora and savings communities worldwide.**
