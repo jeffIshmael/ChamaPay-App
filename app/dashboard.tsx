@@ -58,7 +58,7 @@ const mockChamas = [
   },
 ];
 
-export function Dashboard({ onNavigate, user }: DashboardProps) {
+export default function Dashboard({ onNavigate, user }: DashboardProps) {
   const insets = useSafeAreaInsets();
   const Badge = ({
     children,
@@ -123,11 +123,8 @@ export function Dashboard({ onNavigate, user }: DashboardProps) {
     </TouchableOpacity>
   );
 
-
-
   return (
-    <View className="flex-1 bg-gray-50" 
-    >
+    <View className="flex-1 bg-gray-50">
       {/* Header */}
       <LinearGradient
         colors={["#059669", "#047857"]}

@@ -5,9 +5,7 @@ import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
 
-interface AuthScreenProps {
-  onLogin: (userData: any) => void;
-}
+import { useRouter } from "expo-router";
 
 const GoogleIcon = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24">
@@ -30,17 +28,12 @@ const GoogleIcon = () => (
   </Svg>
 );
 
-export function AuthScreen({ onLogin }: AuthScreenProps) {
-  const handleGoogleSignIn = () => {
-    // Mock Google sign-in - in real app this would integrate with Google OAuth
-    const mockUser = {
-      id: "1",
-      name: "Sarah Njeri",
-      email: "sarah.njeri@gmail.com",
-      avatar:
-        "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
-    };
-    onLogin(mockUser);
+export default function AuthScreen() {
+  const router = useRouter();
+
+  const handleGoogleLogin = () => {
+    // Simulate successful login
+    router.push("/wallet-setup");
   };
 
   return (
@@ -95,7 +88,7 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
             </View>
 
             <TouchableOpacity
-              onPress={handleGoogleSignIn}
+              onPress={handleGoogleLogin}
               className="w-full bg-white border border-gray-300 py-4 rounded-xl flex-row items-center justify-center mb-4"
               style={{
                 shadowColor: "#000",

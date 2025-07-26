@@ -13,11 +13,11 @@ import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-interface WalletSetupProps {
-  onComplete: () => void;
-}
+import { useRouter } from "expo-router";
 
-export function WalletSetup({ onComplete }: WalletSetupProps) {
+export default function WalletSetup() {
+  const router = useRouter();
+
   const [step, setStep] = useState<"creating" | "created" | "secured">(
     "creating"
   );
@@ -341,7 +341,7 @@ export function WalletSetup({ onComplete }: WalletSetupProps) {
 
           {step === "secured" && (
             <TouchableOpacity
-              onPress={onComplete}
+              onPress={() => {router.push("/dashboard")}}
               disabled={!showSeedPhrase && !seedPhraseConfirmed}
               className="w-full py-4 rounded-xl items-center justify-center mb-8"
               style={{

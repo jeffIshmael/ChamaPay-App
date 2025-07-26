@@ -16,9 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-interface OnboardingProps {
-  onNext: () => void;
-}
+import { useRouter } from "expo-router";
 
 const onboardingSlides = [
   {
@@ -59,14 +57,15 @@ const onboardingSlides = [
   },
 ];
 
-export function Onboarding({ onNext }: OnboardingProps) {
+export default function Onboarding() {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const router = useRouter();
 
   const nextSlide = () => {
     if (currentSlide < onboardingSlides.length - 1) {
       setCurrentSlide(currentSlide + 1);
     } else {
-      onNext();
+      router.push("/auth-screen");
     }
   };
 
