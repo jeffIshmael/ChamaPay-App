@@ -26,7 +26,6 @@ export default function Index() {
 
   const handleNavigate = (screen: string, data?: any) => {
     // Handle navigation to different screens
-    console.log("Navigate to:", screen, data);
     // You can implement specific navigation logic here
   };
 
