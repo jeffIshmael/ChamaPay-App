@@ -1,6 +1,6 @@
 # ChamaPay Mobile App
 
-A decentralized mobile application that digitizes traditional African "chama" savings groups (ROSCAs - Rotating Savings and Credit Associations) using blockchain technology on the Celo network.
+A decentralized mobile application that digitizes savings groups (ROSCAs - Rotating Savings and Credit Associations) using blockchain technology on the Celo network.
 
 ## 📱 Overview
 
