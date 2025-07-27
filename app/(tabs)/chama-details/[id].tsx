@@ -13,13 +13,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-interface PayoutScheduleItem {
-  position: number;
-  member: string;
-  status: "completed" | "upcoming" | "available";
-  date: string;
-}
-
 export default function ChamaDetails() {
   const { id } = useLocalSearchParams();
   const insets = useSafeAreaInsets();

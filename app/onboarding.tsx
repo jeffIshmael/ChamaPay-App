@@ -1,4 +1,3 @@
-import { LinearGradient } from "expo-linear-gradient";
 import {
   ChevronLeft,
   ChevronRight,
@@ -8,12 +7,7 @@ import {
   Users,
 } from "lucide-react-native";
 import React, { useState } from "react";
-import {
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View
-} from "react-native";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useRouter } from "expo-router";
@@ -75,81 +69,70 @@ export default function Onboarding() {
     }
   };
 
-  const goToSlide = (index: number) => {
-    setCurrentSlide(index);
-  };
-
   const slide = onboardingSlides[currentSlide];
   const IconComponent = slide.icon;
 
   return (
-    <LinearGradient
-      colors={["#ecfdf5", "#f0fdfa"]} // emerald-50 to teal-50
-      className="flex-1"
-    >
-      <SafeAreaView className="h-full">
-        <View className="flex-1 px-6" style={{ paddingTop: 60 }}>
-
-          {/* Main content */}
-          <ScrollView
-            className="flex-1"
-            contentContainerStyle={{
-              flexGrow: 1,
-              alignItems: "center",
-              paddingHorizontal: 16,
-            }}
+    <SafeAreaView className="flex-1 bg-white">
+      <View className="flex-1 px-6" style={{ paddingTop: 60 }}>
+        {/* Main content */}
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{
+            flexGrow: 1,
+            alignItems: "center",
+            paddingHorizontal: 16,
+          }}
+        >
+          <View
+            className="w-32 h-32 rounded-3xl shadow-lg items-center justify-center mb-8"
+            style={{ backgroundColor: slide.bgColor }}
           >
-            <View
-              className="w-32 h-32 rounded-3xl shadow-lg items-center justify-center mb-8"
-              style={{ backgroundColor: slide.bgColor }}
-            >
-              <IconComponent color={slide.color} size={48} />
-            </View>
-
-            <Text className="text-3xl mb-3 text-gray-900 text-center font-bold max-w-xs">
-              {slide.title}
-            </Text>
-
-            <Text
-              className="text-lg mb-6 text-center font-medium max-w-sm"
-              style={{ color: "#059669" }}
-            >
-              {slide.subtitle}
-            </Text>
-
-            <Text className="text-gray-600 leading-relaxed max-w-sm mb-8 text-base text-center">
-              {slide.description}
-            </Text>
-
-          </ScrollView>
-
-          {/* Navigation */}
-          <View className="flex-row items-center justify-between pb-8">
-            <TouchableOpacity
-              onPress={prevSlide}
-              disabled={currentSlide === 0}
-              className="p-2 flex-row items-center"
-              style={{ opacity: currentSlide === 0 ? 0.3 : 1 }}
-            >
-              <ChevronLeft size={16} color="#6b7280" />
-              <Text className="text-gray-500 ml-2">Back</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={nextSlide}
-              className="px-6 py-2 rounded-full flex-row items-center"
-              style={{ backgroundColor: "#059669" }}
-            >
-              <Text className="text-white mr-2">
-                {currentSlide === onboardingSlides.length - 1
-                  ? "Get Started"
-                  : "Next"}
-              </Text>
-              <ChevronRight size={16} color="white" />
-            </TouchableOpacity>
+            <IconComponent color={slide.color} size={48} />
           </View>
+
+          <Text className="text-3xl mb-3 text-gray-900 text-center font-bold max-w-xs">
+            {slide.title}
+          </Text>
+
+          <Text
+            className="text-lg mb-6 text-center font-medium max-w-sm"
+            style={{ color: "#059669" }}
+          >
+            {slide.subtitle}
+          </Text>
+
+          <Text className="text-gray-600 leading-relaxed max-w-sm mb-8 text-base text-center">
+            {slide.description}
+          </Text>
+        </ScrollView>
+
+        {/* Navigation */}
+        <View className="flex-row items-center justify-between pb-8">
+          <TouchableOpacity
+            onPress={prevSlide}
+            disabled={currentSlide === 0}
+            className="p-2 flex-row items-center"
+            style={{ opacity: currentSlide === 0 ? 0.3 : 1 }}
+          >
+            <ChevronLeft size={16} color="#6b7280" />
+            <Text className="text-gray-500 ml-2">Back</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={nextSlide}
+            className="px-6 py-2 rounded-full flex-row items-center"
+            style={{ backgroundColor: "#059669" }}
+          >
+            <Text className="text-white mr-2">
+              {currentSlide === onboardingSlides.length - 1
+                ? "Get Started"
+                : "Next"}
+            </Text>
+            <ChevronRight size={16} color="white" />
+          </TouchableOpacity>
         </View>
-      </SafeAreaView>
-    </LinearGradient>
+      </View>
+    </SafeAreaView>
   );
 }

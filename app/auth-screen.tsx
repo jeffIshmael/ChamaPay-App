@@ -1,4 +1,3 @@
-import { LinearGradient } from "expo-linear-gradient";
 import { Shield, Users } from "lucide-react-native";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
@@ -37,81 +36,75 @@ export default function AuthScreen() {
   };
 
   return (
-    <LinearGradient
-      colors={["#ecfdf5", "#f0fdfa"]} // emerald-50 to teal-50
-      className="flex-1"
-    >
-      <SafeAreaView className="h-full">
-        <ScrollView
-          className="flex-1 px-6"
-          contentContainerStyle={{ flexGrow: 1 }}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header */}
-          <View className="items-center mb-12" style={{ paddingTop: 20 }}>
-            <View
-              className="w-20 h-20 rounded-full items-center justify-center mb-6"
-              style={{ backgroundColor: "#059669" }}
-            >
-              <Users color="white" size={32} />
+    <SafeAreaView className="flex-1 bg-white">
+      <ScrollView
+        className="flex-1 px-6"
+        contentContainerStyle={{ flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View className="items-center mb-12" style={{ paddingTop: 20 }}>
+          <View
+            className="w-20 h-20 rounded-full items-center justify-center mb-6"
+            style={{ backgroundColor: "#059669" }}
+          >
+            <Users color="white" size={32} />
+          </View>
+          <Text className="text-3xl mb-2 text-gray-900 font-bold">
+            ChamaPay
+          </Text>
+          <Text className="text-gray-600 text-center">
+            Join the future of community savings
+          </Text>
+        </View>
+
+        {/* Main content */}
+        <View className="justify-center">
+          <View
+            className="bg-white rounded-2xl p-6 mb-8"
+            style={{
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: 5,
+            }}
+          >
+            <View className="flex-row items-center justify-center mb-4">
+              <Shield color="#059669" size={20} />
+              <Text className="text-gray-700 ml-2 font-medium">
+                Secure & Trusted
+              </Text>
             </View>
-            <Text className="text-3xl mb-2 text-gray-900 font-bold">
-              ChamaPay
-            </Text>
-            <Text className="text-gray-600 text-center">
-              Join the future of community savings
+            <Text className="text-sm text-gray-600 text-center leading-relaxed">
+              Your data is protected with enterprise-grade security. We never
+              store your financial information.
             </Text>
           </View>
 
-          {/* Main content */}
-          <View className="justify-center">
-            <View
-              className="bg-white rounded-2xl p-6 mb-8"
-              style={{
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-                elevation: 5,
-              }}
-            >
-              <View className="flex-row items-center justify-center mb-4">
-                <Shield color="#059669" size={20} />
-                <Text className="text-gray-700 ml-2 font-medium">
-                  Secure & Trusted
-                </Text>
-              </View>
-              <Text className="text-sm text-gray-600 text-center leading-relaxed">
-                Your data is protected with enterprise-grade security. We never
-                store your financial information.
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={handleGoogleLogin}
-              className="w-full bg-white border border-gray-300 py-4 rounded-xl flex-row items-center justify-center mb-4"
-              style={{
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 4,
-                elevation: 3,
-              }}
-              activeOpacity={0.8}
-            >
-              <GoogleIcon />
-              <Text className="text-gray-700 ml-3 font-medium text-base">
-                Continue with Google
-              </Text>
-            </TouchableOpacity>
-
-            <Text className="text-xs text-gray-500 text-center mt-4 px-4 leading-relaxed">
-              By continuing, you agree to our Terms of Service and Privacy
-              Policy
+          <TouchableOpacity
+            onPress={handleGoogleLogin}
+            className="w-full bg-white border border-gray-300 py-4 rounded-xl flex-row items-center justify-center mb-4"
+            style={{
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 3,
+            }}
+            activeOpacity={0.8}
+          >
+            <GoogleIcon />
+            <Text className="text-gray-700 ml-3 font-medium text-base">
+              Continue with Google
             </Text>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </LinearGradient>
+          </TouchableOpacity>
+
+          <Text className="text-xs text-gray-500 text-center mt-4 px-4 leading-relaxed">
+            By continuing, you agree to our Terms of Service and Privacy Policy
+          </Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
