@@ -241,24 +241,6 @@ export default function Dashboard({ onNavigate, user }: DashboardProps) {
                 <View className="flex-row">
                   <TouchableOpacity
                     onPress={(e) => {
-                      onNavigate("chama-chat", chama);
-                    }}
-                    className="p-2 mr-1"
-                    activeOpacity={0.7}
-                  >
-                    <MessageCircle color="#6b7280" size={16} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={(e) => {
-                      onNavigate("payout-order", chama);
-                    }}
-                    className="p-2 mr-1"
-                    activeOpacity={0.7}
-                  >
-                    <Clock color="#6b7280" size={16} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={(e) => {
                       onNavigate("chama-management", chama);
                     }}
                     className="p-2"
