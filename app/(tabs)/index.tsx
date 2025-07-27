@@ -6,7 +6,7 @@ import {
   Calendar,
   User,
   Users,
-  Wallet
+  Wallet,
 } from "lucide-react-native";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
@@ -121,7 +121,7 @@ export default function HomeScreen() {
       {/* Header */}
       <LinearGradient
         colors={["#059669", "#047857"]}
-        className="px-6 pb-8"
+        className="px-6 pb-4"
         style={{ paddingTop: 20 }}
       >
         <View className="flex-row items-center justify-between  mt-3 ">
@@ -143,10 +143,6 @@ export default function HomeScreen() {
             <TouchableOpacity
               onPress={() => router.push("/notifications")}
               className="p-2 mr-2"
-              style={{
-                backgroundColor: "rgba(255, 255, 255, 0.2)",
-                borderRadius: 8,
-              }}
               activeOpacity={0.7}
             >
               <Bell color="white" size={20} />
@@ -154,10 +150,6 @@ export default function HomeScreen() {
             <TouchableOpacity
               onPress={() => router.push("/profile-settings")}
               className="p-2"
-              style={{
-                backgroundColor: "rgba(255, 255, 255, 0.2)",
-                borderRadius: 8,
-              }}
               activeOpacity={0.7}
             >
               <User color="white" size={20} />

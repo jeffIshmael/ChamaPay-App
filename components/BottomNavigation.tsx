@@ -3,6 +3,7 @@ import cn from "clsx";
 import { CreditCard, Home, Plus, Search } from "lucide-react-native";
 import React from "react";
 import { Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const tabs = [
   { name: "index", label: "Home", icon: Home },
@@ -15,9 +16,13 @@ export default function BottomNavigation({
   state,
   navigation,
 }: BottomTabBarProps) {
+  const insets = useSafeAreaInsets();
   return (
-    <View className="bg-white border-t border-gray-200 pb-4">
-      <View className="flex-row justify-around items-center px-4 py-2 max-w-md mx-auto">
+    <View
+      className="bg-white border-t border-gray-200 pb-4"
+      style={{ paddingBottom: insets.bottom }}
+    >
+      <View className="flex-row justify-around items-center px-4">
         {tabs.map((tab, idx) => {
           const isActive = state.index === idx;
           const Icon = tab.icon;
@@ -39,13 +44,7 @@ export default function BottomNavigation({
                 isActive ? "text-emerald-600" : "text-gray-500"
               )}
             >
-              <Icon
-                size={24}
-                className={
-                  isActive ? "text-emerald-600 mb-1" : "text-gray-500 mb-1"
-                }
-                strokeWidth={2.2}
-              />
+              <Icon size={20} color={isActive ? "#059669" : "#6b7280"} />
               <Text
                 className={cn(
                   "text-xs",
