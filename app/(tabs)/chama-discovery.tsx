@@ -1,25 +1,24 @@
+import { useRouter } from "expo-router";
+import {
+  Calendar,
+  Filter,
+  MapPin,
+  Search,
+  Shield,
+  Star,
+  Users,
+  Wallet
+} from "lucide-react-native";
 import React, { useState } from "react";
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  SafeAreaView,
-  TextInput,
   FlatList,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import {
-  ArrowLeft,
-  Search,
-  Filter,
-  Users,
-  Wallet,
-  Calendar,
-  Star,
-  Shield,
-  MapPin,
-} from "lucide-react-native";
-import { useRouter } from "expo-router";
 
 interface ChamaDiscoveryProps {
   onNavigate: (screen: string, data?: any) => void;
@@ -143,7 +142,10 @@ export default function ChamaDiscovery({ onNavigate, onBack }: ChamaDiscoveryPro
     <TouchableOpacity
       key={chama.id}
       className="bg-white rounded-xl border border-gray-200 p-4 mb-4"
-      onPress={() => onNavigate("chama-details", chama)}
+      onPress={() => router.push( {
+        pathname: "/chama-details",
+        
+      })}
       activeOpacity={0.7}
     >
       <View className="flex-row items-start justify-between mb-3">
@@ -277,14 +279,8 @@ export default function ChamaDiscovery({ onNavigate, onBack }: ChamaDiscoveryPro
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="bg-white border-b border-gray-200 p-4">
-        <View className="flex-row items-center space-x-4 mb-4">
-          <TouchableOpacity
-            onPress={onBack}
-            className="p-2 rounded-lg active:bg-gray-100"
-          >
-            <ArrowLeft size={20} className="text-gray-700" />
-          </TouchableOpacity>
+      <View className="bg-white border-b border-gray-200 px-4 pt-6">
+        <View className="flex-row items-center space-x-4 mb-2">
           <Text className="text-xl font-semibold text-gray-900 flex-1">
             Discover Chamas
           </Text>
@@ -302,7 +298,7 @@ export default function ChamaDiscovery({ onNavigate, onBack }: ChamaDiscoveryPro
         {/* Search */}
         <View className="relative mb-4">
           <View className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
-            <Search size={20} className="text-gray-400" />
+            <Search size={20} color="#9ca3af" />
           </View>
           <TextInput
             placeholder="Search chamas, categories, or tags..."
@@ -333,25 +329,14 @@ export default function ChamaDiscovery({ onNavigate, onBack }: ChamaDiscoveryPro
       </View>
 
       {/* Results */}
-      <View className="flex-1 p-4">
-        <View className="flex-row items-center justify-between mb-4">
-          <Text className="text-sm text-gray-600">
-            {filteredChamas.length} chamas available
-          </Text>
-          <View className="bg-emerald-100 px-3 py-1 rounded-full">
-            <Text className="text-emerald-700 text-sm font-medium">
-              Public Chamas
-            </Text>
-          </View>
-        </View>
-
+      <View className="flex-1 px-4">
         {filteredChamas.length > 0 ? (
           <FlatList
             data={filteredChamas}
             renderItem={renderChamaCard}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 20 }}
+            contentContainerStyle={{ paddingBottom: 20, paddingTop: 12 }}
           />
         ) : (
           <View className="bg-white rounded-xl border border-gray-200 p-8 items-center">

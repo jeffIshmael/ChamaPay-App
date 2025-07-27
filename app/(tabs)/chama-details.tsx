@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from "expo-router";
 import {
   AlertCircle,
   ArrowLeft,
@@ -72,6 +73,8 @@ const payoutSchedule: PayoutScheduleItem[] = [
 ];
 
 export default function ChamaDetails({ chama, onNavigate, onBack }: ChamaDetailsProps) {
+  const params = useLocalSearchParams();
+  
   const [isJoining, setIsJoining] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "schedule" | "terms">(
     "overview"
