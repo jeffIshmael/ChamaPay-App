@@ -1,14 +1,6 @@
 import { mockPublicChamas, PublicChama } from "@/constants/mockData";
-import { useLocalSearchParams } from "expo-router";
-import {
-  ArrowLeft,
-  CheckCircle,
-  Clock,
-  MapPin,
-  Shield,
-  Users,
-  Wallet
-} from "lucide-react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { ArrowLeft, Clock, MapPin, Shield, Wallet } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -21,11 +13,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-interface ChamaDetailsProps {
-  onNavigate: (screen: string, data?: any) => void;
-  onBack: () => void;
-}
-
 interface PayoutScheduleItem {
   position: number;
   member: string;
@@ -33,35 +20,10 @@ interface PayoutScheduleItem {
   date: string;
 }
 
-const payoutSchedule: PayoutScheduleItem[] = [
-  {
-    position: 1,
-    member: "Alice Wanjiku",
-    status: "completed",
-    date: "2024-12-10",
-  },
-  {
-    position: 2,
-    member: "John Kamau",
-    status: "completed",
-    date: "2025-01-10",
-  },
-  {
-    position: 3,
-    member: "Grace Njeri",
-    status: "upcoming",
-    date: "2025-02-10",
-  },
-  { position: 4, member: "Available", status: "available", date: "2025-03-10" },
-  { position: 5, member: "Available", status: "available", date: "2025-04-10" },
-];
-
-export default function ChamaDetails({
-  onNavigate,
-  onBack,
-}: ChamaDetailsProps) {
+export default function ChamaDetails() {
   const { id } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [chama, setChama] = useState<PublicChama | undefined>();
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
@@ -96,7 +58,7 @@ export default function ChamaDetails({
             setTimeout(() => {
               setIsJoining(false);
               Alert.alert("Success", "Successfully joined the chama!", [
-                { text: "OK", onPress: () => onNavigate("dashboard") },
+                { text: "OK", onPress: () => router.push("/(tabs)") }, // TODO: Push to the joined chama
               ]);
             }, 2000);
           },
@@ -217,63 +179,6 @@ export default function ChamaDetails({
     </View>
   );
 
-  const renderSchedule = () => (
-    <View className="bg-white rounded-xl border border-gray-200 p-4">
-      <Text className="text-lg font-semibold text-gray-900 mb-3">
-        Payout Schedule
-      </Text>
-      <View className="gap-3">
-        {payoutSchedule.map((payout) => (
-          <View
-            key={payout.position}
-            className="flex-row items-center justify-between p-3 bg-gray-50 rounded-lg"
-          >
-            <View className="flex-row items-center gap-3">
-              <View
-                className={`w-8 h-8 rounded-full items-center justify-center ${
-                  payout.status === "completed"
-                    ? "bg-emerald-100"
-                    : payout.status === "upcoming"
-                      ? "bg-blue-100"
-                      : "bg-gray-200"
-                }`}
-              >
-                <Text
-                  className={`text-sm font-medium ${
-                    payout.status === "completed"
-                      ? "text-emerald-700"
-                      : payout.status === "upcoming"
-                        ? "text-blue-700"
-                        : "text-gray-600"
-                  }`}
-                >
-                  {payout.position}
-                </Text>
-              </View>
-              <View>
-                <Text className="font-medium text-gray-900">
-                  {payout.member}
-                </Text>
-                <Text className="text-sm text-gray-600">{payout.date}</Text>
-              </View>
-            </View>
-            <View className="flex-row items-center gap-2">
-              {payout.status === "completed" && (
-                <CheckCircle size={16} className="text-emerald-600" />
-              )}
-              {payout.status === "upcoming" && (
-                <Clock size={16} className="text-blue-600" />
-              )}
-              {payout.status === "available" && (
-                <Users size={16} className="text-gray-400" />
-              )}
-            </View>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-
   const renderTerms = () => (
     <View className="bg-white rounded-xl border border-gray-200 p-4">
       <Text className="text-lg font-semibold text-gray-900 mb-3">
@@ -346,7 +251,10 @@ export default function ChamaDetails({
                 {/* Chama Header */}
                 <View className="bg-white p-4 border-b border-gray-200">
                   <View className="flex-row items-center gap-4 mb-2">
-                    <TouchableOpacity onPress={onBack} className="p-2">
+                    <TouchableOpacity
+                      onPress={() => router.back()}
+                      className="p-2"
+                    >
                       <ArrowLeft size={20} className="text-gray-700" />
                     </TouchableOpacity>
                     <View className="flex-row items-center gap-2 flex-1">
