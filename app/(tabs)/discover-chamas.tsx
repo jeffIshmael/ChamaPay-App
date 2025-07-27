@@ -6,9 +6,8 @@ import {
   MapPin,
   Search,
   Shield,
-  Star,
   Users,
-  Wallet,
+  Wallet
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -92,11 +91,7 @@ export default function DiscoverChamas() {
             {chama.description}
           </Text>
 
-          <View className="flex-row items-center gap-4 mb-2">
-            <View className="flex-row items-center gap-1">
-              <Star size={12} className="text-yellow-500" />
-              <Text className="text-xs text-gray-500">{chama.rating}</Text>
-            </View>
+          <View className="flex-row items-center gap-2 mb-2">
             <View className="flex-row items-center gap-1">
               <MapPin size={12} className="text-gray-400" />
               <Text className="text-xs text-gray-500">{chama.location}</Text>
