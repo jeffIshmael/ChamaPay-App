@@ -11,7 +11,7 @@ import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-interface DashboardProps {
+interface HomeScreenProps {
   onNavigate: (screen: string, data?: any) => void;
   user: any;
 }
@@ -56,7 +56,7 @@ const mockChamas = [
   },
 ];
 
-export default function Dashboard({ onNavigate, user }: DashboardProps) {
+export default function HomeScreen({ onNavigate, user }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
   const Badge = ({
     children,

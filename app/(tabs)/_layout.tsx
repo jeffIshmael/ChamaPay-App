@@ -1,0 +1,18 @@
+import BottomNavigation from "@/components/BottomNavigation";
+import { Tabs } from "expo-router";
+
+export default function TabLayout() {
+  return (
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+      }}
+      tabBar={(props) => <BottomNavigation {...props} />}
+    >
+      <Tabs.Screen name="index" options={{ title: "Dashboard" }} />
+      <Tabs.Screen name="chama-discovery" options={{ title: "Discover" }} />
+      <Tabs.Screen name="create-chama" options={{ title: "Create" }} />
+      <Tabs.Screen name="transactions-history" options={{ title: "Wallet" }} />
+    </Tabs>
+  );
+}
