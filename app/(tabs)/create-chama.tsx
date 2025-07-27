@@ -1,11 +1,5 @@
-import {
-  ArrowLeft,
-  Info,
-  Plus,
-  Shield,
-  Users,
-  X
-} from "lucide-react-native";
+import { useRouter } from "expo-router";
+import { ArrowLeft, Info, Plus, Shield, Users, X } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   Alert,
@@ -19,11 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-interface CreateChamaProps {
-  onNavigate: (screen: string, data?: any) => void;
-  onBack: () => void;
-}
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface FormData {
   name: string;
@@ -56,7 +46,9 @@ const frequencyOptions = [
   { label: "Quarterly", value: "quarterly" },
 ];
 
-export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
+export default function CreateChama() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -102,7 +94,7 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
     } else {
       // Create chama logic here
       Alert.alert("Success", "Chama created successfully!", [
-        { text: "OK", onPress: () => onNavigate("dashboard") },
+        { text: "OK", onPress: () => router.push("/(tabs)") }, // TODO: Push to the created chama screen
       ]);
     }
   };
@@ -111,7 +103,7 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
     if (step > 1) {
       setStep(step - 1);
     } else {
-      onBack();
+      router.back();
     }
   };
 
@@ -168,7 +160,7 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
   );
 
   const renderStep1 = () => (
-    <View className="gap-6">
+    <View className="gap-4">
       <View>
         <Text className="text-sm font-medium text-gray-700 mb-2">
           Chama Name
@@ -248,7 +240,7 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
   );
 
   const renderStep2 = () => (
-    <View className="gap-6">
+    <View className="gap-4">
       <View className="flex-row gap-4">
         <View className="flex-1">
           <Text className="text-sm font-medium text-gray-700 mb-2">
@@ -338,7 +330,7 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
   );
 
   const renderStep3 = () => (
-    <View className="gap-6">
+    <View className="gap-4">
       <View className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg">
         <View className="flex-row items-center gap-3 flex-1">
           <Users size={20} className="text-gray-600" />
@@ -430,7 +422,10 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
   const isStep2Valid = formData.contribution && formData.contribution > 0;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView
+      className="flex-1 bg-gray-50"
+      style={{ paddingTop: insets.top }}
+    >
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -468,7 +463,7 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
         {/* Content */}
         <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
           <View className="bg-white rounded-xl border border-gray-200 p-6">
-            <View className="mb-6">
+            <View className="mb-4">
               <Text className="text-lg font-semibold text-gray-900 mb-2">
                 {step === 1 && "Basic Information"}
                 {step === 2 && "Financial Settings"}

@@ -274,7 +274,7 @@ export default function ChamaDetails() {
                   </Text>
 
                   <View className="flex-row items-center gap-2 mb-4">
-                    <View className="flex-row items-center ">
+                    <View className="flex-row items-center gap-1">
                       <MapPin size={14} className="text-gray-400" />
                       <Text className="text-sm text-gray-500">
                         {chama.location}
