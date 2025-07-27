@@ -108,7 +108,7 @@ const mockMessages: Message[] = [
   },
 ];
 
-export function ChamaChat({ chama, user, onBack }: ChamaChatProps) {
+export default function ChamaChat({ chama, user, onBack }: ChamaChatProps) {
   const [newMessage, setNewMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>(mockMessages);
 

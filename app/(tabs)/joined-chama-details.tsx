@@ -66,7 +66,7 @@ interface Transaction {
   status: string;
 }
 
-export function JoinedChamaDetails({
+export default function JoinedChamaDetails({
   chama,
   onNavigate,
   onBack,

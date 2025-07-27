@@ -34,7 +34,7 @@ interface NotificationSettings {
   contributionReminders: boolean;
 }
 
-export function ProfileSettings({ user, onBack }: ProfileSettingsProps) {
+export default function ProfileSettings({ user, onBack }: ProfileSettingsProps) {
   const [notifications, setNotifications] = useState<NotificationSettings>({
     pushNotifications: true,
     emailNotifications: true,

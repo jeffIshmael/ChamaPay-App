@@ -104,7 +104,7 @@ const mockPayoutSchedule: PayoutScheduleItem[] = [
   },
 ];
 
-export function PayoutOrder({ chama, onBack }: PayoutOrderProps) {
+export default function PayoutOrder({ chama, onBack }: PayoutOrderProps) {
   const currentDate = new Date();
   const completedPayouts = mockPayoutSchedule.filter(
     (p) => p.status === "completed"

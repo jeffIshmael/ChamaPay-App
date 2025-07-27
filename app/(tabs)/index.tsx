@@ -1,20 +1,15 @@
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import {
-  ArrowUpRight,
+  ArrowRight,
   Bell,
   Calendar,
   User,
   Users,
-  Wallet,
+  Wallet
 } from "lucide-react-native";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-interface HomeScreenProps {
-  onNavigate: (screen: string, data?: any) => void;
-  user: any;
-}
 
 // Mock data for chamas (you'll want to move this to a separate constants file)
 const mockChamas = [
@@ -56,8 +51,8 @@ const mockChamas = [
   },
 ];
 
-export default function HomeScreen({ onNavigate, user }: HomeScreenProps) {
-  const insets = useSafeAreaInsets();
+export default function HomeScreen() {
+  const router = useRouter();
   const Badge = ({
     children,
     variant = "default",
@@ -141,14 +136,12 @@ export default function HomeScreen({ onNavigate, user }: HomeScreenProps) {
               <Text className="text-lg text-white font-medium">
                 Welcome back
               </Text>
-              <Text className="text-emerald-100 text-sm">
-                {user?.name || "Sarah"}
-              </Text>
+              <Text className="text-emerald-100 text-sm">Sarah</Text>
             </View>
           </View>
           <View className="flex-row">
             <TouchableOpacity
-              onPress={() => onNavigate("notifications")}
+              onPress={() => router.push("/notifications")}
               className="p-2 mr-2"
               style={{
                 backgroundColor: "rgba(255, 255, 255, 0.2)",
@@ -159,7 +152,7 @@ export default function HomeScreen({ onNavigate, user }: HomeScreenProps) {
               <Bell color="white" size={20} />
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => onNavigate("profile")}
+              onPress={() => router.push("/profile-settings")}
               className="p-2"
               style={{
                 backgroundColor: "rgba(255, 255, 255, 0.2)",
@@ -188,7 +181,7 @@ export default function HomeScreen({ onNavigate, user }: HomeScreenProps) {
           {mockChamas.map((chama) => (
             <Card
               key={chama.id}
-              onPress={() => onNavigate("chama-details", chama)}
+              onPress={() => router.push("/joined-chama-details")}
             >
               <View className="flex-row items-start justify-between mb-3">
                 <View className="flex-1">
@@ -237,15 +230,7 @@ export default function HomeScreen({ onNavigate, user }: HomeScreenProps) {
                   )}
                 </View>
                 <View className="flex-row">
-                  <TouchableOpacity
-                    onPress={(e) => {
-                      onNavigate("chama-management", chama);
-                    }}
-                    className="p-2"
-                    activeOpacity={0.7}
-                  >
-                    <ArrowUpRight color="#6b7280" size={16} />
-                  </TouchableOpacity>
+                  <ArrowRight color="#6b7280" size={16} />
                 </View>
               </View>
             </Card>
@@ -262,7 +247,7 @@ export default function HomeScreen({ onNavigate, user }: HomeScreenProps) {
                 community
               </Text>
               <TouchableOpacity
-                onPress={() => onNavigate("discovery")}
+                onPress={() => router.push("/chama-discovery")}
                 className="px-6 py-3 rounded-xl"
                 style={{ backgroundColor: "#059669" }}
                 activeOpacity={0.8}

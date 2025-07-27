@@ -71,7 +71,7 @@ const payoutSchedule: PayoutScheduleItem[] = [
   { position: 5, member: "Available", status: "available", date: "2025-04-10" },
 ];
 
-export function ChamaDetails({ chama, onNavigate, onBack }: ChamaDetailsProps) {
+export default function ChamaDetails({ chama, onNavigate, onBack }: ChamaDetailsProps) {
   const [isJoining, setIsJoining] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "schedule" | "terms">(
     "overview"

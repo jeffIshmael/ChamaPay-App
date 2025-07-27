@@ -60,7 +60,7 @@ interface ChamaManagementProps {
   onBack: () => void;
 }
 
-export function ChamaManagement({
+export default function ChamaManagement({
   chama,
   onNavigate,
   onBack,

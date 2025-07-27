@@ -19,6 +19,7 @@ import {
   Shield,
   MapPin,
 } from "lucide-react-native";
+import { useRouter } from "expo-router";
 
 interface ChamaDiscoveryProps {
   onNavigate: (screen: string, data?: any) => void;
@@ -112,7 +113,8 @@ const locations = [
   { label: "Mombasa", value: "mombasa" },
 ];
 
-export function ChamaDiscovery({ onNavigate, onBack }: ChamaDiscoveryProps) {
+export default function ChamaDiscovery({ onNavigate, onBack }: ChamaDiscoveryProps) {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedLocation, setSelectedLocation] = useState("all");

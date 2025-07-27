@@ -95,7 +95,7 @@ const mockNotifications: Notification[] = [
   },
 ];
 
-export function Notifications({ onBack }: NotificationsProps) {
+export default function Notifications({ onBack }: NotificationsProps) {
   const getNotificationIcon = (type: Notification["type"]) => {
     const iconProps = { size: 20 };
 

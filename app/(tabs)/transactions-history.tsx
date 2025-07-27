@@ -14,7 +14,7 @@ interface TransactionHistoryProps {
   onBack: () => void;
 }
 
-export function TransactionHistory({ onBack }: TransactionHistoryProps) {
+export default function TransactionHistory({ onBack }: TransactionHistoryProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
 

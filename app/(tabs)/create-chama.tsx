@@ -56,7 +56,7 @@ const frequencyOptions = [
   { label: "Quarterly", value: "quarterly" },
 ];
 
-export function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
+export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     name: "",

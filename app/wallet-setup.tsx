@@ -341,7 +341,7 @@ export default function WalletSetup() {
 
           {step === "secured" && (
             <TouchableOpacity
-              onPress={() => {router.push("/dashboard")}}
+              onPress={() => router.replace("/(tabs)")}
               disabled={!showSeedPhrase && !seedPhraseConfirmed}
               className="w-full py-4 rounded-xl items-center justify-center mb-8"
               style={{
