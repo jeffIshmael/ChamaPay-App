@@ -92,7 +92,7 @@ export default function TransactionHistory({ onBack }: TransactionHistoryProps) 
         </View>
 
         {/* Search and Filter */}
-        <View className="space-y-3">
+        <View className="gap-3">
           <View className="relative">
             <View className="absolute left-3 top-1/2 -translate-y-1/2">
               <SearchIcon size={20} color="#9ca3af" />
@@ -106,7 +106,7 @@ export default function TransactionHistory({ onBack }: TransactionHistoryProps) 
             />
           </View>
 
-          <View className="flex-row space-x-2">
+          <View className="flex-row gap-2">
             {[
               { type: "all", label: "All" },
               { type: "contribution", label: "Contributions" },
@@ -146,7 +146,7 @@ export default function TransactionHistory({ onBack }: TransactionHistoryProps) 
             className="bg-white rounded-lg shadow-sm mb-3 p-4"
           >
             <View className="flex-row items-center justify-between mb-3">
-              <View className="flex-row items-center space-x-3">
+              <View className="flex-row items-center gap-3">
                 {getTransactionIcon(transaction.type)}
                 <View>
                   <Text className="font-medium text-gray-900 capitalize">
@@ -191,7 +191,7 @@ export default function TransactionHistory({ onBack }: TransactionHistoryProps) 
             </View>
 
             <View className="flex-row items-center justify-between text-xs text-gray-500">
-              <View className="flex-row items-center space-x-4">
+              <View className="flex-row items-center gap-4">
                 <Text className="text-xs text-gray-500">
                   {formatDate(transaction.date)}
                 </Text>
@@ -199,7 +199,7 @@ export default function TransactionHistory({ onBack }: TransactionHistoryProps) 
                   {formatTime(transaction.date)}
                 </Text>
               </View>
-              <View className="flex-row items-center space-x-2">
+              <View className="flex-row items-center gap-2">
                 <Text className="text-xs text-gray-500">Hash:</Text>
                 <Text
                   className="bg-gray-100 px-2 py-1 rounded text-xs font-mono"

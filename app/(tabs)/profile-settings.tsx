@@ -71,7 +71,7 @@ export default function ProfileSettings({ user, onBack }: ProfileSettingsProps) 
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
       <View className="bg-white border-b border-gray-200 p-4">
-        <View className="flex-row items-center space-x-4">
+        <View className="flex-row items-center gap-4">
           <TouchableOpacity
             onPress={onBack}
             className="p-2 rounded-lg active:bg-gray-100"
@@ -87,7 +87,7 @@ export default function ProfileSettings({ user, onBack }: ProfileSettingsProps) 
       <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
         {/* Profile Info */}
         <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-          <View className="flex-row items-center space-x-4 mb-4">
+          <View className="flex-row items-center gap-4 mb-4">
             <View className="w-16 h-16 rounded-full bg-emerald-100 items-center justify-center">
               <User size={24} className="text-emerald-600" />
             </View>
@@ -107,16 +107,16 @@ export default function ProfileSettings({ user, onBack }: ProfileSettingsProps) 
 
         {/* Wallet Info */}
         <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-          <View className="flex-row items-center space-x-2 mb-4">
+          <View className="flex-row items-center gap-2 mb-4">
             <Wallet size={20} className="text-blue-600" />
             <Text className="text-lg font-medium text-gray-900">
               Wallet Information
             </Text>
           </View>
-          <View className="space-y-3">
+          <View className="gap-3">
             <View>
               <Text className="text-sm text-gray-600 mb-1">Wallet Address</Text>
-              <View className="flex-row items-center space-x-2">
+              <View className="flex-row items-center gap-2">
                 <View className="flex-1 bg-gray-100 p-3 rounded-lg">
                   <Text className="text-sm font-mono text-gray-800">
                     {walletAddress}
@@ -141,13 +141,13 @@ export default function ProfileSettings({ user, onBack }: ProfileSettingsProps) 
 
         {/* Notification Settings */}
         <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-          <View className="flex-row items-center space-x-2 mb-4">
+          <View className="flex-row items-center gap-2 mb-4">
             <Bell size={20} className="text-orange-600" />
             <Text className="text-lg font-medium text-gray-900">
               Notifications
             </Text>
           </View>
-          <View className="space-y-4">
+          <View className="gap-4">
             <View className="flex-row items-center justify-between">
               <View className="flex-1 pr-4">
                 <Text className="text-gray-900 font-medium">
@@ -213,11 +213,11 @@ export default function ProfileSettings({ user, onBack }: ProfileSettingsProps) 
 
         {/* Security */}
         <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-          <View className="flex-row items-center space-x-2 mb-4">
+          <View className="flex-row items-center gap-2 mb-4">
             <Shield size={20} className="text-green-600" />
             <Text className="text-lg font-medium text-gray-900">Security</Text>
           </View>
-          <View className="space-y-3">
+          <View className="gap-3">
             <TouchableOpacity className="w-full p-4 border border-gray-300 rounded-lg active:bg-gray-50">
               <Text className="text-gray-700 font-medium">Change Password</Text>
             </TouchableOpacity>
@@ -236,7 +236,7 @@ export default function ProfileSettings({ user, onBack }: ProfileSettingsProps) 
 
         {/* Account Actions */}
         <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-          <View className="space-y-3">
+          <View className="gap-3">
             <TouchableOpacity className="w-full p-4 border border-gray-300 rounded-lg active:bg-gray-50">
               <Text className="text-gray-700 font-medium">Export Data</Text>
             </TouchableOpacity>

@@ -114,7 +114,7 @@ export default function ChamaManagement({
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
       <View className="bg-white border-b border-gray-200 p-4">
-        <View className="flex-row items-center space-x-4 mb-4">
+        <View className="flex-row items-center gap-4 mb-4">
           <TouchableOpacity onPress={onBack} className="p-2">
             <ArrowLeft size={20} color="#374151" />
           </TouchableOpacity>
@@ -134,7 +134,7 @@ export default function ChamaManagement({
         {/* Quick Stats */}
         <View className="flex-row gap-4 mb-6">
           <Card className="flex-1 p-4">
-            <View className="flex-row items-center space-x-2 mb-2">
+            <View className="flex-row items-center gap-2 mb-2">
               <Users size={20} color="#059669" />
               <Text className="text-sm text-gray-600">Members</Text>
             </View>
@@ -145,7 +145,7 @@ export default function ChamaManagement({
           </Card>
 
           <Card className="flex-1 p-4">
-            <View className="flex-row items-center space-x-2 mb-2">
+            <View className="flex-row items-center gap-2 mb-2">
               <Wallet size={20} color="#2563eb" />
               <Text className="text-sm text-gray-600">Total Pool</Text>
             </View>
@@ -163,7 +163,7 @@ export default function ChamaManagement({
           </Text>
           <View className="flex-row flex-wrap gap-3">
             <TouchableOpacity
-              className="flex-1 min-w-[45%] border border-gray-300 rounded-lg p-3 flex-row items-center justify-center space-x-2"
+              className="flex-1 min-w-[45%] border border-gray-300 rounded-lg p-3 flex-row items-center justify-center gap-2"
               onPress={() => onNavigate("chama-chat", chama)}
             >
               <MessageCircle size={16} color="#374151" />
@@ -171,19 +171,19 @@ export default function ChamaManagement({
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-1 min-w-[45%] border border-gray-300 rounded-lg p-3 flex-row items-center justify-center space-x-2"
+              className="flex-1 min-w-[45%] border border-gray-300 rounded-lg p-3 flex-row items-center justify-center gap-2"
               onPress={() => onNavigate("payout-order", chama)}
             >
               <Calendar size={16} color="#374151" />
               <Text className="text-gray-700 font-medium">Payout Schedule</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity className="flex-1 min-w-[45%] border border-gray-300 rounded-lg p-3 flex-row items-center justify-center space-x-2">
+            <TouchableOpacity className="flex-1 min-w-[45%] border border-gray-300 rounded-lg p-3 flex-row items-center justify-center gap-2">
               <UserPlus size={16} color="#374151" />
               <Text className="text-gray-700 font-medium">Invite Members</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity className="flex-1 min-w-[45%] border border-gray-300 rounded-lg p-3 flex-row items-center justify-center space-x-2">
+            <TouchableOpacity className="flex-1 min-w-[45%] border border-gray-300 rounded-lg p-3 flex-row items-center justify-center gap-2">
               <BarChart3 size={16} color="#374151" />
               <Text className="text-gray-700 font-medium">View Analytics</Text>
             </TouchableOpacity>
@@ -196,13 +196,13 @@ export default function ChamaManagement({
             <Text className="text-lg font-semibold text-gray-900">Members</Text>
             <Badge variant="secondary">{mockMembers.length}</Badge>
           </View>
-          <View className="space-y-3">
+          <View className="gap-3">
             {mockMembers.map((member, index) => (
               <View
                 key={member.id}
                 className={`flex-row items-center justify-between p-3 bg-gray-50 rounded-lg ${index < mockMembers.length - 1 ? "mb-3" : ""}`}
               >
-                <View className="flex-row items-center space-x-3">
+                <View className="flex-row items-center gap-3">
                   <View className="w-8 h-8 rounded-full bg-gray-300 overflow-hidden">
                     <Image
                       source={{ uri: member.avatar }}

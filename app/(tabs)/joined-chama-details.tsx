@@ -486,7 +486,7 @@ export default function JoinedChamaDetails({
             </Text>
           </Badge>
         </View>
-        <View className="space-y-3">
+        <View className="gap-3">
           <View className="flex-row justify-between">
             <Text className="text-sm text-gray-600">
               KES {myContributions.toLocaleString()}
@@ -505,12 +505,12 @@ export default function JoinedChamaDetails({
               ✓ Thank you for your contribution this month!
             </Text>
           ) : (
-            <View className="space-y-2">
+            <View className="gap-2">
               <Text className="text-xs text-gray-600">
                 KES {remainingAmount.toLocaleString()} remaining • Due:{" "}
                 {chamaData.contributionDueDate}
               </Text>
-              <View className="flex-row space-x-2">
+              <View className="flex-row gap-2">
                 <TextInput
                   value={paymentAmount}
                   onChangeText={setPaymentAmount}
@@ -532,7 +532,7 @@ export default function JoinedChamaDetails({
 
       {/* Next Payout Info */}
       <Card className="p-4 mb-4">
-        <View className="flex-row items-center space-x-3 mb-3">
+        <View className="flex-row items-center gap-3 mb-3">
           <View className="w-8 h-8 rounded-full bg-emerald-100 items-center justify-center">
             <TrendingUp size={16} color="#059669" />
           </View>
@@ -541,7 +541,7 @@ export default function JoinedChamaDetails({
             <Text className="text-sm text-gray-600">August 15, 2024</Text>
           </View>
         </View>
-        <View className="space-y-2">
+        <View className="gap-2">
           <View className="flex-row justify-between">
             <Text className="text-gray-600 text-sm">Recipient:</Text>
             <Text className="text-gray-900 text-sm">
@@ -610,13 +610,13 @@ export default function JoinedChamaDetails({
             <ExternalLink size={14} color="#059669" />
           </TouchableOpacity>
         </View>
-        <View className="space-y-2">
+        <View className="gap-2">
           {chamaData.recentTransactions.slice(0, 3).map((transaction: any) => (
             <View
               key={transaction.id}
               className="flex-row items-center justify-between py-2"
             >
-              <View className="flex-row items-center space-x-3">
+              <View className="flex-row items-center gap-3">
                 <View
                   className={`w-6 h-6 rounded-full items-center justify-center ${
                     transaction.type === "contribution"
@@ -677,7 +677,7 @@ export default function JoinedChamaDetails({
       className="flex-1"
     >
       <ScrollView className="flex-1 mb-16" showsVerticalScrollIndicator={false}>
-        <View className="space-y-3">
+        <View className="gap-3">
           {chamaData.messages.map((message: any) => (
             <View
               key={message.id}
@@ -705,7 +705,7 @@ export default function JoinedChamaDetails({
 
       {/* Message Input - Fixed at bottom */}
       <View className="absolute bottom-0 left-0 right-0 bg-white p-4 border-t border-gray-200">
-        <View className="flex-row space-x-2">
+        <View className="flex-row gap-2">
           <TextInput
             value={newMessage}
             onChangeText={setNewMessage}
@@ -729,11 +729,11 @@ export default function JoinedChamaDetails({
 
   const renderScheduleTab = () => (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-      <View className="space-y-3">
+      <View className="gap-3">
         {chamaData.payoutSchedule.map((payout: any) => (
           <Card key={payout.position} className="p-4">
             <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center space-x-3">
+              <View className="flex-row items-center gap-3">
                 <View
                   className={`w-8 h-8 rounded-full items-center justify-center ${
                     payout.status === "completed"
@@ -779,7 +779,7 @@ export default function JoinedChamaDetails({
             </View>
             {payout.member === "You (Sarah)" && (
               <View className="mt-3 p-2 bg-emerald-50 rounded-lg">
-                <View className="flex-row items-center space-x-2">
+                <View className="flex-row items-center gap-2">
                   <Info size={14} color="#059669" />
                   <Text className="text-xs text-emerald-700">
                     This is your payout turn
@@ -796,11 +796,11 @@ export default function JoinedChamaDetails({
 
   const renderMembersTab = () => (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-      <View className="space-y-3">
+      <View className="gap-3">
         {chamaData.members.map((member: any) => (
           <Card key={member.id} className="p-4">
             <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center space-x-3">
+              <View className="flex-row items-center gap-3">
                 <View className="w-10 h-10 rounded-full bg-emerald-100 items-center justify-center">
                   <Text className="text-emerald-600 text-sm font-medium">
                     {member.name
@@ -810,7 +810,7 @@ export default function JoinedChamaDetails({
                   </Text>
                 </View>
                 <View>
-                  <View className="flex-row items-center space-x-2">
+                  <View className="flex-row items-center gap-2">
                     <Text className="text-gray-900 text-sm font-medium">
                       {member.name}
                     </Text>
@@ -820,7 +820,7 @@ export default function JoinedChamaDetails({
                       </Badge>
                     )}
                   </View>
-                  <View className="flex-row items-center space-x-3 mt-1">
+                  <View className="flex-row items-center gap-3 mt-1">
                     <Text className="text-gray-600 text-xs">
                       KES {(member.contributions || 0).toLocaleString()}
                     </Text>
@@ -834,7 +834,7 @@ export default function JoinedChamaDetails({
                   </View>
                 </View>
               </View>
-              <View className="flex-row space-x-2">
+              <View className="flex-row gap-2">
                 <TouchableOpacity className="p-1">
                   <Phone size={16} color="#6b7280" />
                 </TouchableOpacity>
@@ -907,7 +907,7 @@ export default function JoinedChamaDetails({
         <View className="mx-6 mt-4">
           <AlertCard type="warning">
             <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center space-x-3 flex-1">
+              <View className="flex-row items-center gap-3 flex-1">
                 <AlertTriangle size={16} color="#ea580c" />
                 <View>
                   <Text className="text-sm text-orange-800 font-medium">

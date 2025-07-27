@@ -10,7 +10,7 @@ export default function TabLayout() {
       tabBar={(props) => <BottomNavigation {...props} />}
     >
       <Tabs.Screen name="index" options={{ title: "Dashboard" }} />
-      <Tabs.Screen name="chama-discovery" options={{ title: "Discover" }} />
+      <Tabs.Screen name="discover-chamas" options={{ title: "Discover" }} />
       <Tabs.Screen name="create-chama" options={{ title: "Create" }} />
       <Tabs.Screen name="transactions-history" options={{ title: "Wallet" }} />
     </Tabs>

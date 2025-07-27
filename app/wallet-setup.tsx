@@ -215,7 +215,7 @@ export default function WalletSetup() {
                   </View>
                 </View>
 
-                <View className="space-y-2">
+                <View className="gap-2">
                   <Text className="text-sm text-gray-600">
                     ✓ Your wallet is secured with smart contract protection
                   </Text>

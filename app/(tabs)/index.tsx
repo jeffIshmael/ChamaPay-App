@@ -239,7 +239,7 @@ export default function HomeScreen() {
                 community
               </Text>
               <TouchableOpacity
-                onPress={() => router.push("/chama-discovery")}
+                onPress={() => router.push("/discover-chamas")}
                 className="px-6 py-3 rounded-xl"
                 style={{ backgroundColor: "#059669" }}
                 activeOpacity={0.8}

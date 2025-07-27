@@ -168,7 +168,7 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
   );
 
   const renderStep1 = () => (
-    <View className="space-y-6">
+    <View className="gap-6">
       <View>
         <Text className="text-sm font-medium text-gray-700 mb-2">
           Chama Name
@@ -214,7 +214,7 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
 
       <View>
         <Text className="text-sm font-medium text-gray-700 mb-2">Tags</Text>
-        <View className="flex-row space-x-2 mb-2">
+        <View className="flex-row gap-2 mb-2">
           <TextInput
             placeholder="Add relevant tags..."
             value={newTag}
@@ -234,7 +234,7 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
           {formData.tags.map((tag, index) => (
             <View
               key={index}
-              className="bg-gray-200 px-3 py-1 rounded-full flex-row items-center space-x-1"
+              className="bg-gray-200 px-3 py-1 rounded-full flex-row items-center gap-1"
             >
               <Text className="text-gray-700 text-sm">{tag}</Text>
               <TouchableOpacity onPress={() => removeTag(tag)}>
@@ -248,8 +248,8 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
   );
 
   const renderStep2 = () => (
-    <View className="space-y-6">
-      <View className="flex-row space-x-4">
+    <View className="gap-6">
+      <View className="flex-row gap-4">
         <View className="flex-1">
           <Text className="text-sm font-medium text-gray-700 mb-2">
             Maximum Members
@@ -313,7 +313,7 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
       </View>
 
       <View className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <View className="flex-row items-start space-x-3">
+        <View className="flex-row items-start gap-3">
           <Info size={20} className="text-blue-600 flex-shrink-0" />
           <View className="flex-1">
             <Text className="text-blue-900 font-medium mb-1">
@@ -338,9 +338,9 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
   );
 
   const renderStep3 = () => (
-    <View className="space-y-6">
+    <View className="gap-6">
       <View className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg">
-        <View className="flex-row items-center space-x-3 flex-1">
+        <View className="flex-row items-center gap-3 flex-1">
           <Users size={20} className="text-gray-600" />
           <View className="flex-1">
             <Text className="font-medium text-gray-900">Chama Type</Text>
@@ -361,7 +361,7 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
 
       {formData.isPublic && (
         <View className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <View className="flex-row items-start space-x-3">
+          <View className="flex-row items-start gap-3">
             <Shield size={20} className="text-yellow-600 flex-shrink-0" />
             <View className="flex-1">
               <Text className="text-yellow-900 font-medium mb-1">
@@ -371,7 +371,7 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
                 Members must lock collateral equal to their contribution amount
                 for security.
               </Text>
-              <View className="flex-row items-center space-x-2">
+              <View className="flex-row items-center gap-2">
                 <Switch
                   value={formData.collateralRequired}
                   onValueChange={(value) =>
@@ -395,7 +395,7 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
 
       <View className="bg-white border border-gray-200 rounded-lg p-4">
         <Text className="font-medium text-gray-900 mb-3">Chama Summary</Text>
-        <View className="space-y-2">
+        <View className="gap-2">
           {[
             ["Name:", formData.name || "Unnamed Chama"],
             ["Category:", formData.category || "Uncategorized"],
@@ -437,7 +437,7 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
       >
         {/* Header */}
         <View className="bg-white border-b border-gray-200 p-4">
-          <View className="flex-row items-center space-x-4 mb-4">
+          <View className="flex-row items-center gap-4 mb-4">
             <TouchableOpacity
               onPress={handleBack}
               className="p-2 rounded-lg active:bg-gray-100"
@@ -453,7 +453,7 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
           </View>
 
           {/* Progress */}
-          <View className="flex-row space-x-2">
+          <View className="flex-row gap-2">
             {[1, 2, 3].map((stepNumber) => (
               <View
                 key={stepNumber}
@@ -489,7 +489,7 @@ export default function CreateChama({ onNavigate, onBack }: CreateChamaProps) {
 
         {/* Navigation */}
         <View className="bg-white border-t border-gray-200 p-4">
-          <View className="flex-row space-x-3">
+          <View className="flex-row gap-3">
             <TouchableOpacity
               onPress={handleBack}
               className={`flex-1 p-4 border border-gray-300 rounded-lg items-center justify-center ${

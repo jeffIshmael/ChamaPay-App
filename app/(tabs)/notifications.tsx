@@ -151,7 +151,7 @@ export default function Notifications({ onBack }: NotificationsProps) {
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
       <View className="bg-white border-b border-gray-200 p-4">
-        <View className="flex-row items-center space-x-4 mb-4">
+        <View className="flex-row items-center gap-4 mb-4">
           <TouchableOpacity
             onPress={onBack}
             className="p-2 rounded-lg active:bg-gray-100"
@@ -203,7 +203,7 @@ export default function Notifications({ onBack }: NotificationsProps) {
             }`}
             activeOpacity={0.7}
           >
-            <View className="flex-row items-start space-x-3">
+            <View className="flex-row items-start gap-3">
               {getNotificationIcon(notification.type)}
 
               <View className="flex-1">
@@ -216,7 +216,7 @@ export default function Notifications({ onBack }: NotificationsProps) {
                     {notification.title}
                   </Text>
 
-                  <View className="flex-row items-center space-x-2 ml-2">
+                  <View className="flex-row items-center gap-2 ml-2">
                     <View
                       className={`px-2 py-1 rounded-full ${getPriorityClasses(notification.priority)}`}
                     >

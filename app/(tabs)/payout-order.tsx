@@ -204,7 +204,7 @@ export default function PayoutOrder({ chama, onBack }: PayoutOrderProps) {
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
       <View className="bg-white border-b border-gray-200 p-4">
-        <View className="flex-row items-center space-x-4 mb-4">
+        <View className="flex-row items-center gap-4 mb-4">
           <TouchableOpacity onPress={onBack} className="p-2">
             <ArrowLeft size={20} color="#374151" />
           </TouchableOpacity>
@@ -219,7 +219,7 @@ export default function PayoutOrder({ chama, onBack }: PayoutOrderProps) {
         {/* Progress Overview */}
         <Card className="p-4" style={{ backgroundColor: "#f0fdf4" }}>
           <View className="flex-row items-center justify-between mb-3">
-            <View className="flex-row items-center space-x-2">
+            <View className="flex-row items-center gap-2">
               <TrendingUp size={20} color="#059669" />
               <Text className="text-emerald-700 font-medium">
                 Cycle Progress
@@ -262,13 +262,13 @@ export default function PayoutOrder({ chama, onBack }: PayoutOrderProps) {
           <Badge variant="outline">Monthly Payouts</Badge>
         </View>
 
-        <View className="space-y-3">
+        <View className="gap-3">
           {mockPayoutSchedule.map((payout, index) => (
             <Card
               key={payout.position}
               className={`p-4 ${getStatusColor(payout.status)} ${index < mockPayoutSchedule.length - 1 ? "mb-3" : ""}`}
             >
-              <View className="flex-row items-center space-x-4">
+              <View className="flex-row items-center gap-4">
                 {/* Position Number */}
                 <View
                   className={`w-12 h-12 rounded-full flex items-center justify-center ${
@@ -293,7 +293,7 @@ export default function PayoutOrder({ chama, onBack }: PayoutOrderProps) {
 
                 {/* Member Info */}
                 <View className="flex-1">
-                  <View className="flex-row items-center space-x-2 mb-1">
+                  <View className="flex-row items-center gap-2 mb-1">
                     <View className="w-8 h-8 rounded-full bg-gray-300 overflow-hidden">
                       <Image
                         source={{ uri: payout.member.avatar }}
@@ -312,13 +312,13 @@ export default function PayoutOrder({ chama, onBack }: PayoutOrderProps) {
                   </View>
 
                   <View className="flex-row gap-4">
-                    <View className="flex-row items-center space-x-2">
+                    <View className="flex-row items-center gap-2">
                       <Calendar size={14} color="#9ca3af" />
                       <Text className="text-gray-600 text-sm">
                         {payout.date}
                       </Text>
                     </View>
-                    <View className="flex-row items-center space-x-2">
+                    <View className="flex-row items-center gap-2">
                       <Wallet size={14} color="#9ca3af" />
                       <Text className="text-gray-600 text-sm">
                         KES {payout.amount.toLocaleString()}
@@ -328,7 +328,7 @@ export default function PayoutOrder({ chama, onBack }: PayoutOrderProps) {
                 </View>
 
                 {/* Status & Timer */}
-                <View className="items-end space-y-1">
+                <View className="items-end gap-1">
                   {getStatusIcon(payout.status)}
                   <Text
                     className={`text-xs ${
@@ -351,7 +351,7 @@ export default function PayoutOrder({ chama, onBack }: PayoutOrderProps) {
                     <Text className="text-blue-700 font-medium text-sm">
                       Next Payout
                     </Text>
-                    <View className="flex-row items-center space-x-1">
+                    <View className="flex-row items-center gap-1">
                       <Text className="text-blue-600 text-sm">
                         Payout processing
                       </Text>
@@ -382,7 +382,7 @@ export default function PayoutOrder({ chama, onBack }: PayoutOrderProps) {
           <Text className="font-medium text-blue-900 mb-2">
             How Payouts Work
           </Text>
-          <View className="space-y-1">
+          <View className="gap-1">
             <Text className="text-sm text-blue-800">
               • Members receive payouts in order of joining
             </Text>

@@ -194,7 +194,7 @@ export default function ChamaChat({ chama, user, onBack }: ChamaChatProps) {
       >
         {/* Header */}
         <View className="bg-white border-b border-gray-200 p-4">
-          <View className="flex-row items-center space-x-4">
+          <View className="flex-row items-center gap-4">
             <TouchableOpacity onPress={onBack} className="p-2">
               <ArrowLeft size={20} color="#374151" />
             </TouchableOpacity>
@@ -202,7 +202,7 @@ export default function ChamaChat({ chama, user, onBack }: ChamaChatProps) {
               <Text className="text-lg text-gray-900 font-semibold">
                 {chama.name}
               </Text>
-              <View className="flex-row items-center space-x-2">
+              <View className="flex-row items-center gap-2">
                 <Users size={14} color="#9ca3af" />
                 <Text className="text-sm text-gray-600">
                   {chama.members} members
@@ -304,7 +304,7 @@ export default function ChamaChat({ chama, user, onBack }: ChamaChatProps) {
 
         {/* Message Input */}
         <View className="bg-white border-t border-gray-200 p-4">
-          <View className="flex-row items-center space-x-2">
+          <View className="flex-row items-center gap-2">
             <TouchableOpacity className="p-2">
               <Paperclip size={20} color="#9ca3af" />
             </TouchableOpacity>

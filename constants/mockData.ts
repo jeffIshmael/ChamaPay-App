@@ -73,9 +73,28 @@ export const mockChamas = [
   },
 ];
 
-export const mockPublicChamas = [
+export type PublicChama = {
+  id: string;
+  name: string;
+  description: string;
+  members: number;
+  maxMembers: number;
+  contribution: number;
+  frequency: string;
+  duration: string;
+  rating: number;
+  category: string;
+  location: string;
+  tags: string[];
+  collateralRequired: number;
+  nextPayout: string;
+  currency: string;
+  isPublic: boolean;
+};
+
+export const mockPublicChamas: PublicChama[] = [
   {
-    id: 4,
+    id: "4",
     name: "Digital Nomads Savings",
     description:
       "For remote workers and freelancers building financial security",
@@ -94,7 +113,7 @@ export const mockPublicChamas = [
     isPublic: true,
   },
   {
-    id: 5,
+    id: "5",
     name: "Small Business Owners Circle",
     description: "Supporting entrepreneurs and small business growth",
     members: 6,
