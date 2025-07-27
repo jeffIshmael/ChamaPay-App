@@ -1,13 +1,11 @@
-import * as Clipboard from "expo-clipboard";
+import { useRouter } from "expo-router";
 import {
   ArrowLeft,
   Bell,
-  Copy,
   Edit,
   LogOut,
   Shield,
   User,
-  Wallet,
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -17,15 +15,15 @@ import {
   Switch,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface ProfileSettingsProps {
   user?: {
     name?: string;
     email?: string;
   };
-  onBack: () => void;
 }
 
 interface NotificationSettings {
@@ -34,20 +32,14 @@ interface NotificationSettings {
   contributionReminders: boolean;
 }
 
-export default function ProfileSettings({ user, onBack }: ProfileSettingsProps) {
+export default function ProfileSettings({ user }: ProfileSettingsProps) {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [notifications, setNotifications] = useState<NotificationSettings>({
     pushNotifications: true,
     emailNotifications: true,
     contributionReminders: true,
   });
-
-  const walletAddress = "0x742d35Cc6Cd3C...9C4F6";
-  const walletBalance = 45000;
-
-  const handleCopyWallet = async () => {
-    await Clipboard.setStringAsync(walletAddress);
-    Alert.alert("Copied", "Wallet address copied to clipboard");
-  };
 
   const handleSignOut = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -68,12 +60,15 @@ export default function ProfileSettings({ user, onBack }: ProfileSettingsProps) 
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView
+      className="flex-1 bg-gray-50"
+      style={{ paddingTop: insets.top }}
+    >
       {/* Header */}
-      <View className="bg-white border-b border-gray-200 p-4">
+      <View className="bg-white border-b border-gray-200 px-4">
         <View className="flex-row items-center gap-4">
           <TouchableOpacity
-            onPress={onBack}
+            onPress={() => router.back()}
             className="p-2 rounded-lg active:bg-gray-100"
           >
             <ArrowLeft size={20} className="text-gray-700" />
@@ -102,40 +97,6 @@ export default function ProfileSettings({ user, onBack }: ProfileSettingsProps) 
             <TouchableOpacity className="p-2 border border-gray-300 rounded-lg active:bg-gray-50">
               <Edit size={16} className="text-gray-700" />
             </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Wallet Info */}
-        <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-          <View className="flex-row items-center gap-2 mb-4">
-            <Wallet size={20} className="text-blue-600" />
-            <Text className="text-lg font-medium text-gray-900">
-              Wallet Information
-            </Text>
-          </View>
-          <View className="gap-3">
-            <View>
-              <Text className="text-sm text-gray-600 mb-1">Wallet Address</Text>
-              <View className="flex-row items-center gap-2">
-                <View className="flex-1 bg-gray-100 p-3 rounded-lg">
-                  <Text className="text-sm font-mono text-gray-800">
-                    {walletAddress}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={handleCopyWallet}
-                  className="px-3 py-3 border border-gray-300 rounded-lg active:bg-gray-50"
-                >
-                  <Copy size={16} className="text-gray-700" />
-                </TouchableOpacity>
-              </View>
-            </View>
-            <View>
-              <Text className="text-sm text-gray-600 mb-1">Balance</Text>
-              <Text className="text-2xl font-bold text-gray-900">
-                KES {walletBalance.toLocaleString()}
-              </Text>
-            </View>
           </View>
         </View>
 
@@ -252,7 +213,7 @@ export default function ProfileSettings({ user, onBack }: ProfileSettingsProps) 
               onPress={handleSignOut}
               className="w-full p-4 bg-red-600 rounded-lg active:bg-red-700 flex-row items-center justify-center"
             >
-              <LogOut size={16} className="text-white mr-2" />
+              <LogOut size={16} color="#ffffff" style={{ marginRight: 4 }} />
               <Text className="text-white font-medium">Sign Out</Text>
             </TouchableOpacity>
           </View>
