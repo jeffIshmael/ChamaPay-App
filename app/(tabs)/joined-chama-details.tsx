@@ -8,10 +8,9 @@ import {
   Info,
   LogOut,
   Mail,
-  MessageCircle,
   Phone,
   Send,
-  TrendingUp,
+  TrendingUp
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -439,32 +438,6 @@ export default function JoinedChamaDetails({
 
   const renderOverviewTab = () => (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-      {/* Quick Actions */}
-      <View className="flex-row gap-3 mb-4">
-        <TouchableOpacity
-          onPress={makePayment}
-          className="flex-1 bg-emerald-600 p-4 rounded-lg items-center"
-        >
-          <DollarSign size={20} color="#ffffff" />
-          <Text className="text-white text-sm font-medium mt-1">
-            Make Payment
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setActiveTab("chat")}
-          className="flex-1 border border-gray-300 p-4 rounded-lg items-center relative"
-        >
-          <MessageCircle size={20} color="#374151" />
-          <Text className="text-gray-700 text-sm font-medium mt-1">
-            Open Chat
-          </Text>
-          {unreadMessages > 0 && (
-            <View className="absolute -top-1 -right-1">
-              <Badge variant="destructive">{unreadMessages}</Badge>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
 
       {/* Contribution Progress */}
       <Card className="p-4 mb-4">

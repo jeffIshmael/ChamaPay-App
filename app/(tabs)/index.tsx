@@ -10,6 +10,7 @@ import {
 } from "lucide-react-native";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Mock data for chamas (you'll want to move this to a separate constants file)
 const mockChamas = [
@@ -53,6 +54,7 @@ const mockChamas = [
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const Badge = ({
     children,
     variant = "default",
@@ -122,7 +124,7 @@ export default function HomeScreen() {
       <LinearGradient
         colors={["#059669", "#047857"]}
         className="px-6 pb-4"
-        style={{ paddingTop: 20 }}
+        style={{ paddingTop: insets.top }}
       >
         <View className="flex-row items-center justify-between  mt-3 ">
           <View className="flex-row items-center">
