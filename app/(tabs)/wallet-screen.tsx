@@ -1,32 +1,17 @@
 import { mockTransactions } from "@/constants/mockData";
 import {
   ArrowDownRight,
-  ArrowLeft,
   ArrowUpRight,
   Calendar,
-  Download,
   Search as SearchIcon,
 } from "lucide-react-native";
-import React, { useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import React from "react";
+import { ScrollView, Text, View } from "react-native";
+import {
+  SafeAreaView
+} from "react-native-safe-area-context";
 
-interface TransactionHistoryProps {
-  onBack: () => void;
-}
-
-export default function TransactionHistory({ onBack }: TransactionHistoryProps) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState("all");
-
-  const filteredTransactions = mockTransactions.filter((transaction) => {
-    const matchesSearch =
-      transaction.chama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.hash.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter =
-      filterType === "all" || transaction.type === filterType;
-    return matchesSearch && matchesFilter;
-  });
-
+export default function TransactionHistory() {
   const getTransactionIcon = (type: string) => {
     switch (type) {
       case "payout":
@@ -72,66 +57,13 @@ export default function TransactionHistory({ onBack }: TransactionHistoryProps) 
   };
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="bg-white border-b border-gray-200 px-4 pt-8 pb-4">
-        <View className="flex-row items-center mb-4">
-          <Pressable
-            onPress={onBack}
-            className="p-2 mr-2 rounded-full bg-gray-100"
-            hitSlop={10}
-          >
-            <ArrowLeft size={20} color="#111827" />
-          </Pressable>
-          <Text className="text-xl text-gray-900 flex-1 font-semibold">
-            Transaction History
+      <View className="bg-white border-b border-gray-200 px-4  pb-2">
+        <View className="flex-row items-center gap-4 h-12 ">
+          <Text className="text-xl font-semibold text-gray-900 flex-1">
+            Wallet
           </Text>
-          <Pressable className="p-2 ml-2 rounded-full bg-gray-100">
-            <Download size={20} color="#111827" />
-          </Pressable>
-        </View>
-
-        {/* Search and Filter */}
-        <View className="gap-3">
-          <View className="relative">
-            <View className="absolute left-3 top-1/2 -translate-y-1/2">
-              <SearchIcon size={20} color="#9ca3af" />
-            </View>
-            <TextInput
-              placeholder="Search transactions..."
-              value={searchTerm}
-              onChangeText={setSearchTerm}
-              className="pl-10 pr-3 py-2 bg-gray-50 rounded border border-gray-200 text-base text-gray-900"
-              placeholderTextColor="#9ca3af"
-            />
-          </View>
-
-          <View className="flex-row gap-2">
-            {[
-              { type: "all", label: "All" },
-              { type: "contribution", label: "Contributions" },
-              { type: "payout", label: "Payouts" },
-              { type: "collateral", label: "Collateral" },
-            ].map((filter) => (
-              <Pressable
-                key={filter.type}
-                onPress={() => setFilterType(filter.type)}
-                className={`px-3 py-1.5 rounded ${
-                  filterType === filter.type
-                    ? "bg-emerald-600"
-                    : "bg-white border border-gray-200"
-                }`}
-              >
-                <Text
-                  className={`text-sm font-medium ${
-                    filterType === filter.type ? "text-white" : "text-gray-700"
-                  }`}
-                >
-                  {filter.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
         </View>
       </View>
 
@@ -140,7 +72,7 @@ export default function TransactionHistory({ onBack }: TransactionHistoryProps) 
         className="flex-1 px-4 py-4"
         contentContainerStyle={{ paddingBottom: 32 }}
       >
-        {filteredTransactions.map((transaction) => (
+        {mockTransactions.map((transaction) => (
           <View
             key={transaction.id}
             className="bg-white rounded-lg shadow-sm mb-3 p-4"
@@ -212,7 +144,7 @@ export default function TransactionHistory({ onBack }: TransactionHistoryProps) 
           </View>
         ))}
 
-        {filteredTransactions.length === 0 && (
+        {mockTransactions.length === 0 && (
           <View className="bg-white rounded-lg shadow-sm p-8 items-center justify-center mt-8">
             <SearchIcon size={48} color="#9ca3af" className="mb-4" />
             <Text className="text-gray-900 text-lg font-semibold mb-2">
@@ -224,6 +156,6 @@ export default function TransactionHistory({ onBack }: TransactionHistoryProps) 
           </View>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }

@@ -204,7 +204,7 @@ export default function DiscoverChamas() {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-white"
+      className="flex-1 bg-gray-50"
       style={{ paddingTop: insets.top }}
     >
       {/* Header */}

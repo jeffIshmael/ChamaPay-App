@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { ArrowLeft, Info, Plus, Shield, Users, X } from "lucide-react-native";
+import { Info, Plus, Shield, Users, X } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   Alert,
@@ -433,12 +433,6 @@ export default function CreateChama() {
         {/* Header */}
         <View className="bg-white border-b border-gray-200 p-4">
           <View className="flex-row items-center gap-4 mb-4">
-            <TouchableOpacity
-              onPress={handleBack}
-              className="p-2 rounded-lg active:bg-gray-100"
-            >
-              <ArrowLeft size={20} className="text-gray-700" />
-            </TouchableOpacity>
             <View className="flex-1">
               <Text className="text-xl font-semibold text-gray-900">
                 Create Chama

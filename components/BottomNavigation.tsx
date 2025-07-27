@@ -9,7 +9,7 @@ const tabs = [
   { name: "index", label: "Home", icon: Home },
   { name: "discover-chamas", label: "Discover", icon: Search },
   { name: "create-chama", label: "Create", icon: Plus },
-  { name: "transactions-history", label: "Wallet", icon: CreditCard },
+  { name: "wallet-screen", label: "Wallet", icon: CreditCard },
 ];
 
 export default function BottomNavigation({
