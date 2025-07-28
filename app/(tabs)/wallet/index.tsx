@@ -136,7 +136,7 @@ export default function CryptoWallet() {
   };
 
   const handleReceive = () => {
-    router.push("/(tabs)/(wallet)/receive-crypto");
+    router.push("/wallet/receive-crypto");
   };
 
   const switchTokens = () => {
@@ -416,7 +416,7 @@ export default function CryptoWallet() {
         <View className="px-6 py-4 bg-white border-b border-gray-200">
           <View className="flex-row gap-3">
             <ActionButton
-              onPress={() => router.push("/(tabs)/(wallet)/send-crypto")}
+              onPress={() => router.push("/wallet/send-crypto")}
               icon={<Send size={20} color="#047857" />}
               title="Send"
               bgColor="bg-emerald-50 border-emerald-200"
@@ -430,14 +430,14 @@ export default function CryptoWallet() {
               textColor="text-blue-700"
             />
             <ActionButton
-              onPress={() => router.push("/(tabs)/(wallet)/receive-crypto")}
+              onPress={() => router.push("/wallet/receive-crypto")}
               icon={<Download size={20} color="#15803d" />}
               title="Deposit"
               bgColor="bg-green-50 border-green-200"
               textColor="text-green-700"
             />
             <ActionButton
-              onPress={() => router.push("/(tabs)/(wallet)/withdrawal-crypto")}
+              onPress={() => router.push("/wallet/withdrawal-crypto")}
               icon={<Upload size={20} color="#c2410c" />}
               title="Withdraw"
               bgColor="bg-orange-50 border-orange-200"

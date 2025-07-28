@@ -73,7 +73,7 @@ export default function Onboarding() {
   const IconComponent = slide.icon;
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 ">
       <View className="flex-1 px-6" style={{ paddingTop: 60 }}>
         {/* Main content */}
         <ScrollView
@@ -108,7 +108,7 @@ export default function Onboarding() {
         </ScrollView>
 
         {/* Navigation */}
-        <View className="flex-row items-center justify-between pb-8">
+        <View className="flex-row items-center justify-between pb-2">
           <TouchableOpacity
             onPress={prevSlide}
             disabled={currentSlide === 0}

@@ -36,7 +36,7 @@ export default function AuthScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1">
       <ScrollView
         className="flex-1 px-6"
         contentContainerStyle={{ flexGrow: 1 }}

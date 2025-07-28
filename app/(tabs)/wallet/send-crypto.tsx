@@ -5,11 +5,13 @@ import {
   Alert,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function SendCryptoScreen() {
   const [selectedToken, setSelectedToken] = useState("ETH");
@@ -17,6 +19,7 @@ export default function SendCryptoScreen() {
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const tokens = [
     { symbol: "ETH", name: "Ethereum", balance: 2.456, icon: "⟠" },
@@ -30,9 +33,11 @@ export default function SendCryptoScreen() {
       return;
     }
 
+    Alert.alert("Send Crypto", "Sending...");
+
     // TODO: implement crypto send
 
-    // onNavigate("payment", {
+    // ("payment", {
     //   type: "crypto-send",
     //   token: selectedToken,
     //   recipient,
@@ -42,28 +47,33 @@ export default function SendCryptoScreen() {
   };
 
   const scanQR = () => {
-    // In a real app, this would open the camera to scan QR codes
     Alert.alert("QR Scanner", "QR code scanner would open here");
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-        {/* Header */}
-        <View className="bg-emerald-600 px-6 pt-4 pb-6">
-          <View className="flex-row items-center justify-between mb-4">
-            <TouchableOpacity
-              onPress={() => router.back()}
-              className="p-2 rounded-full"
-              activeOpacity={0.7}
-            >
-              <ArrowLeft size={20} color="white" />
-            </TouchableOpacity>
-            <Text className="text-lg text-white font-medium">Send Crypto</Text>
-            <View className="w-10" />
-          </View>
+    <SafeAreaView
+      className="flex-1 bg-gray-50"
+      style={{ paddingTop: insets.top }}
+    >
+      <StatusBar
+        backgroundColor="#059669" // Android only
+        barStyle="light-content" // 'light-content' for light icons, 'dark-content' for dark icons
+      />
+      {/* Header */}
+      <View className="bg-emerald-600 px-6">
+        <View className="flex-row items-center justify-between mb-4">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="p-2 rounded-full"
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={20} color="white" />
+          </TouchableOpacity>
+          <Text className="text-lg text-white font-medium">Send Crypto</Text>
+          <View className="w-10" />
         </View>
-
+      </View>
+      <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
         <View className="px-6 py-6 gap-6">
           {/* Select Token */}
           <View className="bg-white p-4 rounded-lg border border-gray-200">
