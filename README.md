@@ -61,6 +61,10 @@ ChamaPay transforms community-based circular savings by leveraging smart contrac
 chamapay-mobile/
 ├── app/
 ├── assets/                  # Images, fonts, icons
+├── components/              # Reusable UI elements
+├── constants/               
+├── hooks/               
+├── lib/               
 ├── app.json                 # Expo configuration
 ├── package.json
 └── README.md
