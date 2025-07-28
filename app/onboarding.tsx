@@ -73,7 +73,7 @@ export default function Onboarding() {
   const IconComponent = slide.icon;
 
   return (
-    <SafeAreaView className="flex-1 ">
+    <SafeAreaView className="flex-1 bg-white ">
       <View className="flex-1 px-6" style={{ paddingTop: 60 }}>
         {/* Main content */}
         <ScrollView

@@ -101,7 +101,7 @@ export default function WalletSetup() {
   );
 
   return (
-    <SafeAreaView className="flex-1">
+    <SafeAreaView className="flex-1 bg-white">
       <ScrollView
         className="flex-1 px-6"
         contentContainerStyle={{ flexGrow: 1 }}

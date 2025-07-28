@@ -1,4 +1,3 @@
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import {
   ArrowRight,
@@ -9,8 +8,15 @@ import {
   Wallet,
 } from "lucide-react-native";
 import React from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+import {
+  useSafeAreaInsets
+} from "react-native-safe-area-context";
 
 // Mock data for chamas (you'll want to move this to a separate constants file)
 const mockChamas = [
@@ -121,44 +127,36 @@ export default function HomeScreen() {
   return (
     <View className="flex-1 bg-gray-50">
       {/* Header */}
-      <LinearGradient
-        colors={["#059669", "#047857"]}
-        className="px-6 pb-4"
-        style={{ paddingTop: insets.top }}
-      >
-        <View className="flex-row items-center justify-between  mt-3 ">
-          <View className="flex-row items-center">
-            <View
-              className="w-10 h-10 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: "rgba(255, 255, 255, 0.2)" }}
-            >
-              <User color="white" size={20} />
-            </View>
-            <View>
-              <Text className="text-lg text-white font-medium">
-                Welcome back
-              </Text>
-              <Text className="text-emerald-100 text-sm">Sarah</Text>
-            </View>
+      <View className="flex-row items-center justify-between  bg-emerald-600 px-3 pb-4 pt-8">
+        <View className="flex-row items-center">
+          <View
+            className="w-10 h-10 rounded-full items-center justify-center mr-3"
+            style={{ backgroundColor: "rgba(255, 255, 255, 0.2)" }}
+          >
+            <User color="white" size={20} />
           </View>
-          <View className="flex-row">
-            <TouchableOpacity
-              onPress={() => router.push("/notifications")}
-              className="p-2 mr-2"
-              activeOpacity={0.7}
-            >
-              <Bell color="white" size={20} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => router.push("/profile-settings")}
-              className="p-2"
-              activeOpacity={0.7}
-            >
-              <User color="white" size={20} />
-            </TouchableOpacity>
+          <View>
+            <Text className="text-lg text-white font-medium">Welcome back</Text>
+            <Text className="text-emerald-100 text-sm">Sarah</Text>
           </View>
         </View>
-      </LinearGradient>
+        <View className="flex-row">
+          <TouchableOpacity
+            onPress={() => router.push("/notifications")}
+            className="p-2 mr-2"
+            activeOpacity={0.7}
+          >
+            <Bell color="white" size={20} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/profile-settings")}
+            className="p-2"
+            activeOpacity={0.7}
+          >
+            <User color="white" size={20} />
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {/* My Chamas */}
       <ScrollView
