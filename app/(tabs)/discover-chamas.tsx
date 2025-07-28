@@ -2,10 +2,8 @@ import { mockPublicChamas, PublicChama } from "@/constants/mockData";
 import { useRouter } from "expo-router";
 import {
   Calendar,
-  Filter,
   MapPin,
   Search,
-  Shield,
   Users,
   Wallet
 } from "lucide-react-native";
@@ -13,28 +11,12 @@ import React, { useState } from "react";
 import {
   FlatList,
   SafeAreaView,
-  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const categories = [
-  { label: "All Categories", value: "all" },
-  { label: "Professional", value: "professional" },
-  { label: "Business", value: "business" },
-  { label: "Career", value: "career" },
-  { label: "Health", value: "health" },
-];
-
-const locations = [
-  { label: "All Locations", value: "all" },
-  { label: "Global", value: "global" },
-  { label: "Nairobi", value: "nairobi" },
-  { label: "Mombasa", value: "mombasa" },
-];
 
 export default function DiscoverChamas() {
   const router = useRouter();
@@ -42,7 +24,6 @@ export default function DiscoverChamas() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedLocation, setSelectedLocation] = useState("all");
-  const [showFilters, setShowFilters] = useState(false);
 
   const filteredChamas = mockPublicChamas.filter((chama) => {
     const matchesSearch =
@@ -131,75 +112,9 @@ export default function DiscoverChamas() {
             <Calendar size={14} className="text-gray-400" />
             <Text className="text-sm text-gray-600">{chama.frequency}</Text>
           </View>
-          <View className="flex-row items-center gap-2 flex-1">
-            <Shield size={14} className="text-gray-400" />
-            <Text className="text-sm text-gray-600">
-              {chama.currency} {chama.collateralRequired.toLocaleString()}{" "}
-              collateral
-            </Text>
-          </View>
         </View>
       </View>
-
-      <View className="flex-row items-center justify-between">
-        <Text className="text-xs text-gray-500">
-          Next payout: {chama.nextPayout}
-        </Text>
-
-        <TouchableOpacity
-          className="bg-emerald-600 px-4 py-2 rounded-lg active:bg-emerald-700"
-          onPress={() =>
-            router.push({
-              pathname: "/chama-details/[id]",
-              params: { id: chama.id },
-            })
-          }
-        >
-          <Text className="text-white font-medium text-sm">View Details</Text>
-        </TouchableOpacity>
-      </View>
     </TouchableOpacity>
-  );
-
-  const FilterDropdown = ({
-    title,
-    options,
-    selected,
-    onSelect,
-  }: {
-    title: string;
-    options: { label: string; value: string }[];
-    selected: string;
-    onSelect: (value: string) => void;
-  }) => (
-    <View className="flex-1">
-      <Text className="text-sm font-medium text-gray-700 mb-2">{title}</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        className="flex-row gap-2"
-      >
-        {options.map((option) => (
-          <TouchableOpacity
-            key={option.value}
-            className={`px-3 py-2 rounded-full border ${
-              selected === option.value
-                ? "bg-emerald-100 border-emerald-300"
-                : "bg-gray-50 border-gray-300"
-            }`}
-            onPress={() => onSelect(option.value)}
-          >
-            <Text
-              className={`text-sm ${
-                selected === option.value ? "text-emerald-700" : "text-gray-600"
-              }`}
-            >
-              {option.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
   );
 
   return (
@@ -208,20 +123,11 @@ export default function DiscoverChamas() {
       style={{ paddingTop: insets.top }}
     >
       {/* Header */}
-      <View className="bg-white border-b border-gray-200 px-4">
+      <View className="bg-white border-b border-gray-200 px-4 pt-2">
         <View className="flex-row items-center gap-4 mb-2">
           <Text className="text-xl font-semibold text-gray-900 flex-1">
             Discover Chamas
           </Text>
-          <TouchableOpacity
-            onPress={() => setShowFilters(!showFilters)}
-            className={`p-2 rounded-lg ${showFilters ? "bg-emerald-100" : "active:bg-gray-100"}`}
-          >
-            <Filter
-              size={20}
-              className={showFilters ? "text-emerald-600" : "text-gray-700"}
-            />
-          </TouchableOpacity>
         </View>
 
         {/* Search */}
@@ -237,24 +143,6 @@ export default function DiscoverChamas() {
             placeholderTextColor="#9ca3af"
           />
         </View>
-
-        {/* Filters */}
-        {showFilters && (
-          <View className="gap-4">
-            <FilterDropdown
-              title="Category"
-              options={categories}
-              selected={selectedCategory}
-              onSelect={setSelectedCategory}
-            />
-            <FilterDropdown
-              title="Location"
-              options={locations}
-              selected={selectedLocation}
-              onSelect={setSelectedLocation}
-            />
-          </View>
-        )}
       </View>
 
       {/* Results */}
