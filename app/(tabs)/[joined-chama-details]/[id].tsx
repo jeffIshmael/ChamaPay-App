@@ -65,19 +65,6 @@ export default function JoinedChamaDetails() {
     ]);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "completed":
-        return "bg-green-100 text-green-700";
-      case "current":
-        return "bg-emerald-100 text-emerald-700";
-      case "upcoming":
-        return "bg-gray-100 text-gray-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  };
-
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center">
