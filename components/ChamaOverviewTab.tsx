@@ -1,3 +1,4 @@
+import { Transaction } from "@/constants/mockData";
 import { DollarSign, LogOut, TrendingUp } from "lucide-react-native";
 import React, { FC } from "react";
 import {
@@ -11,7 +12,6 @@ import { AlertCard } from "./ui/AlertCard";
 import { Badge } from "./ui/Badge";
 import { Card } from "./ui/Card";
 import { ProgressBar } from "./ui/ProgressBar";
-import { Transaction } from "@/constants/mockData";
 
 type Props = {
   myContributions: number;
@@ -125,12 +125,6 @@ const ChamaOverviewTab: FC<Props> = ({
             <Text className="text-gray-600 text-sm">Amount:</Text>
             <Text className="text-gray-900 text-sm">
               KES {nextPayoutAmount.toLocaleString()}
-            </Text>
-          </View>
-          <View className="flex-row justify-between">
-            <Text className="text-gray-600 text-sm">Your turn:</Text>
-            <Text className="text-emerald-600 text-sm font-medium">
-              September 15, 2024
             </Text>
           </View>
         </View>

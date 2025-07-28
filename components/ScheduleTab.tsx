@@ -1,8 +1,8 @@
-import React, { FC } from "react";
-import { View, Text, ScrollView } from "react-native";
-import { Card } from "@/components/ui/Card"; 
-import { CheckCircle, Info } from "lucide-react-native";
+import { Card } from "@/components/ui/Card";
 import { PayoutScheduleItem, PayoutStatus } from "@/constants/mockData";
+import { CheckCircle, Info } from "lucide-react-native";
+import React, { FC } from "react";
+import { ScrollView, Text, View } from "react-native";
 
 
 type Props = {
