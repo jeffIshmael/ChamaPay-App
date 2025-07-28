@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import {
   ArrowLeft,
   Bell,
@@ -16,10 +17,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-interface NotificationsProps {
-  onBack: () => void;
-}
 
 interface Notification {
   id: string;
@@ -95,7 +92,8 @@ const mockNotifications: Notification[] = [
   },
 ];
 
-export default function Notifications({ onBack }: NotificationsProps) {
+export default function Notifications() {
+  const router = useRouter();
   const getNotificationIcon = (type: Notification["type"]) => {
     const iconProps = { size: 20 };
 
@@ -150,10 +148,10 @@ export default function Notifications({ onBack }: NotificationsProps) {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="bg-white border-b border-gray-200 p-4">
+      <View className="bg-white mt-2 border-b border-gray-200 p-4">
         <View className="flex-row items-center gap-4 mb-4">
           <TouchableOpacity
-            onPress={onBack}
+            onPress={() => router.back()}
             className="p-2 rounded-lg active:bg-gray-100"
           >
             <ArrowLeft size={20} className="text-gray-700" />
@@ -258,7 +256,8 @@ export default function Notifications({ onBack }: NotificationsProps) {
               No Notifications
             </Text>
             <Text className="text-sm text-gray-600 text-center">
-              You&apos;re all caught up! We&apos;ll notify you of any important updates.
+              You&apos;re all caught up! We&apos;ll notify you of any important
+              updates.
             </Text>
           </View>
         )}
