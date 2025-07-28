@@ -1,26 +1,23 @@
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
-import {
-  ArrowLeft,
-  Check,
-  Copy,
-  Info,
-  QrCode,
-  Share,
-} from "lucide-react-native";
+import { ArrowLeft, Check, Copy, Info, QrCode } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   Alert,
-  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
+  StatusBar,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ReceiveCryptoScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [selectedToken, setSelectedToken] = useState("ETH");
   const [amount, setAmount] = useState("");
 
@@ -28,18 +25,13 @@ export default function ReceiveCryptoScreen() {
 
   const tokens = [
     { symbol: "ETH", name: "Ethereum", icon: "⟠" },
-    { symbol: "USDC", name: "USD Coin", icon: "💎" },
-    { symbol: "KES", name: "Kenyan Shilling", icon: "🇰🇪" },
+    { symbol: "cUSD", name: "USD Coin", icon: "💎" },
+    { symbol: "cKES", name: "Kenyan Shilling", icon: "🇰🇪" },
   ];
 
   const copyAddress = async () => {
     await Clipboard.setStringAsync(walletAddress);
     Alert.alert("Copied", "Wallet address copied to clipboard");
-  };
-
-  const shareAddress = () => {
-    // In a real app, this would use the Share API
-    Alert.alert("Share", "Share functionality would open here");
   };
 
   const generateQR = () => {
@@ -52,10 +44,18 @@ export default function ReceiveCryptoScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <KeyboardAvoidingView
+      className="flex-1"
+      style={{ paddingTop: insets.top }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <StatusBar
+        backgroundColor="#059669" // Android only
+        barStyle="light-content" // 'light-content' for light icons, 'dark-content' for dark icons
+      />
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
         {/* Header */}
-        <View className="bg-blue-600 px-6 pt-4 pb-6">
+        <View className="bg-emerald-600 px-6">
           <View className="flex-row items-center justify-between mb-4">
             <TouchableOpacity
               onPress={() => router.back()}
@@ -67,13 +67,7 @@ export default function ReceiveCryptoScreen() {
             <Text className="text-lg text-white font-medium">
               Receive Crypto
             </Text>
-            <TouchableOpacity
-              onPress={shareAddress}
-              className="p-2 rounded-full"
-              activeOpacity={0.7}
-            >
-              <Share size={20} color="white" />
-            </TouchableOpacity>
+            <View className="w-10" />
           </View>
         </View>
 
@@ -86,7 +80,7 @@ export default function ReceiveCryptoScreen() {
             </View>
             <TouchableOpacity
               onPress={generateQR}
-              className="bg-blue-600 px-4 py-2 rounded-lg"
+              className="bg-emerald-600 px-4 py-2 rounded-lg"
               activeOpacity={0.7}
             >
               <Text className="text-white font-medium">Generate QR Code</Text>
@@ -105,7 +99,7 @@ export default function ReceiveCryptoScreen() {
                   onPress={() => setSelectedToken(token.symbol)}
                   className={`flex-row items-center justify-between p-3 rounded-lg border ${
                     selectedToken === token.symbol
-                      ? "border-blue-500 bg-blue-50"
+                      ? "border-emerald-500 bg-emerald-50"
                       : "border-gray-200 bg-gray-50"
                   }`}
                   activeOpacity={0.7}
@@ -159,7 +153,7 @@ export default function ReceiveCryptoScreen() {
               </Text>
               <TouchableOpacity
                 onPress={copyAddress}
-                className="flex-row items-center justify-center bg-blue-600 py-2 rounded-lg"
+                className="flex-row items-center justify-center bg-emerald-600 py-2 rounded-lg"
                 activeOpacity={0.7}
               >
                 <Copy size={16} color="white" />
@@ -188,6 +182,6 @@ export default function ReceiveCryptoScreen() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }

@@ -57,7 +57,7 @@ export default function CryptoWallet() {
   );
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [fromToken, setFromToken] = useState("ETH");
-  const [toToken, setToToken] = useState("USDC");
+  const [toToken, setToToken] = useState("cUSD");
   const [swapAmount, setSwapAmount] = useState("");
 
   // Mock wallet data
@@ -73,7 +73,7 @@ export default function CryptoWallet() {
         icon: "⟠",
       },
       {
-        symbol: "USDC",
+        symbol: "cUSD",
         name: "USD Coin",
         amount: 1250.0,
         usdValue: 1250.0,
@@ -81,7 +81,7 @@ export default function CryptoWallet() {
         icon: "💎",
       },
       {
-        symbol: "KES",
+        symbol: "cKES",
         name: "Kenyan Shilling",
         amount: 45000,
         usdValue: 347.0,
@@ -105,7 +105,7 @@ export default function CryptoWallet() {
       {
         id: 2,
         type: "receive",
-        token: "USDC",
+        token: "cUSD",
         amount: 500,
         usdValue: 500.0,
         sender: "0x9876...4321",
@@ -116,7 +116,7 @@ export default function CryptoWallet() {
       {
         id: 3,
         type: "deposit",
-        token: "KES",
+        token: "cKES",
         amount: 10000,
         usdValue: 77.0,
         hash: "0xijkl9012",
@@ -293,7 +293,7 @@ export default function CryptoWallet() {
         </View>
         <View className="items-end">
           <Text className="text-gray-900 font-medium">
-            {token.symbol === "KES"
+            {token.symbol === "cKES"
               ? `${token.amount.toLocaleString()} ${token.symbol}`
               : `${token.amount} ${token.symbol}`}
           </Text>
@@ -338,7 +338,7 @@ export default function CryptoWallet() {
         <View className="items-end">
           <Text className={`font-medium ${getTransactionTextColor(tx.type)}`}>
             {tx.type === "send" ? "-" : "+"}
-            {tx.token === "KES"
+            {tx.token === "cKES"
               ? `${tx.amount.toLocaleString()} ${tx.token}`
               : `${tx.amount} ${tx.token}`}
           </Text>
@@ -429,6 +429,7 @@ export default function CryptoWallet() {
               bgColor="bg-blue-50 border-blue-200"
               textColor="text-blue-700"
             />
+            {/* TODO: Set up onramp functionality for Deposit. It currently navigates to Receiving crypto screen */}
             <ActionButton
               onPress={() => router.push("/wallet/receive-crypto")}
               icon={<Download size={20} color="#15803d" />}

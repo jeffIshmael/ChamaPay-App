@@ -10,28 +10,32 @@ import {
 import React, { useState } from "react";
 import {
   Alert,
-  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
+  StatusBar,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function WithdrawCryptoScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [selectedMethod, setSelectedMethod] = useState<"bank" | "crypto">(
     "bank"
   );
-  const [selectedToken, setSelectedToken] = useState("USDC");
+  const [selectedToken, setSelectedToken] = useState("cUSD");
   const [amount, setAmount] = useState("");
   const [bankAccount, setBankAccount] = useState("");
   const [walletAddress, setWalletAddress] = useState("");
 
   const tokens = [
     { symbol: "ETH", name: "Ethereum", balance: 2.456, icon: "⟠" },
-    { symbol: "USDC", name: "USD Coin", balance: 1250.0, icon: "💎" },
-    { symbol: "KES", name: "Kenyan Shilling", balance: 45000, icon: "🇰🇪" },
+    { symbol: "cUSD", name: "USD Coin", balance: 1250.0, icon: "💎" },
+    { symbol: "cKES", name: "Kenyan Shilling", balance: 45000, icon: "🇰🇪" },
   ];
 
   const withdrawMethods = [
@@ -64,7 +68,10 @@ export default function WithdrawCryptoScreen() {
       Alert.alert("Error", "Please enter wallet address");
       return;
     }
-    // TODO:
+
+    Alert.alert("Withdraw Crypto", "Withdrawing...");
+
+    // TODO: Implement offramping functionality
 
     // onNavigate("payment", {
     //   type: "crypto-withdraw",
@@ -76,10 +83,18 @@ export default function WithdrawCryptoScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <KeyboardAvoidingView
+      className="flex-1"
+      style={{ paddingTop: insets.top }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <StatusBar
+        backgroundColor="#059669" // Android only
+        barStyle="light-content" // 'light-content' for light icons, 'dark-content' for dark icons
+      />
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
         {/* Header */}
-        <View className="bg-orange-600 px-6 pt-4 pb-6">
+        <View className="bg-emerald-600 px-6">
           <View className="flex-row items-center justify-between mb-4">
             <TouchableOpacity
               onPress={() => router.back()}
@@ -89,7 +104,7 @@ export default function WithdrawCryptoScreen() {
               <ArrowLeft size={20} color="white" />
             </TouchableOpacity>
             <Text className="text-lg text-white font-medium">
-              Withdraw Funds
+              Withdraw Crypto
             </Text>
             <View className="w-10" />
           </View>
@@ -108,7 +123,7 @@ export default function WithdrawCryptoScreen() {
                   onPress={() => setSelectedToken(token.symbol)}
                   className={`flex-row items-center justify-between p-3 rounded-lg border ${
                     selectedToken === token.symbol
-                      ? "border-orange-500 bg-orange-50"
+                      ? "border-emerald-500 bg-emerald-50"
                       : "border-gray-200 bg-gray-50"
                   }`}
                   activeOpacity={0.7}
@@ -123,7 +138,7 @@ export default function WithdrawCryptoScreen() {
                       </Text>
                       <Text className="text-xs text-gray-600">
                         Balance:{" "}
-                        {token.symbol === "KES"
+                        {token.symbol === "cKES"
                           ? `${token.balance.toLocaleString()}`
                           : `${token.balance}`}{" "}
                         {token.symbol}
@@ -164,10 +179,12 @@ export default function WithdrawCryptoScreen() {
                       ?.balance.toString() || ""
                   )
                 }
-                className="bg-orange-100 px-3 py-1 rounded-full"
+                className="bg-emerald-100 px-3 py-1 rounded-full"
                 activeOpacity={0.7}
               >
-                <Text className="text-orange-700 text-sm font-medium">Max</Text>
+                <Text className="text-emerald-700 text-sm font-medium">
+                  Max
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -184,7 +201,7 @@ export default function WithdrawCryptoScreen() {
                   onPress={() => setSelectedMethod(method.id as any)}
                   className={`flex-row items-center justify-between p-3 rounded-lg border ${
                     selectedMethod === method.id
-                      ? "border-orange-500 bg-orange-50"
+                      ? "border-emerald-500 bg-emerald-50"
                       : "border-gray-200 bg-gray-50"
                   }`}
                   activeOpacity={0.7}
@@ -244,7 +261,7 @@ export default function WithdrawCryptoScreen() {
                   numberOfLines={2}
                 />
                 <TouchableOpacity
-                  className="w-12 h-12 bg-orange-600 rounded-lg items-center justify-center"
+                  className="w-12 h-12 bg-emerald-600 rounded-lg items-center justify-center"
                   activeOpacity={0.7}
                 >
                   <QrCode size={20} color="white" />
@@ -283,7 +300,7 @@ export default function WithdrawCryptoScreen() {
               (selectedMethod === "bank" && !bankAccount.trim()) ||
               (selectedMethod === "crypto" && !walletAddress.trim())
                 ? "bg-gray-300"
-                : "bg-orange-600"
+                : "bg-emerald-600"
             }`}
             activeOpacity={0.8}
           >
@@ -301,6 +318,6 @@ export default function WithdrawCryptoScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }

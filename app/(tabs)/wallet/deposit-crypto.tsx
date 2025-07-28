@@ -1,22 +1,22 @@
 import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
 import {
-  ArrowDownRight,
-  ArrowLeft,
-  Check,
-  Copy,
-  DollarSign,
-  Info
+    ArrowDownRight,
+    ArrowLeft,
+    Check,
+    Copy,
+    DollarSign,
+    Info
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
-  Alert,
-  SafeAreaView,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    SafeAreaView,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function DepositCryptoScreen() {
@@ -24,7 +24,7 @@ export default function DepositCryptoScreen() {
     "bank" | "card" | "crypto"
   >("bank");
   const [amount, setAmount] = useState("");
-  const [selectedCurrency, setSelectedCurrency] = useState("KES");
+  const [selectedCurrency, setSelectedCurrency] = useState("cKES");
   const router = useRouter();
 
   const depositMethods = [
@@ -54,7 +54,7 @@ export default function DepositCryptoScreen() {
     },
   ];
 
-  const currencies = ["KES", "USD", "EUR"];
+  const currencies = ["cKES", "USD", "EUR"];
 
   const handleDeposit = () => {
     if (!amount.trim()) {

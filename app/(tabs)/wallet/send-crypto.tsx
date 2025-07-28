@@ -23,8 +23,8 @@ export default function SendCryptoScreen() {
 
   const tokens = [
     { symbol: "ETH", name: "Ethereum", balance: 2.456, icon: "⟠" },
-    { symbol: "USDC", name: "USD Coin", balance: 1250.0, icon: "💎" },
-    { symbol: "KES", name: "Kenyan Shilling", balance: 45000, icon: "🇰🇪" },
+    { symbol: "cUSD", name: "USD Coin", balance: 1250.0, icon: "💎" },
+    { symbol: "cKES", name: "Kenyan Shilling", balance: 45000, icon: "🇰🇪" },
   ];
 
   const handleSend = () => {
@@ -105,7 +105,7 @@ export default function SendCryptoScreen() {
                   </View>
                   <View className="items-end">
                     <Text className="text-gray-900 font-medium">
-                      {token.symbol === "KES"
+                      {token.symbol === "cKES"
                         ? `${token.balance.toLocaleString()}`
                         : `${token.balance}`}{" "}
                       {token.symbol}
