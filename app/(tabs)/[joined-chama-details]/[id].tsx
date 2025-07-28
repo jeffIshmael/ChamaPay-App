@@ -1,4 +1,5 @@
-import { useRouter } from "expo-router";
+import { JoinedChama, mockJoinedChamas } from "@/constants/mockData";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
   CheckCircle,
@@ -8,7 +9,7 @@ import {
   Send,
   TrendingUp,
 } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -21,219 +22,29 @@ import {
   View,
 } from "react-native";
 
-interface JoinedChamaDetailsProps {
-  chama: any;
-  onNavigate: (screen: string, data?: any) => void;
-}
-
-interface Member {
-  id: number;
-  name: string;
-  phone: string;
-  email: string;
-  role: string;
-  contributions: number;
-}
-
-interface Message {
-  id: number;
-  sender: string;
-  message: string;
-  time: string;
-  isAdmin?: boolean;
-}
-
-interface PayoutScheduleItem {
-  position: number;
-  member: string;
-  date: string;
-  status: string;
-  amount: number;
-}
-
-interface Transaction {
-  id: number;
-  type: string;
-  amount: number;
-  date: string;
-  status: string;
-}
-
-export default function JoinedChamaDetails({ chama }: JoinedChamaDetailsProps) {
+export default function JoinedChamaDetails() {
+  const { id } = useLocalSearchParams();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("overview");
   const [newMessage, setNewMessage] = useState("");
-  const [paymentAmount, setPaymentAmount] = useState<string>(
-    (chama?.contribution || 5000).toString()
-  );
-
-  // Ensure chama has default values to prevent undefined errors
-  const defaultChama = {
-    id: "",
-    name: "Chama",
-    contribution: 5000,
-    currency: "KES",
-    members: 5,
-    totalMembers: 5,
-    status: "active",
-    unreadMessages: 0,
-    nextTurnMember: "John Doe",
-    myTurn: false,
-    ...chama,
-  };
-
-  // Mock data for joined chama with enhanced information
-
-  const chamaData = useMemo(
-    () => ({
-      ...defaultChama,
-      myPosition: 3,
-      totalContributions: 15000,
-      myContributions: 3000,
-      nextPayoutDate: "2024-08-15",
-      nextPayoutAmount: 45000,
-      currentTurnMember: "John Kamau",
-      myTurnDate: "2024-09-15",
-      contributionDueDate: "2024-07-30",
-      hasOutstandingPayment: true,
-      messages: [
-        {
-          id: 1,
-          sender: "Admin",
-          message:
-            "Welcome to Savings Champions! Please make sure to contribute by the 30th of each month.",
-          time: "2 hours ago",
-          isAdmin: true,
-        },
-        {
-          id: 2,
-          sender: "Mary Wanjiru",
-          message:
-            "Has everyone made their contribution this month? The deadline is approaching.",
-          time: "1 hour ago",
-        },
-        {
-          id: 3,
-          sender: "John Kamau",
-          message: "Yes, just sent mine. Thanks for the reminder! 💪",
-          time: "45 min ago",
-        },
-        {
-          id: 4,
-          sender: "Admin",
-          message:
-            "All contributions received except 2 members. Next payout is scheduled for Aug 15.",
-          time: "30 min ago",
-          isAdmin: true,
-        },
-      ] as Message[],
-      payoutSchedule: [
-        {
-          position: 1,
-          member: "Mary Wanjiru",
-          date: "2024-07-15",
-          status: "completed",
-          amount: 45000,
-        },
-        {
-          position: 2,
-          member: "John Kamau",
-          date: "2024-08-15",
-          status: "current",
-          amount: 45000,
-        },
-        {
-          position: 3,
-          member: "You (Sarah)",
-          date: "2024-09-15",
-          status: "upcoming",
-          amount: 45000,
-        },
-        {
-          position: 4,
-          member: "Peter Maina",
-          date: "2024-10-15",
-          status: "upcoming",
-          amount: 45000,
-        },
-        {
-          position: 5,
-          member: "Grace Njeri",
-          date: "2024-11-15",
-          status: "upcoming",
-          amount: 45000,
-        },
-      ] as PayoutScheduleItem[],
-      members: [
-        {
-          id: 1,
-          name: "Mary Wanjiru",
-          phone: "+254 712 345 678",
-          email: "mary@email.com",
-          role: "Admin",
-          contributions: 5000,
-        },
-        {
-          id: 2,
-          name: "John Kamau",
-          phone: "+254 701 234 567",
-          email: "john@email.com",
-          role: "Member",
-          contributions: 5000,
-        },
-        {
-          id: 3,
-          name: "You (Sarah)",
-          phone: "+254 722 345 678",
-          email: "sarah@email.com",
-          role: "Member",
-          contributions: 3000,
-          status: "pending",
-        },
-        {
-          id: 4,
-          name: "Peter Maina",
-          phone: "+254 733 456 789",
-          email: "peter@email.com",
-          role: "Member",
-          contributions: 2000,
-        },
-        {
-          id: 5,
-          name: "Grace Njeri",
-          phone: "+254 744 567 890",
-          email: "grace@email.com",
-          role: "Member",
-          contributions: 5000,
-        },
-      ] as Member[],
-      recentTransactions: [
-        {
-          id: 1,
-          type: "contribution",
-          amount: 3000,
-          date: "2024-07-20",
-          status: "completed",
-        },
-        {
-          id: 2,
-          type: "contribution",
-          amount: 5000,
-          date: "2024-06-15",
-          status: "completed",
-        },
-      ] as Transaction[],
-    }),
-    []
-  );
+  const [paymentAmount, setPaymentAmount] = useState<string>();
+  const [isLoading, setIsLoading] = useState(true);
+  const [chama, setChama] = useState<JoinedChama>();
 
   useEffect(() => {
-    const remainingAmount = Math.max(
-      0,
-      chamaData.contribution - chamaData.myContributions
-    );
-    setPaymentAmount(remainingAmount.toString());
-  }, [chamaData]);
+    setIsLoading(true);
+    const selectedChama = mockJoinedChamas.find((c) => c.id === id);
+    if (selectedChama) {
+      setChama(selectedChama);
+      const remainingAmount = Math.max(
+        0,
+        selectedChama.contribution - selectedChama.myContributions
+      );
+
+      setPaymentAmount(remainingAmount.toString());
+    }
+    setIsLoading(false);
+  }, [id]);
 
   const Badge = ({
     children,
@@ -256,7 +67,7 @@ export default function JoinedChamaDetails({ chama }: JoinedChamaDetailsProps) {
         className={`${baseClasses} ${variantClasses[variant]} ${className}`}
       >
         <Text
-          className={`text-xs font-medium ${variant === "default" ? "text-white" : variant === "destructive" ? "text-white" : "text-gray-700"}`}
+          className={`text-[8px] font-medium ${variant === "default" ? "text-white" : variant === "destructive" ? "text-white" : "text-gray-700"}`}
         >
           {children}
         </Text>
@@ -347,7 +158,7 @@ export default function JoinedChamaDetails({ chama }: JoinedChamaDetailsProps) {
   };
 
   const makePayment = () => {
-    Alert.alert("Payment", "Making payment...");
+    Alert.alert("Payment", "Payment logic here...");
   };
 
   const leaveChama = () => {
@@ -377,12 +188,27 @@ export default function JoinedChamaDetails({ chama }: JoinedChamaDetailsProps) {
     }
   };
 
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <Text className="text-gray-600">Fetching chama details...</Text>
+      </View>
+    );
+  }
+  if (!chama) {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <Text className="text-gray-600">Chama not found</Text>
+      </View>
+    );
+  }
+
   // Safe calculations with default values
-  const contribution = chamaData.contribution || 0;
-  const myContributions = chamaData.myContributions || 0;
+  const contribution = chama.contribution || 0;
+  const myContributions = chama.myContributions || 0;
   const remainingAmount = Math.max(0, contribution - myContributions);
-  const nextPayoutAmount = chamaData.nextPayoutAmount || 0;
-  const unreadMessages = chamaData.unreadMessages || 0;
+  const nextPayoutAmount = chama.nextPayoutAmount || 0;
+  const unreadMessages = chama.unreadMessages || 0;
 
   const renderOverviewTab = () => (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
@@ -425,7 +251,7 @@ export default function JoinedChamaDetails({ chama }: JoinedChamaDetailsProps) {
             <View className="gap-2">
               <Text className="text-xs text-gray-600">
                 KES {remainingAmount.toLocaleString()} remaining • Due:{" "}
-                {chamaData.contributionDueDate}
+                {chama.contributionDueDate}
               </Text>
               <View className="flex-row gap-2">
                 <TextInput
@@ -462,7 +288,7 @@ export default function JoinedChamaDetails({ chama }: JoinedChamaDetailsProps) {
           <View className="flex-row justify-between">
             <Text className="text-gray-600 text-sm">Recipient:</Text>
             <Text className="text-gray-900 text-sm">
-              {chamaData.currentTurnMember}
+              {chama.currentTurnMember}
             </Text>
           </View>
           <View className="flex-row justify-between">
@@ -486,7 +312,7 @@ export default function JoinedChamaDetails({ chama }: JoinedChamaDetailsProps) {
           <Text className="text-gray-900 font-medium">Recent Transactions</Text>
         </View>
         <View className="gap-2">
-          {chamaData.recentTransactions.slice(0, 3).map((transaction: any) => (
+          {chama.recentTransactions.slice(0, 3).map((transaction: any) => (
             <View
               key={transaction.id}
               className="flex-row items-center justify-between py-2"
@@ -550,7 +376,7 @@ export default function JoinedChamaDetails({ chama }: JoinedChamaDetailsProps) {
     >
       <ScrollView className="flex-1 mb-16" showsVerticalScrollIndicator={false}>
         <View className="gap-3">
-          {chamaData.messages.map((message: any) => (
+          {chama.messages.map((message: any) => (
             <View
               key={message.id}
               className={`p-3 rounded-lg ${
@@ -602,7 +428,7 @@ export default function JoinedChamaDetails({ chama }: JoinedChamaDetailsProps) {
   const renderScheduleTab = () => (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
       <View className="gap-3">
-        {chamaData.payoutSchedule.map((payout: any) => (
+        {chama.payoutSchedule.map((payout: any) => (
           <Card key={payout.position} className="p-4">
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-3">
@@ -669,7 +495,7 @@ export default function JoinedChamaDetails({ chama }: JoinedChamaDetailsProps) {
   const renderMembersTab = () => (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
       <View className="gap-3">
-        {chamaData.members.map((member: any) => (
+        {chama.members.map((member: any) => (
           <Card key={member.id} className="p-4">
             <View className="flex-row items-center gap-6">
               <View className="w-10 h-10 rounded-full bg-emerald-100 items-center justify-center">
@@ -740,7 +566,7 @@ export default function JoinedChamaDetails({ chama }: JoinedChamaDetailsProps) {
           <View className="items-center">
             <Text className="text-emerald-100 text-xs">My Position</Text>
             <Text className="text-lg text-white font-semibold">
-              #{chamaData.myPosition}
+              #{chama.myPosition}
             </Text>
           </View>
           <View className="items-center">
@@ -749,7 +575,7 @@ export default function JoinedChamaDetails({ chama }: JoinedChamaDetailsProps) {
           </View>
           <View className="items-center">
             <Text className="text-emerald-100 text-xs">Next Payout</Text>
-            <Text className="text-lg text-white font-semibold">KES 45K</Text>
+            <Text className="text-lg text-white font-semibold">KES 25K</Text>
           </View>
         </View>
       </View>

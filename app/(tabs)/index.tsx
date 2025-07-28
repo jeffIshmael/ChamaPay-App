@@ -1,3 +1,4 @@
+import { mockJoinedChamas } from "@/constants/mockData";
 import { useRouter } from "expo-router";
 import {
   ArrowRight,
@@ -9,51 +10,9 @@ import {
 } from "lucide-react-native";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-// Mock data for chamas (you'll want to move this to a separate constants file)
-const mockChamas = [
-  {
-    id: "1",
-    name: "Teachers Savings Group",
-    members: 8,
-    totalMembers: 10,
-    contribution: 5000,
-    currency: "KSH",
-    status: "active",
-    nextTurnMember: "Mary Wanjiku",
-    myTurn: false,
-    unreadMessages: 3,
-  },
-  {
-    id: "2",
-    name: "Weekend Warriors",
-    members: 12,
-    totalMembers: 12,
-    contribution: 2000,
-    currency: "KSH",
-    status: "active",
-    nextTurnMember: "You",
-    myTurn: true,
-    unreadMessages: 0,
-  },
-  {
-    id: "3",
-    name: "Small Business Network",
-    members: 6,
-    totalMembers: 8,
-    contribution: 10000,
-    currency: "KSH",
-    status: "pending",
-    nextTurnMember: "John Kimani",
-    myTurn: false,
-    unreadMessages: 1,
-  },
-];
 
 export default function HomeScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const Badge = ({
     children,
     variant = "default",
@@ -159,14 +118,22 @@ export default function HomeScreen() {
       >
         <View className="flex-row items-center justify-between mb-4">
           <Text className="text-lg text-gray-900 font-semibold">My Chamas</Text>
-          <Badge variant="secondary">{mockChamas.length}</Badge>
+          <Badge variant="secondary">{mockJoinedChamas.length}</Badge>
         </View>
 
         <View className="pb-6">
-          {mockChamas.map((chama) => (
+          {mockJoinedChamas.map((chama) => (
             <Card
               key={chama.id}
-              onPress={() => router.push("/joined-chama-details")}
+              onPress={() =>
+                router.push({
+                  pathname: "/[joined-chama-details]/[id]",
+                  params: {
+                    "joined-chama-details": chama.id,
+                    id: chama.id,
+                  },
+                })
+              }
             >
               <View className="flex-row items-start justify-between mb-3">
                 <View className="flex-1">
@@ -184,7 +151,7 @@ export default function HomeScreen() {
                     <View className="flex-row items-center mr-4">
                       <Users color="#6b7280" size={14} />
                       <Text className="text-sm text-gray-600 ml-1">
-                        {chama.members}/{chama.totalMembers}
+                        {chama.totalMembers}/{chama.maxMembers}
                       </Text>
                     </View>
                     <View className="flex-row items-center">
@@ -221,7 +188,7 @@ export default function HomeScreen() {
             </Card>
           ))}
 
-          {mockChamas.length === 0 && (
+          {mockJoinedChamas.length === 0 && (
             <Card style={{ alignItems: "center", paddingVertical: 32 }}>
               <Users color="#9ca3af" size={48} />
               <Text className="text-gray-900 font-medium text-lg mt-4 mb-2">

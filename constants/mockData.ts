@@ -1,13 +1,90 @@
-export const mockChamas = [
+export interface Member {
+  id: number;
+  name: string;
+  phone: string;
+  email: string;
+  role: string;
+  contributions: number;
+}
+
+export interface Message {
+  id: number;
+  sender: string;
+  message: string;
+  time: string;
+  isAdmin?: boolean;
+}
+
+export interface PayoutScheduleItem {
+  position: number;
+  member: string;
+  date: string;
+  status: string;
+  amount: number;
+}
+
+export interface Transaction {
+  id: number;
+  type: string;
+  amount: number;
+  date: string;
+  status: string;
+}
+
+export interface JoinedChama {
+  id: string;
+  name: string;
+  description: string;
+  currency: string;
+  totalMembers: number;
+  maxMembers: number;
+  contribution: number;
+  totalContributions: number;
+  myContributions: number;
+  nextPayoutDate: string;
+  nextPayoutAmount: number;
+  currentTurnMember: string;
+  myTurnDate: string;
+  contributionDueDate: string;
+  hasOutstandingPayment: boolean;
+  frequency: string;
+  duration: string;
+  rating: number;
+  category: string;
+  location: string;
+  tags: string[];
+  collateralRequired: number;
+  nextPayout: string;
+  myTurn: boolean;
+  myPosition: number;
+  nextTurnMember: string;
+  status: string;
+  unreadMessages: number;
+  isPublic: boolean;
+  messages: Message[];
+  payoutSchedule: PayoutScheduleItem[];
+  members: Member[];
+  recentTransactions: Transaction[];
+}
+
+export const mockJoinedChamas: JoinedChama[] = [
   {
-    id: 1,
+    id: "1",
     name: "Women Entrepreneurs Chama",
     description:
       "Supporting women entrepreneurs in building successful businesses and financial independence",
-    members: 8,
-    totalMembers: 10,
-    maxMembers: 10,
+    currency: "KES",
+    totalMembers: 5,
+    maxMembers: 5,
     contribution: 5000,
+    totalContributions: 15000,
+    myContributions: 3000,
+    nextPayoutDate: "2024-08-15",
+    nextPayoutAmount: 25000,
+    currentTurnMember: "John Kamau",
+    myTurnDate: "2024-09-15",
+    contributionDueDate: "2024-07-30",
+    hasOutstandingPayment: true,
     frequency: "Monthly",
     duration: "10 months",
     rating: 4.7,
@@ -17,59 +94,138 @@ export const mockChamas = [
     collateralRequired: 5000,
     nextPayout: "2025-02-15",
     myTurn: false,
+    myPosition: 3,
     nextTurnMember: "Grace Wanjiku",
     status: "active",
     unreadMessages: 3,
-    currency: "KES",
     isPublic: false,
-  },
-  {
-    id: 2,
-    name: "Tech Developers Circle",
-    description:
-      "A community of software developers pooling resources for career growth and tech investments",
-    members: 12,
-    totalMembers: 12,
-    maxMembers: 12,
-    contribution: 10000,
-    frequency: "Monthly",
-    duration: "12 months",
-    rating: 4.9,
-    category: "Professional",
-    location: "Global",
-    tags: ["Technology", "Software", "Career"],
-    collateralRequired: 10000,
-    nextPayout: "2025-01-28",
-    myTurn: true,
-    nextTurnMember: "You",
-    status: "active",
-    unreadMessages: 0,
-    currency: "KES",
-    isPublic: false,
-  },
-  {
-    id: 3,
-    name: "University Alumni Fund",
-    description:
-      "Alumni network supporting each other's financial goals and education initiatives",
-    members: 6,
-    totalMembers: 15,
-    maxMembers: 15,
-    contribution: 3000,
-    frequency: "Monthly",
-    duration: "15 months",
-    rating: 4.5,
-    category: "Education",
-    location: "Nairobi",
-    tags: ["Alumni", "Education", "Network"],
-    collateralRequired: 3000,
-    nextPayout: "2025-03-10",
-    myTurn: false,
-    nextTurnMember: "John Kamau",
-    status: "pending",
-    unreadMessages: 1,
-    currency: "KES",
-    isPublic: false,
+    messages: [
+      {
+        id: 1,
+        sender: "Admin",
+        message:
+          "Welcome to Savings Champions! Please make sure to contribute by the 30th of each month.",
+        time: "2 hours ago",
+        isAdmin: true,
+      },
+      {
+        id: 2,
+        sender: "Mary Wanjiru",
+        message:
+          "Has everyone made their contribution this month? The deadline is approaching.",
+        time: "1 hour ago",
+      },
+      {
+        id: 3,
+        sender: "John Kamau",
+        message: "Yes, just sent mine. Thanks for the reminder! 💪",
+        time: "45 min ago",
+      },
+      {
+        id: 4,
+        sender: "Admin",
+        message:
+          "All contributions received except 2 members. Next payout is scheduled for Aug 15.",
+        time: "30 min ago",
+        isAdmin: true,
+      },
+    ] as Message[],
+    payoutSchedule: [
+      {
+        position: 1,
+        member: "Mary Wanjiru",
+        date: "2024-07-15",
+        status: "completed",
+        amount: 45000,
+      },
+      {
+        position: 2,
+        member: "John Kamau",
+        date: "2024-08-15",
+        status: "current",
+        amount: 45000,
+      },
+      {
+        position: 3,
+        member: "You (Sarah)",
+        date: "2024-09-15",
+        status: "upcoming",
+        amount: 45000,
+      },
+      {
+        position: 4,
+        member: "Peter Maina",
+        date: "2024-10-15",
+        status: "upcoming",
+        amount: 45000,
+      },
+      {
+        position: 5,
+        member: "Grace Njeri",
+        date: "2024-11-15",
+        status: "upcoming",
+        amount: 45000,
+      },
+    ] as PayoutScheduleItem[],
+    members: [
+      {
+        id: 1,
+        name: "Mary Wanjiru",
+        phone: "+254 712 345 678",
+        email: "mary@email.com",
+        role: "Admin",
+        contributions: 5000,
+      },
+      {
+        id: 2,
+        name: "John Kamau",
+        phone: "+254 701 234 567",
+        email: "john@email.com",
+        role: "Member",
+        contributions: 5000,
+      },
+      {
+        id: 3,
+        name: "You (Sarah)",
+        phone: "+254 722 345 678",
+        email: "sarah@email.com",
+        role: "Member",
+        contributions: 3000,
+        status: "pending",
+      },
+      {
+        id: 4,
+        name: "Peter Maina",
+        phone: "+254 733 456 789",
+        email: "peter@email.com",
+        role: "Member",
+        contributions: 2000,
+      },
+      {
+        id: 5,
+        name: "Grace Njeri",
+        phone: "+254 744 567 890",
+        email: "grace@email.com",
+        role: "Member",
+        contributions: 5000,
+      },
+    ] as Member[],
+    recentTransactions: [
+      {
+        id: 1,
+        type: "contribution",
+        amount: 3000,
+        date: "2024-07-20",
+        status: "completed",
+      },
+      {
+        id: 2,
+        type: "contribution",
+        amount: 5000,
+        date: "2024-06-15",
+        status: "completed",
+      },
+    ] as Transaction[],
   },
 ];
 
