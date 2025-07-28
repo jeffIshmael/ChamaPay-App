@@ -15,11 +15,13 @@ export interface Message {
   isAdmin?: boolean;
 }
 
+export type PayoutStatus = "completed" | "next" | "pending" | "upcoming";
+
 export interface PayoutScheduleItem {
   position: number;
   member: string;
   date: string;
-  status: string;
+  status: PayoutStatus;
   amount: number;
 }
 
@@ -136,35 +138,35 @@ export const mockJoinedChamas: JoinedChama[] = [
         member: "Mary Wanjiru",
         date: "2024-07-15",
         status: "completed",
-        amount: 45000,
+        amount: 25000,
       },
       {
         position: 2,
         member: "John Kamau",
         date: "2024-08-15",
-        status: "current",
-        amount: 45000,
+        status: "next",
+        amount: 25000,
       },
       {
         position: 3,
         member: "You (Sarah)",
         date: "2024-09-15",
         status: "upcoming",
-        amount: 45000,
+        amount: 25000,
       },
       {
         position: 4,
         member: "Peter Maina",
         date: "2024-10-15",
         status: "upcoming",
-        amount: 45000,
+        amount: 25000,
       },
       {
         position: 5,
         member: "Grace Njeri",
         date: "2024-11-15",
         status: "upcoming",
-        amount: 45000,
+        amount: 25000,
       },
     ] as PayoutScheduleItem[],
     members: [

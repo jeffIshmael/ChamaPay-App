@@ -1,23 +1,17 @@
+import ChamaOverviewTab from "@/components/ChamaOverviewTab";
+import ChatTab from "@/components/ChatTab";
+import MembersTab from "@/components/MembersTab";
+import ScheduleTab from "@/components/ScheduleTab";
+import { TabButton } from "@/components/ui/TabButton";
 import { JoinedChama, mockJoinedChamas } from "@/constants/mockData";
+import { formatToK } from "@/lib/formatNumbers";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-  ArrowLeft,
-  CheckCircle,
-  DollarSign,
-  Info,
-  LogOut,
-  Send,
-  TrendingUp,
-} from "lucide-react-native";
+import { ArrowLeft } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   SafeAreaView,
-  ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -45,110 +39,6 @@ export default function JoinedChamaDetails() {
     }
     setIsLoading(false);
   }, [id]);
-
-  const Badge = ({
-    children,
-    variant = "default",
-    className = "",
-  }: {
-    children: React.ReactNode;
-    variant?: "default" | "secondary" | "destructive";
-    className?: string;
-  }) => {
-    const baseClasses = "px-2 py-1 rounded-full";
-    const variantClasses = {
-      default: "bg-gray-900 text-white",
-      secondary: "bg-gray-100 text-gray-700",
-      destructive: "bg-red-500 text-white",
-    };
-
-    return (
-      <View
-        className={`${baseClasses} ${variantClasses[variant]} ${className}`}
-      >
-        <Text
-          className={`text-[8px] font-medium ${variant === "default" ? "text-white" : variant === "destructive" ? "text-white" : "text-gray-700"}`}
-        >
-          {children}
-        </Text>
-      </View>
-    );
-  };
-
-  const Card = ({
-    children,
-    className = "",
-  }: {
-    children: React.ReactNode;
-    className?: string;
-  }) => (
-    <View className={`bg-white rounded-lg border border-gray-200 ${className}`}>
-      {children}
-    </View>
-  );
-
-  const ProgressBar = ({ value }: { value: number }) => (
-    <View className="w-full h-2 bg-gray-200 rounded-full">
-      <View
-        className="h-full bg-emerald-500 rounded-full"
-        style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
-      />
-    </View>
-  );
-
-  const AlertCard = ({
-    children,
-    type = "warning",
-  }: {
-    children: React.ReactNode;
-    type?: "warning" | "error";
-  }) => (
-    <View
-      className={`rounded-lg border p-4 ${
-        type === "warning"
-          ? "border-orange-200 bg-orange-50"
-          : "border-red-200 bg-red-50"
-      }`}
-    >
-      {children}
-    </View>
-  );
-
-  const TabButton = ({
-    label,
-    value,
-    isActive,
-    onPress,
-    badge,
-  }: {
-    label: string;
-    value: string;
-    isActive: boolean;
-    onPress: () => void;
-    badge?: number;
-  }) => (
-    <TouchableOpacity
-      onPress={onPress}
-      className={`flex-1 py-2 px-1 rounded-lg ${
-        isActive ? "bg-emerald-100" : "bg-gray-100"
-      }`}
-    >
-      <View className="items-center">
-        <Text
-          className={`text-xs font-medium ${
-            isActive ? "text-emerald-700" : "text-gray-600"
-          }`}
-        >
-          {label}
-        </Text>
-        {badge && badge > 0 && (
-          <View className="absolute -top-1 -right-1">
-            <Badge variant="destructive">{badge}</Badge>
-          </View>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
 
   const sendMessage = () => {
     if (newMessage.trim()) {
@@ -203,7 +93,6 @@ export default function JoinedChamaDetails() {
     );
   }
 
-  // Safe calculations with default values
   const contribution = chama.contribution || 0;
   const myContributions = chama.myContributions || 0;
   const remainingAmount = Math.max(0, contribution - myContributions);
@@ -211,325 +100,35 @@ export default function JoinedChamaDetails() {
   const unreadMessages = chama.unreadMessages || 0;
 
   const renderOverviewTab = () => (
-    <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-      {/* Contribution Progress */}
-      <Card className="p-4 mb-4">
-        <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-gray-900 font-medium">
-            This Month&apos;s Contribution
-          </Text>
-          <Badge
-            variant={myContributions >= contribution ? "default" : "secondary"}
-          >
-            <Text
-              className={
-                myContributions >= contribution
-                  ? "text-white"
-                  : "text-orange-700"
-              }
-            >
-              {myContributions >= contribution ? "Complete" : "Pending"}
-            </Text>
-          </Badge>
-        </View>
-        <View className="gap-3">
-          <View className="flex-row justify-between">
-            <Text className="text-sm text-gray-600">
-              Contributed KES {myContributions.toLocaleString()}
-            </Text>
-          </View>
-          <ProgressBar
-            value={
-              contribution > 0 ? (myContributions / contribution) * 100 : 0
-            }
-          />
-          {myContributions >= contribution ? (
-            <Text className="text-xs text-green-600">
-              ✓ Thank you for your contribution this month!
-            </Text>
-          ) : (
-            <View className="gap-2">
-              <Text className="text-xs text-gray-600">
-                KES {remainingAmount.toLocaleString()} remaining • Due:{" "}
-                {chama.contributionDueDate}
-              </Text>
-              <View className="flex-row gap-2">
-                <TextInput
-                  value={paymentAmount}
-                  onChangeText={setPaymentAmount}
-                  keyboardType="numeric"
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="Amount"
-                />
-                <TouchableOpacity
-                  onPress={makePayment}
-                  className="bg-emerald-600 px-4 py-2 rounded-lg"
-                >
-                  <Text className="text-white text-sm font-medium">Pay</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-        </View>
-      </Card>
-
-      {/* Next Payout Info */}
-      <Card className="p-4 mb-4">
-        <View className="flex-row items-center gap-3 mb-3">
-          <View className="w-8 h-8 rounded-full bg-emerald-100 items-center justify-center">
-            <TrendingUp size={16} color="#059669" />
-          </View>
-          <View>
-            <Text className="text-gray-900 font-medium">Next Payout</Text>
-            <Text className="text-sm text-gray-600">August 15, 2024</Text>
-          </View>
-        </View>
-        <View className="gap-2">
-          <View className="flex-row justify-between">
-            <Text className="text-gray-600 text-sm">Recipient:</Text>
-            <Text className="text-gray-900 text-sm">
-              {chama.currentTurnMember}
-            </Text>
-          </View>
-          <View className="flex-row justify-between">
-            <Text className="text-gray-600 text-sm">Amount:</Text>
-            <Text className="text-gray-900 text-sm">
-              KES {nextPayoutAmount.toLocaleString()}
-            </Text>
-          </View>
-          <View className="flex-row justify-between">
-            <Text className="text-gray-600 text-sm">Your turn:</Text>
-            <Text className="text-emerald-600 text-sm font-medium">
-              September 15, 2024
-            </Text>
-          </View>
-        </View>
-      </Card>
-
-      {/* Recent Transactions */}
-      <Card className="p-4 mb-4">
-        <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-gray-900 font-medium">Recent Transactions</Text>
-        </View>
-        <View className="gap-2">
-          {chama.recentTransactions.slice(0, 3).map((transaction: any) => (
-            <View
-              key={transaction.id}
-              className="flex-row items-center justify-between py-2"
-            >
-              <View className="flex-row items-center gap-3">
-                <View
-                  className={`w-6 h-6 rounded-full items-center justify-center ${
-                    transaction.type === "contribution"
-                      ? "bg-emerald-100"
-                      : "bg-orange-100"
-                  }`}
-                >
-                  <DollarSign
-                    size={12}
-                    color={
-                      transaction.type === "contribution"
-                        ? "#059669"
-                        : "#ea580c"
-                    }
-                  />
-                </View>
-                <View>
-                  <Text className="text-sm text-gray-900 capitalize">
-                    {transaction.type}
-                  </Text>
-                  <Text className="text-xs text-gray-600">
-                    {transaction.date}
-                  </Text>
-                </View>
-              </View>
-              <Text className="text-sm text-gray-900">
-                KES {(transaction.amount || 0).toLocaleString()}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </Card>
-
-      {/* Leave Chama */}
-      <AlertCard type="error">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1">
-            <Text className="text-sm text-red-700 font-medium">
-              Leave chama
-            </Text>
-          </View>
-          <TouchableOpacity onPress={leaveChama} className="p-2">
-            <LogOut size={16} color="#dc2626" />
-          </TouchableOpacity>
-        </View>
-      </AlertCard>
-
-      <View className="h-20" />
-    </ScrollView>
+    <ChamaOverviewTab
+      myContributions={myContributions}
+      contribution={contribution}
+      remainingAmount={remainingAmount}
+      paymentAmount={paymentAmount}
+      setPaymentAmount={setPaymentAmount}
+      makePayment={makePayment}
+      contributionDueDate={chama.contributionDueDate}
+      currentTurnMember={chama.currentTurnMember}
+      recentTransactions={chama.recentTransactions}
+      nextPayoutAmount={nextPayoutAmount}
+      leaveChama={leaveChama}
+    />
   );
 
   const renderChatTab = () => (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1"
-    >
-      <ScrollView className="flex-1 mb-16" showsVerticalScrollIndicator={false}>
-        <View className="gap-3">
-          {chama.messages.map((message: any) => (
-            <View
-              key={message.id}
-              className={`p-3 rounded-lg ${
-                message.isAdmin
-                  ? "bg-emerald-50 border border-emerald-200"
-                  : "bg-white border border-gray-200"
-              }`}
-            >
-              <View className="flex-row items-center justify-between mb-1">
-                <Text
-                  className={`text-sm font-medium ${
-                    message.isAdmin ? "text-emerald-700" : "text-gray-900"
-                  }`}
-                >
-                  {message.sender}
-                </Text>
-                <Text className="text-xs text-gray-500">{message.time}</Text>
-              </View>
-              <Text className="text-sm text-gray-700">{message.message}</Text>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-
-      {/* Message Input - Fixed at bottom */}
-      <View className="absolute bottom-0 left-0 right-0 bg-white p-4 border-t border-gray-200">
-        <View className="flex-row gap-2">
-          <TextInput
-            value={newMessage}
-            onChangeText={setNewMessage}
-            placeholder="Type a message..."
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-            multiline
-          />
-          <TouchableOpacity
-            onPress={sendMessage}
-            disabled={!newMessage.trim()}
-            className={`px-4 py-2 rounded-lg ${
-              newMessage.trim() ? "bg-emerald-600" : "bg-gray-300"
-            }`}
-          >
-            <Send size={16} color="#ffffff" />
-          </TouchableOpacity>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
+    <ChatTab
+      messages={chama.messages}
+      newMessage={newMessage}
+      setNewMessage={setNewMessage}
+      sendMessage={sendMessage}
+    />
   );
 
   const renderScheduleTab = () => (
-    <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-      <View className="gap-3">
-        {chama.payoutSchedule.map((payout: any) => (
-          <Card key={payout.position} className="p-4">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-3">
-                <View
-                  className={`w-8 h-8 rounded-full items-center justify-center ${
-                    payout.status === "completed"
-                      ? "bg-green-100"
-                      : payout.status === "current"
-                        ? "bg-emerald-100"
-                        : "bg-gray-100"
-                  }`}
-                >
-                  {payout.status === "completed" ? (
-                    <CheckCircle size={16} color="#059669" />
-                  ) : (
-                    <Text
-                      className={`text-sm font-medium ${
-                        payout.status === "current"
-                          ? "text-emerald-600"
-                          : "text-gray-600"
-                      }`}
-                    >
-                      {payout.position}
-                    </Text>
-                  )}
-                </View>
-                <View>
-                  <Text className="text-gray-900 text-sm font-medium">
-                    {payout.member}
-                  </Text>
-                  <Text className="text-gray-600 text-xs">{payout.date}</Text>
-                </View>
-              </View>
-              <View className="items-end">
-                <Text className="text-gray-900 text-sm font-medium">
-                  KES {(payout.amount || 0).toLocaleString()}
-                </Text>
-                <View
-                  className={`px-2 py-1 rounded-full mt-1 ${getStatusColor(payout.status)}`}
-                >
-                  <Text className="text-xs font-medium capitalize">
-                    {payout.status}
-                  </Text>
-                </View>
-              </View>
-            </View>
-            {payout.member === "You (Sarah)" && (
-              <View className="mt-3 p-2 bg-emerald-50 rounded-lg">
-                <View className="flex-row items-center gap-2">
-                  <Info size={14} color="#059669" />
-                  <Text className="text-xs text-emerald-700">
-                    This is your payout turn
-                  </Text>
-                </View>
-              </View>
-            )}
-          </Card>
-        ))}
-      </View>
-      <View className="h-20" />
-    </ScrollView>
+    <ScheduleTab payoutSchedule={chama.payoutSchedule} />
   );
 
-  const renderMembersTab = () => (
-    <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-      <View className="gap-3">
-        {chama.members.map((member: any) => (
-          <Card key={member.id} className="p-4">
-            <View className="flex-row items-center gap-6">
-              <View className="w-10 h-10 rounded-full bg-emerald-100 items-center justify-center">
-                <Text className="text-emerald-600 text-sm font-medium">
-                  {member.name
-                    .split(" ")
-                    .map((n: any) => n[0])
-                    .join("")}
-                </Text>
-              </View>
-              <View>
-                <View className="flex-row items-center gap-2">
-                  <Text className="text-gray-900 text-sm font-medium">
-                    {member.name}
-                  </Text>
-                  {member.role === "Admin" && (
-                    <Badge variant="secondary">
-                      <Text className="text-emerald-700">Admin</Text>
-                    </Badge>
-                  )}
-                </View>
-                <View className="flex-row items-center gap-3 mt-1">
-                  <Text className="text-gray-600 text-xs">
-                    KES {(member.contributions || 0).toLocaleString()}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </Card>
-        ))}
-      </View>
-      <View className="h-20" />
-    </ScrollView>
-  );
+  const renderMembersTab = () => <MembersTab members={chama.members} />;
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -558,7 +157,7 @@ export default function JoinedChamaDetails() {
           >
             <ArrowLeft size={20} color="white" />
           </TouchableOpacity>
-          <Text className="text-lg text-white font-medium">Chama</Text>
+          <Text className="text-lg text-white font-medium">{chama.name}</Text>
           <View className="w-10" />
         </View>
 
@@ -575,7 +174,9 @@ export default function JoinedChamaDetails() {
           </View>
           <View className="items-center">
             <Text className="text-emerald-100 text-xs">Next Payout</Text>
-            <Text className="text-lg text-white font-semibold">KES 25K</Text>
+            <Text className="text-lg text-white font-semibold">
+              KES {formatToK(nextPayoutAmount)}
+            </Text>
           </View>
         </View>
       </View>
