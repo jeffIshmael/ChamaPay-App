@@ -18,7 +18,8 @@ import {
 import React, { useState } from "react";
 import {
   Alert,
-  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -132,7 +133,8 @@ export default function CryptoWallet() {
       return;
     }
 
-    // TODO: Swap tokens
+    // TODO: Implement swapping functionality
+    Alert.alert("Swap tokens", "Swapping...");
   };
 
   const handleReceive = () => {
@@ -371,12 +373,15 @@ export default function CryptoWallet() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <KeyboardAvoidingView
+      className="flex-1 "
+      style={{ paddingTop: insets.top }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
         {/* Header */}
         <View
-          style={{ paddingTop: insets.top }}
-          className="bg-emerald-600 px-6 pt-4 pb-6"
+          className="bg-emerald-600 px-6 pb-6"
         >
           <View className="flex-row items-center justify-center mb-4">
             <Text className="text-xl text-white font-medium">Wallet</Text>
@@ -450,7 +455,7 @@ export default function CryptoWallet() {
         {/* Tabs */}
         <View className="px-6 py-4">
           {/* Tab Headers */}
-          <View className="flex-row bg-gray-100 rounded-lg p-1 mb-4 gap-1">
+          <View className="flex-row bg-white rounded-lg p-1 mb-4 gap-1">
             <TabButton
               tabKey="overview"
               title="Assets"
@@ -488,13 +493,14 @@ export default function CryptoWallet() {
                 {/* From Token */}
                 <View className="mb-4">
                   <Text className="text-sm text-gray-700 mb-2">From</Text>
-                  <View className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <View className="bg-gray-50 border border-gray-200  rounded-lg p-4">
                     <View className="flex-row items-center justify-between mb-2">
-                      <View className="flex-1 mr-4">
+                      <View className="flex-1 mr-4 ">
                         <Picker
                           selectedValue={fromToken}
                           onValueChange={setFromToken}
-                          style={{ height: 40 }}
+                          style={{ height: 50, width: 150 }}
+                          itemStyle={{ color: "black" }}
                         >
                           {walletData.balances.map((token) => (
                             <Picker.Item
@@ -551,7 +557,8 @@ export default function CryptoWallet() {
                         <Picker
                           selectedValue={toToken}
                           onValueChange={setToToken}
-                          style={{ height: 40 }}
+                          style={{ height: 50, width: 150 }}
+                          itemStyle={{ color: "black" }}
                         >
                           {walletData.balances.map((token) => (
                             <Picker.Item
@@ -668,6 +675,6 @@ export default function CryptoWallet() {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
