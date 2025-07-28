@@ -200,9 +200,8 @@ export default function ChamaDetails() {
           {
             title: "Exit Policy:",
             items: [
-              "Can exit before chama starts (full refund)",
+              "Can exit before chama starts (full collateral refund)",
               "Early exit after start may forfeit collateral",
-              "Group must vote on replacement members",
             ],
           },
         ].map((section, index) => (
@@ -359,7 +358,7 @@ export default function ChamaDetails() {
                   <Text className="text-white font-medium text-center">
                     {isJoining
                       ? "Joining Chama..."
-                      : `Join Chama (${chama.currency} ${chama.collateralRequired.toLocaleString()} Collateral)`}
+                      : "Join Chama"}
                   </Text>
                 </TouchableOpacity>
               </View>

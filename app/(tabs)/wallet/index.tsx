@@ -141,6 +141,10 @@ export default function CryptoWallet() {
     router.push("/wallet/receive-crypto");
   };
 
+  const handleDeposit = () => {
+    Alert.alert("Deposit crypto", "Onramp functionality here...")
+  }
+
   const switchTokens = () => {
     const temp = fromToken;
     setFromToken(toToken);
@@ -374,11 +378,11 @@ export default function CryptoWallet() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 "
+      className="flex-1 bg-emerald-600 "
       style={{ paddingTop: insets.top }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+      <ScrollView showsVerticalScrollIndicator={false} className="flex-1 bg-gray-50">
         {/* Header */}
         <View
           className="bg-emerald-600 px-6 pb-6"
@@ -434,9 +438,8 @@ export default function CryptoWallet() {
               bgColor="bg-blue-50 border-blue-200"
               textColor="text-blue-700"
             />
-            {/* TODO: Set up onramp functionality for Deposit. It currently navigates to Receiving crypto screen */}
             <ActionButton
-              onPress={() => router.push("/wallet/receive-crypto")}
+              onPress={handleDeposit}
               icon={<Download size={20} color="#15803d" />}
               title="Deposit"
               bgColor="bg-green-50 border-green-200"

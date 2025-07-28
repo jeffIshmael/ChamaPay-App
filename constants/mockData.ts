@@ -598,24 +598,3 @@ export const mockMembers = [
       "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=40&h=40&fit=crop&crop=face",
   },
 ];
-
-export const mockTransactions = [
-  {
-    id: "1",
-    type: "contribution",
-    amount: 10000,
-    chama: "Tech Developers Circle",
-    date: "2025-01-24T14:30:00Z",
-    status: "completed",
-    hash: "0x742d35Cc6Cd3C9C4F6",
-  },
-  {
-    id: "2",
-    type: "payout",
-    amount: 120000,
-    chama: "Tech Developers Circle",
-    date: "2025-01-20T10:00:00Z",
-    status: "completed",
-    hash: "0x8f3e2A9d7B5c1E4f8",
-  },
-];

@@ -65,7 +65,7 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
       style={{ paddingTop: insets.top }}
     >
       {/* Header */}
-      <View className="bg-white border-b border-gray-200 px-4">
+      <View className="bg-white border-b border-gray-200 px-4 py-2">
         <View className="flex-row items-center gap-4">
           <TouchableOpacity
             onPress={() => router.back()}
@@ -179,9 +179,6 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
             <Text className="text-lg font-medium text-gray-900">Security</Text>
           </View>
           <View className="gap-3">
-            <TouchableOpacity className="w-full p-4 border border-gray-300 rounded-lg active:bg-gray-50">
-              <Text className="text-gray-700 font-medium">Change Password</Text>
-            </TouchableOpacity>
             <TouchableOpacity className="w-full p-4 border border-gray-300 rounded-lg active:bg-gray-50">
               <Text className="text-gray-700 font-medium">
                 Two-Factor Authentication

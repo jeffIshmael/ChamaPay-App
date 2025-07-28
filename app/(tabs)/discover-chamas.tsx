@@ -1,12 +1,6 @@
 import { mockPublicChamas, PublicChama } from "@/constants/mockData";
 import { useRouter } from "expo-router";
-import {
-  Calendar,
-  MapPin,
-  Search,
-  Users,
-  Wallet
-} from "lucide-react-native";
+import { Calendar, MapPin, Search, Users, Wallet } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   FlatList,
@@ -14,7 +8,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
