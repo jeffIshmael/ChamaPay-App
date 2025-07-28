@@ -8,15 +8,8 @@ import {
   Wallet,
 } from "lucide-react-native";
 import React from "react";
-import {
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View
-} from "react-native";
-import {
-  useSafeAreaInsets
-} from "react-native-safe-area-context";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Mock data for chamas (you'll want to move this to a separate constants file)
 const mockChamas = [
