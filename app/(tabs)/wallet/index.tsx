@@ -378,7 +378,7 @@ export default function CryptoWallet() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-emerald-600 "
+      className="flex-1 bg-emerald-600"
       style={{ paddingTop: insets.top }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >

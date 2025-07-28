@@ -3,13 +3,13 @@ import { ArrowLeft, Check, Info, QrCode } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   Alert,
-  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
-  StatusBar,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -51,16 +51,13 @@ export default function SendCryptoScreen() {
   };
 
   return (
-    <SafeAreaView
-      className="flex-1 bg-gray-50"
+    <KeyboardAvoidingView
+      className="flex-1 bg-emerald-600"
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ paddingTop: insets.top }}
     >
-      <StatusBar
-        backgroundColor="#059669" // Android only
-        barStyle="light-content" // 'light-content' for light icons, 'dark-content' for dark icons
-      />
       {/* Header */}
-      <View className="bg-emerald-600 px-6">
+      <View className="px-6">
         <View className="flex-row items-center justify-between mb-4">
           <TouchableOpacity
             onPress={() => router.back()}
@@ -73,7 +70,10 @@ export default function SendCryptoScreen() {
           <View className="w-10" />
         </View>
       </View>
-      <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        className="flex-1 bg-gray-50"
+      >
         <View className="px-6 py-6 gap-6">
           {/* Select Token */}
           <View className="bg-white p-4 rounded-lg border border-gray-200">
@@ -233,6 +233,6 @@ export default function SendCryptoScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }

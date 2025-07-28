@@ -13,7 +13,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StatusBar,
   Text,
   TextInput,
   TouchableOpacity,
@@ -84,32 +83,30 @@ export default function WithdrawCryptoScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1"
+      className="flex-1 bg-emerald-600"
       style={{ paddingTop: insets.top }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <StatusBar
-        backgroundColor="#059669" // Android only
-        barStyle="light-content" // 'light-content' for light icons, 'dark-content' for dark icons
-      />
-      <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-        {/* Header */}
-        <View className="bg-emerald-600 px-6">
-          <View className="flex-row items-center justify-between mb-4">
-            <TouchableOpacity
-              onPress={() => router.back()}
-              className="p-2 rounded-full"
-              activeOpacity={0.7}
-            >
-              <ArrowLeft size={20} color="white" />
-            </TouchableOpacity>
-            <Text className="text-lg text-white font-medium">
-              Withdraw Crypto
-            </Text>
-            <View className="w-10" />
-          </View>
+      {/* Header */}
+      <View className="px-6">
+        <View className="flex-row items-center justify-between mb-4">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="p-2 rounded-full"
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={20} color="white" />
+          </TouchableOpacity>
+          <Text className="text-lg text-white font-medium">
+            Withdraw Crypto
+          </Text>
+          <View className="w-10" />
         </View>
-
+      </View>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        className="flex-1 bg-gray-50"
+      >
         <View className="px-6 py-6 gap-6">
           {/* Select Token */}
           <View className="bg-white p-4 rounded-lg border border-gray-200">
