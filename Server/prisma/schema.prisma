@@ -1,0 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
+  name          String?
+  phoneNo       Int?
+  address       String
+  privKey       String
+  mnemonics     String
+  password      String
+  role          String?
+  profile       String?
+  createdChamas Chama[]        @relation("AdminChamas")
+  chamas        ChamaMember[]
+  joinRequests  ChamaRequest[]
+  notifications Notification[]
+  payments      Payment[]
+  messages      Message[] // Added relation to Message
+  payOuts       PayOut[]
+}
+
+model Chama {
+  id            Int           @id @default(autoincrement())
+  name          String
+  slug          String        @unique
+  type          String
+  startDate     DateTime
+  payDate       DateTime
+  cycleTime     Int
+  started       Boolean       @default(false)
+  amount        BigInt
+  round         Int
+  cycle         Int
+  maxNo         Int           @default(15)      
+  blockchainId  String
+  adminId       Int
+  canJoin       Boolean  @default(true)
+  payOutOrder   String?  // Json string of payout order array.
+  createdAt     DateTime      @default(now())
+  promoCode     String?
+  admin         User          @relation("AdminChamas", fields: [adminId], references: [id])
+  members       ChamaMember[]
+  requests      ChamaRequest[]
+  notifications Notification[]
+  payments      Payment[]
+  messages      Message[]     // Added relation to Message
+  payOuts       PayOut[]
+  roundOutcome  roundOutcome[]
+}
+
+model ChamaMember {
+  id      Int   @id @default(autoincrement())
+  userId  Int
+  chamaId Int
+  incognito Boolean @default(false)
+  isPaid    Boolean  @default(false)
+  chama   Chama @relation(fields: [chamaId], references: [id])
+  user    User  @relation(fields: [userId], references: [id])
+  payDate         DateTime // To track the payment rotation date
+}
+
+model Payment {
+  id      Int      @id @default(autoincrement())
+  amount  BigInt
+  description String?
+  doneAt  DateTime @default(now())
+  txHash  String
+  userId  Int
+  chamaId Int
+  chama   Chama    @relation(fields: [chamaId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  message   String
+  senderId  Int?
+  requestId Int?
+  userId    Int
+  chamaId   Int?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  chama     Chama?   @relation(fields: [chamaId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model ChamaRequest {
+  id        Int      @id @default(autoincrement())
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  userId    Int
+  chamaId   Int
+  chama     Chama    @relation(fields: [chamaId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  chama     Chama    @relation(fields: [chamaId], references: [id])
+  chamaId   Int
+  sender    User     @relation(fields: [senderId], references: [id])
+  senderId  Int
+  text      String
+  timestamp DateTime @default(now())
+}
+
+model PayOut {
+  id Int @id @default(autoincrement())
+  amount  BigInt
+  doneAt  DateTime @default(now())
+  txHash  String?
+  receiver String
+  userId  Int
+  chamaId Int
+  chama   Chama    @relation(fields: [chamaId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
+}
+
+model roundOutcome {
+  id  Int @id @default(autoincrement())
+  disburse Boolean
+  chamaCycle Int
+  chamaRound Int
+  amountPaid String 
+  shownMembers String?  // Json string of people who have been shown an outcome modal.
+  createdAt DateTime @default(now())
+  chamaId Int
+  chama   Chama    @relation(fields: [chamaId], references: [id])
+}
