@@ -208,7 +208,6 @@ exports.verifyEmailAndCompleteRegistration = async (req, res) => {
 
     // Clean up pending user
     await prisma.pendingUser.delete({ where: { id: pendingUser.id } });
-
     res.status(201).json({
       success: true,
       message: "Registration completed successfully",

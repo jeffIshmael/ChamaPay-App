@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Bell,
   Calendar,
+  Settings,
   User,
   Users,
   Wallet,
@@ -141,11 +142,10 @@ export default function HomeScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => router.push("/profile-settings")}
-            onLongPress={handleLogout}
             className="p-2"
             activeOpacity={0.7}
           >
-            <User color="white" size={20} />
+            <Settings color="white" size={20} />
           </TouchableOpacity>
         </View>
       </View>
