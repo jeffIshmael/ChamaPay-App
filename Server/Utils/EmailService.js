@@ -4,7 +4,7 @@ class EmailService {
   constructor() {
     // Configure your email service here
     // For development, you can use Gmail or SendGrid
-    this.transporter = nodemailer.createTransporter({
+    this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
         user: process.env.EMAIL_USERNAME,

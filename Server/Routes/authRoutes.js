@@ -5,8 +5,10 @@ const {
   requestRegistration, 
   verifyEmailAndCompleteRegistration,
   resendOTP,
-  login 
+  login,
+  getMnemonic
 } = require("../Controllers/authController");
+const authenticate = require("../Middlewares/authMiddleware");
 
 // Registration endpoints
 router.post("/request-registration", requestRegistration);
@@ -15,5 +17,8 @@ router.post("/resend-otp", resendOTP);
 
 // Login endpoint
 router.post("/login", login);
+
+// Protected endpoints
+router.post("/get-mnemonic", authenticate, getMnemonic);
 
 module.exports = router;
