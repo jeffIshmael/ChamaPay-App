@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import {
   ChevronLeft,
   ChevronRight,
@@ -9,8 +10,7 @@ import {
 import React, { useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-import { useRouter } from "expo-router";
+import { storage } from "@/utils/storage";
 
 const onboardingSlides = [
   {
@@ -55,11 +55,13 @@ export default function Onboarding() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const router = useRouter();
 
-  const nextSlide = () => {
+  const nextSlide = async () => {
     if (currentSlide < onboardingSlides.length - 1) {
       setCurrentSlide(currentSlide + 1);
     } else {
-      router.push("/auth-screen");
+      // Mark onboarding as seen before navigating to auth
+      await storage.setHasSeenOnboarding(true);
+      router.replace("/auth-screen");
     }
   };
 
@@ -74,8 +76,6 @@ export default function Onboarding() {
 
 
   return (
-  
-
       <SafeAreaView className="flex-1 bg-white ">
         <View className="flex-1 px-6 justify-center">
           {/* Main content */}

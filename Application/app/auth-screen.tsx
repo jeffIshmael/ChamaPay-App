@@ -1,5 +1,6 @@
 import { TabButton } from "@/components/ui/TabButton";
 import { serverUrl } from "@/constants/serverUrl";
+import { useAuth } from "@/contexts/AuthContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useRouter } from "expo-router";
@@ -48,6 +49,7 @@ export default function AuthScreen() {
   const [errorText, setErrorText] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { login } = useAuth();
 
   const handleLogin = async () => {
     setErrorText("");
@@ -55,34 +57,25 @@ export default function AuthScreen() {
       setErrorText("All fields are required");
       return;
     }
+    
     try {
       setLoading(true);
-      const response = await fetch(`${serverUrl}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await response.json();
-
-      if (response.ok) {
-        await AsyncStorage.setItem("token", data.token);
-        Alert.alert("Success", `Login successful.`, [
+      const result = await login(email, password);
+      
+      if (result.success) {
+        Alert.alert("Success", "Login successful!", [
           { 
             text: "OK", 
             onPress: () => {
-              if (router) {
-                router.push("/(tabs)");
-              } else {
-                console.log("Navigation not available");
-              }
+              router.replace("/(tabs)");
             }
           },
         ]);
       } else {
-        setErrorText(data.message ? data.message : "Login failed. Try again.");
+        setErrorText(result.error || "Login failed. Please try again.");
       }
     } catch (error) {
-      console.log(error);
+      console.error("Login error:", error);
       setErrorText("An error occurred. Please try again.");
     } finally {
       setLoading(false);
@@ -113,14 +106,20 @@ export default function AuthScreen() {
        );
        return;
       }
+      
+      // Store the token from registration
+      if (response.data.token) {
+        await AsyncStorage.setItem("token", response.data.token);
+      }
+      
       Alert.alert(
         "Success",
-        `Registration successful. You can now login!`,
+        `Registration successful. You can now set up your wallet!`,
         [
           {
             text: "OK",
             onPress: () => {
-              router.push("/wallet-setup");
+              router.replace("/wallet-setup");
             },
           },
         ]

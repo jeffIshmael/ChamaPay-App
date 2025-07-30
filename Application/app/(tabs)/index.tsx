@@ -1,19 +1,29 @@
 import { mockJoinedChamas } from "@/constants/mockData";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import {
-  ArrowRight,
-  Bell,
-  Calendar,
-  User,
-  Users,
-  Wallet,
+    ArrowRight,
+    Bell,
+    Calendar,
+    User,
+    Users,
+    Wallet,
 } from "lucide-react-native";
-import React, { useEffect } from "react";
+import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.replace("/auth-screen");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
 
 
@@ -93,7 +103,9 @@ export default function HomeScreen() {
           </View>
           <View>
             <Text className="text-lg text-white font-medium">Welcome back</Text>
-            <Text className="text-emerald-100 text-sm">Sarah</Text>
+            <Text className="text-emerald-100 text-sm">
+              {user?.name || user?.email || "User"}
+            </Text>
           </View>
         </View>
         <View className="flex-row">
@@ -106,6 +118,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => router.push("/profile-settings")}
+            onLongPress={handleLogout}
             className="p-2"
             activeOpacity={0.7}
           >
