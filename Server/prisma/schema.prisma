@@ -30,16 +30,17 @@ model User {
 
 model Chama {
   id            Int           @id @default(autoincrement())
-  name          String
+  name          String       
   slug          String        @unique
+  description   String?
   type          String
   startDate     DateTime
   payDate       DateTime
   cycleTime     Int
   started       Boolean       @default(false)
   amount        BigInt
-  round         Int
-  cycle         Int
+  round         Int          @default(1) //  payout
+  cycle         Int          @default(1) // after every member has received a payout
   maxNo         Int           @default(15)      
   blockchainId  String
   adminId       Int
