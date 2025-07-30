@@ -13,6 +13,7 @@ export default function RootLayout() {
           <Stack.Screen name="auth-screen" />
           <Stack.Screen name="otp-verification" />
           <Stack.Screen name="wallet-setup" />
+          <Stack.Screen name="edit-profile" />
           <Stack.Screen name="(tabs)" />
         </Stack>
       </SafeAreaProvider>

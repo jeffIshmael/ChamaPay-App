@@ -1,28 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  ActivityIndicator,
-  Pressable,
-} from 'react-native';
-import { 
-  Eye, 
-  EyeOff, 
-  Copy, 
-  Check, 
-  X, 
-  Shield, 
-  Lock,
-  Fingerprint 
-} from 'lucide-react-native';
-import * as LocalAuthentication from 'expo-local-authentication';
-import * as Clipboard from 'expo-clipboard';
-import { useAuth } from '@/contexts/AuthContext';
 import { serverUrl } from '@/constants/serverUrl';
+import { useAuth } from '@/contexts/AuthContext';
+import * as Clipboard from 'expo-clipboard';
+import * as LocalAuthentication from 'expo-local-authentication';
+import {
+  Check,
+  Copy,
+  Eye,
+  EyeOff,
+  Fingerprint,
+  Lock,
+  Shield,
+  X
+} from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  Modal,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 
 interface SeedPhraseModalProps {
   visible: boolean;
@@ -38,7 +36,6 @@ export default function SeedPhraseModal({ visible, onClose }: SeedPhraseModalPro
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
-  const [autoHideTimer, setAutoHideTimer] = useState(30);
   const [biometricSupported, setBiometricSupported] = useState(false);
   
   const { token } = useAuth();
@@ -52,25 +49,10 @@ export default function SeedPhraseModal({ visible, onClose }: SeedPhraseModalPro
       setShowSeedPhrase(false);
       setError('');
       setCopied(false);
-      setAutoHideTimer(30);
     }
   }, [visible]);
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (step === 'display' && autoHideTimer > 0) {
-      interval = setInterval(() => {
-        setAutoHideTimer((prev) => {
-          if (prev <= 1) {
-            handleClose();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [step, autoHideTimer]);
+
 
   const checkBiometricSupport = async () => {
     try {
@@ -97,7 +79,6 @@ export default function SeedPhraseModal({ visible, onClose }: SeedPhraseModalPro
 
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Authenticate to view your seed phrase',
-        subtitle: 'Use your biometric or device PIN',
         cancelLabel: 'Cancel',
         fallbackLabel: 'Use Password',
       });
@@ -105,11 +86,9 @@ export default function SeedPhraseModal({ visible, onClose }: SeedPhraseModalPro
       if (result.success) {
         await fetchSeedPhrase();
       } else {
-        if (result.error === 'UserFallback') {
-          setAuthMethod('password');
-        } else {
-          setError('Authentication failed. Please try again.');
-        }
+        // If authentication failed, allow fallback to password
+        setError('Biometric authentication failed. Please use password instead.');
+        setAuthMethod('password');
       }
     } catch (error) {
       console.error('Biometric auth error:', error);
@@ -316,13 +295,6 @@ export default function SeedPhraseModal({ visible, onClose }: SeedPhraseModalPro
         ) : (
           /* Seed Phrase Display Step */
           <View className="flex-1 p-6">
-            {/* Auto-hide timer */}
-            <View className="bg-yellow-50 p-3 rounded-lg mb-4">
-              <Text className="text-yellow-800 text-sm text-center">
-                ⚠️ This screen will auto-close in {autoHideTimer} seconds for security
-              </Text>
-            </View>
-
             <View className="bg-red-50 border border-red-200 p-4 rounded-lg mb-6">
               <Text className="text-red-800 font-medium mb-2">🔐 Security Warning</Text>
               <Text className="text-red-700 text-sm">

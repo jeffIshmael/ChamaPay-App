@@ -1,15 +1,17 @@
+import SeedPhraseModal from '@/components/SeedPhraseModal';
 import { useAuth } from "@/contexts/AuthContext";
+import * as Clipboard from 'expo-clipboard';
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
   Bell,
+  Check,
   Copy,
   Edit,
   LogOut,
   Shield,
   User,
   Wallet,
-  Check,
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -22,8 +24,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as Clipboard from 'expo-clipboard';
-import SeedPhraseModal from '@/components/SeedPhraseModal';
 
 interface NotificationSettings {
   pushNotifications: boolean;
@@ -87,9 +87,9 @@ export default function ProfileSettings() {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const handleBackupSeedPhrase = () => {
+  const handleShowSeedPhrase = () => {
     Alert.alert(
-      "Backup Seed Phrase",
+      "Show Seed Phrase",
       "You are about to view your wallet recovery phrase. Make sure you are in a private location and no one can see your screen.",
       [
         { text: "Cancel", style: "cancel" },
@@ -150,7 +150,10 @@ export default function ProfileSettings() {
                 </Text>
               )}
             </View>
-            <TouchableOpacity className="p-2 border border-gray-300 rounded-lg active:bg-gray-50">
+            <TouchableOpacity 
+              onPress={() => router.push('/edit-profile')}
+              className="p-2 border border-gray-300 rounded-lg active:bg-gray-50"
+            >
               <Edit size={16} color="#374151" />
             </TouchableOpacity>
           </View>
@@ -279,13 +282,13 @@ export default function ProfileSettings() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              onPress={handleBackupSeedPhrase}
-              className="w-full p-4 border border-red-300 bg-red-50 rounded-lg active:bg-red-100"
+              onPress={handleShowSeedPhrase}
+              className="w-full p-4 border border-gray-300 rounded-lg active:bg-gray-50"
             >
-              <Text className="text-red-700 font-medium">
-                🔐 Backup Seed Phrase
+              <Text className="text-gray-700 font-medium">
+                Show Seed Phrase
               </Text>
-              <Text className="text-sm text-red-600 mt-1">
+              <Text className="text-sm text-gray-500 mt-1">
                 View your wallet recovery phrase (requires authentication)
               </Text>
             </TouchableOpacity>
@@ -295,12 +298,6 @@ export default function ProfileSettings() {
         {/* Account Actions */}
         <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
           <View className="gap-3">
-            <TouchableOpacity className="w-full p-4 border border-gray-300 rounded-lg active:bg-gray-50">
-              <Text className="text-gray-700 font-medium">Export Data</Text>
-              <Text className="text-sm text-gray-500 mt-1">
-                Download your account data
-              </Text>
-            </TouchableOpacity>
             <TouchableOpacity className="w-full p-4 border border-gray-300 rounded-lg active:bg-gray-50">
               <Text className="text-gray-700 font-medium">Privacy Policy</Text>
               <Text className="text-sm text-gray-500 mt-1">
