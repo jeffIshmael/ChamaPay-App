@@ -1,16 +1,16 @@
 import { mockJoinedChamas } from "@/constants/mockData";
+import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "expo-router";
 import {
-    ArrowRight,
-    Bell,
-    Calendar,
-    User,
-    Users,
-    Wallet,
+  ArrowRight,
+  Bell,
+  Calendar,
+  User,
+  Users,
+  Wallet,
 } from "lucide-react-native";
 import React from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { useAuth } from "@/contexts/AuthContext";
+import { Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -25,7 +25,21 @@ export default function HomeScreen() {
     }
   };
 
+  // Default avatar URLs based on user's initials
+  const getDefaultAvatar = () => {
+    const initials = (user?.name || user?.email || 'U')
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+    
+    return `https://api.dicebear.com/7.x/initials/svg?seed=${initials}&backgroundColor=ffffff&textColor=10b981`;
+  };
 
+  const getUserProfileImage = () => {
+    return user?.profileImageUrl || getDefaultAvatar();
+  };
 
   const Badge = ({
     children,
@@ -95,12 +109,21 @@ export default function HomeScreen() {
       {/* Header */}
       <View className="flex-row items-center justify-between  bg-emerald-600 px-3 pb-4 pt-8">
         <View className="flex-row items-center">
-          <View
-            className="w-10 h-10 rounded-full items-center justify-center mr-3"
-            style={{ backgroundColor: "rgba(255, 255, 255, 0.2)" }}
+          <TouchableOpacity
+            onPress={() => router.push("/profile-settings")}
+            className="mr-3"
+            activeOpacity={0.8}
           >
-            <User color="white" size={20} />
-          </View>
+            <Image
+              source={{ uri: getUserProfileImage() }}
+              className="w-10 h-10 rounded-full"
+              style={{ 
+                backgroundColor: '#f3f4f6',
+                borderWidth: 2,
+                borderColor: 'rgba(255, 255, 255, 0.3)'
+              }}
+            />
+          </TouchableOpacity>
           <View>
             <Text className="text-lg text-white font-medium">Welcome back</Text>
             <Text className="text-emerald-100 text-sm">
