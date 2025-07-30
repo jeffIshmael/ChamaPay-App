@@ -4,10 +4,12 @@ const jwt = require("jsonwebtoken");
 const { PrismaClient } = require("@prisma/client");
 const { getWallets } = require("../Utils/WalletCreation");
 const encryptionService = require("../Utils/Encryption");
+const emailService = require("../Utils/EmailService");
 
 const prisma = new PrismaClient();
 
-exports.register = async (req, res) => {
+// Step 1: Initial registration request (sends OTP)
+exports.requestRegistration = async (req, res) => {
   try {
     const { email, password, userName } = req.body;
     
@@ -35,9 +37,143 @@ exports.register = async (req, res) => {
       return res.status(400).json({ error: "User already exists" });
     }
 
+    // Check if email is already pending verification
+    const existingPending = await prisma.pendingUser.findUnique({
+      where: { email: formattedEmail },
+      include: { emailVerification: true }
+    });
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
-    const keyToEncrypt = process.env.JWT_SECRET;
+    
+    // Calculate expiration times
+    const now = new Date();
+    const pendingUserExpiry = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+    const otpExpiry = new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes
+
+    // Generate OTP
+    const otp = emailService.generateOTP();
+
+    let pendingUser;
+
+    if (existingPending) {
+      // Update existing pending user
+      pendingUser = await prisma.pendingUser.update({
+        where: { id: existingPending.id },
+        data: {
+          name: userName,
+          password: hashedPassword,
+          expiresAt: pendingUserExpiry,
+          emailVerification: {
+            upsert: {
+              create: {
+                otp,
+                expiresAt: otpExpiry,
+                attempts: 0,
+              },
+              update: {
+                otp,
+                expiresAt: otpExpiry,
+                attempts: 0,
+                verified: false,
+              }
+            }
+          }
+        }
+      });
+    } else {
+      // Create new pending user
+      pendingUser = await prisma.pendingUser.create({
+        data: {
+          email: formattedEmail,
+          name: userName,
+          password: hashedPassword,
+          expiresAt: pendingUserExpiry,
+          emailVerification: {
+            create: {
+              otp,
+              expiresAt: otpExpiry,
+            }
+          }
+        }
+      });
+    }
+
+    // Send OTP email
+    const emailResult = await emailService.sendOTPEmail(formattedEmail, otp, userName);
+    
+    if (!emailResult.success) {
+      return res.status(500).json({ 
+        error: "Failed to send verification email. Please try again." 
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Verification code sent to your email",
+      pendingUserId: pendingUser.id,
+      email: formattedEmail
+    });
+
+  } catch (error) {
+    console.error("Registration request error:", error);
+    res.status(500).json({ 
+      error: "Internal server error. Please try again." 
+    });
+  }
+};
+
+// Step 2: Verify OTP and complete registration
+exports.verifyEmailAndCompleteRegistration = async (req, res) => {
+  try {
+    const { pendingUserId, otp } = req.body;
+    
+    if (!pendingUserId || !otp) {
+      return res.status(400).json({ 
+        error: "Pending user ID and OTP are required" 
+      });
+    }
+
+    // Find pending user with verification
+    const pendingUser = await prisma.pendingUser.findUnique({
+      where: { id: parseInt(pendingUserId) },
+      include: { emailVerification: true }
+    });
+
+    if (!pendingUser) {
+      return res.status(404).json({ error: "Invalid or expired registration request" });
+    }
+
+    // Check if pending user has expired
+    if (new Date() > pendingUser.expiresAt) {
+      await prisma.pendingUser.delete({ where: { id: pendingUser.id } });
+      return res.status(400).json({ error: "Registration request expired. Please start over." });
+    }
+
+    const verification = pendingUser.emailVerification;
+    
+    if (!verification) {
+      return res.status(400).json({ error: "No verification request found" });
+    }
+
+    // Check if OTP has expired
+    if (new Date() > verification.expiresAt) {
+      return res.status(400).json({ error: "OTP has expired. Please request a new one." });
+    }
+
+    // Check attempt limit
+    if (verification.attempts >= 5) {
+      return res.status(400).json({ error: "Too many failed attempts. Please request a new OTP." });
+    }
+
+    // Verify OTP
+    if (verification.otp !== otp) {
+      await prisma.emailVerification.update({
+        where: { id: verification.id },
+        data: { attempts: verification.attempts + 1 }
+      });
+      return res.status(400).json({ error: "Invalid OTP" });
+    }
 
     // Generate wallet
     const wallet = await getWallets();
@@ -47,56 +183,100 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Encrypt sensitive wallet data using user's password
+    // Encrypt wallet data
+    const keyToEncrypt = process.env.JWT_SECRET;
     const encryptedPrivateKey = encryptionService.encrypt(
       wallet.signingKey.privateKey, 
       keyToEncrypt
     );
-    
     const encryptedMnemonic = encryptionService.encrypt(
       wallet.mnemonic.phrase, 
       keyToEncrypt
     );
 
-    // Create user with encrypted wallet data
+    // Create actual user
     const user = await prisma.user.create({
       data: {
-        email: formattedEmail,
-        name: userName,
-        password: hashedPassword,
+        email: pendingUser.email,
+        name: pendingUser.name,
+        password: pendingUser.password,
         address: wallet.address,
-        // encrypted private key as JSON string
         privKey: JSON.stringify(encryptedPrivateKey),
-        // encrypted mnemonic as JSON string
         mnemonics: JSON.stringify(encryptedMnemonic),
       },
     });
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email,
-        address: user.address 
-      }, 
-      process.env.JWT_SECRET,
-      { expiresIn: "24h" } // Extended to 24h for better UX
-    );
+    // Clean up pending user
+    await prisma.pendingUser.delete({ where: { id: pendingUser.id } });
 
-    // Return success response (never return sensitive data)
     res.status(201).json({
       success: true,
-      token
+      message: "Registration completed successfully",
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        address: user.address
+      }
     });
 
   } catch (error) {
-    console.error("Registration error:", error);
+    console.error("Email verification error:", error);
     res.status(500).json({ 
       error: "Internal server error. Please try again." 
     });
   }
 };
 
+// Resend OTP
+exports.resendOTP = async (req, res) => {
+  try {
+    const { pendingUserId } = req.body;
+    
+    const pendingUser = await prisma.pendingUser.findUnique({
+      where: { id: parseInt(pendingUserId) },
+      include: { emailVerification: true }
+    });
+
+    if (!pendingUser) {
+      return res.status(404).json({ error: "Invalid registration request" });
+    }
+
+    // Generate new OTP
+    const otp = emailService.generateOTP();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Update verification
+    await prisma.emailVerification.update({
+      where: { pendingUserId: pendingUser.id },
+      data: {
+        otp,
+        expiresAt: otpExpiry,
+        attempts: 0,
+      }
+    });
+
+    // Send new OTP
+    const emailResult = await emailService.sendOTPEmail(pendingUser.email, otp, pendingUser.name);
+    
+    if (!emailResult.success) {
+      return res.status(500).json({ 
+        error: "Failed to resend verification email" 
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "New verification code sent to your email"
+    });
+
+  } catch (error) {
+    console.error("Resend OTP error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Existing login function
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -185,8 +365,8 @@ exports.getWalletData = async (req, res) => {
     const encryptedPrivateKey = JSON.parse(user.privKey);
     const encryptedMnemonic = JSON.parse(user.mnemonics);
 
-    const privateKey = encryptionService.decrypt(encryptedPrivateKey, password);
-    const mnemonic = encryptionService.decrypt(encryptedMnemonic, password);
+    const privateKey = encryptionService.decrypt(encryptedPrivateKey, process.env.JWT_SECRET);
+    const mnemonic = encryptionService.decrypt(encryptedMnemonic, process.env.JWT_SECRET);
 
     res.json({
       success: true,
@@ -240,7 +420,7 @@ exports.getMnemonic = async (req, res) => {
 
     // Decrypt only mnemonic
     const encryptedMnemonic = JSON.parse(user.mnemonics);
-    const mnemonic = encryptionService.decrypt(encryptedMnemonic, password);
+    const mnemonic = encryptionService.decrypt(encryptedMnemonic, process.env.JWT_SECRET);
 
     res.json({
       success: true,

@@ -12,7 +12,7 @@ model User {
   email         String         @unique
   name          String?
   phoneNo       Int?
-  address       String
+  address       String         @unique
   privKey       String
   mnemonics     String
   password      String
@@ -134,4 +134,29 @@ model roundOutcome {
   createdAt DateTime @default(now())
   chamaId Int
   chama   Chama    @relation(fields: [chamaId], references: [id])
+}
+
+// Temporary storage for users pending email verification
+model PendingUser {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  password  String   // Hashed password
+  createdAt DateTime @default(now())
+  expiresAt DateTime // Auto-expire after 24 hours
+  
+  emailVerification EmailVerification?
+}
+
+// OTP management for email verification
+model EmailVerification {
+  id            Int         @id @default(autoincrement())
+  pendingUserId Int         @unique
+  otp           String      // 6-digit OTP
+  attempts      Int         @default(0)
+  verified      Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  expiresAt     DateTime    // OTP expires after 10 minutes
+  
+  pendingUser   PendingUser @relation(fields: [pendingUserId], references: [id], onDelete: Cascade)
 }

@@ -11,6 +11,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="auth-screen" />
+          <Stack.Screen name="otp-verification" />
           <Stack.Screen name="wallet-setup" />
           <Stack.Screen name="(tabs)" />
         </Stack>

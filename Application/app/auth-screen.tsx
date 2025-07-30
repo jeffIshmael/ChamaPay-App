@@ -2,11 +2,10 @@ import { TabButton } from "@/components/ui/TabButton";
 import { serverUrl } from "@/constants/serverUrl";
 import { useAuth } from "@/contexts/AuthContext";
 import axios from "axios";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Lock, Mail, Shield, User, Users } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -46,12 +45,26 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errorText, setErrorText] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
+  const params = useLocalSearchParams();
+
+  // Handle incoming success message and email from OTP verification
+  useEffect(() => {
+    if (params.message) {
+      setSuccessMessage(params.message as string);
+      setActiveSection("login");
+      if (params.email) {
+        setEmail(params.email as string);
+      }
+    }
+  }, [params]);
 
   const handleLogin = async () => {
     setErrorText("");
+    setSuccessMessage("");
     if (!email || !password) {
       setErrorText("All fields are required");
       return;
@@ -76,6 +89,7 @@ export default function AuthScreen() {
 
   const handleSignUp = async () => {
     setErrorText("");
+    setSuccessMessage("");
     if (!email || !password || !userName) {
       setErrorText("All fields are required");
       return;
@@ -86,39 +100,28 @@ export default function AuthScreen() {
     }
     try {
       setLoading(true);
-      const response = await axios.post(`${serverUrl}/auth/register`, {
+      const response = await axios.post(`${serverUrl}/auth/request-registration`, {
         email,
         password,
         userName,
       });
-      console.log(response);
-      if(response.status !== 200 && response.status !== 201){
-        setErrorText(
-          "Registration failed. Try again."
-       );
-       return;
-      }
       
-      Alert.alert(
-        "Success",
-        `Registration successful! Please login with your credentials.`,
-        [
-          {
-            text: "Login Now",
-            onPress: () => {
-              // Clear all fields except email for convenience
-              setUserName("");
-              setPassword("");
-              setConfirmPassword("");
-              setErrorText("");
-              setActiveSection("login");
-            },
+      if (response.status === 200) {
+        // Navigate to OTP verification screen
+        router.push({
+          pathname: "/otp-verification",
+          params: {
+            pendingUserId: response.data.pendingUserId,
+            email: response.data.email,
           },
-        ]
-      );
-    } catch (error) {
+        });
+      } else {
+        setErrorText("Registration failed. Please try again.");
+      }
+    } catch (error: any) {
+      console.error("Registration error:", error);
       setErrorText(
-         "Registration failed. Try again."
+        error.response?.data?.error || "Registration failed. Please try again."
       );
     } finally {
       setLoading(false);
@@ -131,21 +134,11 @@ export default function AuthScreen() {
     setPassword("");
     setConfirmPassword("");
     setErrorText("");
+    setSuccessMessage("");
   };
 
   const handleGoogleLogin = () => {
-    Alert.alert(
-      "info",
-      `Section under development.`,
-      [
-        {
-          text: "OK",
-          onPress: () => {
-            resetFormFields();
-          },
-        },
-      ]
-    );
+    setErrorText("Google Sign-In is under development.");
   };
 
   return (
@@ -194,6 +187,15 @@ export default function AuthScreen() {
 
         {/* Form */}
         <View className="bg-white rounded-2xl p-6 mb-8" style={styles.card}>
+          {/* Success Message */}
+          {successMessage && (
+            <View className="flex-row items-center bg-green-50 p-3 rounded-lg mb-4">
+              <Shield color="#059669" size={18} />
+              <Text className="text-green-600 ml-2 text-sm">{successMessage}</Text>
+            </View>
+          )}
+
+          {/* Error Message */}
           {errorText && (
             <View className="flex-row items-center bg-red-50 p-3 rounded-lg mb-4">
               <Shield color="#ef4444" size={18} />
