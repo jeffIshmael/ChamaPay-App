@@ -4,9 +4,11 @@
 
 ChamaPay implements a multi-layered encryption system to protect sensitive user data, particularly cryptocurrency wallet private keys and mnemonic phrases. The encryption service uses industry-standard algorithms and best practices to ensure the highest level of security.
 
+**Technology Stack**: The server is built with **TypeScript** for enhanced type safety and developer experience.
+
 ## Architecture
 
-The encryption system is built around the `EncryptionService` class located in `Utils/Encryption.js`, which provides multiple encryption methods for different use cases:
+The encryption system is built around the `EncryptionService` class located in `Utils/Encryption.ts`, which provides multiple encryption methods for different use cases:
 
 1. **User Password-Based Encryption** (Primary method)
 2. **Simple Encryption** (Fallback method)  
@@ -44,7 +46,7 @@ The encryption system is built around the `EncryptionService` class located in `
 
 The system uses PBKDF2 with the following parameters:
 
-```javascript
+```typescript
 // Primary encryption
 crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256')
 
@@ -70,7 +72,7 @@ crypto.pbkdf2Sync(password, salt, 10000, 32, 'sha256')
 **Purpose**: Maximum security for critical data (private keys, mnemonics)
 
 **Process**:
-```javascript
+```typescript
 // Encryption
 const result = encryptionService.encrypt(privateKey, userPassword);
 // Returns: { encrypted, salt, iv, tag, algorithm }
@@ -91,7 +93,7 @@ const decrypted = encryptionService.decrypt(result, userPassword);
 **Purpose**: Compatible fallback for less critical data
 
 **Process**:
-```javascript
+```typescript
 // Encryption
 const result = encryptionService.simpleEncrypt(data, password);
 // Returns: { encrypted, salt, iv, algorithm }
@@ -110,7 +112,7 @@ const decrypted = encryptionService.simpleDecrypt(result, password);
 **Purpose**: Server-side encryption using environment-based master key
 
 **Process**:
-```javascript
+```typescript
 // Encryption
 const result = encryptionService.encryptWithMasterKey(data);
 // Returns: { encrypted, iv, algorithm }
@@ -137,9 +139,14 @@ const decrypted = encryptionService.decryptWithMasterKey(result);
 
 ### Wallet Data Protection
 
-```javascript
+```typescript
 // Example: Storing encrypted wallet data
-const walletData = {
+interface WalletData {
+  privateKey: string;
+  mnemonic: string;
+}
+
+const walletData: WalletData = {
   privateKey: "0x1234567890abcdef...",
   mnemonic: "word1 word2 word3 ..."
 };
@@ -203,9 +210,9 @@ ENCRYPTION_MASTER_KEY=your_64_character_hex_string_here
 
 ### Master Key Generation
 
-```javascript
+```typescript
 // Generate a new master key
-const newMasterKey = encryptionService.generateMasterKey();
+const newMasterKey: string = encryptionService.generateMasterKey();
 console.log('New master key:', newMasterKey);
 ```
 
@@ -213,9 +220,9 @@ console.log('New master key:', newMasterKey);
 
 ### Built-in Test Function
 
-```javascript
+```typescript
 // Test encryption/decryption functionality
-const testResult = encryptionService.testEncryption();
+const testResult: boolean = encryptionService.testEncryption();
 console.log('Encryption test:', testResult ? 'PASSED' : 'FAILED');
 ```
 
@@ -294,8 +301,8 @@ console.log('Encryption test:', testResult ? 'PASSED' : 'FAILED');
 
 ### Basic Usage Example
 
-```javascript
-const encryptionService = require('./Utils/Encryption');
+```typescript
+import encryptionService from './Utils/Encryption';
 
 // Encrypt sensitive data
 const encrypted = encryptionService.encrypt(
@@ -304,7 +311,7 @@ const encrypted = encryptionService.encrypt(
 );
 
 // Decrypt when needed
-const decrypted = encryptionService.decrypt(
+const decrypted: string = encryptionService.decrypt(
   encrypted, 
   "user-password-123"
 );

@@ -1,6 +1,15 @@
-const nodemailer = require('nodemailer');
+import nodemailer, { SendMailOptions, Transporter } from 'nodemailer';
+
+// Interface for email send result
+interface EmailResult {
+  success: boolean;
+  messageId?: string;
+  error?: string;
+}
 
 class EmailService {
+  private transporter: Transporter;
+
   constructor() {
     // Configure your email service here
     // For development, you can use Gmail or SendGrid
@@ -14,13 +23,13 @@ class EmailService {
   }
 
   // Generate 6-digit OTP
-  generateOTP() {
+  generateOTP(): string {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
   // Send OTP email
-  async sendOTPEmail(email, otp, name = 'User') {
-    const mailOptions = {
+  async sendOTPEmail(email: string, otp: string, name: string = 'User'): Promise<EmailResult> {
+    const mailOptions: SendMailOptions = {
       from: process.env.EMAIL_FROM || 'noreply@chamapay.com',
       to: email,
       subject: 'ChamaPay - Email Verification Code',
@@ -31,14 +40,15 @@ class EmailService {
       const result = await this.transporter.sendMail(mailOptions);
       console.log('OTP email sent successfully:', result.messageId);
       return { success: true, messageId: result.messageId };
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Error sending OTP email:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: errorMessage };
     }
   }
 
   // Email template for OTP
-  getOTPEmailTemplate(otp, name) {
+  private getOTPEmailTemplate(otp: string, name: string): string {
     return `
       <!DOCTYPE html>
       <html>
@@ -88,4 +98,4 @@ class EmailService {
   }
 }
 
-module.exports = new EmailService();
+export default new EmailService(); 

@@ -33,6 +33,7 @@ model Chama {
   name          String       
   slug          String        @unique
   description   String?
+  tags           String?  // a json string of tag names
   type          String
   startDate     DateTime
   payDate       DateTime
