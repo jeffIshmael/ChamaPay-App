@@ -10,12 +10,12 @@ import {
   Edit,
   LogOut,
   Shield,
-  User,
-  Wallet,
+  Wallet
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   Alert,
+  Image,
   SafeAreaView,
   ScrollView,
   Switch,
@@ -42,6 +42,22 @@ export default function ProfileSettings() {
     emailNotifications: true,
     contributionReminders: true,
   });
+
+  // Default avatar URLs based on user's initials
+  const getDefaultAvatar = () => {
+    const initials = (user?.name || user?.email || 'U')
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+    
+    return `https://api.dicebear.com/7.x/initials/svg?seed=${initials}&backgroundColor=10b981&textColor=ffffff`;
+  };
+
+  const getUserProfileImage = () => {
+    return user?.profileImageUrl || getDefaultAvatar();
+  };
 
   const handleSignOut = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -134,9 +150,11 @@ export default function ProfileSettings() {
         {/* Profile Info */}
         <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
           <View className="flex-row items-center gap-4 mb-4">
-            <View className="w-16 h-16 rounded-full bg-emerald-100 items-center justify-center">
-              <User size={24} color="#059669" />
-            </View>
+            <Image
+              source={{ uri: getUserProfileImage() }}
+              className="w-16 h-16 rounded-full"
+              style={{ backgroundColor: '#f3f4f6' }}
+            />
             <View className="flex-1">
               <Text className="text-xl font-semibold text-gray-900">
                 {user?.name || "User"}

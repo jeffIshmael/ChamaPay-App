@@ -18,6 +18,7 @@ model User {
   password      String
   role          String?
   profile       String?
+  profileImageUrl String?      // URL for user's profile image
   createdChamas Chama[]        @relation("AdminChamas")
   chamas        ChamaMember[]
   joinRequests  ChamaRequest[]

@@ -23,7 +23,7 @@ exports.getUser = async (req, res) => {
 // function to update user profile
 exports.updateUserProfile = async (req, res) => {
   try {
-    const { name, email, phoneNo } = req.body;
+    const { name, email, phoneNo, profileImageUrl } = req.body;
     const userId = req.user.userId;
 
     // Validate required fields
@@ -66,7 +66,8 @@ exports.updateUserProfile = async (req, res) => {
       data: {
         name: name.trim(),
         email: email.trim().toLowerCase(),
-        phoneNo: phoneNo
+        phoneNo: phoneNo,
+        profileImageUrl: profileImageUrl || null
       }
     });
 

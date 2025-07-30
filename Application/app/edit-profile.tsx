@@ -1,11 +1,13 @@
 import { serverUrl } from '@/constants/serverUrl';
 import { useAuth } from '@/contexts/AuthContext';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Mail, Phone, Save, User } from 'lucide-react-native';
+import { ArrowLeft, Camera, Mail, Phone, Save, User } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Image,
     SafeAreaView,
     ScrollView,
     Text,
@@ -24,8 +26,10 @@ export default function EditProfile() {
     name: '',
     email: '',
     phoneNo: '',
+    profileImageUrl: '',
   });
   const [loading, setLoading] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
   const [errors, setErrors] = useState({
     name: '',
     email: '',
@@ -38,9 +42,27 @@ export default function EditProfile() {
         name: user.name || '',
         email: user.email || '',
         phoneNo: user.phoneNo?.toString() || '',
+        profileImageUrl: user.profileImageUrl || '',
       });
     }
   }, [user]);
+
+  // Default avatar URLs based on user's initials or id
+  const getDefaultAvatar = () => {
+    const initials = (user?.name || user?.email || 'U')
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+    
+    // Using a service like DiceBear Avatars for consistent default avatars
+    return `https://api.dicebear.com/7.x/initials/svg?seed=${initials}&backgroundColor=10b981&textColor=ffffff`;
+  };
+
+  const getCurrentProfileImage = () => {
+    return formData.profileImageUrl || user?.profileImageUrl || getDefaultAvatar();
+  };
 
   const validateForm = () => {
     const newErrors = { name: '', email: '', phoneNo: '' };
@@ -78,6 +100,98 @@ export default function EditProfile() {
     return isValid;
   };
 
+  const pickImage = async () => {
+    try {
+      // Request permission
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
+
+      // Pick image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadImage(result.assets[0]);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      // Request permission
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera is required!');
+        return;
+      }
+
+      // Take photo
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadImage(result.assets[0]);
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const uploadImage = async (imageAsset: any) => {
+    setImageUploading(true);
+    try {
+      // For demo purposes, we'll use a placeholder service
+      // In production, you'd upload to your own server or cloud storage
+      const base64Image = imageAsset.base64;
+      
+      // Simulate upload delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // For now, we'll store the local URI
+      // In production, this would be the URL returned from your upload service
+      const imageUrl = imageAsset.uri;
+      
+      setFormData(prev => ({ ...prev, profileImageUrl: imageUrl }));
+      
+      Alert.alert('Success', 'Profile image updated successfully!');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      Alert.alert('Error', 'Failed to upload image');
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const showImageOptions = () => {
+    Alert.alert(
+      'Update Profile Picture',
+      'Choose an option',
+      [
+        { text: 'Take Photo', onPress: takePhoto },
+        { text: 'Choose from Gallery', onPress: pickImage },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
   const handleSave = async () => {
     if (!validateForm()) {
       return;
@@ -89,6 +203,7 @@ export default function EditProfile() {
         name: formData.name.trim(),
         email: formData.email.trim(),
         phoneNo: formData.phoneNo ? parseInt(formData.phoneNo.replace(/\D/g, '')) : null,
+        profileImageUrl: formData.profileImageUrl || null,
       };
 
       const response = await fetch(`${serverUrl}/user/profile`, {
@@ -127,7 +242,8 @@ export default function EditProfile() {
     return (
       formData.name !== (user?.name || '') ||
       formData.email !== (user?.email || '') ||
-      formData.phoneNo !== (user?.phoneNo?.toString() || '')
+      formData.phoneNo !== (user?.phoneNo?.toString() || '') ||
+      formData.profileImageUrl !== (user?.profileImageUrl || '')
     );
   };
 
@@ -138,42 +254,55 @@ export default function EditProfile() {
     >
       {/* Header */}
       <View className="bg-white border-b border-gray-200 px-4 py-2">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center gap-4">
-            <TouchableOpacity
-              onPress={() => router.back()}
-              className="p-2 rounded-lg active:bg-gray-100"
-            >
-              <ArrowLeft size={20} color="#374151" />
-            </TouchableOpacity>
-            <Text className="text-xl font-semibold text-gray-900">
-              Edit Profile
-            </Text>
-          </View>
+        <View className="flex-row items-center gap-4">
           <TouchableOpacity
-            onPress={handleSave}
-            disabled={loading || !hasChanges()}
-            className={`px-4 py-2 rounded-lg flex-row items-center ${
-              loading || !hasChanges()
-                ? 'bg-gray-300'
-                : 'bg-emerald-600 active:bg-emerald-700'
-            }`}
+            onPress={() => router.back()}
+            className="p-2 rounded-lg active:bg-gray-100"
           >
-            {loading ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <>
-                <Save size={16} color="white" style={{ marginRight: 6 }} />
-                <Text className="text-white font-medium">Save</Text>
-              </>
-            )}
+            <ArrowLeft size={20} color="#374151" />
           </TouchableOpacity>
+          <Text className="text-xl font-semibold text-gray-900">
+            Edit Profile
+          </Text>
         </View>
       </View>
 
       <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
+        {/* Profile Image Section */}
+        <View className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+          <Text className="text-lg font-semibold text-gray-900 mb-4">
+            Profile Picture
+          </Text>
+          
+          <View className="items-center">
+            <View className="relative">
+              <Image
+                source={{ uri: getCurrentProfileImage() }}
+                className="w-24 h-24 rounded-full"
+                style={{ backgroundColor: '#f3f4f6' }}
+              />
+              {imageUploading && (
+                <View className="absolute inset-0 bg-black bg-opacity-50 rounded-full items-center justify-center">
+                  <ActivityIndicator color="white" />
+                </View>
+              )}
+            </View>
+            
+            <TouchableOpacity
+              onPress={showImageOptions}
+              disabled={imageUploading}
+              className="mt-3 px-4 py-2 bg-emerald-600 rounded-lg flex-row items-center active:bg-emerald-700"
+            >
+              <Camera size={16} color="white" style={{ marginRight: 6 }} />
+              <Text className="text-white font-medium">
+                {imageUploading ? 'Uploading...' : 'Change Photo'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Profile Form */}
-        <View className="bg-white rounded-xl border border-gray-200 p-4">
+        <View className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
           <Text className="text-lg font-semibold text-gray-900 mb-4">
             Profile Information
           </Text>
@@ -255,6 +384,30 @@ export default function EditProfile() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Save Button - Fixed at bottom */}
+      <View className="bg-white border-t border-gray-200 px-4 py-4">
+        <TouchableOpacity
+          onPress={handleSave}
+          disabled={loading || !hasChanges()}
+          className={`w-full py-4 rounded-lg flex-row items-center justify-center ${
+            loading || !hasChanges()
+              ? 'bg-gray-300'
+              : 'bg-emerald-600 active:bg-emerald-700'
+          }`}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color="white" />
+          ) : (
+            <>
+              <Save size={16} color="white" style={{ marginRight: 8 }} />
+              <Text className="text-white font-medium text-lg">
+                Save Changes
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 } 

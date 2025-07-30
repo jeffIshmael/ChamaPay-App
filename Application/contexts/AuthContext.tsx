@@ -10,6 +10,7 @@ export interface User {
   address: string;
   role: string | null;
   profile: string | null;
+  profileImageUrl: string | null;
 }
 
 interface AuthContextType {
