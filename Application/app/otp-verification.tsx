@@ -200,7 +200,7 @@ export default function OTPVerification() {
               {otp.map((digit, index) => (
                 <TextInput
                   key={index}
-                  ref={(ref) => (inputRefs.current[index] = ref)}
+                  ref={(ref) => { inputRefs.current[index] = ref; }}
                   className="w-12 h-12 border-2 border-gray-300 rounded-lg text-center text-xl font-semibold text-gray-900"
                   style={{
                     borderColor: digit ? "#059669" : "#d1d5db",
