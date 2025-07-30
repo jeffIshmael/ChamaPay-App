@@ -1,7 +1,6 @@
 import { TabButton } from "@/components/ui/TabButton";
 import { serverUrl } from "@/constants/serverUrl";
 import { useAuth } from "@/contexts/AuthContext";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useRouter } from "expo-router";
 import { Lock, Mail, Shield, User, Users } from "lucide-react-native";
@@ -63,14 +62,7 @@ export default function AuthScreen() {
       const result = await login(email, password);
       
       if (result.success) {
-        Alert.alert("Success", "Login successful!", [
-          { 
-            text: "OK", 
-            onPress: () => {
-              router.replace("/(tabs)");
-            }
-          },
-        ]);
+        router.replace("/(tabs)");
       } else {
         setErrorText(result.error || "Login failed. Please try again.");
       }
@@ -107,19 +99,19 @@ export default function AuthScreen() {
        return;
       }
       
-      // Store the token from registration
-      if (response.data.token) {
-        await AsyncStorage.setItem("token", response.data.token);
-      }
-      
       Alert.alert(
         "Success",
-        `Registration successful. You can now set up your wallet!`,
+        `Registration successful! Please login with your credentials.`,
         [
           {
-            text: "OK",
+            text: "Login Now",
             onPress: () => {
-              router.replace("/wallet-setup");
+              // Clear all fields except email for convenience
+              setUserName("");
+              setPassword("");
+              setConfirmPassword("");
+              setErrorText("");
+              setActiveSection("login");
             },
           },
         ]
@@ -183,7 +175,10 @@ export default function AuthScreen() {
 
         {/* Toggle */}
         <View className="flex-row bg-gray-100 rounded-xl p-1 mb-6">
-          <TabButton label="Log In" value="login" isActive={activeSection === "login"} onPress={() => setActiveSection("login")} />
+          <TabButton label="Log In" value="login" isActive={activeSection === "login"} onPress={() => {
+            resetFormFields();
+            setActiveSection("login");
+          }} />
           <TouchableOpacity
             className={`flex-1 py-3 rounded-lg ${activeSection !== "login"  ? "bg-white shadow-sm" : ""}`}
             onPress={() => {
