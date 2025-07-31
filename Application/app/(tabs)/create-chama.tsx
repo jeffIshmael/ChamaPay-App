@@ -182,9 +182,7 @@ export default function CreateChama() {
       const data = await response.json();
 
       if (response.ok) {
-        Alert.alert("Success", "Chama created successfully!", [
-          { text: "OK", onPress: () => router.push("/(tabs)") },
-        ]);
+        router.push("/(tabs)");
       } else {
         Alert.alert("Error", data.error || "Failed to create chama");
       }

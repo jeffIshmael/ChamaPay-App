@@ -10,7 +10,7 @@ interface CreateChamaRequestBody {
     name: string;
     description: string;
     type: string;
-    tags: string | null;
+    adminTerms: string | null;
     amount: string;
     cycleTime: number;
     maxNo: number;
@@ -18,6 +18,7 @@ interface CreateChamaRequestBody {
     blockchainId: string;
     promoCode: string;
     txHash: string | null;
+    collateralRequired?: boolean;
   };
 }
 
@@ -26,17 +27,33 @@ export const createChama = async (req: Request<{}, {}, CreateChamaRequestBody>, 
     const { chamaData } = req.body;
     console.log(chamaData);
     try {
-        const { name, description, type, tags, amount, cycleTime, maxNo, startDate, blockchainId, promoCode, txHash } = chamaData;
+        const { 
+            name, 
+            description, 
+            type, 
+            adminTerms, 
+            amount, 
+            cycleTime, 
+            maxNo, 
+            startDate, 
+            blockchainId, 
+            promoCode, 
+            txHash,
+            collateralRequired = false 
+        } = chamaData;
         
         // Generate unique slug from name
         const uniqueSlug = await generateUniqueSlug(name);
+        
+        // Determine if collateral is required based on chama type
+        const isCollateralRequired = type === "Public" ? (collateralRequired ?? true) : false;
         
         // First, create the Chama
         const chama = await prisma.chama.create({
             data: {
                 name: name,
                 description: description,
-                tags: tags,
+                adminTerms: adminTerms,
                 type: type,
                 amount: amount, // amount in string
                 cycleTime: cycleTime,
@@ -50,6 +67,7 @@ export const createChama = async (req: Request<{}, {}, CreateChamaRequestBody>, 
                 round: 1,
                 cycle: 1,
                 promoCode: promoCode,
+                collateralRequired: isCollateralRequired,
                 // Note: admin connection needs proper implementation based on your auth system
                 admin: { connect: { id: req.user?.userId } },
             },
@@ -70,7 +88,9 @@ export const createChama = async (req: Request<{}, {}, CreateChamaRequestBody>, 
                 payDate: new Date(),
               },
             });
-            if (type === "Public" && txHash) {
+            
+            // Handle collateral payment for public chamas that require it
+            if (type === "Public" && isCollateralRequired && txHash) {
               await prisma.payment.create({
                 data: {
                   amount: amount, // amount in string

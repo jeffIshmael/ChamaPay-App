@@ -33,7 +33,7 @@ model Chama {
   name          String       
   slug          String        @unique
   description   String?
-  tags           String?  // a json string of tag names
+  adminTerms    String?       // JSON string of admin requirements
   type          String
   startDate     DateTime
   payDate       DateTime
@@ -47,6 +47,7 @@ model Chama {
   adminId       Int
   canJoin       Boolean  @default(true)
   payOutOrder   String?  // Json string of payout order array.
+  collateralRequired Boolean @default(false) // Whether collateral is required for public chamas
   createdAt     DateTime      @default(now())
   promoCode     String?
   admin         User          @relation("AdminChamas", fields: [adminId], references: [id])

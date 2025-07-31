@@ -122,7 +122,7 @@ export default function ChamaDetails() {
               {
                 step: "1",
                 title: "Join & Lock Collateral",
-                description: `Lock ${chama.currency} ${chama.collateralRequired.toLocaleString()} as collateral to secure your position`,
+                description: `Lock ${chama.currency} ${chama.collateralAmount.toLocaleString()} as collateral to secure your position`,
               },
               {
                 step: "2",
@@ -194,7 +194,7 @@ export default function ChamaDetails() {
               ["Duration:", chama.duration],
               [
                 "Collateral Required:",
-                `${chama.currency} ${chama.collateralRequired.toLocaleString()}`,
+                `${chama.currency} ${chama.collateralAmount.toLocaleString()}`,
               ],
             ].map(([label, value], index) => (
               <View key={index} className="flex-row justify-between">
@@ -358,7 +358,7 @@ export default function ChamaDetails() {
                       </View>
                       <Text className="font-medium text-gray-900">
                         {chama.currency}{" "}
-                        {chama.collateralRequired.toLocaleString()}
+                        {chama.collateralAmount.toLocaleString()}
                       </Text>
                     </View>
                   </View>

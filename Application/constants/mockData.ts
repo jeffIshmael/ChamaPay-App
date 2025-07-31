@@ -54,8 +54,8 @@ export interface JoinedChama {
   rating: number;
   category: string;
   location: string;
-  tags: string[];
-  collateralRequired: number;
+  adminTerms: string[];
+  collateralAmount: number;
   nextPayout: string;
   myTurn: boolean;
   myPosition: number;
@@ -92,8 +92,8 @@ export const mockJoinedChamas: JoinedChama[] = [
     rating: 4.7,
     category: "Professional",
     location: "Nairobi",
-    tags: ["Women", "Entrepreneurship", "Business"],
-    collateralRequired: 5000,
+    adminTerms: ["Must be a woman entrepreneur.", "Contributions must be made monthly."],
+    collateralAmount: 5000,
     nextPayout: "2025-02-15",
     myTurn: false,
     myPosition: 3,
@@ -251,8 +251,8 @@ export const mockJoinedChamas: JoinedChama[] = [
     rating: 4.3,
     category: "Investment",
     location: "Nairobi",
-    tags: ["Young Professionals", "Investment", "Growth"],
-    collateralRequired: 0,
+    adminTerms: ["Must be a young professional.", "Contributions must be made monthly."],
+    collateralAmount: 0,
     nextPayout: "2024-08-25",
     myTurn: true,
     myPosition: 2,
@@ -384,8 +384,8 @@ export const mockJoinedChamas: JoinedChama[] = [
     rating: 4.9,
     category: "Family",
     location: "Nakuru",
-    tags: ["Family", "Support", "Welfare"],
-    collateralRequired: 0,
+    adminTerms: ["Must be a family member.", "Contributions must be made monthly."],
+    collateralAmount: 0,
     nextPayout: "2024-09-01",
     myTurn: false,
     myPosition: 4,
@@ -507,7 +507,7 @@ export type PublicChama = {
   frequency: string;
   duration: string;
   rating: number;
-  collateralRequired: number;
+  collateralAmount: number;
   nextPayout: string;
   currency: string;
   isPublic: boolean;
@@ -527,7 +527,7 @@ export const mockPublicChamas: PublicChama[] = [
     frequency: "Monthly",
     duration: "12 months",
     rating: 4.8,
-    collateralRequired: 8000,
+    collateralAmount: 8000,
     nextPayout: "2025-02-10",
     currency: "KES",
     isPublic: true,
@@ -544,7 +544,7 @@ export const mockPublicChamas: PublicChama[] = [
     frequency: "Monthly",
     duration: "10 months",
     rating: 4.9,
-    collateralRequired: 15000,
+    collateralAmount: 15000,
     nextPayout: "2025-01-30",
     currency: "KES",
     isPublic: true,
@@ -561,7 +561,7 @@ export const mockPublicChamas: PublicChama[] = [
     frequency: "Monthly",
     duration: "18 months",
     rating: 4.6,
-    collateralRequired: 3000,
+    collateralAmount: 3000,
     nextPayout: "2025-06-15",
     currency: "KES",
     isPublic: true,
@@ -578,7 +578,7 @@ export const mockPublicChamas: PublicChama[] = [
     frequency: "Monthly",
     duration: "24 months",
     rating: 4.7,
-    collateralRequired: 25000,
+    collateralAmount: 25000,
     nextPayout: "2025-12-20",
     currency: "KES",
     isPublic: true,
@@ -595,7 +595,7 @@ export const mockPublicChamas: PublicChama[] = [
     frequency: "Monthly",
     duration: "15 months",
     rating: 4.5,
-    collateralRequired: 20000,
+    collateralAmount: 20000,
     nextPayout: "2025-09-10",
     currency: "KES",
     isPublic: true,
@@ -612,7 +612,7 @@ export const mockPublicChamas: PublicChama[] = [
     frequency: "Monthly",
     duration: "14 months",
     rating: 4.8,
-    collateralRequired: 12000,
+    collateralAmount: 12000,
     nextPayout: "2025-08-25",
     currency: "KES",
     isPublic: true,
@@ -629,7 +629,7 @@ export const mockPublicChamas: PublicChama[] = [
     frequency: "Monthly",
     duration: "16 months",
     rating: 4.4,
-    collateralRequired: 6000,
+    collateralAmount: 6000,
     nextPayout: "2025-10-15",
     currency: "KES",
     isPublic: true,
