@@ -1,7 +1,6 @@
 // This file has all chama related functions
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-import { parseEther } from "viem";
 import { generateUniqueSlug } from "../Utils/HelperFunctions";
 
 const prisma = new PrismaClient();
@@ -39,7 +38,7 @@ export const createChama = async (req: Request<{}, {}, CreateChamaRequestBody>, 
                 description: description,
                 tags: tags,
                 type: type,
-                amount: parseEther(amount), // Convert to wei (BigInt)
+                amount: amount, // amount in string
                 cycleTime: cycleTime,
                 maxNo: maxNo || 15,
                 slug: uniqueSlug,
@@ -74,7 +73,7 @@ export const createChama = async (req: Request<{}, {}, CreateChamaRequestBody>, 
             if (type === "Public" && txHash) {
               await prisma.payment.create({
                 data: {
-                  amount: parseEther(amount), // Convert to wei (BigInt)
+                  amount: amount, // amount in string
                   txHash: txHash,
                   description: "Chama creation collateral payment",
                   chamaId: chama.id,

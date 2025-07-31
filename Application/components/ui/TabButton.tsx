@@ -30,7 +30,9 @@ export const TabButton = ({
       </Text>
       {badge && badge > 0 && (
         <View className="absolute -top-1 -right-1">
-          <Badge variant="destructive">{badge}</Badge>
+          <Badge variant="destructive">
+            <Text className="text-white text-xs">{badge}</Text>
+          </Badge>
         </View>
       )}
     </View>

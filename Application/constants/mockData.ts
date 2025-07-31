@@ -507,13 +507,12 @@ export type PublicChama = {
   frequency: string;
   duration: string;
   rating: number;
-  category: string;
-  location: string;
-  tags: string[];
   collateralRequired: number;
   nextPayout: string;
   currency: string;
   isPublic: boolean;
+  startDate: string;
+  adminTerms: string[];
 };
 
 export const mockPublicChamas: PublicChama[] = [
@@ -528,13 +527,12 @@ export const mockPublicChamas: PublicChama[] = [
     frequency: "Monthly",
     duration: "12 months",
     rating: 4.8,
-    category: "Professional",
-    location: "Global",
-    tags: ["Remote Work", "Tech", "Global"],
     collateralRequired: 8000,
     nextPayout: "2025-02-10",
     currency: "KES",
     isPublic: true,
+    startDate: "2024-01-15",
+    adminTerms: ["Must be a remote worker or freelancer.", "Contributions must be made monthly."],
   },
   {
     id: "5",
@@ -546,13 +544,97 @@ export const mockPublicChamas: PublicChama[] = [
     frequency: "Monthly",
     duration: "10 months",
     rating: 4.9,
-    category: "Business",
-    location: "Nairobi",
-    tags: ["Entrepreneurship", "SME", "Growth"],
     collateralRequired: 15000,
     nextPayout: "2025-01-30",
     currency: "KES",
     isPublic: true,
+    startDate: "2024-03-20",
+    adminTerms: ["Must be an entrepreneur or small business owner.", "Contributions must be made monthly."],
+  },
+  {
+    id: "6",
+    name: "Student Loan Repayment Group",
+    description: "Helping students manage and repay their education loans together",
+    members: 12,
+    maxMembers: 15,
+    contribution: 3000,
+    frequency: "Monthly",
+    duration: "18 months",
+    rating: 4.6,
+    collateralRequired: 3000,
+    nextPayout: "2025-06-15",
+    currency: "KES",
+    isPublic: true,
+    startDate: "2024-02-10",
+    adminTerms: ["Must be a student with an education loan.", "Contributions must be made monthly."],
+  },
+  {
+    id: "7",
+    name: "Real Estate Investment Pool",
+    description: "Collective investment in real estate properties and land",
+    members: 10,
+    maxMembers: 12,
+    contribution: 25000,
+    frequency: "Monthly",
+    duration: "24 months",
+    rating: 4.7,
+    collateralRequired: 25000,
+    nextPayout: "2025-12-20",
+    currency: "KES",
+    isPublic: true,
+    startDate: "2024-04-05",
+    adminTerms: ["Must have a real estate property or land to invest in.", "Contributions must be made monthly."],
+  },
+  {
+    id: "8",
+    name: "Tech Startup Founders",
+    description: "Funding and support for tech startup founders and innovators",
+    members: 7,
+    maxMembers: 10,
+    contribution: 20000,
+    frequency: "Monthly",
+    duration: "15 months",
+    rating: 4.5,
+    collateralRequired: 20000,
+    nextPayout: "2025-09-10",
+    currency: "KES",
+    isPublic: true,
+    startDate: "2024-05-12",
+    adminTerms: ["Must be a tech startup founder or innovator.", "Contributions must be made monthly."],
+  },
+  {
+    id: "9",
+    name: "Healthcare Workers Support",
+    description: "Financial support group for healthcare professionals and medical workers",
+    members: 9,
+    maxMembers: 12,
+    contribution: 12000,
+    frequency: "Monthly",
+    duration: "14 months",
+    rating: 4.8,
+    collateralRequired: 12000,
+    nextPayout: "2025-08-25",
+    currency: "KES",
+    isPublic: true,
+    startDate: "2024-06-18",
+    adminTerms: ["Must be a healthcare professional or medical worker.", "Contributions must be made monthly."],
+  },
+  {
+    id: "10",
+    name: "Creative Artists Collective",
+    description: "Supporting artists, musicians, and creative professionals",
+    members: 11,
+    maxMembers: 15,
+    contribution: 6000,
+    frequency: "Monthly",
+    duration: "16 months",
+    rating: 4.4,
+    collateralRequired: 6000,
+    nextPayout: "2025-10-15",
+    currency: "KES",
+    isPublic: true,
+    startDate: "2024-07-22",
+    adminTerms: ["Must be an artist, musician, or creative professional.", "Contributions must be made monthly."],
   },
 ];
 

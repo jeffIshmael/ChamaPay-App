@@ -39,7 +39,7 @@ model Chama {
   payDate       DateTime
   cycleTime     Int
   started       Boolean       @default(false)
-  amount        BigInt
+  amount        String
   round         Int          @default(1) //  payout
   cycle         Int          @default(1) // after every member has received a payout
   maxNo         Int           @default(15)      
@@ -72,7 +72,7 @@ model ChamaMember {
 
 model Payment {
   id      Int      @id @default(autoincrement())
-  amount  BigInt
+  amount  String
   description String?
   doneAt  DateTime @default(now())
   txHash  String

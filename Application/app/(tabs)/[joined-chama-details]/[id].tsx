@@ -10,6 +10,8 @@ import { ArrowLeft } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
   Text,
   TouchableOpacity,
@@ -48,7 +50,81 @@ export default function JoinedChamaDetails() {
   };
 
   const makePayment = () => {
-    Alert.alert("Payment", "Payment logic here...");
+    if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
+      Alert.alert("Error", "Please enter a valid amount");
+      return;
+    }
+
+    Alert.alert(
+      "Select Payment Method",
+      "Choose how you would like to make your payment:",
+      [
+        {
+          text: "Mobile Money",
+          onPress: () => {
+            Alert.alert(
+              "Mobile Money Payment",
+              `Processing payment of KES ${parseFloat(paymentAmount).toLocaleString()} via Mobile Money...`,
+              [
+                {
+                  text: "Cancel",
+                  style: "cancel",
+                },
+                {
+                  text: "Confirm",
+                  onPress: () => {
+                    Alert.alert("Success", "Payment processed successfully via Mobile Money!");
+                    // Here you would typically update the chama data
+                    if (chama) {
+                      const updatedChama = {
+                        ...chama,
+                        myContributions: chama.myContributions + parseFloat(paymentAmount),
+                      };
+                      setChama(updatedChama);
+                      setPaymentAmount("");
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+        {
+          text: "cUSD",
+          onPress: () => {
+            Alert.alert(
+              "cUSD Payment",
+              `Processing payment of ${parseFloat(paymentAmount).toLocaleString()} cUSD...`,
+              [
+                {
+                  text: "Cancel",
+                  style: "cancel",
+                },
+                {
+                  text: "Confirm",
+                  onPress: () => {
+                    Alert.alert("Success", "Payment processed successfully via cUSD!");
+                    // Here you would typically update the chama data
+                    if (chama) {
+                      const updatedChama = {
+                        ...chama,
+                        myContributions: chama.myContributions + parseFloat(paymentAmount),
+                      };
+                      setChama(updatedChama);
+                      setPaymentAmount("");
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ]
+    );
   };
 
   const leaveChama = () => {
@@ -169,39 +245,45 @@ export default function JoinedChamaDetails() {
       </View>
 
       {/* Tabs */}
-      <View className="flex-1 px-6 pt-4">
-        {/* Tab Navigation */}
-        <View className="flex-row bg-gray-100 rounded-lg p-1 mb-4">
-          <TabButton
-            label="Overview"
-            value="overview"
-            isActive={activeTab === "overview"}
-            onPress={() => setActiveTab("overview")}
-          />
-          <TabButton
-            label="Chat"
-            value="chat"
-            isActive={activeTab === "chat"}
-            onPress={() => setActiveTab("chat")}
-            badge={unreadMessages}
-          />
-          <TabButton
-            label="Schedule"
-            value="schedule"
-            isActive={activeTab === "schedule"}
-            onPress={() => setActiveTab("schedule")}
-          />
-          <TabButton
-            label="Members"
-            value="members"
-            isActive={activeTab === "members"}
-            onPress={() => setActiveTab("members")}
-          />
-        </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+      >
+        <View className={`flex-1 pt-4 ${activeTab === "chat" ? "" : "px-6"}`}>
+          {/* Tab Navigation */}
+          <View className={`flex-row bg-gray-100 rounded-lg p-1 mb-4 ${activeTab === "chat" ? "mx-6" : ""}`}>
+            <TabButton
+              label="Overview"
+              value="overview"
+              isActive={activeTab === "overview"}
+              onPress={() => setActiveTab("overview")}
+            />
+            <TabButton
+              label="Chat"
+              value="chat"
+              isActive={activeTab === "chat"}
+              onPress={() => setActiveTab("chat")}
+              badge={unreadMessages}
+            />
+            <TabButton
+              label="Schedule"
+              value="schedule"
+              isActive={activeTab === "schedule"}
+              onPress={() => setActiveTab("schedule")}
+            />
+            <TabButton
+              label="Members"
+              value="members"
+              isActive={activeTab === "members"}
+              onPress={() => setActiveTab("members")}
+            />
+          </View>
 
-        {/* Tab Content */}
-        <View className="flex-1">{renderTabContent()}</View>
-      </View>
+          {/* Tab Content */}
+          <View className="flex-1">{renderTabContent()}</View>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

@@ -25,7 +25,8 @@
       "permissions": [
         "USE_BIOMETRIC",
         "USE_FINGERPRINT"
-      ]
+      ],
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "bundler": "metro",

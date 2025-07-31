@@ -1,6 +1,6 @@
 import { mockPublicChamas, PublicChama } from "@/constants/mockData";
 import { useRouter } from "expo-router";
-import { Calendar, MapPin, Search, Users, Wallet } from "lucide-react-native";
+import { Calendar, CalendarClock, Search, Star, Users, Wallet } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   FlatList,
@@ -22,21 +22,30 @@ export default function DiscoverChamas() {
   const filteredChamas = mockPublicChamas.filter((chama) => {
     const matchesSearch =
       chama.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      chama.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      chama.tags.some((tag) =>
-        tag.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      chama.description.toLowerCase().includes(searchTerm.toLowerCase())
+     
 
-    const matchesCategory =
-      selectedCategory === "all" ||
-      chama.category.toLowerCase() === selectedCategory.toLowerCase();
-
-    const matchesLocation =
-      selectedLocation === "all" ||
-      chama.location.toLowerCase() === selectedLocation.toLowerCase();
-
-    return matchesSearch && matchesCategory && matchesLocation;
+    return matchesSearch;
   });
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+  };
+
+  const renderStars = (rating: number) => {
+    return (
+      <Star
+        size={14}
+        color="#fbbf24"
+        fill="transparent"
+      />
+    );
+  };
 
   const renderChamaCard = ({ item: chama }: { item: PublicChama }) => (
     <TouchableOpacity
@@ -52,36 +61,22 @@ export default function DiscoverChamas() {
     >
       <View className="flex-row items-start justify-between mb-3">
         <View className="flex-1">
-          <View className="flex-row items-center gap-2 mb-1">
-            <Text className="text-lg font-semibold text-gray-900 flex-1">
-              {chama.name}
-            </Text>
-            <View className="bg-blue-100 px-2 py-1 rounded-full">
-              <Text className="text-xs font-medium text-blue-700">
-                {chama.category}
-              </Text>
-            </View>
-          </View>
-          <Text className="text-sm text-gray-600 mb-2">
-            {chama.description}
+          <Text className="text-lg font-semibold text-gray-900 mb-2">
+            {chama.name}
           </Text>
-
-          <View className="flex-row items-center gap-2 mb-2">
+          <Text className="text-sm text-gray-600 mb-2">{chama.description}</Text>
+          
+          {/* Rating Section */}
+          <View className="flex-row items-center gap-2 mb-3">
             <View className="flex-row items-center gap-1">
-              <MapPin size={12} className="text-gray-400" />
-              <Text className="text-xs text-gray-500">{chama.location}</Text>
+              {renderStars(chama.rating)}
             </View>
-          </View>
-
-          <View className="flex-row flex-wrap gap-1 mb-3">
-            {chama.tags.map((tag, index) => (
-              <View
-                key={index}
-                className="border border-gray-300 px-2 py-1 rounded-full"
-              >
-                <Text className="text-xs text-gray-600">{tag}</Text>
-              </View>
-            ))}
+            <Text className="text-sm font-medium text-emerald-600">
+              {chama.rating}
+            </Text>
+            <Text className="text-sm text-gray-500">
+              ({Math.floor(Math.random() * 50) + 10} ratings)
+            </Text>
           </View>
         </View>
       </View>
@@ -103,8 +98,14 @@ export default function DiscoverChamas() {
         </View>
         <View className="flex-row justify-between">
           <View className="flex-row items-center gap-2 flex-1">
-            <Calendar size={14} className="text-gray-400" />
+            <CalendarClock size={14} className="text-gray-400" />
             <Text className="text-sm text-gray-600">{chama.frequency}</Text>
+          </View>
+          <View className="flex-row items-center gap-2 flex-1">
+            <Calendar size={14} className="text-gray-400" />
+            <Text className="text-sm text-gray-600">
+              Started {formatDate(chama.startDate)}
+            </Text>
           </View>
         </View>
       </View>
@@ -130,7 +131,7 @@ export default function DiscoverChamas() {
             <Search size={20} color="#9ca3af" />
           </View>
           <TextInput
-            placeholder="Search chamas, categories, or tags..."
+            placeholder="Search chamas by name..."
             value={searchTerm}
             onChangeText={setSearchTerm}
             className="bg-gray-50 border-0 rounded-lg pl-10 pr-4 py-3 text-gray-900"
