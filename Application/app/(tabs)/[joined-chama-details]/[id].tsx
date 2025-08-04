@@ -1,6 +1,7 @@
 import ChamaOverviewTab from "@/components/ChamaOverviewTab";
 import ChatTab from "@/components/ChatTab";
 import MembersTab from "@/components/MembersTab";
+import PaymentModal from "@/components/PaymentModal";
 import ScheduleTab from "@/components/ScheduleTab";
 import { TabButton } from "@/components/ui/TabButton";
 import { JoinedChama, mockJoinedChamas } from "@/constants/mockData";
@@ -26,6 +27,7 @@ export default function JoinedChamaDetails() {
   const [paymentAmount, setPaymentAmount] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
   const [chama, setChama] = useState<JoinedChama>();
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   useEffect(() => {
     setIsLoading(true);
@@ -55,76 +57,26 @@ export default function JoinedChamaDetails() {
       return;
     }
 
-    Alert.alert(
-      "Select Payment Method",
-      "Choose how you would like to make your payment:",
-      [
-        {
-          text: "Mobile Money",
-          onPress: () => {
-            Alert.alert(
-              "Mobile Money Payment",
-              `Processing payment of KES ${parseFloat(paymentAmount).toLocaleString()} via Mobile Money...`,
-              [
-                {
-                  text: "Cancel",
-                  style: "cancel",
-                },
-                {
-                  text: "Confirm",
-                  onPress: () => {
-                    Alert.alert("Success", "Payment processed successfully via Mobile Money!");
-                    // Here you would typically update the chama data
-                    if (chama) {
-                      const updatedChama = {
-                        ...chama,
-                        myContributions: chama.myContributions + parseFloat(paymentAmount),
-                      };
-                      setChama(updatedChama);
-                      setPaymentAmount("");
-                    }
-                  },
-                },
-              ]
-            );
-          },
-        },
-        {
-          text: "cUSD",
-          onPress: () => {
-            Alert.alert(
-              "cUSD Payment",
-              `Processing payment of ${parseFloat(paymentAmount).toLocaleString()} cUSD...`,
-              [
-                {
-                  text: "Cancel",
-                  style: "cancel",
-                },
-                {
-                  text: "Confirm",
-                  onPress: () => {
-                    Alert.alert("Success", "Payment processed successfully via cUSD!");
-                    // Here you would typically update the chama data
-                    if (chama) {
-                      const updatedChama = {
-                        ...chama,
-                        myContributions: chama.myContributions + parseFloat(paymentAmount),
-                      };
-                      setChama(updatedChama);
-                      setPaymentAmount("");
-                    }
-                  },
-                },
-              ]
-            );
-          },
-        },
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-      ]
-    );
+    // Show the payment modal instead of Alert
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentSuccess = () => {
+    // Handle successful payment
+    if (chama && paymentAmount) {
+      const updatedChama = {
+        ...chama,
+        myContributions: chama.myContributions + parseFloat(paymentAmount),
+      };
+      setChama(updatedChama);
+      setPaymentAmount("");
+    }
+    setShowPaymentModal(false);
+    Alert.alert("Success", "Payment processed successfully!");
+  };
+
+  const handlePaymentClose = () => {
+    setShowPaymentModal(false);
   };
 
   const leaveChama = () => {
@@ -284,6 +236,18 @@ export default function JoinedChamaDetails() {
           <View className="flex-1">{renderTabContent()}</View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <PaymentModal
+          visible={showPaymentModal}
+          onClose={handlePaymentClose}
+          onSuccess={handlePaymentSuccess}
+          chamaId={parseInt(id as string)}
+          chamaBlockchainId={1} // Default blockchain ID since it's not in the interface
+          chamaName={chama.name}
+        />
+      )}
     </SafeAreaView>
   );
 }
