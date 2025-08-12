@@ -28,6 +28,7 @@
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^7.0.5",
     "nodemon": "^3.1.10",
+    "permissionless": "^0.2.53",
     "viem": "^2.33.1"
   },
   "devDependencies": {

@@ -115,3 +115,5 @@ export const createChama = async (req: Request<{}, {}, CreateChamaRequestBody>, 
         res.status(500).json({ success: false, error: "Failed to create chama" });
     }
 }
+
+// 
