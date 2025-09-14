@@ -6,6 +6,7 @@ expo-env.d.ts
 # @end expo-cli
 
 .env
+GoogleService-Info.plist
 
 /android
 /ios
@@ -13,5 +14,6 @@ expo-env.d.ts
 /lib/firebaseConfig.js
 
 google-services.json
-GooleService-Info.plist
+
+
 

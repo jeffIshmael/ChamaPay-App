@@ -15,18 +15,14 @@ export default function Index() {
         const hasSeenOnboarding = await storage.getHasSeenOnboarding();
         
         if (!hasSeenOnboarding) {
-          // First time user, show onboarding
           router.replace("/onboarding");
         } else if (isAuthenticated) {
-          // User is authenticated, go to main app
           router.replace("/(tabs)");
         } else {
-          // User has seen onboarding but not authenticated
           router.replace("/auth-screen");
         }
       } catch (error) {
         console.error("Error checking initial route:", error);
-        // Default to onboarding on error
         router.replace("/onboarding");
       }
     };
