@@ -4,9 +4,9 @@ import { createSmartAccountClient } from "permissionless"
 import { toSafeSmartAccount } from "permissionless/accounts"
 import { createPimlicoClient } from "permissionless/clients/pimlico"
 import { createPublicClient, http } from "viem"
-import { entryPoint07Address } from "viem/_types/account-abstraction"
+import { entryPoint07Address } from "viem/account-abstraction"
 import { privateKeyToAccount } from "viem/accounts"
-import { celo, sepolia } from "viem/chains"
+import { celo } from "viem/chains"
 
 dotenv.config()
 
@@ -21,7 +21,7 @@ const publicClient = createPublicClient({
     transport: http()
 })
 
-const pimlicoUrl = `https://api.pimlico.io/v2/sepolia/rpc?apikey=${apiKey}`;
+const pimlicoUrl = `https://api.pimlico.io/v2/42220/rpc?apikey=${apiKey}`;
 
 const pimlicoClient = createPimlicoClient({
 	transport: http(pimlicoUrl),
@@ -51,7 +51,7 @@ export const createSmartAccount = async (privateKey: `0x${string}`) => {
     // create a smart account client
     const smartAccountClient = createSmartAccountClient({
         account: safeSmartAccount,
-        chain: sepolia,
+        chain: celo,
         bundlerTransport: http(pimlicoUrl),
         paymaster: pimlicoClient,
         userOperation: {

@@ -24,6 +24,8 @@ interface UserResponse {
   profileImageUrl: string | null;
 }
 
+// (removed duplicate inline checkUserExists in favor of typed version below)
+
 // Function to get a user
 export const getUser = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -131,3 +133,24 @@ export const updateUserProfile = async (req: Request, res: Response): Promise<vo
     res.status(500).json({ error: "Internal server error" });
   }
 }; 
+
+// Public endpoint to check if a user exists by email
+export const checkUserExists = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body as { email?: string };
+    if (!email?.trim()) {
+      res.status(400).json({ success: false, error: "Email is required" });
+      return;
+    }
+    const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    if (!user) {
+      res.status(200).json({ success: false });
+      return;
+    }
+    const { password, privKey, mnemonics, ...safeUser } = user as any;
+    res.status(200).json({ success: true, user: safeUser });
+  } catch (error: unknown) {
+    console.error("Check user exists error:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};

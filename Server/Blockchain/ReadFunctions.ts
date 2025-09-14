@@ -71,3 +71,14 @@ export const bcCheckIfAllMembersHaveContributed = async (chamaBlockchainId: numb
     });
     return allMembersHaveContributed;
 }
+
+// function to get the total chamas
+export const bcGetTotalChamas = async () => {
+    const totalChamas = await publicClient.readContract({
+        address: contractAddress,
+        abi: contractABI,
+        functionName: 'totalChamas',
+        args: []
+    }) as bigint;
+    return totalChamas.toString();
+}

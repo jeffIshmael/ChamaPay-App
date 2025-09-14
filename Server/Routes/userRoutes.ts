@@ -3,12 +3,14 @@ import express, { Router } from "express";
 import {
     getUser,
     updateUserProfile,
+    checkUserExists,
 } from "../Controllers/userController";
 import authenticate from "../Middlewares/authMiddleware";
 
 const router: Router = express.Router();
 
 // Get functions
+router.post("/checkUserExists", checkUserExists);
 router.get("/", authenticate, getUser);
 // router.get("/payments", authenticate, getUserPayments);
 // router.get("/notifications", authenticate, getUserNotifications);

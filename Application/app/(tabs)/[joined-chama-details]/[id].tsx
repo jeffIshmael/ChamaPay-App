@@ -4,7 +4,9 @@ import MembersTab from "@/components/MembersTab";
 import PaymentModal from "@/components/PaymentModal";
 import ScheduleTab from "@/components/ScheduleTab";
 import { TabButton } from "@/components/ui/TabButton";
-import { JoinedChama, mockJoinedChamas } from "@/constants/mockData";
+import { JoinedChama } from "@/constants/mockData";
+import { useAuth } from "@/contexts/AuthContext";
+import { getChamaBySlug, transformChamaData } from "@/lib/chamaService";
 import { formatToK } from "@/lib/formatNumbers";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
@@ -22,27 +24,44 @@ import {
 export default function JoinedChamaDetails() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { user, token } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const [newMessage, setNewMessage] = useState("");
   const [paymentAmount, setPaymentAmount] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
-  const [chama, setChama] = useState<JoinedChama>();
+  const [chama, setChama] = useState<JoinedChama | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   useEffect(() => {
+    const fetchChama = async () => {
+    if (!token) {   
+      Alert.alert("Error", "Please login to continue");
+      return;
+    }
     setIsLoading(true);
-    const selectedChama = mockJoinedChamas.find((c) => c.id === id);
-    if (selectedChama) {
-      setChama(selectedChama);
+    console.log(" the id", id);
+    const response = await getChamaBySlug(id as string, token);
+    if (response.success && response.chama) {
+      const transformedChama = transformChamaData(response.chama);
+      console.log(transformedChama);
+      setChama(transformedChama);
+      
+      // Set payment amount for the payment modal
       const remainingAmount = Math.max(
         0,
-        selectedChama.contribution - selectedChama.myContributions
+        transformedChama.contribution - transformedChama.myContributions
       );
-
       setPaymentAmount(remainingAmount.toString());
+    } else {
+      setChama(null);
+      if (response.error) {
+        Alert.alert("Error", response.error);
+      }
     }
     setIsLoading(false);
-  }, [id]);
+  };
+  fetchChama();
+  }, [id, token]);
 
   const sendMessage = () => {
     if (newMessage.trim()) {
@@ -161,9 +180,10 @@ export default function JoinedChamaDetails() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <View className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="bg-emerald-600 p-6 pb-4">
+      <SafeAreaView className=" bg-emerald-600">
+        <View className="p-6 pb-4">
         <View className="flex-row items-center justify-between mb-4">
           <TouchableOpacity
             onPress={() => router.back()}
@@ -190,11 +210,12 @@ export default function JoinedChamaDetails() {
           <View className="items-center">
             <Text className="text-emerald-100 text-xs">Next Payout</Text>
             <Text className="text-lg text-white font-semibold">
-              KES {formatToK(nextPayoutAmount)}
+              {formatToK(chama.totalContributions)} {chama.currency} 
             </Text>
           </View>
         </View>
-      </View>
+        </View>
+      </SafeAreaView>
 
       {/* Tabs */}
       <KeyboardAvoidingView
@@ -248,6 +269,6 @@ export default function JoinedChamaDetails() {
           chamaName={chama.name}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }

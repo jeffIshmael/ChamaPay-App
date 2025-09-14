@@ -9,7 +9,9 @@
     "dev:watch": "nodemon --exec ts-node index.ts",
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "db:seed": "ts-node prisma/seed.ts",
+    "db:reset": "npx prisma migrate reset --force && npm run db:seed"
   },
   "keywords": [],
   "author": "",

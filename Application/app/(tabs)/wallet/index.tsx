@@ -1,5 +1,4 @@
 import { Picker } from "@react-native-picker/picker";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import {
   ArrowDownRight,
@@ -14,8 +13,7 @@ import {
   Info,
   QrCode,
   Send,
-  TrendingUp,
-  Upload,
+  Upload
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -31,7 +29,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg from "react-native-svg";
+import Svg, { Circle, Path } from "react-native-svg";
 
 interface Token {
   symbol: string;
@@ -312,8 +310,8 @@ export default function CryptoWallet() {
                 width={12}
                 height={12}
               >
-                <circle fill="#FCFF52" cx="1250" cy="1250" r="1250" />
-                <path
+                <Circle fill="#FCFF52" cx="1250" cy="1250" r="1250" />
+                <Path
                   fill="#000000"
                   d="M1949.3,546.2H550.7v1407.7h1398.7v-491.4h-232.1c-80,179.3-260.1,304.1-466.2,304.1
                 c-284.1,0-514.2-233.6-514.2-517.5c0-284,230.1-515.6,514.2-515.6c210.1,0,390.2,128.9,470.2,312.1h228.1V546.2z"
@@ -415,40 +413,38 @@ export default function CryptoWallet() {
         showsVerticalScrollIndicator={false}
         className="flex-1 bg-gray-50"
       >
-        {/* Header with Gradient */}
-        <LinearGradient
-          colors={["#059669", "#10b981"]}
-          className="px-6 pb-6 pt-4"
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-        >
+        {/* Header */}
+        <View className="bg-emerald-600 px-6 pb-6 pt-4">
           {/* Total Balance */}
-          <View className="items-center mb-2">
-            <View className="flex-row items-center mb-2">
-              <Text className="text-lg text-white/90 mr-2">Total Balance</Text>
+          <View className="items-center mb-4">
+            <Text className="text-xl text-white/90 mb-3">Total Balance</Text>
+            
+            <View className="flex-row items-center justify-center mb-3">
+              <Text className="text-4xl text-white font-bold">
+                {balanceVisible
+                  ? formatCurrency(walletData.totalUsdValue)
+                  : "••••••"}
+              </Text>
               <TouchableOpacity
                 onPress={() => setBalanceVisible(!balanceVisible)}
-                className="p-1 rounded-full"
+                className="ml-3 "
                 activeOpacity={0.7}
               >
                 {balanceVisible ? (
-                  <Eye size={16} color="rgba(255,255,255,0.8)" />
+                  <Eye size={20} color="rgba(255,255,255,0.9)" />
                 ) : (
-                  <EyeOff size={16} color="rgba(255,255,255,0.8)" />
+                  <EyeOff size={20} color="rgba(255,255,255,0.9)" />
                 )}
               </TouchableOpacity>
             </View>
-            <Text className="text-4xl text-white font-bold mb-3">
-              {balanceVisible
-                ? formatCurrency(walletData.totalUsdValue)
-                : "••••••"}
+            
+            <Text className="text-emerald-100 text-lg font-medium mb-6">
+              {
+                balanceVisible
+                  ?" 25,000 Kshs"
+                  : null
+              }
             </Text>
-            <View className="flex-row items-center mb-6">
-              <TrendingUp size={14} color="#a7f3d0" />
-              <Text className="text-emerald-100 text-sm ml-1">
-                +2.34% (24h)
-              </Text>
-            </View>
 
             {/* Wallet Address */}
             <View className="bg-white/10 rounded-xl p-4 w-full">
@@ -472,7 +468,7 @@ export default function CryptoWallet() {
               </View>
             </View>
           </View>
-        </LinearGradient>
+        </View>
 
         {/* Quick Actions */}
         <View className="px-6 py-4 -mt-6">

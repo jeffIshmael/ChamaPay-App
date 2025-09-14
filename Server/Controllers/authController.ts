@@ -239,13 +239,13 @@ export const verifyEmailAndCompleteRegistration = async (req: Request, res: Resp
     // OTP is valid - create wallet and complete registration
     const wallet = getWallets();
     
-    if (!process.env.JWT_SECRET) {
-      throw new Error("JWT_SECRET not configured");
+    if (!process.env.ENCRYPTION_SECRET || !process.env.JWT_SECRET) {
+      throw new Error("ENCRYPTION_SECRET not configured");
     }
 
     // Encrypt wallet data using the user's password and JWT secret
-    const encryptedPrivateKey = encryptionService.encrypt(wallet.privateKey, process.env.JWT_SECRET);
-    const encryptedMnemonic = encryptionService.encrypt(wallet.mnemonic?.phrase || '', process.env.JWT_SECRET);
+    const encryptedPrivateKey = encryptionService.encrypt(wallet.privateKey, process.env.ENCRYPTION_SECRET);
+    const encryptedMnemonic = encryptionService.encrypt(wallet.mnemonic?.phrase || '', process.env.ENCRYPTION_SECRET);
 
     // Create the actual user
     const newUser = await prisma.user.create({
@@ -492,3 +492,70 @@ export const getMnemonic = async (req: Request, res: Response): Promise<void> =>
     });
   }
 }; 
+
+// Google OAuth upsert: create user and wallet if not exists, else login
+export const googleAuth = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, name, profileImageUrl }: { email: string; name?: string; profileImageUrl?: string } = req.body;
+
+    if (!email) {
+      res.status(400).json({ error: "Email is required" });
+      return;
+    }
+
+    const formattedEmail: string = email.toLowerCase();
+
+    // Try to find existing user
+    let user = await prisma.user.findUnique({ where: { email: formattedEmail } });
+
+    if (!user) {
+      // Create wallet for new user
+      const wallet = getWallets();
+
+      if (!process.env.ENCRYPTION_SECRET || !process.env.JWT_SECRET) {
+        throw new Error("ENCRYPTION_SECRET not configured");
+      }
+
+      const encryptedPrivateKey = encryptionService.encrypt(wallet.privateKey, process.env.ENCRYPTION_SECRET);
+      const encryptedMnemonic = encryptionService.encrypt(wallet.mnemonic?.phrase || '', process.env.ENCRYPTION_SECRET);
+
+      // Create a random password hash placeholder
+      const randomPassword = await bcrypt.hash(jwt.sign({ e: formattedEmail }, process.env.JWT_SECRET), 12);
+
+      user = await prisma.user.create({
+        data: {
+          email: formattedEmail,
+          name: name || null,
+          password: randomPassword,
+          address: wallet.address,
+          privKey: JSON.stringify(encryptedPrivateKey),
+          mnemonics: JSON.stringify(encryptedMnemonic),
+          role: "user",
+          profileImageUrl: profileImageUrl || null,
+        },
+      });
+    } else if (!user.profileImageUrl && profileImageUrl) {
+      // Optionally update profile image for existing user
+      user = await prisma.user.update({ where: { id: user.id }, data: { profileImageUrl } });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET not configured");
+    }
+
+    const token: string = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+    const { password, privKey, mnemonics, ...userResponse } = user as any;
+
+    res.status(200).json({
+      success: true,
+      message: "Authenticated via Google",
+      token,
+      user: userResponse,
+      isNew: !user.name, // prompt for username if missing
+    });
+  } catch (error: unknown) {
+    console.error("Google auth error:", error);
+    res.status(500).json({ error: "Google authentication failed" });
+  }
+};

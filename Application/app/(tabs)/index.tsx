@@ -1,52 +1,89 @@
-import { mockJoinedChamas } from "@/constants/mockData";
+import { JoinedChama } from "@/constants/mockData";
 import { useAuth } from "@/contexts/AuthContext";
+import { getUserChamas, transformChamaData } from "@/lib/chamaService";
+import { formatSvg } from "@/lib/formatSvg";
+import { initials } from '@dicebear/collection';
+import { createAvatar } from '@dicebear/core';
 import { useRouter } from "expo-router";
 import {
   ArrowRight,
   Bell,
   Calendar,
   Settings,
-  User,
   Users,
-  Wallet,
+  Wallet
 } from "lucide-react-native";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Rect, Text as SvgText } from "react-native-svg";
+
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, token } = useAuth();
+  const insets = useSafeAreaInsets();
+  const [chamas, setChamas] = useState<JoinedChama[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      router.replace("/auth-screen");
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
-  };
-
-  // Default avatar URLs based on user's initials
+  // Default avatar SVG string based on user's initials
   const getDefaultAvatar = () => {
-    const initials = (user?.name || user?.email || 'U')
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-    
-    return `https://api.dicebear.com/7.x/initials/svg?seed=${initials}&backgroundColor=ffffff&textColor=10b981`;
+    const avatar = createAvatar(initials, {
+     seed: user?.name || user?.email || 'U',
+    });
+    const svg = avatar.toString();
+    console.log(svg);
+    return svg;
   };
 
   const getUserProfileImage = () => {
     return user?.profileImageUrl || getDefaultAvatar();
   };
 
+  // Fetch user's chamas from backend
+  useEffect(() => {
+    const fetchChamas = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const response = await getUserChamas(token);
+        
+                  if (response.success && response.chamas) {
+            const transformedChamas = response.chamas.map((chamaMember: any) => {
+              // Extract the actual chama data from the nested structure
+              const chamaData = chamaMember.chama;
+              return transformChamaData(chamaData);
+            });
+            console.log(transformedChamas);
+            setChamas(transformedChamas);
+          } else {
+          setChamas([]);
+          if (response.error) {
+            setError(response.error);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching chamas:', err);
+        setError('Failed to fetch chamas');
+        setChamas([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchChamas();
+  }, [token]);
+
   const Badge = ({
     children,
     variant = "default",
     style,
-  }: {
+  }: {  
     children: React.ReactNode;
     variant?: "default" | "secondary" | "destructive";
     style?: any;
@@ -58,7 +95,7 @@ export default function HomeScreen() {
         case "destructive":
           return { backgroundColor: "#fee2e2", color: "#dc2626" };
         default:
-          return { backgroundColor: "#059669", color: "white" };
+          return { backgroundColor: "#05966x9", color: "white" };
       }
     };
 
@@ -108,22 +145,59 @@ export default function HomeScreen() {
   return (
     <View className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="flex-row items-center justify-between  bg-emerald-600 px-3 pb-4 pt-8">
+      <View 
+        className="flex-row items-center justify-between bg-emerald-600 px-3 pb-4 border-b rounded-b-3xl border-gray-200"
+        style={{ paddingTop: insets.top}}
+      >
         <View className="flex-row items-center">
           <TouchableOpacity
             onPress={() => router.push("/profile-settings")}
             className="mr-3"
             activeOpacity={0.8}
           >
-            <Image
-              source={{ uri: getUserProfileImage() }}
-              className="w-10 h-10 rounded-full"
-              style={{ 
-                backgroundColor: '#f3f4f6',
-                borderWidth: 2,
-                borderColor: 'rgba(255, 255, 255, 0.3)'
-              }}
-            />
+             {user?.profileImageUrl ? (
+              <Image
+                source={{ uri: user.profileImageUrl }}
+                className="w-10 h-10 rounded-full"
+                style={{ 
+                  backgroundColor: '#f3f4f6',
+                  borderWidth: 2,
+                  borderColor: 'rgba(255, 255, 255, 0.3)'
+                }}
+              />
+            ) : (
+              (() => {
+                const svgString = getDefaultAvatar();
+                const svgData = formatSvg(svgString);
+                console.log(svgData);
+                return (
+                  <View className="w-10 h-10 rounded-full overflow-hidden ">
+                    <Svg width={40} height={40} viewBox="0 0 100 100 ">
+                      <Rect 
+                        fill={svgData.backgroundColor === '#fff' || svgData.backgroundColor === '#ffffff' ? '#10b981' : svgData.backgroundColor} 
+                        width="100" 
+                        height="100" 
+                        x="0" 
+                        y="0" 
+                        rx="20"
+                        ry="20"
+                      />
+                      <SvgText 
+                        x="50" 
+                        y="65" 
+                        fontFamily={svgData.fontFamily} 
+                        fontSize={svgData.fontSize} 
+                        fontWeight={svgData.fontWeight} 
+                        fill={svgData.textColor} 
+                        textAnchor="middle"
+                      >
+                        {svgData.text}
+                      </SvgText>
+                    </Svg>
+                  </View>
+                );
+              })()
+            )}
           </TouchableOpacity>
           <View>
             <Text className="text-lg text-white font-medium">Welcome back</Text>
@@ -158,23 +232,32 @@ export default function HomeScreen() {
       >
         <View className="flex-row items-center justify-between mb-4">
           <Text className="text-lg text-gray-900 font-semibold">My Chamas</Text>
-          <Badge variant="secondary">{mockJoinedChamas.length}</Badge>
+          <Badge variant="secondary">{chamas.length}</Badge>
         </View>
 
         <View className="pb-6">
-          {mockJoinedChamas.map((chama) => (
-            <Card
-              key={chama.id}
-              onPress={() =>
-                router.push({
-                  pathname: "/[joined-chama-details]/[id]",
-                  params: {
-                    "joined-chama-details": chama.id,
-                    id: chama.id,
-                  },
-                })
-              }
-            >
+          {loading ? (
+            <View className="items-center py-8">
+              <Text className="text-gray-500">Loading chamas...</Text>
+            </View>
+          ) : error ? (
+            <View className="items-center py-8">
+              <Text className="text-red-500">{error}</Text>
+            </View>
+          ) : chamas.length > 0 ? (
+            chamas.map((chama: JoinedChama, index: number) => (
+              <Card
+                key={chama.id || `chama-${index}`}
+                onPress={() =>
+                  router.push({
+                    pathname: "/[joined-chama-details]/[id]",
+                    params: {
+                      "joined-chama-details": chama.slug || `chama-${index}`,
+                      id: chama.slug,
+                    },
+                  })
+                }
+              >
               <View className="flex-row items-start justify-between mb-3">
                 <View className="flex-1">
                   <View className="flex-row items-center mb-1">
@@ -195,10 +278,10 @@ export default function HomeScreen() {
                       </Text>
                     </View>
                     <View className="flex-row items-center">
-                      <Wallet color="#6b7280" size={14} />
-                      <Text className="text-sm text-gray-600 ml-1">
-                        {chama.currency} {chama.contribution.toLocaleString()}
-                      </Text>
+                                              <Wallet color="#6b7280" size={14} />
+                        <Text className="text-sm text-gray-600 ml-1">
+                          {chama.currency} {chama.contribution?.toLocaleString() || '0'}
+                        </Text>
                     </View>
                   </View>
                 </View>
@@ -226,9 +309,8 @@ export default function HomeScreen() {
                 </View>
               </View>
             </Card>
-          ))}
-
-          {mockJoinedChamas.length === 0 && (
+          ))
+          ) : (
             <Card style={{ alignItems: "center", paddingVertical: 32 }}>
               <Users color="#9ca3af" size={48} />
               <Text className="text-gray-900 font-medium text-lg mt-4 mb-2">

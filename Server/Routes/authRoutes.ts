@@ -2,10 +2,11 @@
 import express, { Router } from "express";
 import {
     getMnemonic,
+    googleAuth,
     login,
     requestRegistration,
     resendOTP,
-    verifyEmailAndCompleteRegistration
+    verifyEmailAndCompleteRegistration,
 } from "../Controllers/authController";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -18,6 +19,9 @@ router.post("/resend-otp", resendOTP);
 
 // Login endpoint
 router.post("/login", login);
+
+// Google auth endpoint
+router.post("/google", googleAuth);
 
 // Protected endpoints
 router.post("/get-mnemonic", authenticate, getMnemonic);

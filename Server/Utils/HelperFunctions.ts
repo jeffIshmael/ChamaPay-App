@@ -1,7 +1,17 @@
 // This file has all chama related functions
 import { PrismaClient } from "@prisma/client";
+import encryptionService from "./Encryption";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const prisma = new PrismaClient();
+
+const encryptionSecret = process.env.ENCRYPTION_SECRET;
+
+if (!encryptionSecret) {
+    throw new Error("ENCRYPTION_SECRET not configured");
+}
 
 // Function to generate unique slug
 export async function generateUniqueSlug(baseName: string): Promise<string> {
@@ -25,4 +35,19 @@ export async function generateUniqueSlug(baseName: string): Promise<string> {
     }
     
     return uniqueSlug;
+}
+
+// function that gets the user's id and returns a decrypted private key
+export const getUserPrivateKey = async (userId: number) => {
+    const user = await prisma.user.findUnique({
+        where: { id: userId }
+    });
+    if (!user) {
+        throw new Error("User not found");
+    }
+    
+   // decrypt the private key
+   const encryptedPrivateKey = JSON.parse(user.privKey);
+   const decryptedPrivateKey = encryptionService.decrypt(encryptedPrivateKey, encryptionSecret);
+   return decryptedPrivateKey;
 }

@@ -103,7 +103,6 @@ export default function CreateChama() {
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
     if (selectedDate) {
       setSelectedDate(selectedDate);
       const dateString = selectedDate.toISOString().slice(0, 10);
@@ -112,8 +111,8 @@ export default function CreateChama() {
   };
 
   const handleTimeChange = (event: any, selectedTime?: Date) => {
-    setShowTimePicker(false);
     if (selectedTime) {
+      setSelectedDate(selectedTime);
       const timeString = selectedTime.toTimeString().slice(0, 5);
       updateFormData("startTime", timeString);
     }
@@ -172,9 +171,8 @@ export default function CreateChama() {
             cycleTime: formData.frequency,
             maxNo: formData.maxMembers,
             startDate: startDateTime,
-            blockchainId: "1", // Default blockchain ID
-            promoCode: "", // Will be generated on backend
-            txHash: null,
+            promoCode: "", 
+            collateralRequired: formData.isPublic,
           },
         }),
       });
@@ -373,9 +371,10 @@ export default function CreateChama() {
               </Text>
               <TouchableOpacity
                 onPress={() => {
-                  setSelectedDate(
-                    new Date(`${formData.startDate} ${formData.startTime}`)
-                  );
+                  const [hours, minutes] = formData.startTime.split(":");
+                  const date = new Date(formData.startDate);
+                  date.setHours(parseInt(hours), parseInt(minutes));
+                  setSelectedDate(date);
                   setShowTimePicker(true);
                   setPickerMode("time");
                 }}
@@ -678,40 +677,76 @@ export default function CreateChama() {
         visible={showDatePicker}
         onRequestClose={() => setShowDatePicker(false)}
         transparent={true}
-        animationType="fade"
+        animationType="slide"
       >
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}
-          onPress={() => setShowDatePicker(false)}
-        >
-          <DateTimePicker
-            value={selectedDate}
-            mode={pickerMode}
-            is24Hour={true}
-            display="default"
-            onChange={handleDateChange}
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }}>
+          <TouchableOpacity
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+            onPress={() => setShowDatePicker(false)}
           />
-        </TouchableOpacity>
+          <View style={{ backgroundColor: "white", borderRadius: 12, padding: 20, margin: 20 }}>
+            <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 20, textAlign: "center" }}>
+              Select Date
+            </Text>
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display="compact"
+              onChange={handleDateChange}
+              style={{ backgroundColor: "white" }}
+            />
+            <TouchableOpacity
+              onPress={() => setShowDatePicker(false)}
+              style={{ 
+                backgroundColor: "#059669", 
+                padding: 12, 
+                borderRadius: 8, 
+                marginTop: 20,
+                alignItems: "center"
+              }}
+            >
+              <Text style={{ color: "white", fontWeight: "600" }}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
       <Modal
         visible={showTimePicker}
         onRequestClose={() => setShowTimePicker(false)}
         transparent={true}
-        animationType="fade"
+        animationType="slide"
       >
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}
-          onPress={() => setShowTimePicker(false)}
-        >
-          <DateTimePicker
-            value={selectedDate}
-            mode={pickerMode}
-            is24Hour={true}
-            display="default"
-            onChange={handleTimeChange}
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }}>
+          <TouchableOpacity
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+            onPress={() => setShowTimePicker(false)}
           />
-        </TouchableOpacity>
+          <View style={{ backgroundColor: "white", borderRadius: 12, padding: 20, margin: 20 }}>
+            <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 20, textAlign: "center" }}>
+              Select Time
+            </Text>
+            <DateTimePicker
+              value={selectedDate}
+              mode="time"
+              display="compact"
+              onChange={handleTimeChange}
+              style={{ backgroundColor: "white" }}
+            />
+            <TouchableOpacity
+              onPress={() => setShowTimePicker(false)}
+              style={{ 
+                backgroundColor: "#059669", 
+                padding: 12, 
+                borderRadius: 8, 
+                marginTop: 20,
+                alignItems: "center"
+              }}
+            >
+              <Text style={{ color: "white", fontWeight: "600" }}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );

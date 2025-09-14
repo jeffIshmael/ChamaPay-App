@@ -22,6 +22,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
   refreshUser: () => Promise<void>;
+  setAuth: (newToken: string, userData: User) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -160,6 +161,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const setAuth = async (newToken: string, userData: User) => {
+    await storage.setToken(newToken);
+    await storage.setUser(userData);
+    setToken(newToken);
+    setUser(userData);
+  };
+
   const value: AuthContextType = {
     user,
     token,
@@ -169,6 +177,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     updateUser,
     refreshUser,
+    setAuth,
   };
 
   return (

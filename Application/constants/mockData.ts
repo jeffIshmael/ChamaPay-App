@@ -35,6 +35,7 @@ export interface Transaction {
 
 export interface JoinedChama {
   id: string;
+  slug: string;
   name: string;
   description: string;
   currency: string;
@@ -72,6 +73,7 @@ export interface JoinedChama {
 export const mockJoinedChamas: JoinedChama[] = [
   {
     id: "1",
+    slug: "women-entrepreneurs-chama",
     name: "Women Entrepreneurs Chama",
     description:
       "Supporting women entrepreneurs in building successful businesses and financial independence",
@@ -231,6 +233,7 @@ export const mockJoinedChamas: JoinedChama[] = [
   },
   {
     id: "2",
+    slug: "young-professionals-investment-group",
     name: "Young Professionals Investment Group",
     description:
       "A group of young professionals pooling resources for joint investments and financial growth.",
@@ -364,6 +367,7 @@ export const mockJoinedChamas: JoinedChama[] = [
   },
   {
     id: "3",
+    slug: "family-welfare-chama",
     name: "Family Welfare Chama",
     description:
       "A family-based chama for supporting each other in times of need and celebrating milestones.",

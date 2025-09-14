@@ -12,6 +12,7 @@ export default function TabLayout() {
       <Tabs.Screen name="index" options={{ title: "Dashboard" }} />
       <Tabs.Screen name="discover-chamas" options={{ title: "Discover" }} />
       <Tabs.Screen name="create-chama" options={{ title: "Create" }} />
+      <Tabs.Screen name="notifications" options={{ title: "Notifications" }} />
       <Tabs.Screen name="wallet/index" options={{ title: "Wallet" }} />
     </Tabs>
   );

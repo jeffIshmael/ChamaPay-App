@@ -15,6 +15,9 @@ export default function RootLayout() {
           <Stack.Screen name="wallet-setup" />
           <Stack.Screen name="edit-profile" />
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="better-auth" />
+          <Stack.Screen name="phone-verification" />
+          <Stack.Screen name="phone-otp-verify" />
         </Stack>
       </SafeAreaProvider>
     </AuthProvider>
