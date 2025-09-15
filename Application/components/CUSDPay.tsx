@@ -111,11 +111,6 @@ const CUSDPay = ({
     fetchUser();
   }, []);
 
-  const viewOnExplorer = () => {
-    Linking.openURL(`https://alfajores.celoscan.io/tx/${txHash}`);
-    setShowSuccessModal(false);
-  };
-
   const handleAmountChange = async (text: string) => {
     setAmount(text);
     if (Number(text) <= 0) {
