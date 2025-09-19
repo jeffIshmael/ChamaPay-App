@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import emailService from "../Utils/EmailService";
 import encryptionService from "../Utils/Encryption";
 import { getWallets } from "../Utils/WalletCreation";
+import { sendWhatsAppOTP } from "../Utils/WhatsAppService";
 
 const prisma = new PrismaClient();
 
@@ -371,6 +372,33 @@ export const resendOTP = async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ 
       error: "Failed to resend OTP. Please try again." 
     });
+  }
+};
+
+// Public endpoint: Send OTP via WhatsApp for phone verification flows
+export const sendWhatsAppCode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { phone }: { phone?: string } = req.body;
+    if (!phone) {
+      res.status(400).json({ success: false, error: "Phone number is required" });
+      return;
+    }
+
+    // Generate a 6-digit OTP
+    const otp = emailService.generateOTP();
+
+    // Send via WhatsApp Cloud API
+    const result = await sendWhatsAppOTP(phone, otp);
+    if (!result.success) {
+      res.status(500).json({ success: false, error: result.error || "Failed to send WhatsApp message" });
+      return;
+    }
+
+    // For now, return otp for client-side test; in production, remove this
+    res.status(200).json({ success: true, message: "OTP sent via WhatsApp", otp });
+  } catch (error: unknown) {
+    console.error("Send WhatsApp code error:", error);
+    res.status(500).json({ success: false, error: "Failed to send OTP via WhatsApp" });
   }
 };
 

@@ -1,4 +1,4 @@
-import { getAuth, PhoneAuthProvider, signInWithCredential, signInWithPhoneNumber } from '@react-native-firebase/auth';
+// import { getAuth, PhoneAuthProvider, signInWithCredential, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Clock, Shield } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
@@ -77,8 +77,8 @@ export default function OTPVerificationScreen() {
       setErrorText("");
       
       // Use React Native Firebase to verify the OTP
-      const credential = PhoneAuthProvider.credential(phoneNumber, codeToVerify);
-      await signInWithCredential(getAuth(), credential);
+      // const credential = PhoneAuthProvider.credential(phoneNumber, codeToVerify);
+      // await signInWithCredential(getAuth(), credential);
       
       setLoading(false);
       
@@ -122,7 +122,7 @@ export default function OTPVerificationScreen() {
       setErrorText("");
       
       // Use React Native Firebase to resend OTP
-      await signInWithPhoneNumber(getAuth(), phoneNumber);
+      // await signInWithPhoneNumber(getAuth(), phoneNumber);
       
       setResendLoading(false);
       setCountdown(30);

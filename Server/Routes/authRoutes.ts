@@ -6,6 +6,7 @@ import {
     login,
     requestRegistration,
     resendOTP,
+    sendWhatsAppCode,
     verifyEmailAndCompleteRegistration,
 } from "../Controllers/authController";
 import authenticate from "../Middlewares/authMiddleware";
@@ -16,6 +17,7 @@ const router: Router = express.Router();
 router.post("/request-registration", requestRegistration);
 router.post("/verify-email", verifyEmailAndCompleteRegistration);
 router.post("/resend-otp", resendOTP);
+router.post("/send-whatsapp-otp", sendWhatsAppCode);
 
 // Login endpoint
 router.post("/login", login);

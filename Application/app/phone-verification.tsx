@@ -1,4 +1,4 @@
-import { getAuth, signInWithPhoneNumber } from '@react-native-firebase/auth';
+import { serverUrl } from "@/constants/serverUrl";
 import { useRouter } from "expo-router";
 import { MessageSquare, Phone, Send, Shield } from "lucide-react-native";
 import React, { useRef, useState } from "react";
@@ -63,8 +63,16 @@ export default function PhoneVerificationScreen() {
       // console.log("confirm result", confirmation);
       // setConfirm(confirmation);
       if (deliveryMethod === "whatsapp"){
-        
-
+        const res = await fetch(`${serverUrl}/auth/send-whatsapp-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: formattedNumber })
+        });
+        if (!res.ok) {
+          throw new Error("Failed to send WhatsApp OTP");
+        }
+        const data = await res.json();
+        console.log("WhatsApp OTP response", data);
       }
   
       setTimeout(() => {
