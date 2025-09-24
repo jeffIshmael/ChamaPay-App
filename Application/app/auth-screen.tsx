@@ -1,15 +1,16 @@
+import { env } from "@/constants/env";
 import { checkUserDetails } from "@/lib/chamaService";
 import * as Google from "expo-auth-session/providers/google";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { Phone, Shield, Users } from "lucide-react-native";
+import { Shield, Users } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
@@ -49,9 +50,9 @@ export default function AuthScreen() {
   const [errorText, setErrorText] = useState("");
   const router = useRouter();
   const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "",
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "",
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || "",
+    androidClientId: env.GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: env.GOOGLE_IOS_CLIENT_ID,
+    webClientId: env.GOOGLE_WEB_CLIENT_ID,
   });
 
 //   const handlePhoneSignIn = () => {
@@ -71,7 +72,6 @@ export default function AuthScreen() {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       const profile = await profileRes.json();
-      console.log(profile);
       const email = profile?.email;
       const name = profile?.name;
       const picture = profile?.picture;
