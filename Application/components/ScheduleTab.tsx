@@ -7,7 +7,7 @@ import { ScrollView, Text, View } from "react-native";
 
 type Props = {
   payoutSchedule: PayoutScheduleItem[];
-  currentUserName?: string; // Optional: for highlighting current user
+  currentUserName?: string; 
 };
 
 const getStatusColor = (status: PayoutStatus) => {

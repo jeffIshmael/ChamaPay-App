@@ -10,6 +10,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="auth-screen" />
+          <Stack.Screen name="auth-form-screen" />
           <Stack.Screen name="wallet-setup" />
         </Stack>
       </SafeAreaProvider>

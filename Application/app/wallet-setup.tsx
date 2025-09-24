@@ -3,21 +3,22 @@ import * as Clipboard from "expo-clipboard";
 import {
   CheckCircle,
   Copy,
-  Download,
-  Eye,
-  EyeOff,
   Shield,
-  Wallet,
+  Wallet
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { serverUrl } from "@/constants/serverUrl";
-import { useRouter } from "expo-router";
+// import { useAuth } from "@/contexts/AuthContext";
+// import { storage } from "@/utils/storage";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
 export default function WalletSetup() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ mode?: string; email?: string; name?: string; picture?: string }>();
+  // const { setAuth } = useAuth();
 
   const [step, setStep] = useState<"creating" | "created" | "secured">(
     "creating"
@@ -39,6 +40,10 @@ export default function WalletSetup() {
   ]);
   const [showSeedPhrase, setShowSeedPhrase] = useState(false);
   const [seedPhraseConfirmed, setSeedPhraseConfirmed] = useState(false);
+  const [username, setUsername] = useState ("");
+  const [savingName, setSavingName] = useState(false);
+  const [hasNameMissing, setHasNameMissing] = useState(true);
+  const isUsernameValid = username.trim().length > 2;
 
   useEffect(() => {
     // Simulate wallet creation process
@@ -50,6 +55,7 @@ export default function WalletSetup() {
       clearTimeout(timer2);
     };
   }, []);
+
 
   const getUserDetails = async () => {
     try {
@@ -69,6 +75,9 @@ export default function WalletSetup() {
 
       if (response.ok) {
         setWalletAddress(Details.user.address);
+        const currentName = Details.user?.name;
+        setHasNameMissing(!currentName || !String(currentName).trim());
+        setUsername(currentName || "");
       } else {
         console.log("Error fetching user details: try again.");
       }
@@ -79,10 +88,57 @@ export default function WalletSetup() {
 
   useEffect(() => {
    const fetchUser = async() =>{
-    await getUserDetails();
+    const token = await AsyncStorage.getItem("token");
+    if (token) {
+      await getUserDetails();
+    } else if (params.mode === "google") {
+      // No token yet; will register after username
+      const suggested = (params.name || "").trim();
+      // setUsername(suggested);
+      setHasNameMissing(true);
+    }
    }
    fetchUser();
   }, []);
+
+
+
+  const saveUsername = async () => {
+    if (!username.trim()) {
+      Alert.alert("Username required", "Please enter a username.");
+      return;
+    }
+    try {
+      setSavingName(true);
+      const token = await AsyncStorage.getItem("token");
+      if (!token && params.mode === "google") {
+        // Finish Google registration now with chosen username
+        if (!params.email) {
+          Alert.alert("Error", "Missing Google account email.");
+          return;
+        }
+        const resp = await fetch(`${serverUrl}/auth/google`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: String(params.email), name: username, profileImageUrl: String(params.picture || "") }),
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data?.token || !data?.user) {
+          Alert.alert("Error", data?.error || "Failed to complete sign in");
+          return;
+        }
+        console.log("user response",data.user);
+        setWalletAddress(data.user?.address);
+        // await setAuth(data.token, data.user);
+        setHasNameMissing(false);
+        Alert.alert("Welcome", "Your account is ready");
+      }
+    } catch (e) {
+      Alert.alert("Error", "Could not save username. Try again.");
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const copyAddress = async () => {
     await Clipboard.setStringAsync(walletAddress!);
@@ -165,7 +221,7 @@ export default function WalletSetup() {
             />
             <View className="ml-4 flex-1">
               <Text className="text-gray-900 font-medium">
-                Creating Smart Wallet
+                Creating Your Wallet
               </Text>
               <Text className="text-sm text-gray-600">
                 Generating secure wallet infrastructure
@@ -180,26 +236,45 @@ export default function WalletSetup() {
             />
             <View className="ml-4 flex-1">
               <Text className="text-gray-900 font-medium">
-                Securing Your Funds
+                Generating Your Smart Account
               </Text>
               <Text className="text-sm text-gray-600">
-                Implementing multi-signature protection
+                To enable gasless transactions
               </Text>
             </View>
           </View>
 
-          <View className="flex-row items-center">
-            <StepIndicator isActive={false} isCompleted={step === "secured"} />
+          <View className="flex-row items-center mb-6">
+            <StepIndicator
+              isActive={hasNameMissing}
+              isCompleted={!hasNameMissing}
+            />
             <View className="ml-4 flex-1">
-              <Text className="text-gray-900 font-medium">Ready to Use</Text>
+              <Text className="text-gray-900 font-medium">
+                Setting up your account
+              </Text>
               <Text className="text-sm text-gray-600">
-                Your wallet is ready for chama contributions
+                To enable chama contributions
               </Text>
             </View>
           </View>
+
+          {/* Show final indicator only after username is set */}
+          {!hasNameMissing && (
+            <View className="flex-row items-center">
+              <StepIndicator isActive={false} isCompleted={step === "secured"} />
+              <View className="ml-4 flex-1">
+                <Text className="text-gray-900 font-medium">Ready to Use</Text>
+                <Text className="text-sm text-gray-600">
+                  Your wallet is ready for chama contributions
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
 
-        {step === "secured" && (
+        {/* Wallet summary appears only after secured AND username set */}
+        {step === "secured" && !hasNameMissing && (
           <View className="mb-8">
             {/* Wallet Address */}
             <View
@@ -253,7 +328,7 @@ export default function WalletSetup() {
               </View>
             </View>
 
-            {/* Seed Phrase */}
+            {/* Seed Phrase
             <View
               className="bg-white rounded-2xl p-6"
               style={{
@@ -356,26 +431,58 @@ export default function WalletSetup() {
                   </View>
                 </TouchableOpacity>
               )}
-            </View>
+            </View> */}
           </View>
         )}
 
-        {step === "secured" && (
+        {/* Prompt for username right after first two indicators */}
+        {(step === "created" || step === "secured") && hasNameMissing && (
+          <View
+            className="bg-white rounded-2xl p-6 mb-8"
+            style={{
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: 5,
+            }}
+          >
+            <Text className="text-gray-900 font-medium mb-2">Choose a username</Text>
+            <View className="flex-row items-center border border-gray-200 rounded-lg px-4 py-3 mb-3">
+              <Text className="text-gray-700 mr-2">@</Text>
+              <TextInput
+                className="flex-1 text-gray-900"
+                placeholder="your-username"
+                autoCapitalize="none"
+                value={username}
+                onChangeText={setUsername}
+              />
+            </View>
+            <TouchableOpacity
+              onPress={saveUsername}
+              disabled={savingName || !isUsernameValid}
+              className="w-full py-3 rounded-lg items-center justify-center"
+              style={{ backgroundColor: savingName  ? "#059669" : !isUsernameValid?"#808080":"#059669", opacity: savingName ? 0.8 : 1 }}
+              activeOpacity={0.8}
+            >
+              <Text className="text-white font-medium">{savingName ? "Saving..." : "Save username"}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {step === "secured" && !hasNameMissing && (
           <TouchableOpacity
             onPress={() => router.replace("/(tabs)")}
-            disabled={!showSeedPhrase && !seedPhraseConfirmed}
+            // disabled={!showSeedPhrase && !seedPhraseConfirmed}
             className="w-full py-4 rounded-xl items-center justify-center mb-8"
             style={{
-              backgroundColor:
-                !showSeedPhrase && !seedPhraseConfirmed ? "#9ca3af" : "#059669",
-              opacity: showSeedPhrase && !seedPhraseConfirmed ? 0.5 : 1,
+              backgroundColor: "#059669",
+              opacity: 1,
             }}
             activeOpacity={0.8}
           >
             <Text className="text-white font-medium text-base">
-              {!seedPhraseConfirmed
-                ? "Confirm you have saved your seed phrase"
-                : "Continue to Dashboard"}
+              continue to dashboard
             </Text>
           </TouchableOpacity>
         )}

@@ -12,12 +12,13 @@ model User {
   email         String         @unique
   name          String?
   phoneNo       Int?
-  address       String
+  address       String         @unique
   privKey       String
   mnemonics     String
   password      String
   role          String?
   profile       String?
+  profileImageUrl String?      // URL for user's profile image
   createdChamas Chama[]        @relation("AdminChamas")
   chamas        ChamaMember[]
   joinRequests  ChamaRequest[]
@@ -29,21 +30,24 @@ model User {
 
 model Chama {
   id            Int           @id @default(autoincrement())
-  name          String
+  name          String       
   slug          String        @unique
+  description   String?
+  adminTerms    String?       // JSON string of admin requirements
   type          String
   startDate     DateTime
   payDate       DateTime
   cycleTime     Int
   started       Boolean       @default(false)
-  amount        BigInt
-  round         Int
-  cycle         Int
+  amount        String
+  round         Int          @default(1) //  payout
+  cycle         Int          @default(1) // after every member has received a payout
   maxNo         Int           @default(15)      
   blockchainId  String
   adminId       Int
   canJoin       Boolean  @default(true)
   payOutOrder   String?  // Json string of payout order array.
+  collateralRequired Boolean @default(false) // Whether collateral is required for public chamas
   createdAt     DateTime      @default(now())
   promoCode     String?
   admin         User          @relation("AdminChamas", fields: [adminId], references: [id])
@@ -69,7 +73,7 @@ model ChamaMember {
 
 model Payment {
   id      Int      @id @default(autoincrement())
-  amount  BigInt
+  amount  String
   description String?
   doneAt  DateTime @default(now())
   txHash  String
@@ -134,4 +138,29 @@ model roundOutcome {
   createdAt DateTime @default(now())
   chamaId Int
   chama   Chama    @relation(fields: [chamaId], references: [id])
+}
+
+// Temporary storage for users pending email verification
+model PendingUser {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  password  String   // Hashed password
+  createdAt DateTime @default(now())
+  expiresAt DateTime // Auto-expire after 24 hours
+  
+  emailVerification EmailVerification?
+}
+
+// OTP management for email verification
+model EmailVerification {
+  id            Int         @id @default(autoincrement())
+  pendingUserId Int         @unique
+  otp           String      // 6-digit OTP
+  attempts      Int         @default(0)
+  verified      Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  expiresAt     DateTime    // OTP expires after 10 minutes
+  
+  pendingUser   PendingUser @relation(fields: [pendingUserId], references: [id], onDelete: Cascade)
 }
