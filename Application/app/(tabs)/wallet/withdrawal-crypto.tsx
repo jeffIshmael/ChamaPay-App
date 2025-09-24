@@ -1,15 +1,15 @@
+import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
   Check,
   DollarSign,
-  Info,
-  QrCode,
-  Wallet,
+  Wallet
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -19,6 +19,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Path } from "react-native-svg";
 
 export default function WithdrawCryptoScreen() {
   const router = useRouter();
@@ -32,17 +33,26 @@ export default function WithdrawCryptoScreen() {
   const [walletAddress, setWalletAddress] = useState("");
 
   const tokens = [
-    { symbol: "ETH", name: "Ethereum", balance: 2.456, icon: "⟠" },
-    { symbol: "cUSD", name: "USD Coin", balance: 1250.0, icon: "💎" },
-    { symbol: "cKES", name: "Kenyan Shilling", balance: 45000, icon: "🇰🇪" },
+    { 
+      symbol: "cUSD", 
+      name: "Celo Dollar", 
+      balance: 1250.0, 
+      image: require("@/assets/images/cusd.jpg") 
+    },
+    { 
+      symbol: "USDC", 
+      name: "USD Coin", 
+      balance: 1250.0, 
+      image: require("@/assets/images/usdclogo.png") 
+    },
   ];
 
   const withdrawMethods = [
     {
       id: "bank",
-      title: "Bank Account",
+      title: "Mobile money",
       subtitle: "Free • 1-3 business days",
-      icon: <DollarSign size={20} color="#059669" />,
+      icon: <DollarSign size={20} color="#059669" />
     },
     {
       id: "crypto",
@@ -113,40 +123,40 @@ export default function WithdrawCryptoScreen() {
             <Text className="text-gray-900 font-medium mb-3">
               Select Token to Withdraw
             </Text>
-            <View className="gap-2">
-              {tokens.map((token) => (
-                <TouchableOpacity
-                  key={token.symbol}
-                  onPress={() => setSelectedToken(token.symbol)}
-                  className={`flex-row items-center justify-between p-3 rounded-lg border ${
-                    selectedToken === token.symbol
-                      ? "border-emerald-500 bg-emerald-50"
-                      : "border-gray-200 bg-gray-50"
-                  }`}
-                  activeOpacity={0.7}
-                >
-                  <View className="flex-row items-center">
-                    <View className="w-8 h-8 rounded-full bg-white items-center justify-center mr-3 border border-gray-200">
-                      <Text className="text-sm">{token.icon}</Text>
-                    </View>
-                    <View>
-                      <Text className="text-gray-900 font-medium">
-                        {token.symbol}
-                      </Text>
-                      <Text className="text-xs text-gray-600">
-                        Balance:{" "}
-                        {token.symbol === "cKES"
-                          ? `${token.balance.toLocaleString()}`
-                          : `${token.balance}`}{" "}
-                        {token.symbol}
-                      </Text>
-                    </View>
+            <View className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <View className="flex-row items-center justify-between mb-2">
+                <View className="flex-row items-center flex-1 mr-4">
+                  <Image 
+                    source={tokens.find(t => t.symbol === selectedToken)?.image || tokens[0].image}
+                    className="w-8 h-8 rounded-full mr-3"
+                    resizeMode="cover"
+                  />
+                  <View className="flex-1">
+                    <Picker
+                      selectedValue={selectedToken}
+                      onValueChange={setSelectedToken}
+                      style={{ height: 50, width: 120 }}
+                      itemStyle={{ color: "black" }}
+                    >
+                      {tokens.map((token) => (
+                        <Picker.Item
+                          key={token.symbol}
+                          label={token.symbol}
+                          value={token.symbol}
+                        />
+                      ))}
+                    </Picker>
                   </View>
-                  {selectedToken === token.symbol && (
-                    <Check size={16} color="#ea580c" />
-                  )}
-                </TouchableOpacity>
-              ))}
+                </View>
+                <View className="items-end">
+                  <Text className="text-gray-900 font-medium">
+                    {tokens.find(t => t.symbol === selectedToken)?.balance || 0} {selectedToken}
+                  </Text>
+                  <Text className="text-sm text-gray-600">
+                    {tokens.find(t => t.symbol === selectedToken)?.name}
+                  </Text>
+                </View>
+              </View>
             </View>
           </View>
 
@@ -261,28 +271,13 @@ export default function WithdrawCryptoScreen() {
                   className="w-12 h-12 bg-emerald-600 rounded-lg items-center justify-center"
                   activeOpacity={0.7}
                 >
-                  <QrCode size={20} color="white" />
+                  <Svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                  <Path d="M4 4h5V2H2v7h2V4zM4 15H2v7h7v-2H4v-5zM15 2v2h5v5h2V2h-7zM20 20h-5v2h7v-7h-2v5zM2 11h20v2H2z"/>
+                </Svg>
                 </TouchableOpacity>
               </View>
             </View>
           )}
-
-          {/* Fees Information */}
-          <View className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
-            <View className="flex-row items-start">
-              <Info size={16} color="#d97706" />
-              <View className="ml-3 flex-1">
-                <Text className="text-sm font-medium text-yellow-800 mb-1">
-                  Withdrawal Fees
-                </Text>
-                <Text className="text-xs text-yellow-700">
-                  {selectedMethod === "bank"
-                    ? "• Bank withdrawals are free\n• Currency conversion fees may apply\n• Processing time: 1-3 business days"
-                    : "• Network fees apply (varies by blockchain)\n• Processing time: 10-30 minutes\n• Minimum withdrawal varies by token"}
-                </Text>
-              </View>
-            </View>
-          </View>
 
           {/* Withdraw Button */}
           <TouchableOpacity

@@ -10,7 +10,12 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.jeff.chamapay"
+      "bundleIdentifier": "com.jeff.chamapay",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Use Face ID to securely access your wallet seed phrase",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +23,14 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.jeff.chamapay"
+      "package": "com.jeff.chamapay",
+      "permissions": [
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ],
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "bundler": "metro",
@@ -27,6 +39,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-asset",
       [
         "expo-splash-screen",
         {
@@ -35,7 +48,15 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Use Face ID to securely access your wallet seed phrase"
+        }
+      ],
+      "expo-secure-store",
+      ["expo-apple-authentication"]
     ],
     "experiments": {
       "typedRoutes": true

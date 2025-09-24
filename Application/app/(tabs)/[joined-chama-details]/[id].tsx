@@ -1,15 +1,20 @@
 import ChamaOverviewTab from "@/components/ChamaOverviewTab";
 import ChatTab from "@/components/ChatTab";
 import MembersTab from "@/components/MembersTab";
+import PaymentModal from "@/components/PaymentModal";
 import ScheduleTab from "@/components/ScheduleTab";
 import { TabButton } from "@/components/ui/TabButton";
-import { JoinedChama, mockJoinedChamas } from "@/constants/mockData";
+import { JoinedChama } from "@/constants/mockData";
+import { useAuth } from "@/Contexts/AuthContext";
+import { getChamaBySlug, transformChamaData } from "@/lib/chamaService";
 import { formatToK } from "@/lib/formatNumbers";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
   Text,
   TouchableOpacity,
@@ -19,26 +24,44 @@ import {
 export default function JoinedChamaDetails() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { user, token } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const [newMessage, setNewMessage] = useState("");
   const [paymentAmount, setPaymentAmount] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
-  const [chama, setChama] = useState<JoinedChama>();
+  const [chama, setChama] = useState<JoinedChama | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   useEffect(() => {
+    const fetchChama = async () => {
+    if (!token) {   
+      Alert.alert("Error", "Please login to continue");
+      return;
+    }
     setIsLoading(true);
-    const selectedChama = mockJoinedChamas.find((c) => c.id === id);
-    if (selectedChama) {
-      setChama(selectedChama);
+    console.log(" the id", id);
+    const response = await getChamaBySlug(id as string, token);
+    if (response.success && response.chama) {
+      const transformedChama = transformChamaData(response.chama);
+      console.log(transformedChama);
+      setChama(transformedChama);
+      
+      // Set payment amount for the payment modal
       const remainingAmount = Math.max(
         0,
-        selectedChama.contribution - selectedChama.myContributions
+        transformedChama.contribution - transformedChama.myContributions
       );
-
       setPaymentAmount(remainingAmount.toString());
+    } else {
+      setChama(null);
+      if (response.error) {
+        Alert.alert("Error", response.error);
+      }
     }
     setIsLoading(false);
-  }, [id]);
+  };
+  fetchChama();
+  }, [id, token]);
 
   const sendMessage = () => {
     if (newMessage.trim()) {
@@ -48,7 +71,31 @@ export default function JoinedChamaDetails() {
   };
 
   const makePayment = () => {
-    Alert.alert("Payment", "Payment logic here...");
+    if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
+      Alert.alert("Error", "Please enter a valid amount");
+      return;
+    }
+
+    // Show the payment modal instead of Alert
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentSuccess = () => {
+    // Handle successful payment
+    if (chama && paymentAmount) {
+      const updatedChama = {
+        ...chama,
+        myContributions: chama.myContributions + parseFloat(paymentAmount),
+      };
+      setChama(updatedChama);
+      setPaymentAmount("");
+    }
+    setShowPaymentModal(false);
+    Alert.alert("Success", "Payment processed successfully!");
+  };
+
+  const handlePaymentClose = () => {
+    setShowPaymentModal(false);
   };
 
   const leaveChama = () => {
@@ -133,9 +180,10 @@ export default function JoinedChamaDetails() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <View className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="bg-emerald-600 p-6 pb-4">
+      <SafeAreaView className=" bg-emerald-600">
+        <View className="p-6 pb-4">
         <View className="flex-row items-center justify-between mb-4">
           <TouchableOpacity
             onPress={() => router.back()}
@@ -162,46 +210,65 @@ export default function JoinedChamaDetails() {
           <View className="items-center">
             <Text className="text-emerald-100 text-xs">Next Payout</Text>
             <Text className="text-lg text-white font-semibold">
-              KES {formatToK(nextPayoutAmount)}
+              {formatToK(chama.totalContributions)} {chama.currency} 
             </Text>
           </View>
         </View>
-      </View>
+        </View>
+      </SafeAreaView>
 
       {/* Tabs */}
-      <View className="flex-1 px-6 pt-4">
-        {/* Tab Navigation */}
-        <View className="flex-row bg-gray-100 rounded-lg p-1 mb-4">
-          <TabButton
-            label="Overview"
-            value="overview"
-            isActive={activeTab === "overview"}
-            onPress={() => setActiveTab("overview")}
-          />
-          <TabButton
-            label="Chat"
-            value="chat"
-            isActive={activeTab === "chat"}
-            onPress={() => setActiveTab("chat")}
-            badge={unreadMessages}
-          />
-          <TabButton
-            label="Schedule"
-            value="schedule"
-            isActive={activeTab === "schedule"}
-            onPress={() => setActiveTab("schedule")}
-          />
-          <TabButton
-            label="Members"
-            value="members"
-            isActive={activeTab === "members"}
-            onPress={() => setActiveTab("members")}
-          />
-        </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+      >
+        <View className={`flex-1 pt-4 ${activeTab === "chat" ? "" : "px-6"}`}>
+          {/* Tab Navigation */}
+          <View className={`flex-row bg-gray-100 rounded-lg p-1 mb-4 ${activeTab === "chat" ? "mx-6" : ""}`}>
+            <TabButton
+              label="Overview"
+              value="overview"
+              isActive={activeTab === "overview"}
+              onPress={() => setActiveTab("overview")}
+            />
+            <TabButton
+              label="Chat"
+              value="chat"
+              isActive={activeTab === "chat"}
+              onPress={() => setActiveTab("chat")}
+              badge={unreadMessages}
+            />
+            <TabButton
+              label="Schedule"
+              value="schedule"
+              isActive={activeTab === "schedule"}
+              onPress={() => setActiveTab("schedule")}
+            />
+            <TabButton
+              label="Members"
+              value="members"
+              isActive={activeTab === "members"}
+              onPress={() => setActiveTab("members")}
+            />
+          </View>
 
-        {/* Tab Content */}
-        <View className="flex-1">{renderTabContent()}</View>
-      </View>
-    </SafeAreaView>
+          {/* Tab Content */}
+          <View className="flex-1">{renderTabContent()}</View>
+        </View>
+      </KeyboardAvoidingView>
+
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <PaymentModal
+          visible={showPaymentModal}
+          onClose={handlePaymentClose}
+          onSuccess={handlePaymentSuccess}
+          chamaId={parseInt(id as string)}
+          chamaBlockchainId={1} // Default blockchain ID since it's not in the interface
+          chamaName={chama.name}
+        />
+      )}
+    </View>
   );
 }

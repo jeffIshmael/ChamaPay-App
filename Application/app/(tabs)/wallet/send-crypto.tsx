@@ -1,20 +1,23 @@
+import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Check, Info, QrCode } from "lucide-react-native";
+import { ArrowLeft } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Path } from "react-native-svg";
 
 export default function SendCryptoScreen() {
-  const [selectedToken, setSelectedToken] = useState("ETH");
+  const [selectedToken, setSelectedToken] = useState("cUSD");
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
@@ -22,9 +25,18 @@ export default function SendCryptoScreen() {
   const insets = useSafeAreaInsets();
 
   const tokens = [
-    { symbol: "ETH", name: "Ethereum", balance: 2.456, icon: "⟠" },
-    { symbol: "cUSD", name: "USD Coin", balance: 1250.0, icon: "💎" },
-    { symbol: "cKES", name: "Kenyan Shilling", balance: 45000, icon: "🇰🇪" },
+    {
+      symbol: "cUSD",
+      name: "Celo Dollar",
+      balance: 1250.0,
+      image: require("@/assets/images/cusd.jpg"),
+    },
+    {
+      symbol: "USDC",
+      name: "USD Coin",
+      balance: 1250.0,
+      image: require("@/assets/images/usdclogo.png"),
+    },
   ];
 
   const handleSend = () => {
@@ -34,16 +46,7 @@ export default function SendCryptoScreen() {
     }
 
     Alert.alert("Send Crypto", "Sending...");
-
-    // TODO: implement crypto send
-
-    // ("payment", {
-    //   type: "crypto-send",
-    //   token: selectedToken,
-    //   recipient,
-    //   amount: parseFloat(amount),
-    //   memo,
-    // });
+    // TODO: handle actual send
   };
 
   const scanQR = () => {
@@ -57,172 +60,118 @@ export default function SendCryptoScreen() {
       style={{ paddingTop: insets.top }}
     >
       {/* Header */}
-      <View className="px-6">
-        <View className="flex-row items-center justify-between mb-4">
+      <View className="px-6 pt-2">
+        <View className="flex-row items-center justify-between">
           <TouchableOpacity
             onPress={() => router.back()}
             className="p-2 rounded-full"
             activeOpacity={0.7}
           >
-            <ArrowLeft size={20} color="white" />
+            <ArrowLeft size={24} color="white" />
           </TouchableOpacity>
-          <Text className="text-lg text-white font-medium">Send Crypto</Text>
-          <View className="w-10" />
+          <Text className="text-lg font-semibold text-white">Send Crypto</Text>
+          <View className="w-8" />
         </View>
       </View>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        className="flex-1 bg-gray-50"
-      >
-        <View className="px-6 py-6 gap-6">
+
+      {/* Main Content */}
+      <ScrollView className="flex-1 bg-gray-50 rounded-t-3xl mt-4">
+        <View className="px-6 py-6 space-y-6">
+
           {/* Select Token */}
-          <View className="bg-white p-4 rounded-lg border border-gray-200">
-            <Text className="text-gray-900 font-medium mb-3">Select Token</Text>
-            <View className="gap-3">
-              {tokens.map((token) => (
-                <TouchableOpacity
-                  key={token.symbol}
-                  onPress={() => setSelectedToken(token.symbol)}
-                  className={`flex-row items-center justify-between p-3 rounded-lg border ${
-                    selectedToken === token.symbol
-                      ? "border-emerald-500 bg-emerald-50"
-                      : "border-gray-200 bg-gray-50"
-                  }`}
-                  activeOpacity={0.7}
+          <View className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+            <Text className="text-base font-semibold text-gray-800 mb-3">Select Token</Text>
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center space-x-3 flex-1">
+                <Image
+                  source={tokens.find(t => t.symbol === selectedToken)?.image || tokens[0].image}
+                  className="w-10 h-10 rounded-full"
+                  resizeMode="cover"
+                />
+                <Picker
+                  selectedValue={selectedToken}
+                  onValueChange={setSelectedToken}
+                  style={{ height: 40, width: 120 }}
+                  dropdownIconColor="black"
                 >
-                  <View className="flex-row items-center">
-                    <View className="w-10 h-10 rounded-full bg-white items-center justify-center mr-3 border border-gray-200">
-                      <Text className="text-lg">{token.icon}</Text>
-                    </View>
-                    <View>
-                      <Text className="text-gray-900 font-medium">
-                        {token.symbol}
-                      </Text>
-                      <Text className="text-sm text-gray-600">
-                        {token.name}
-                      </Text>
-                    </View>
-                  </View>
-                  <View className="items-end">
-                    <Text className="text-gray-900 font-medium">
-                      {token.symbol === "cKES"
-                        ? `${token.balance.toLocaleString()}`
-                        : `${token.balance}`}{" "}
-                      {token.symbol}
-                    </Text>
-                    {selectedToken === token.symbol && (
-                      <Check size={16} color="#059669" />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
+                  {tokens.map(token => (
+                    <Picker.Item key={token.symbol} label={token.symbol} value={token.symbol} />
+                  ))}
+                </Picker>
+              </View>
+              <View className="items-end">
+                <Text className="text-sm font-semibold text-gray-900">
+                  {tokens.find(t => t.symbol === selectedToken)?.balance} {selectedToken}
+                </Text>
+                <Text className="text-xs text-gray-500">
+                  {tokens.find(t => t.symbol === selectedToken)?.name}
+                </Text>
+              </View>
             </View>
           </View>
 
-          {/* Recipient */}
-          <View className="bg-white p-4 rounded-lg border border-gray-200">
-            <Text className="text-gray-900 font-medium mb-3">Recipient</Text>
-            <View className="flex-row gap-3">
+          {/* Recipient Input */}
+          <View className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+            <Text className="text-base font-semibold text-gray-800 mb-3">Recipient</Text>
+            <View className="flex-row items-center space-x-3">
               <TextInput
                 value={recipient}
                 onChangeText={setRecipient}
-                placeholder="Enter wallet address or ENS name"
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2"
-                multiline={true}
+                placeholder="Wallet address or ENS name"
+                className="flex-1 bg-gray-100 text-sm px-4 py-3 rounded-xl border border-gray-300"
+                multiline
                 numberOfLines={2}
               />
               <TouchableOpacity
                 onPress={scanQR}
-                className="w-12 h-12 bg-emerald-600 rounded-lg items-center justify-center"
-                activeOpacity={0.7}
+                className="w-12 h-12 bg-emerald-600 rounded-xl items-center justify-center"
+                activeOpacity={0.8}
               >
-                <QrCode size={20} color="white" />
+                <Svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                  <Path d="M4 4h5V2H2v7h2V4zM4 15H2v7h7v-2H4v-5zM15 2v2h5v5h2V2h-7zM20 20h-5v2h7v-7h-2v5zM2 11h20v2H2z" />
+                </Svg>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Amount */}
-          <View className="bg-white p-4 rounded-lg border border-gray-200">
-            <Text className="text-gray-900 font-medium mb-3">Amount</Text>
-            <View className="gap-3">
-              <TextInput
-                value={amount}
-                onChangeText={setAmount}
-                placeholder="0.00"
-                keyboardType="numeric"
-                className="border border-gray-300 rounded-lg px-3 py-3 text-lg font-medium text-center"
-              />
-              <View className="flex-row items-center justify-between">
-                <Text className="text-sm text-gray-600">
-                  Available:{" "}
-                  {tokens.find((t) => t.symbol === selectedToken)?.balance}{" "}
-                  {selectedToken}
-                </Text>
-                <TouchableOpacity
-                  onPress={() =>
-                    setAmount(
-                      tokens
-                        .find((t) => t.symbol === selectedToken)
-                        ?.balance.toString() || ""
-                    )
-                  }
-                  className="bg-emerald-100 px-3 py-1 rounded-full"
-                  activeOpacity={0.7}
-                >
-                  <Text className="text-emerald-700 text-sm font-medium">
-                    Max
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          {/* Memo (Optional) */}
-          <View className="bg-white p-4 rounded-lg border border-gray-200">
-            <Text className="text-gray-900 font-medium mb-3">
-              Memo (Optional)
-            </Text>
+          {/* Amount Input */}
+          <View className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+            <Text className="text-base font-semibold text-gray-800 mb-3">Amount</Text>
             <TextInput
-              value={memo}
-              onChangeText={setMemo}
-              placeholder="Add a note for this transaction"
-              className="border border-gray-300 rounded-lg px-3 py-2"
-              multiline={true}
-              numberOfLines={2}
+              value={amount}
+              onChangeText={setAmount}
+              placeholder="0.00"
+              keyboardType="decimal-pad"
+              className="text-center text-lg font-semibold px-4 py-3 bg-gray-100 rounded-xl border border-gray-300"
             />
-          </View>
-
-          {/* Transaction Fee */}
-          <View className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center">
-                <Info size={16} color="#2563eb" />
-                <View className="ml-3">
-                  <Text className="text-sm font-medium text-blue-800">
-                    Network Fee
-                  </Text>
-                  <Text className="text-xs text-blue-700">
-                    Standard • ~2-5 minutes
-                  </Text>
-                </View>
-              </View>
-              <Text className="text-sm font-medium text-blue-900">~$2.50</Text>
+            <View className="flex-row items-center justify-between mt-2">
+              <Text className="text-xs text-gray-500">
+                Available: {tokens.find(t => t.symbol === selectedToken)?.balance} {selectedToken}
+              </Text>
+              <TouchableOpacity
+                onPress={() =>
+                  setAmount(tokens.find(t => t.symbol === selectedToken)?.balance.toString() || "")
+                }
+                className="px-3 py-1 bg-emerald-100 rounded-full"
+              >
+                <Text className="text-emerald-700 text-sm font-semibold">Max</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
-          {/* Send Button */}
+          {/* Submit Button */}
           <TouchableOpacity
             onPress={handleSend}
             disabled={!recipient.trim() || !amount.trim()}
-            className={`w-full py-4 rounded-lg ${
+            className={`w-full py-4 rounded-2xl ${
               !recipient.trim() || !amount.trim()
                 ? "bg-gray-300"
                 : "bg-emerald-600"
             }`}
-            activeOpacity={0.8}
+            activeOpacity={0.9}
           >
             <Text
-              className={`text-center font-medium text-lg ${
+              className={`text-center text-lg font-medium ${
                 !recipient.trim() || !amount.trim()
                   ? "text-gray-500"
                   : "text-white"

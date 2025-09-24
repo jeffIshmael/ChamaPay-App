@@ -1,5 +1,5 @@
-// import { checkUserDetails } from "@/lib/chamaService";
-// import * as Google from "expo-auth-session/providers/google";
+import { checkUserDetails } from "@/lib/chamaService";
+import * as Google from "expo-auth-session/providers/google";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { Phone, Shield, Users } from "lucide-react-native";
@@ -34,79 +34,87 @@ const GoogleIcon = () => (
     />
   </Svg>
 );
+const AppleIcon = () => (
+    <Svg width={18} height={18} viewBox="0 0 24 24">
+      <Path
+        fill="#ffffff"
+        d="M19.665 17.025c-.315.735-.69 1.41-1.125 2.02-.59.835-1.071 1.41-1.44 1.725-.575.53-1.191.805-1.854.825-.474 0-1.047-.135-1.72-.405-.674-.27-1.293-.405-1.86-.405-.59 0-1.225.135-1.905.405-.68.27-1.234.41-1.665.42-.64.03-1.27-.255-1.89-.855-.405-.375-.91-1.005-1.515-1.89-.65-.945-1.185-2.04-1.605-3.285-.45-1.365-.675-2.685-.675-3.96 0-1.465.32-2.73.96-3.795.5-.855 1.165-1.53 1.995-2.025.83-.495 1.72-.75 2.67-.765.525 0 1.215.155 2.07.465.855.31 1.405.47 1.65.48.18 0 .79-.195 1.83-.585 1-.36 1.845-.51 2.535-.45 1.875.15 3.285.885 4.23 2.205-1.68 1.02-2.52 2.46-2.52 4.32 0 1.44.54 2.64 1.62 3.6.48.45 1.02.795 1.62 1.035-.13.39-.27.765-.42 1.125zM15.27 2.385c0 .435-.16.9-.48 1.395-.305.48-.69.87-1.155 1.17-.435.27-.84.42-1.215.45-.03-.09-.06-.195-.075-.315a2.77 2.77 0 0 1 .66-2.04c.22-.27.5-.495.84-.675.34-.18.665-.28.975-.3.01.105.02.21.02.315z"
+      />
+    </Svg>
+  );
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function AuthScreen() {
   const [errorText, setErrorText] = useState("");
   const router = useRouter();
-//   const [request, response, promptAsync] = Google.useAuthRequest({
-//     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-//     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-//     webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
-//   });
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "",
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "",
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || "",
+  });
 
 //   const handlePhoneSignIn = () => {
 //     router.push("/phone-verification");
 //   };
 
-//   useEffect(() => {
-//      handleResponse();
-//   },[response])
+  useEffect(() => {
+     handleResponse();
+  },[response])
 
-//   async function handleResponse(){
-//     try {
-//       if(response?.type === "success"){
-//         const accessToken = response.authentication?.accessToken;
-//         // Fetch profile from Google
-//       const profileRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-//         headers: { Authorization: `Bearer ${accessToken}` },
-//       });
-//       const profile = await profileRes.json();
-//       console.log(profile);
-//       const email = profile?.email;
-//       const name = profile?.name;
-//       const picture = profile?.picture;
-//         if (!email) {
-//         setErrorText("Google account email not available.");
-//         return;
-//       }
+  async function handleResponse(){
+    try {
+      if(response?.type === "success"){
+        const accessToken = response.authentication?.accessToken;
+        // Fetch profile from Google
+      const profileRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const profile = await profileRes.json();
+      console.log(profile);
+      const email = profile?.email;
+      const name = profile?.name;
+      const picture = profile?.picture;
+        if (!email) {
+        setErrorText("Google account email not available.");
+        return;
+      }
 
-//       const userDetails = await checkUserDetails(email);
+      const userDetails = await checkUserDetails(email);
 
-//       if (userDetails.success) {
-//         router.replace("/(tabs)");
-//       }else{
-//       // Proceed to wallet setup to simulate and prompt username first
-//       router.replace({
-//         pathname: "/wallet-setup",
-//         params: {
-//           mode: "google",
-//           email,
-//           name: name || "",
-//           picture: picture || "",
-//         },
-//       } as any);
-//     }
-//        }else if (response?.type === "cancel"){
-//         return;
-//        }
-//     } catch (error) {
-//       setErrorText("An error happened. Try again.")
-//       console.log("the error", error);
-//       return;      
-//     }
+      if (userDetails.success) {
+        router.replace("/(tabs)");
+      }else{
+      // Proceed to wallet setup to simulate and prompt username first
+      router.replace({
+        pathname: "/wallet-setup",
+        params: {
+          mode: "google",
+          email,
+          name: name || "",
+          picture: picture || "",
+        },
+      } as any);
+    }
+       }else if (response?.type === "cancel"){
+        return;
+       }
+    } catch (error) {
+      setErrorText("An error happened. Try again.")
+      console.log("the error", error);
+      return;      
+    }
 
-//   }
+  }
 
-//   const handleGoogleSignIn = async () => {
-//     setErrorText("");
-//     try {
-//       await promptAsync();
-//     } catch (e) {
-//       setErrorText("Google sign-in failed. Please try again.");
-//     }
-//   };
+  const handleGoogleSignIn = async () => {
+    setErrorText("");
+    try {
+      await promptAsync();
+    } catch (e) {
+      setErrorText("Google sign-in failed. Please try again.");
+    }
+  };
 
   const handleAppleSignIn = () => {
     setErrorText("Apple Sign-In is under development.");
@@ -141,20 +149,19 @@ export default function AuthScreen() {
           {/* Footer with buttons at bottom */}
           <View className="pb-6">
             {/* Primary */}
-            <Pressable
+            {/* <Pressable
             //   onPress={handlePhoneSignIn}
               className="w-full bg-emerald-600 py-4 rounded-lg flex-row items-center justify-center"
               style={styles.card}
             >
               <Phone color="white" size={18} />
               <Text className="text-white ml-3 font-medium">Continue with Phone</Text>
-            </Pressable>
+            </Pressable> */}
 
             {/* Secondary in two columns */}
-
             <View className="flex-row mt-4" style={{ gap: 16 }}>
               <Pressable
-                // onPress={handleGoogleSignIn}
+                onPress={handleGoogleSignIn}
                 className="flex-1 bg-white border border-gray-200 py-3 rounded-lg flex-row items-center justify-center"
                 style={styles.card}
               >
@@ -198,11 +205,4 @@ const styles = StyleSheet.create({
   },
 });
 
-const AppleIcon = () => (
-  <Svg width={18} height={18} viewBox="0 0 24 24">
-    <Path
-      fill="#ffffff"
-      d="M19.665 17.025c-.315.735-.69 1.41-1.125 2.02-.59.835-1.071 1.41-1.44 1.725-.575.53-1.191.805-1.854.825-.474 0-1.047-.135-1.72-.405-.674-.27-1.293-.405-1.86-.405-.59 0-1.225.135-1.905.405-.68.27-1.234.41-1.665.42-.64.03-1.27-.255-1.89-.855-.405-.375-.91-1.005-1.515-1.89-.65-.945-1.185-2.04-1.605-3.285-.45-1.365-.675-2.685-.675-3.96 0-1.465.32-2.73.96-3.795.5-.855 1.165-1.53 1.995-2.025.83-.495 1.72-.75 2.67-.765.525 0 1.215.155 2.07.465.855.31 1.405.47 1.65.48.18 0 .79-.195 1.83-.585 1-.36 1.845-.51 2.535-.45 1.875.15 3.285.885 4.23 2.205-1.68 1.02-2.52 2.46-2.52 4.32 0 1.44.54 2.64 1.62 3.6.48.45 1.02.795 1.62 1.035-.13.39-.27.765-.42 1.125zM15.27 2.385c0 .435-.16.9-.48 1.395-.305.48-.69.87-1.155 1.17-.435.27-.84.42-1.215.45-.03-.09-.06-.195-.075-.315a2.77 2.77 0 0 1 .66-2.04c.22-.27.5-.495.84-.675.34-.18.665-.28.975-.3.01.105.02.21.02.315z"
-    />
-  </Svg>
-);
+
