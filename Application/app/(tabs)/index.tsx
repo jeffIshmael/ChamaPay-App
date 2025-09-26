@@ -96,6 +96,7 @@ export default function HomeScreen() {
       </View>
     );
   };
+  console.log("the user", user);
 
   const Card = ({
     children,

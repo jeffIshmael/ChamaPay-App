@@ -11,14 +11,13 @@ import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "reac
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { serverUrl } from "@/constants/serverUrl";
-// import { useAuth } from "@/contexts/AuthContext";
-// import { storage } from "@/utils/storage";
+import { useAuth } from "@/Contexts/AuthContext";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 export default function WalletSetup() {
   const router = useRouter();
   const params = useLocalSearchParams<{ mode?: string; email?: string; name?: string; picture?: string }>();
-  // const { setAuth } = useAuth();
+  const { setAuth } = useAuth();
 
   const [step, setStep] = useState<"creating" | "created" | "secured">(
     "creating"
@@ -129,7 +128,7 @@ export default function WalletSetup() {
         }
         console.log("user response",data.user);
         setWalletAddress(data.user?.address);
-        // await setAuth(data.token, data.user);
+        await setAuth(data.token, data.user, data.refreshToken || null);
         setHasNameMissing(false);
         Alert.alert("Welcome", "Your account is ready");
       }

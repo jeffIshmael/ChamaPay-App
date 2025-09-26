@@ -16,13 +16,16 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  refreshToken: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
   refreshUser: () => Promise<void>;
-  setAuth: (newToken: string, userData: User) => Promise<void>;
+  setAuth: (newToken: string, userData: User, newRefreshToken?: string | null) => Promise<void>;
+  getToken: () => Promise<string | null>;
+  getRefreshToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,6 +37,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const isAuthenticated = !!token && !!user;
@@ -46,10 +50,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const loadStoredAuth = async () => {
     try {
       const storedToken = await storage.getToken();
+      const storedRefreshToken = await storage.getRefreshToken?.();
       const storedUser = await storage.getUser();
       
       if (storedToken) {
         setToken(storedToken);
+        if (storedRefreshToken) setRefreshToken(storedRefreshToken);
         
         if (storedUser) {
           setUser(storedUser);
@@ -62,6 +68,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Error loading stored auth:', error);
       // Clear invalid data
       await storage.removeToken();
+      await storage.removeRefreshToken?.();
       await storage.removeUser();
     } finally {
       setIsLoading(false);
@@ -81,6 +88,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (response.ok) {
         const data = await response.json();
         const userData = data.user;
+        console.log("the userdata is", userData);
         setUser(userData);
         await storage.setUser(userData);
       } else {
@@ -111,14 +119,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const data = await response.json();
 
       if (response.ok) {
-        const { token: newToken, user: userData } = data;
+        const { token: newToken, user: userData, refreshToken: newRefreshToken } = data;
         
         // Store token and user data
         await storage.setToken(newToken);
         await storage.setUser(userData);
+        if (newRefreshToken) await storage.setRefreshToken?.(newRefreshToken);
         
         setToken(newToken);
         setUser(userData);
+        if (newRefreshToken) setRefreshToken(newRefreshToken);
         
         return { success: true };
       } else {
@@ -139,8 +149,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async () => {
     try {
       await storage.removeToken();
+      await storage.removeRefreshToken?.();
       await storage.removeUser();
       setToken(null);
+      setRefreshToken(null);
       setUser(null);
     } catch (error) {
       console.error('Logout error:', error);
@@ -161,16 +173,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const setAuth = async (newToken: string, userData: User) => {
+  const setAuth = async (newToken: string, userData: User, newRefreshToken?: string | null) => {
     await storage.setToken(newToken);
     await storage.setUser(userData);
+    if (newRefreshToken) await storage.setRefreshToken?.(newRefreshToken);
     setToken(newToken);
     setUser(userData);
+    if (newRefreshToken) setRefreshToken(newRefreshToken);
+  };
+
+  const getToken = async () => {
+    return token ?? (await storage.getToken());
+  };
+
+  const getRefreshToken = async () => {
+    if (storage.getRefreshToken) {
+      return refreshToken ?? (await storage.getRefreshToken());
+    }
+    return null;
   };
 
   const value: AuthContextType = {
     user,
     token,
+    refreshToken,
     isLoading,
     isAuthenticated,
     login,
@@ -178,6 +204,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     updateUser,
     refreshUser,
     setAuth,
+    getToken,
+    getRefreshToken,
   };
 
   return (

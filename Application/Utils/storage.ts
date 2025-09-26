@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const STORAGE_KEYS = {
   HAS_SEEN_ONBOARDING: 'hasSeenOnboarding',
   TOKEN: 'token',
+  REFRESH_TOKEN: 'refreshToken',
   USER: 'user',
 } as const;
 
@@ -52,6 +53,31 @@ export const storage = {
     }
   },
 
+  async getRefreshToken(): Promise<string | null> {
+    try {
+      return await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+    } catch (error) {
+      console.error('Error getting refresh token:', error);
+      return null;
+    }
+  },
+
+  async setRefreshToken(refreshToken: string): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+    } catch (error) {
+      console.error('Error setting refresh token:', error);
+    }
+  },
+
+  async removeRefreshToken(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+    } catch (error) {
+      console.error('Error removing refresh token:', error);
+    }
+  },
+
   // User data
   async getUser(): Promise<any | null> {
     try {
@@ -84,6 +110,7 @@ export const storage = {
     try {
       await AsyncStorage.multiRemove([
         STORAGE_KEYS.TOKEN,
+        STORAGE_KEYS.REFRESH_TOKEN,
         STORAGE_KEYS.USER,
         STORAGE_KEYS.HAS_SEEN_ONBOARDING,
       ]);

@@ -1,4 +1,6 @@
 import { env } from "@/constants/env";
+import { serverUrl } from "@/constants/serverUrl";
+import { useAuth } from "@/Contexts/AuthContext";
 import { checkUserDetails } from "@/lib/chamaService";
 import * as Google from "expo-auth-session/providers/google";
 import { useRouter } from "expo-router";
@@ -49,6 +51,7 @@ WebBrowser.maybeCompleteAuthSession();
 export default function AuthScreen() {
   const [errorText, setErrorText] = useState("");
   const router = useRouter();
+  const { setAuth } = useAuth();
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: env.GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: env.GOOGLE_IOS_CLIENT_ID,
@@ -83,6 +86,19 @@ export default function AuthScreen() {
       const userDetails = await checkUserDetails(email);
 
       if (userDetails.success) {
+        // If backend returns token on existing user login via Google, call auth endpoint
+        // Fallback: navigate and let app fetch user with stored token
+        try {
+          const resp = await fetch(`${serverUrl}/auth/google/complete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+          });
+          const data = await resp.json();
+          if (resp.ok && data?.token && data?.user) {
+            await setAuth(data.token, data.user, data.refreshToken || null);
+          }
+        } catch {}
         router.replace("/(tabs)");
       }else{
       // Proceed to wallet setup to simulate and prompt username first
