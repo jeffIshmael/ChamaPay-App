@@ -1,5 +1,8 @@
 import { serverUrl } from '@/constants/serverUrl';
+import { chain } from '@/constants/thirdweb';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { useActiveWallet, useConnect } from 'thirdweb/react';
+import { inAppWallet } from 'thirdweb/wallets';
 import { storage } from '../Utils/storage';
 
 export interface User {
@@ -41,6 +44,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   const isAuthenticated = !!token && !!user;
+  const { connect } = useConnect();
+  const activeWallet = useActiveWallet();
 
   // Load stored token and user data on app start
   useEffect(() => {
@@ -74,6 +79,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(false);
     }
   };
+
+  // Ensure thirdweb in-app wallet is connected when app has an authenticated user
+  useEffect(() => {
+    const ensureWalletConnected = async () => {
+      try {
+        if (isAuthenticated) {
+          const wallet = inAppWallet({
+            smartAccount: { chain, sponsorGas: true },
+          });
+          await connect(wallet);
+        }
+      } catch (e) {
+        // swallow connection errors
+      }
+    };
+    ensureWalletConnected();
+  }, [isAuthenticated, connect]);
 
   const fetchUserData = async (authToken: string) => {
     try {
@@ -148,6 +170,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async () => {
     try {
+      // Disconnect thirdweb in-app wallet session if present
+      try { await activeWallet?.disconnect(); } catch {}
       await storage.removeToken();
       await storage.removeRefreshToken?.();
       await storage.removeUser();

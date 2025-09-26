@@ -1,6 +1,6 @@
-import { NavigationContainer } from "@react-navigation/native";
-import { Stack } from "expo-router";
+import { chain, client } from "@/constants/thirdweb";
 import { AuthProvider } from "@/Contexts/AuthContext";
+import { Stack } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ThirdwebProvider } from "thirdweb/react";
 import "./global.css";

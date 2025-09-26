@@ -1,3 +1,4 @@
+import { chamapayContract } from "@/constants/thirdweb";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import {
@@ -15,6 +16,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   SafeAreaView,
   ScrollView,
   Switch,
@@ -24,8 +26,14 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { serverUrl } from "../../constants/serverUrl";
+import {
+  prepareContractCall,
+  sendTransaction
+} from "thirdweb";
+import { useActiveAccount, useActiveWallet } from "thirdweb/react";
+import { toWei } from "thirdweb/utils";
 import { useAuth } from "../../Contexts/AuthContext";
+
 
 interface FormData {
   name: string;
@@ -72,6 +80,8 @@ export default function CreateChama() {
 
   // Dropdown states
   const [showMembersDropdown, setShowMembersDropdown] = useState(false);
+  const wallet = useActiveWallet();
+  const activeAccount = useActiveAccount();
 
   // Calculate duration automatically when frequency or maxMembers changes
   useEffect(() => {
@@ -144,46 +154,66 @@ export default function CreateChama() {
       Alert.alert("Error", "Please log in to create a chama");
       return;
     }
+    if(!activeAccount){
+      Alert.alert("Error", "No active account.");
+      return;
+    }
+
 
     setLoading(true);
     try {
       // Combine start date and time into ISO string
-      const startDateTime = new Date(
-        `${formData.startDate}T${formData.startTime}:00`
-      ).toISOString();
+      // const startDateTime = new Date(
+      //   `${formData.startDate}T${formData.startTime}:00`
+      // ).toISOString();
 
-      const response = await fetch(`${serverUrl}/chama/create`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          chamaData: {
-            name: formData.name,
-            description: formData.description,
-            type: formData.isPublic ? "Public" : "Private",
-            adminTerms:
-              formData.adminTerms.length > 0
-                ? formData.adminTerms.join(", ")
-                : null,
-            amount: formData.contribution.toString(),
-            cycleTime: formData.frequency,
-            maxNo: formData.maxMembers,
-            startDate: startDateTime,
-            promoCode: "", 
-            collateralRequired: formData.isPublic,
-          },
-        }),
+      // const response = await fetch(`${serverUrl}/chama/create`, {
+      //   method: "POST",
+      //   headers: {
+      //     "Content-Type": "application/json",
+      //     Authorization: `Bearer ${token}`,
+      //   },
+      //   body: JSON.stringify({
+      //     chamaData: {
+      //       name: formData.name,
+      //       description: formData.description,
+      //       type: formData.isPublic ? "Public" : "Private",
+      //       adminTerms:
+      //         formData.adminTerms.length > 0
+      //           ? formData.adminTerms.join(", ")
+      //           : null,
+      //       amount: formData.contribution.toString(),
+      //       cycleTime: formData.frequency,
+      //       maxNo: formData.maxMembers,
+      //       startDate: startDateTime,
+      //       promoCode: "", 
+      //       collateralRequired: formData.isPublic,
+      //     },
+      //   }),
+      // });
+
+      // const data = await response.json();
+
+      const amountInWei = toWei("0.001");
+
+
+      const transaction = prepareContractCall({
+        contract: chamapayContract,
+        method: "function registerChama(uint _amount, uint _duration, uint _startDate, uint _maxMembers, bool _isPublic )",
+        params: [amountInWei, 2n,1758995261n, 5n, false],
       });
+       
+      const { transactionHash } = await sendTransaction({
+        account: activeAccount,
+        transaction,
+      });
+      console.log("the transaction hash", transactionHash);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        router.push("/(tabs)");
-      } else {
-        Alert.alert("Error", data.error || "Failed to create chama");
-      }
+      // if (response.ok) {
+      //   router.push("/(tabs)");
+      // } else {
+      //   Alert.alert("Error", data.error || "Failed to create chama");
+      // }
     } catch (error) {
       console.error("Error creating chama:", error);
       Alert.alert("Error", "Network error. Please try again.");
@@ -600,6 +630,17 @@ export default function CreateChama() {
     formData.startDate &&
     formData.startTime;
 
+  // Debug validation
+  console.log('Validation check:', {
+    name: formData.name,
+    description: formData.description,
+    contribution: formData.contribution,
+    frequency: formData.frequency,
+    startDate: formData.startDate,
+    startTime: formData.startTime,
+    isValid: isStep1Valid
+  });
+
   return (
     <SafeAreaView
       className="flex-1 bg-gray-50"
@@ -659,12 +700,16 @@ export default function CreateChama() {
               onPress={handleNext}
               className={`flex-1 p-4 rounded-lg items-center justify-center ${
                 (step === 1 && !isStep1Valid) || loading
-                  ? "bg-gray-300"
+                  ? "bg-gray-400"
                   : "bg-emerald-600 active:bg-emerald-700"
               }`}
               disabled={(step === 1 && !isStep1Valid) || loading}
             >
-              <Text className="text-white font-medium">
+              <Text className={`font-medium ${
+                (step === 1 && !isStep1Valid) || loading
+                  ? "text-gray-600"
+                  : "text-white"
+              }`}>
                 {loading ? "Creating..." : step === 2 ? "Create Chama" : "Next"}
               </Text>
             </TouchableOpacity>

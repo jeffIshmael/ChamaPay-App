@@ -111,7 +111,7 @@ export default function WalletSetup() {
     try {
       setSavingName(true);
       const token = await AsyncStorage.getItem("token");
-      if (!token && params.mode === "google") {
+      if (!token && params.mode === "google" || "apple") {
         // Finish Google registration now with chosen username
         if (!params.email) {
           Alert.alert("Error", "Missing Google account email.");

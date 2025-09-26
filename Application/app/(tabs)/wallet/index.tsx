@@ -1,4 +1,4 @@
-import { Picker } from "@react-native-picker/picker";
+import { AllBalances, getAllBalances } from "@/constants/thirdweb";
 import { useRouter } from "expo-router";
 import {
   ArrowDownRight,
@@ -15,11 +15,12 @@ import {
   Send,
   Upload
 } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -30,6 +31,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
+import { useActiveAccount, useActiveWallet } from "thirdweb/react";
+import { shortenAddress } from "thirdweb/utils";
 
 interface Token {
   symbol: string;
@@ -61,30 +64,46 @@ export default function CryptoWallet() {
     "overview"
   );
   const [balanceVisible, setBalanceVisible] = useState(true);
-  const [fromToken, setFromToken] = useState("cUSD");
-  const [toToken, setToToken] = useState("USDC");
+  const [fromToken, setFromToken] = useState <"cUSD" | "USDC">("cUSD");
+  const [toToken, setToToken] = useState <"cUSD" | "USDC"> ("USDC");
   const [swapAmount, setSwapAmount] = useState("");
+  const [userBalance, setUserBalance] = useState < AllBalances | null>(null);
+  const [fromModalVisible, setFromModalVisible] = useState(false);
+  const [toModalVisible, setToModalVisible] = useState(false);
+  const wallet = useActiveWallet();
+  const activeAccount = useActiveAccount();
+
+  useEffect(() => {
+    const fetchBalances = async () => {
+      if (wallet && activeAccount) {
+        console.log(wallet);
+        const balances = await getAllBalances(activeAccount.address);
+        setUserBalance(balances);
+      }
+    }
+    fetchBalances();		
+	}, [wallet, activeAccount]);
 
   //celo logo
   const celoLogo = require("@/assets/images/celoLogo.jpg");
 
-  // Mock wallet data
+  // getting wallet data
   const walletData = {
-    address: "0x742d35Cc6Cd3C9C4F6a8b1E2d9F7A5B3C8e4D1f6",
+    address: activeAccount?.address,
     balances: [
       {
-        symbol: "cUSD",
-        name: "Celo Dollar",
-        amount: 1250.0,
+        symbol: userBalance?.cUSD.symbol || "cUSD",
+        name: userBalance?.cUSD.name || "Celo Dollar",
+        amount: parseFloat(userBalance?.cUSD.displayValue || "0"),
         usdValue: 1250.0,
         change24h: 0.01,
         icon: "💎",
         image: require("@/assets/images/cusd.jpg"),
       },
       {
-        symbol: "USDC",
-        name: "USD Coin",
-        amount: 1250.0,
+        symbol: userBalance?.USDC.symbol || "USDC",
+        name: userBalance?.USDC.name || "USD Coin",
+        amount: parseFloat(userBalance?.USDC.displayValue || "0"),
         usdValue: 1250.0,
         change24h: 0.01,
         icon: "💎",
@@ -150,6 +169,18 @@ export default function CryptoWallet() {
     const temp = fromToken;
     setFromToken(toToken);
     setToToken(temp);
+  };
+
+  const handleFromTokenSelect = (symbol: "cUSD" | "USDC") => {
+    setFromToken(symbol);
+    // Set opposite token for "To"
+    setToToken(symbol === "cUSD" ? "USDC" : "cUSD");
+  };
+
+  const handleToTokenSelect = (symbol: "cUSD" | "USDC") => {
+    setToToken(symbol);
+    // Set opposite token for "From"
+    setFromToken(symbol === "cUSD" ? "USDC" : "cUSD");
   };
 
   const copyAddress = () => {
@@ -403,6 +434,79 @@ export default function CryptoWallet() {
     </View>
   );
 
+  // Also add this enhanced token selection modal component (optional improvement)
+interface TokenSelectionModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSelect: (symbol: "cUSD" | "USDC") => void;
+  tokens: Token[];
+  selectedToken: string;
+}
+
+const TokenSelectionModal = ({ 
+  visible, 
+  onClose, 
+  onSelect, 
+  tokens, 
+  selectedToken 
+}: TokenSelectionModalProps) => (
+  <Modal
+    visible={visible}
+    animationType="slide"
+    presentationStyle="overFullScreen"
+    transparent={true}
+    onRequestClose={onClose}
+  >
+    <View className="flex-1 justify-end bg-black/50">
+      <View className="bg-white rounded-t-3xl max-h-96">
+        <View className="px-6 py-4 border-b border-gray-200">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-xl font-bold text-gray-900">Select Token</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Text className="text-blue-600 font-semibold">Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        <ScrollView className="max-h-80 px-6 py-4">
+        {tokens.map((token: Token) => (
+          <TouchableOpacity
+            key={token.symbol}
+            onPress={() => {
+              onSelect(token.symbol as "cUSD" | "USDC");
+              onClose();
+            }}
+            className={`flex-row items-center p-4 rounded-2xl mb-3 ${
+              selectedToken === token.symbol ? "bg-emerald-50" : "bg-gray-50"
+            }`}
+          >
+             <Image
+               source={token.image as any}
+               className="w-10 h-10 rounded-full mr-4"
+               resizeMode="cover"
+             />
+            <View className="flex-1">
+              <Text className="text-lg font-semibold text-gray-900">
+                {token.symbol}
+              </Text>
+              <Text className="text-sm text-gray-500">{token.name}</Text>
+            </View>
+            <View className="items-end">
+              <Text className="text-lg font-semibold text-gray-900">
+                {token.amount.toFixed(4)}
+              </Text>
+              <Text className="text-sm text-gray-500">
+                {formatCurrency(token.usdValue)}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+        </ScrollView>
+      </View>
+    </View>
+  </Modal>
+);
+
   return (
     <KeyboardAvoidingView
     className="flex-1 bg-emerald-600"
@@ -454,8 +558,9 @@ export default function CryptoWallet() {
                     Wallet Address
                   </Text>
                   <Text className="text-white text-sm font-mono">
-                    {walletData.address.slice(0, 8)}...
-                    {walletData.address.slice(-6)}
+                    { activeAccount?.address ?
+                      shortenAddress(activeAccount.address) : "0x0000000000000000000000"
+                    }
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -546,189 +651,189 @@ export default function CryptoWallet() {
           )}
 
           {/* Swap Tab */}
-          {activeTab === "swap" && (
-            <View>
-              <Text className="text-2xl font-bold text-gray-900 mb-6">
-                Swap Tokens
-              </Text>
-              <View className="bg-white p-6 rounded-2xl shadow-sm" style={styles.card}>
-                {/* From Token */}
-                <View className="mb-4">
-                  <Text className="text-sm text-gray-700 mb-2 font-semibold">From</Text>
-                  <View className="bg-gray-50 border border-gray-200 rounded-2xl p-5">
-                    <View className="flex-row items-center justify-between mb-2">
-                      <View className="flex-row items-center flex-1 mr-4">
-                        <Image
-                          source={
-                            walletData.balances.find((t) => t.symbol === fromToken)
-                              ?.image || require("@/assets/images/cusd.jpg")
-                          }
-                          className="w-8 h-8 rounded-full mr-3"
-                          resizeMode="cover"
-                        />
-                        <View className="flex-1">
-                          <Picker
-                            selectedValue={fromToken}
-                            onValueChange={setFromToken}
-                            style={{ height: 50, width: 120 }}
-                            itemStyle={{ color: "black" }}
-                          >
-                            {walletData.balances.map((token) => (
-                              <Picker.Item
-                                key={token.symbol}
-                                label={token.symbol}
-                                value={token.symbol}
-                              />
-                            ))}
-                          </Picker>
-                        </View>
-                      </View>
-                      <TextInput
-                        value={swapAmount}
-                        onChangeText={setSwapAmount}
-                        placeholder="0.00"
-                        keyboardType="numeric"
-                        className="text-right text-lg font-medium w-32 p-2"
-                        style={styles.input}
-                      />
-                    </View>
-                    <View className="flex-row items-center justify-between">
-                      <Text className="text-sm text-gray-600">
-                        {
-                          walletData.balances.find(
-                            (t) => t.symbol === fromToken
-                          )?.name
-                        }
-                      </Text>
-                      <TouchableOpacity
-                        onPress={() => {
-                          const balance = walletData.balances.find(
-                            (t) => t.symbol === fromToken
-                          )?.amount;
-                          if (balance) setSwapAmount(balance.toString());
-                        }}
-                      >
-                        <Text className="text-sm text-blue-600">
-                          Balance:{" "}
-                          {walletData.balances.find(
-                            (t) => t.symbol === fromToken
-                          )?.amount || 0}{" "}
-                          {fromToken}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Swap Button */}
-                <View className="items-center mb-4 -mt-2 -mb-2 z-10">
-                  <TouchableOpacity
-                    onPress={switchTokens}
-                    className="w-12 h-12 border-2 border-white rounded-full items-center justify-center bg-emerald-600 shadow-lg"
-                    activeOpacity={0.7}
-                    style={styles.swapButton}
-                  >
-                    <ArrowUpDown size={20} color="white" />
-                  </TouchableOpacity>
-                </View>
-
-                {/* To Token */}
-                <View className="mb-4">
-                  <Text className="text-sm text-gray-700 mb-2 font-semibold">To</Text>
-                  <View className="bg-gray-50 border border-gray-200 rounded-2xl p-5">
-                    <View className="flex-row items-center justify-between mb-2">
-                      <View className="flex-row items-center flex-1 mr-4">
-                        <Image
-                          source={
-                            walletData.balances.find((t) => t.symbol === toToken)
-                              ?.image || require("@/assets/images/usdclogo.png")
-                          }
-                          className="w-8 h-8 rounded-full mr-3"
-                          resizeMode="cover"
-                        />
-                        <View className="flex-1">
-                          <Picker
-                            selectedValue={toToken}
-                            onValueChange={setToToken}
-                            style={{ height: 50, width: 120 }}
-                            itemStyle={{ color: "black" }}
-                          >
-                            {walletData.balances.map((token) => (
-                              <Picker.Item
-                                key={token.symbol}
-                                label={token.symbol}
-                                value={token.symbol}
-                              />
-                            ))}
-                          </Picker>
-                        </View>
-                      </View>
-                      <Text className="text-right text-lg font-medium text-gray-600 w-32 p-2">
-                        {getEstimatedOutput()}
-                      </Text>
-                    </View>
-                    <View className="flex-row items-center justify-between">
-                      <Text className="text-sm text-gray-600">
-                        {
-                          walletData.balances.find((t) => t.symbol === toToken)
-                            ?.name
-                        }
-                      </Text>
-                      <Text className="text-sm text-gray-600">
-                        Balance:{" "}
-                        {walletData.balances.find((t) => t.symbol === toToken)
-                          ?.amount || 0}{" "}
-                        {toToken}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Exchange Rate */}
-                <View className="bg-emerald-50 rounded-2xl p-4 mb-4">
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-sm text-emerald-800">Exchange Rate</Text>
-                    <Text className="text-sm font-medium text-emerald-900">
-                      1 {fromToken} = {getSwapRate()} {toToken}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Transaction Fee */}
-                <View className="bg-blue-50 border border-blue-100 p-4 rounded-2xl mb-6">
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-row items-center">
-                      <Info size={16} color="#2563eb" className="mr-2" />
-                      <Text className="text-sm text-blue-800">
-                        Estimated network fee: ~$2.50
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  onPress={handleSwap}
-                  disabled={!swapAmount || fromToken === toToken}
-                  className={`w-full py-5 rounded-2xl ${
-                    !swapAmount || fromToken === toToken
-                      ? "bg-gray-300"
-                      : "bg-emerald-600"
-                  } shadow-md`}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    className={`text-center font-bold text-lg ${
-                      !swapAmount || fromToken === toToken
-                        ? "text-gray-500"
-                        : "text-white"
-                    }`}
-                  >
-                    Review Swap
-                  </Text>
-                </TouchableOpacity>
-              </View>
+{/* Swap Tab */}
+{activeTab === "swap" && (
+  <View>
+    <Text className="text-2xl font-bold text-gray-900 mb-6">
+      Swap Tokens
+    </Text>
+    <View className="bg-white p-6 rounded-2xl shadow-sm" style={styles.card}>
+      {/* From Token */}
+      <View className="mb-4">
+        <Text className="text-sm text-gray-700 mb-3 font-semibold">From</Text>
+        <View className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+          {/* Token Selection Row */}
+          <View className="flex-row items-center justify-between mb-3">
+             <TouchableOpacity 
+              className="flex-row items-center bg-white rounded-xl px-3 py-2 border border-gray-200"
+               onPress={() => setFromModalVisible(true)}
+            >
+              <Image
+                source={
+                  walletData.balances.find((t) => t.symbol === fromToken)
+                    ?.image || require("@/assets/images/cusd.jpg")
+                }
+                className="w-6 h-6 rounded-full mr-2"
+                resizeMode="cover"
+              />
+              <Text className="text-gray-900 font-semibold mr-1">{fromToken}</Text>
+              <Text className="text-gray-400">▼</Text>
+            </TouchableOpacity>
+            
+            <View className="flex-1 mx-4">
+              <TextInput
+                value={swapAmount}
+                onChangeText={setSwapAmount}
+                placeholder="0.00"
+                placeholderTextColor="#9ca3af"
+                keyboardType="numeric"
+                className="text-right text-xl font-semibold text-gray-900 bg-transparent"
+                style={{ minHeight: 40 }}
+              />
             </View>
-          )}
+          </View>
+          
+          {/* Balance and Token Info */}
+          <View className="flex-row items-center justify-between">
+            <Text className="text-sm text-gray-500">
+              {walletData.balances.find((t) => t.symbol === fromToken)?.name}
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                const balance = walletData.balances.find(
+                  (t) => t.symbol === fromToken
+                )?.amount;
+                if (balance) setSwapAmount(balance.toString());
+              }}
+              className="bg-blue-50 px-2 py-1 rounded-md"
+            >
+              <Text className="text-sm text-blue-600 font-medium">
+                Max: {walletData.balances.find((t) => t.symbol === fromToken)?.amount?.toFixed(2) || 0}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
+      {/* Swap Button */}
+      <View className="items-center mb-4 -mt-2 -mb-2 z-10">
+        <TouchableOpacity
+          onPress={switchTokens}
+          className="w-12 h-12 border-4 border-white rounded-full items-center justify-center bg-emerald-600 shadow-lg"
+          activeOpacity={0.7}
+          style={styles.swapButton}
+        >
+          <ArrowUpDown size={20} color="white" />
+        </TouchableOpacity>
+      </View>
+
+      {/* To Token */}
+      <View className="mb-6">
+        <Text className="text-sm text-gray-700 mb-3 font-semibold">To</Text>
+        <View className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+          {/* Token Selection Row */}
+          <View className="flex-row items-center justify-between mb-3">
+             <TouchableOpacity 
+              className="flex-row items-center bg-white rounded-xl px-3 py-2 border border-gray-200"
+               onPress={() => setToModalVisible(true)}
+            >
+              <Image
+                source={
+                  walletData.balances.find((t) => t.symbol === toToken)
+                    ?.image || require("@/assets/images/usdclogo.png")
+                }
+                className="w-6 h-6 rounded-full mr-2"
+                resizeMode="cover"
+              />
+              <Text className="text-gray-900 font-semibold mr-1">{toToken}</Text>
+            </TouchableOpacity>
+            
+            <View className="flex-1 mx-4">
+              <Text className="text-right text-xl font-semibold text-gray-600">
+                {getEstimatedOutput()}
+              </Text>
+            </View>
+          </View>
+          
+          {/* Balance and Token Info */}
+          <View className="flex-row items-center justify-between">
+            <Text className="text-sm text-gray-500">
+              {walletData.balances.find((t) => t.symbol === toToken)?.name}
+            </Text>
+            <Text className="text-sm text-gray-500">
+              Balance: {walletData.balances.find((t) => t.symbol === toToken)?.amount?.toFixed(2) || 0}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Exchange Rate */}
+      <View className="bg-emerald-50 rounded-2xl p-4 mb-4">
+        <View className="flex-row items-center justify-between">
+          <Text className="text-sm text-emerald-800 font-medium">Exchange Rate</Text>
+          <Text className="text-sm font-semibold text-emerald-900">
+            1 {fromToken} = {getSwapRate()} {toToken}
+          </Text>
+        </View>
+      </View>
+
+      {/* Transaction Fee */}
+      <View className="bg-blue-50 border border-blue-100 p-4 rounded-2xl mb-6">
+        <View className="flex-row items-center">
+          <Info size={16} color="#2563eb" className="mr-2" />
+          <Text className="text-sm text-blue-800 ml-2">
+            Estimated network fee: ~$2.50
+          </Text>
+        </View>
+      </View>
+
+      {/* Swap Button */}
+      <TouchableOpacity
+        onPress={handleSwap}
+        disabled={!swapAmount || fromToken === toToken || parseFloat(swapAmount) <= 0}
+        className={`w-full py-5 rounded-2xl ${
+          !swapAmount || fromToken === toToken || parseFloat(swapAmount) <= 0
+            ? "bg-gray-300"
+            : "bg-emerald-600"
+        } shadow-md`}
+        activeOpacity={0.8}
+      >
+        <Text
+          className={`text-center font-bold text-lg ${
+            !swapAmount || fromToken === toToken || parseFloat(swapAmount) <= 0
+              ? "text-gray-500"
+              : "text-white"
+          }`}
+        >
+          {!swapAmount || parseFloat(swapAmount) <= 0 
+            ? "Enter Amount" 
+            : fromToken === toToken 
+            ? "Select Different Tokens" 
+            : "Review Swap"}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+)}
+
+
+
+  {/* Token selection modals */}
+  <TokenSelectionModal
+    visible={fromModalVisible}
+    onClose={() => setFromModalVisible(false)}
+    onSelect={handleFromTokenSelect}
+    tokens={walletData.balances}
+    selectedToken={fromToken}
+  />
+  <TokenSelectionModal
+    visible={toModalVisible}
+    onClose={() => setToModalVisible(false)}
+    onSelect={handleToTokenSelect}
+    tokens={walletData.balances}
+    selectedToken={toToken}
+  />
+
 
           {/* Transaction History Tab */}
           {activeTab === "history" && (

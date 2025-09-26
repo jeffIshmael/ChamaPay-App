@@ -149,6 +149,10 @@ export default function AuthScreen() {
         client,
         strategy: type,
       });
+      // Register wallet with connection manager so it persists across app
+      try { await connect(wallet); } catch {
+        
+      }
       console.log("auth account",account);
       console.log("auth wallet",wallet);
 
