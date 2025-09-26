@@ -57,27 +57,30 @@ interface MnemonicResponse {
 }
 
 // Step 1: Initial registration request (sends OTP)
-export const requestRegistration = async (req: Request, res: Response): Promise<void> => {
+export const requestRegistration = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { email, password, userName }: RegistrationRequest = req.body;
-    
+
     // Validation
     if (!email || !password || !userName) {
-      res.status(400).json({ 
-        error: "Email, password, and username are required" 
+      res.status(400).json({
+        error: "Email, password, and username are required",
       });
       return;
     }
 
     if (password.length < 8) {
-      res.status(400).json({ 
-        error: "Password must be at least 8 characters long" 
+      res.status(400).json({
+        error: "Password must be at least 8 characters long",
       });
       return;
     }
 
     const formattedEmail: string = email.toLowerCase();
-    
+
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email: formattedEmail },
@@ -91,15 +94,17 @@ export const requestRegistration = async (req: Request, res: Response): Promise<
     // Check if email is already pending verification
     const existingPending = await prisma.pendingUser.findUnique({
       where: { email: formattedEmail },
-      include: { emailVerification: true }
+      include: { emailVerification: true },
     });
 
     // Hash password
     const hashedPassword: string = await bcrypt.hash(password, 12);
-    
+
     // Calculate expiration times
     const now: Date = new Date();
-    const pendingUserExpiry: Date = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+    const pendingUserExpiry: Date = new Date(
+      now.getTime() + 24 * 60 * 60 * 1000
+    ); // 24 hours
     const otpExpiry: Date = new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes
 
     // Generate OTP
@@ -126,11 +131,11 @@ export const requestRegistration = async (req: Request, res: Response): Promise<
                 attempts: 0,
                 verified: false,
                 expiresAt: otpExpiry,
-              }
-            }
-          }
+              },
+            },
+          },
         },
-        include: { emailVerification: true }
+        include: { emailVerification: true },
       });
     } else {
       // Create new pending user
@@ -146,45 +151,52 @@ export const requestRegistration = async (req: Request, res: Response): Promise<
               attempts: 0,
               verified: false,
               expiresAt: otpExpiry,
-            }
-          }
-        }
+            },
+          },
+        },
       });
     }
 
     // Send OTP email
-    const emailResult = await emailService.sendOTPEmail(formattedEmail, otp, userName);
-    
+    const emailResult = await emailService.sendOTPEmail(
+      formattedEmail,
+      otp,
+      userName
+    );
+
     if (!emailResult.success) {
       console.error("Failed to send OTP email:", emailResult.error);
-      res.status(500).json({ 
-        error: "Failed to send verification email. Please try again." 
+      res.status(500).json({
+        error: "Failed to send verification email. Please try again.",
       });
       return;
     }
 
     res.status(200).json({
       success: true,
-      message: "Registration initiated. Please check your email for verification code.",
-      email: formattedEmail
+      message:
+        "Registration initiated. Please check your email for verification code.",
+      email: formattedEmail,
     });
-
   } catch (error: unknown) {
     console.error("Registration request error:", error);
-    res.status(500).json({ 
-      error: "Registration failed. Please try again." 
+    res.status(500).json({
+      error: "Registration failed. Please try again.",
     });
   }
 };
 
 // Step 2: Verify email and complete registration
-export const verifyEmailAndCompleteRegistration = async (req: Request, res: Response): Promise<void> => {
+export const verifyEmailAndCompleteRegistration = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { email, otp }: VerificationRequest = req.body;
 
     if (!email || !otp) {
-      res.status(400).json({ 
-        error: "Email and OTP are required" 
+      res.status(400).json({
+        error: "Email and OTP are required",
       });
       return;
     }
@@ -195,12 +207,12 @@ export const verifyEmailAndCompleteRegistration = async (req: Request, res: Resp
     // Find pending user with email verification
     const pendingUser = await prisma.pendingUser.findUnique({
       where: { email: formattedEmail },
-      include: { emailVerification: true }
+      include: { emailVerification: true },
     });
 
     if (!pendingUser || !pendingUser.emailVerification) {
-      res.status(404).json({ 
-        error: "Registration request not found or expired" 
+      res.status(404).json({
+        error: "Registration request not found or expired",
       });
       return;
     }
@@ -209,16 +221,16 @@ export const verifyEmailAndCompleteRegistration = async (req: Request, res: Resp
 
     // Check if OTP has expired
     if (new Date() > verification.expiresAt) {
-      res.status(400).json({ 
-        error: "OTP has expired. Please request a new one." 
+      res.status(400).json({
+        error: "OTP has expired. Please request a new one.",
       });
       return;
     }
 
     // Check attempt limit
     if (verification.attempts >= 3) {
-      res.status(400).json({ 
-        error: "Too many failed attempts. Please request a new OTP." 
+      res.status(400).json({
+        error: "Too many failed attempts. Please request a new OTP.",
       });
       return;
     }
@@ -228,25 +240,31 @@ export const verifyEmailAndCompleteRegistration = async (req: Request, res: Resp
       // Increment attempts
       await prisma.emailVerification.update({
         where: { id: verification.id },
-        data: { attempts: verification.attempts + 1 }
+        data: { attempts: verification.attempts + 1 },
       });
 
-      res.status(400).json({ 
-        error: `Invalid OTP. ${2 - verification.attempts} attempts remaining.` 
+      res.status(400).json({
+        error: `Invalid OTP. ${2 - verification.attempts} attempts remaining.`,
       });
       return;
     }
 
     // OTP is valid - create wallet and complete registration
     const wallet = getWallets();
-    
+
     if (!process.env.ENCRYPTION_SECRET || !process.env.JWT_SECRET) {
       throw new Error("ENCRYPTION_SECRET not configured");
     }
 
     // Encrypt wallet data using the user's password and JWT secret
-    const encryptedPrivateKey = encryptionService.encrypt(wallet.privateKey, process.env.ENCRYPTION_SECRET);
-    const encryptedMnemonic = encryptionService.encrypt(wallet.mnemonic?.phrase || '', process.env.ENCRYPTION_SECRET);
+    const encryptedPrivateKey = encryptionService.encrypt(
+      wallet.privateKey,
+      process.env.ENCRYPTION_SECRET
+    );
+    const encryptedMnemonic = encryptionService.encrypt(
+      wallet.mnemonic?.phrase || "",
+      process.env.ENCRYPTION_SECRET
+    );
 
     // Create the actual user
     const newUser = await prisma.user.create({
@@ -263,7 +281,7 @@ export const verifyEmailAndCompleteRegistration = async (req: Request, res: Resp
 
     // Clean up pending user and verification
     await prisma.pendingUser.delete({
-      where: { id: pendingUser.id }
+      where: { id: pendingUser.id },
     });
 
     // Generate JWT token
@@ -282,11 +300,10 @@ export const verifyEmailAndCompleteRegistration = async (req: Request, res: Resp
       token,
       user: userResponse,
     });
-
   } catch (error: unknown) {
     console.error("Email verification error:", error);
-    res.status(500).json({ 
-      error: "Verification failed. Please try again." 
+    res.status(500).json({
+      error: "Verification failed. Please try again.",
     });
   }
 };
@@ -306,22 +323,26 @@ export const resendOTP = async (req: Request, res: Response): Promise<void> => {
     // Find pending user
     const pendingUser = await prisma.pendingUser.findUnique({
       where: { email: formattedEmail },
-      include: { emailVerification: true }
+      include: { emailVerification: true },
     });
 
     if (!pendingUser) {
-      res.status(404).json({ 
-        error: "Registration request not found. Please start registration again." 
+      res.status(404).json({
+        error:
+          "Registration request not found. Please start registration again.",
       });
       return;
     }
 
     // Check if user has exceeded resend limit (optional rate limiting)
     const now: Date = new Date();
-    if (pendingUser.emailVerification && 
-        (now.getTime() - pendingUser.emailVerification.createdAt.getTime()) < 60000) { // 1 minute
-      res.status(429).json({ 
-        error: "Please wait before requesting another OTP" 
+    if (
+      pendingUser.emailVerification &&
+      now.getTime() - pendingUser.emailVerification.createdAt.getTime() < 60000
+    ) {
+      // 1 minute
+      res.status(429).json({
+        error: "Please wait before requesting another OTP",
       });
       return;
     }
@@ -345,42 +366,46 @@ export const resendOTP = async (req: Request, res: Response): Promise<void> => {
         attempts: 0,
         verified: false,
         expiresAt: otpExpiry,
-      }
+      },
     });
 
     // Send new OTP email
     const emailResult = await emailService.sendOTPEmail(
-      formattedEmail, 
-      newOTP, 
-      pendingUser.name || 'User'
+      formattedEmail,
+      newOTP,
+      pendingUser.name || "User"
     );
-    
+
     if (!emailResult.success) {
-      res.status(500).json({ 
-        error: "Failed to send verification email. Please try again." 
+      res.status(500).json({
+        error: "Failed to send verification email. Please try again.",
       });
       return;
     }
 
     res.status(200).json({
       success: true,
-      message: "New OTP sent successfully. Please check your email."
+      message: "New OTP sent successfully. Please check your email.",
     });
-
   } catch (error: unknown) {
     console.error("Resend OTP error:", error);
-    res.status(500).json({ 
-      error: "Failed to resend OTP. Please try again." 
+    res.status(500).json({
+      error: "Failed to resend OTP. Please try again.",
     });
   }
 };
 
 // Public endpoint: Send OTP via WhatsApp for phone verification flows
-export const sendWhatsAppCode = async (req: Request, res: Response): Promise<void> => {
+export const sendWhatsAppCode = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { phone }: { phone?: string } = req.body;
     if (!phone) {
-      res.status(400).json({ success: false, error: "Phone number is required" });
+      res
+        .status(400)
+        .json({ success: false, error: "Phone number is required" });
       return;
     }
 
@@ -390,15 +415,24 @@ export const sendWhatsAppCode = async (req: Request, res: Response): Promise<voi
     // Send via WhatsApp Cloud API
     const result = await sendWhatsAppOTP(phone, otp);
     if (!result.success) {
-      res.status(500).json({ success: false, error: result.error || "Failed to send WhatsApp message" });
+      res
+        .status(500)
+        .json({
+          success: false,
+          error: result.error || "Failed to send WhatsApp message",
+        });
       return;
     }
 
     // For now, return otp for client-side test; in production, remove this
-    res.status(200).json({ success: true, message: "OTP sent via WhatsApp", otp });
+    res
+      .status(200)
+      .json({ success: true, message: "OTP sent via WhatsApp", otp });
   } catch (error: unknown) {
     console.error("Send WhatsApp code error:", error);
-    res.status(500).json({ success: false, error: "Failed to send OTP via WhatsApp" });
+    res
+      .status(500)
+      .json({ success: false, error: "Failed to send OTP via WhatsApp" });
   }
 };
 
@@ -425,7 +459,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Verify password
-    const isValidPassword: boolean = await bcrypt.compare(password, user.password);
+    const isValidPassword: boolean = await bcrypt.compare(
+      password,
+      user.password
+    );
     if (!isValidPassword) {
       res.status(401).json({ error: "Invalid email or password" });
       return;
@@ -451,7 +488,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       token,
       user: userResponse,
     } as AuthResponse);
-
   } catch (error: unknown) {
     console.error("Login error:", error);
     res.status(500).json({ error: "Login failed. Please try again." });
@@ -459,7 +495,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 };
 
 // Get mnemonic phrase (protected route)
-export const getMnemonic = async (req: Request, res: Response): Promise<void> => {
+export const getMnemonic = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     if (!req.user?.userId) {
       res.status(401).json({ error: "User not authenticated" });
@@ -470,8 +509,8 @@ export const getMnemonic = async (req: Request, res: Response): Promise<void> =>
     const { password }: GetMnemonicRequest = req.body;
 
     if (!password) {
-      res.status(400).json({ 
-        error: "Password is required to access mnemonic phrase" 
+      res.status(400).json({
+        error: "Password is required to access mnemonic phrase",
       });
       return;
     }
@@ -486,7 +525,10 @@ export const getMnemonic = async (req: Request, res: Response): Promise<void> =>
     }
 
     // Verify password
-    const isValidPassword: boolean = await bcrypt.compare(password, user.password);
+    const isValidPassword: boolean = await bcrypt.compare(
+      password,
+      user.password
+    );
     if (!isValidPassword) {
       res.status(401).json({ error: "Invalid password" });
       return;
@@ -498,33 +540,42 @@ export const getMnemonic = async (req: Request, res: Response): Promise<void> =>
 
     // Decrypt only mnemonic
     const encryptedMnemonic = JSON.parse(user.mnemonics);
-    const mnemonic: string = encryptionService.decrypt(encryptedMnemonic, process.env.JWT_SECRET);
+    const mnemonic: string = encryptionService.decrypt(
+      encryptedMnemonic,
+      process.env.JWT_SECRET
+    );
 
     res.json({
       success: true,
-      mnemonic
+      mnemonic,
     } as MnemonicResponse);
-
   } catch (error: unknown) {
     console.error("Mnemonic retrieval error:", error);
-    
-    if (error instanceof Error && error.message.includes('Decryption failed')) {
-      res.status(401).json({ 
-        error: "Invalid password or corrupted data" 
+
+    if (error instanceof Error && error.message.includes("Decryption failed")) {
+      res.status(401).json({
+        error: "Invalid password or corrupted data",
       });
       return;
     }
 
-    res.status(500).json({ 
-      error: "Failed to retrieve mnemonic phrase" 
+    res.status(500).json({
+      error: "Failed to retrieve mnemonic phrase",
     });
   }
-}; 
+};
 
 // Google OAuth upsert: create user and wallet if not exists, else login
-export const googleAuth = async (req: Request, res: Response): Promise<void> => {
+export const googleAuth = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
-    const { email, name, profileImageUrl }: { email: string; name?: string; profileImageUrl?: string } = req.body;
+    const {
+      email,
+      name,
+      profileImageUrl,
+    }: { email: string; name?: string; profileImageUrl?: string } = req.body;
 
     if (!email) {
       res.status(400).json({ error: "Email is required" });
@@ -534,7 +585,9 @@ export const googleAuth = async (req: Request, res: Response): Promise<void> => 
     const formattedEmail: string = email.toLowerCase();
 
     // Try to find existing user
-    let user = await prisma.user.findUnique({ where: { email: formattedEmail } });
+    let user = await prisma.user.findUnique({
+      where: { email: formattedEmail },
+    });
 
     if (!user) {
       // Create wallet for new user
@@ -544,11 +597,20 @@ export const googleAuth = async (req: Request, res: Response): Promise<void> => 
         throw new Error("ENCRYPTION_SECRET not configured");
       }
 
-      const encryptedPrivateKey = encryptionService.encrypt(wallet.privateKey, process.env.ENCRYPTION_SECRET);
-      const encryptedMnemonic = encryptionService.encrypt(wallet.mnemonic?.phrase || '', process.env.ENCRYPTION_SECRET);
+      const encryptedPrivateKey = encryptionService.encrypt(
+        wallet.privateKey,
+        process.env.ENCRYPTION_SECRET
+      );
+      const encryptedMnemonic = encryptionService.encrypt(
+        wallet.mnemonic?.phrase || "",
+        process.env.ENCRYPTION_SECRET
+      );
 
       // Create a random password hash placeholder
-      const randomPassword = await bcrypt.hash(jwt.sign({ e: formattedEmail }, process.env.JWT_SECRET), 12);
+      const randomPassword = await bcrypt.hash(
+        jwt.sign({ e: formattedEmail }, process.env.JWT_SECRET),
+        12
+      );
 
       user = await prisma.user.create({
         data: {
@@ -564,14 +626,21 @@ export const googleAuth = async (req: Request, res: Response): Promise<void> => 
       });
     } else if (!user.profileImageUrl && profileImageUrl) {
       // Optionally update profile image for existing user
-      user = await prisma.user.update({ where: { id: user.id }, data: { profileImageUrl } });
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { profileImageUrl },
+      });
     }
 
     if (!process.env.JWT_SECRET) {
       throw new Error("JWT_SECRET not configured");
     }
 
-    const token: string = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const token: string = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
     const { password, privKey, mnemonics, ...userResponse } = user as any;
 
@@ -584,6 +653,91 @@ export const googleAuth = async (req: Request, res: Response): Promise<void> => 
     });
   } catch (error: unknown) {
     console.error("Google auth error:", error);
+    res.status(500).json({ error: "Google authentication failed" });
+  }
+};
+
+// thirdweb auth
+export const thirdwebAuth = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const {
+      email,
+      name,
+      profileImageUrl,
+      walletAddress,
+    }: {
+      email: string;
+      name?: string;
+      profileImageUrl?: string;
+      walletAddress: string;
+    } = req.body;
+
+    if (!email || !walletAddress) {
+      res.status(400).json({ error: "Email is required" });
+      return;
+    }
+
+    const formattedEmail: string = email.toLowerCase();
+
+    // Try to find existing user
+    let user = await prisma.user.findUnique({
+      where: { email: formattedEmail },
+    });
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET not configured");
+    }
+    // Create a random password hash placeholder
+    const randomPassword = await bcrypt.hash(
+      jwt.sign({ e: formattedEmail }, process.env.JWT_SECRET),
+      12
+    );
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email: formattedEmail,
+          name: name || null,
+          password: randomPassword || "",
+          address: walletAddress,
+          privKey: "",
+          mnemonics: "",
+          role: "user",
+          profileImageUrl: profileImageUrl || null,
+        },
+      });
+    } else if (!user.profileImageUrl && profileImageUrl) {
+      // Optionally update profile image for existing user
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { profileImageUrl },
+      });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET not configured");
+    }
+
+    const token: string = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    const { password, privKey, mnemonics, ...userResponse } = user as any;
+
+    res.status(200).json({
+      success: true,
+      message: "Authenticated via Google",
+      token,
+      user: userResponse,
+      isNew: !user.name, // prompt for username if missing
+    });
+  } catch (error: unknown) {
+    console.error("Thirdweb auth error:", error);
     res.status(500).json({ error: "Google authentication failed" });
   }
 };

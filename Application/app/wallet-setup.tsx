@@ -9,14 +9,14 @@ import {
 import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
+import { ConnectButton, useActiveAccount, useConnect } from "thirdweb/react";
 import { serverUrl } from "@/constants/serverUrl";
 import { useAuth } from "@/Contexts/AuthContext";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 export default function WalletSetup() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ mode?: string; email?: string; name?: string; picture?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; email?: string; name?: string; picture?: string; wallet?:string; }>();
   const { setAuth } = useAuth();
 
   const [step, setStep] = useState<"creating" | "created" | "secured">(
@@ -43,6 +43,7 @@ export default function WalletSetup() {
   const [savingName, setSavingName] = useState(false);
   const [hasNameMissing, setHasNameMissing] = useState(true);
   const isUsernameValid = username.trim().length > 2;
+  const account = useActiveAccount();
 
   useEffect(() => {
     // Simulate wallet creation process
@@ -116,10 +117,10 @@ export default function WalletSetup() {
           Alert.alert("Error", "Missing Google account email.");
           return;
         }
-        const resp = await fetch(`${serverUrl}/auth/google`, {
+        const resp = await fetch(`${serverUrl}/auth/thirdweb`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: String(params.email), name: username, profileImageUrl: String(params.picture || "") }),
+          body: JSON.stringify({ email: String(params.email), name: username, profileImageUrl: String(params.picture || ""), walletAddress: String(params.wallet || ""), }),
         });
         const data = await resp.json();
         if (!resp.ok || !data?.token || !data?.user) {

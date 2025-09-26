@@ -31,6 +31,7 @@
     "nodemailer": "^7.0.5",
     "nodemon": "^3.1.10",
     "permissionless": "^0.2.53",
+    "thirdweb": "^5.108.3",
     "viem": "^2.33.1"
   },
   "devDependencies": {

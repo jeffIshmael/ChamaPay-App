@@ -8,6 +8,7 @@ import {
     resendOTP,
     sendWhatsAppCode,
     verifyEmailAndCompleteRegistration,
+    thirdwebAuth
 } from "../Controllers/authController";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -24,6 +25,10 @@ router.post("/login", login);
 
 // Google auth endpoint
 router.post("/google", googleAuth);
+
+// thirweb auth
+router.post("/thirdweb", thirdwebAuth);
+
 
 // Protected endpoints
 router.post("/get-mnemonic", authenticate, getMnemonic);

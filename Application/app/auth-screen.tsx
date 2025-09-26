@@ -1,5 +1,6 @@
 import { env } from "@/constants/env";
 import { serverUrl } from "@/constants/serverUrl";
+import { chain, client } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
 import { checkUserDetails } from "@/lib/chamaService";
 import * as Google from "expo-auth-session/providers/google";
@@ -7,15 +8,11 @@ import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { Shield, Users } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import {
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
+import { ConnectButton, useActiveAccount, useConnect } from "thirdweb/react";
+import { getProfiles, getUserEmail, inAppWallet } from "thirdweb/wallets/in-app";
 
 const GoogleIcon = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24">
@@ -38,13 +35,13 @@ const GoogleIcon = () => (
   </Svg>
 );
 const AppleIcon = () => (
-    <Svg width={18} height={18} viewBox="0 0 24 24">
-      <Path
-        fill="#ffffff"
-        d="M19.665 17.025c-.315.735-.69 1.41-1.125 2.02-.59.835-1.071 1.41-1.44 1.725-.575.53-1.191.805-1.854.825-.474 0-1.047-.135-1.72-.405-.674-.27-1.293-.405-1.86-.405-.59 0-1.225.135-1.905.405-.68.27-1.234.41-1.665.42-.64.03-1.27-.255-1.89-.855-.405-.375-.91-1.005-1.515-1.89-.65-.945-1.185-2.04-1.605-3.285-.45-1.365-.675-2.685-.675-3.96 0-1.465.32-2.73.96-3.795.5-.855 1.165-1.53 1.995-2.025.83-.495 1.72-.75 2.67-.765.525 0 1.215.155 2.07.465.855.31 1.405.47 1.65.48.18 0 .79-.195 1.83-.585 1-.36 1.845-.51 2.535-.45 1.875.15 3.285.885 4.23 2.205-1.68 1.02-2.52 2.46-2.52 4.32 0 1.44.54 2.64 1.62 3.6.48.45 1.02.795 1.62 1.035-.13.39-.27.765-.42 1.125zM15.27 2.385c0 .435-.16.9-.48 1.395-.305.48-.69.87-1.155 1.17-.435.27-.84.42-1.215.45-.03-.09-.06-.195-.075-.315a2.77 2.77 0 0 1 .66-2.04c.22-.27.5-.495.84-.675.34-.18.665-.28.975-.3.01.105.02.21.02.315z"
-      />
-    </Svg>
-  );
+  <Svg width={18} height={18} viewBox="0 0 24 24">
+    <Path
+      fill="#ffffff"
+      d="M19.665 17.025c-.315.735-.69 1.41-1.125 2.02-.59.835-1.071 1.41-1.44 1.725-.575.53-1.191.805-1.854.825-.474 0-1.047-.135-1.72-.405-.674-.27-1.293-.405-1.86-.405-.59 0-1.225.135-1.905.405-.68.27-1.234.41-1.665.42-.64.03-1.27-.255-1.89-.855-.405-.375-.91-1.005-1.515-1.89-.65-.945-1.185-2.04-1.605-3.285-.45-1.365-.675-2.685-.675-3.96 0-1.465.32-2.73.96-3.795.5-.855 1.165-1.53 1.995-2.025.83-.495 1.72-.75 2.67-.765.525 0 1.215.155 2.07.465.855.31 1.405.47 1.65.48.18 0 .79-.195 1.83-.585 1-.36 1.845-.51 2.535-.45 1.875.15 3.285.885 4.23 2.205-1.68 1.02-2.52 2.46-2.52 4.32 0 1.44.54 2.64 1.62 3.6.48.45 1.02.795 1.62 1.035-.13.39-.27.765-.42 1.125zM15.27 2.385c0 .435-.16.9-.48 1.395-.305.48-.69.87-1.155 1.17-.435.27-.84.42-1.215.45-.03-.09-.06-.195-.075-.315a2.77 2.77 0 0 1 .66-2.04c.22-.27.5-.495.84-.675.34-.18.665-.28.975-.3.01.105.02.21.02.315z"
+    />
+  </Svg>
+);
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -57,72 +54,77 @@ export default function AuthScreen() {
     iosClientId: env.GOOGLE_IOS_CLIENT_ID,
     webClientId: env.GOOGLE_WEB_CLIENT_ID,
   });
+  const { connect, isConnecting } = useConnect();
+  const account = useActiveAccount();
 
-//   const handlePhoneSignIn = () => {
-//     router.push("/phone-verification");
-//   };
+  //   const handlePhoneSignIn = () => {
+  //     router.push("/phone-verification");
+  //   };
 
   useEffect(() => {
-     handleResponse();
-  },[response])
+    handleResponse();
+  }, [response]);
 
-  async function handleResponse(){
+  async function handleResponse() {
     try {
-      if(response?.type === "success"){
+      if (response?.type === "success") {
         const accessToken = response.authentication?.accessToken;
         // Fetch profile from Google
-      const profileRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const profile = await profileRes.json();
-      const email = profile?.email;
-      const name = profile?.name;
-      const picture = profile?.picture;
+        const profileRes = await fetch(
+          "https://www.googleapis.com/oauth2/v3/userinfo",
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          }
+        );
+        const profile = await profileRes.json();
+        const email = profile?.email;
+        const name = profile?.name;
+        const picture = profile?.picture;
         if (!email) {
-        setErrorText("Google account email not available.");
+          setErrorText("Google account email not available.");
+          return;
+        }
+
+        const userDetails = await checkUserDetails(email);
+
+        if (userDetails.success) {
+          // If backend returns token on existing user login via Google, call auth endpoint
+          // Fallback: navigate and let app fetch user with stored token
+          try {
+            const resp = await fetch(`${serverUrl}/auth/google/complete`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email }),
+            });
+            const data = await resp.json();
+            if (resp.ok && data?.token && data?.user) {
+              await setAuth(data.token, data.user, data.refreshToken || null);
+            }
+          } catch {}
+          router.replace("/(tabs)");
+        } else {
+          // Proceed to wallet setup to simulate and prompt username first
+          router.replace({
+            pathname: "/wallet-setup",
+            params: {
+              mode: "google",
+              email,
+              name: name || "",
+              picture: picture || "",
+            },
+          } as any);
+        }
+      } else if (response?.type === "cancel") {
         return;
       }
-
-      const userDetails = await checkUserDetails(email);
-
-      if (userDetails.success) {
-        // If backend returns token on existing user login via Google, call auth endpoint
-        // Fallback: navigate and let app fetch user with stored token
-        try {
-          const resp = await fetch(`${serverUrl}/auth/google/complete`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email }),
-          });
-          const data = await resp.json();
-          if (resp.ok && data?.token && data?.user) {
-            await setAuth(data.token, data.user, data.refreshToken || null);
-          }
-        } catch {}
-        router.replace("/(tabs)");
-      }else{
-      // Proceed to wallet setup to simulate and prompt username first
-      router.replace({
-        pathname: "/wallet-setup",
-        params: {
-          mode: "google",
-          email,
-          name: name || "",
-          picture: picture || "",
-        },
-      } as any);
-    }
-       }else if (response?.type === "cancel"){
-        return;
-       }
     } catch (error) {
-      setErrorText("An error happened. Try again.")
+      setErrorText("An error happened. Try again.");
       console.log("the error", error);
-      return;      
+      return;
     }
-
   }
 
+  // normal google sign in
   const handleGoogleSignIn = async () => {
     setErrorText("");
     try {
@@ -132,13 +134,82 @@ export default function AuthScreen() {
     }
   };
 
+  // thirdweb google auth
+  const handleThirdwebAuth = async (type: "google" | "apple") => {
+    setErrorText("");
+    try {
+      const wallet = inAppWallet({
+        smartAccount: {
+          chain,
+          sponsorGas: true,
+        },
+      });
+
+      const account = await wallet.connect({
+        client,
+        strategy: type,
+      });
+      console.log("auth account",account);
+      console.log("auth wallet",wallet);
+
+      // Get thirdweb profile + email
+      const profiles = await getProfiles({ client });
+      const primaryProfile: any = Array.isArray(profiles) ? profiles[0] : undefined;
+      const emailFromProfile = primaryProfile?.details?.email as string | undefined;
+      const nameFromProfile = primaryProfile?.details?.name as string | undefined;
+      const pictureFromProfile = primaryProfile?.details?.picture as string | undefined;
+      const email = emailFromProfile || (await getUserEmail({ client }));
+
+      if (!email) {
+        setErrorText("Thirdweb did not return an email.");
+        return;
+      }
+
+      // Check backend for existing user
+      const userDetails = await checkUserDetails(email);
+      if (userDetails.success) {
+        try {
+          const resp = await fetch(`${serverUrl}/auth/google/complete`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+          const data = await resp.json();
+          if (resp.ok && data?.token && data?.user) {
+            await setAuth(data.token, data.user, data.refreshToken || null);
+          }
+        } catch {}
+        router.replace("/(tabs)");
+      } else {
+        // Not in backend; send to wallet setup to choose username
+        router.replace({
+          pathname: "/wallet-setup",
+          params: {
+            mode: type,
+            email,
+            name: nameFromProfile || "",
+            picture: pictureFromProfile || "",
+            wallet: account.address,
+          },
+        } as any);
+      }
+    } catch (error) {
+      console.log("thirdweb auth error:", error);
+      setErrorText("Failed to sign in. Please try again.");
+    }
+  };
+
   const handleAppleSignIn = () => {
     setErrorText("Apple Sign-In is under development.");
   };
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+      >
         <View className="flex-1 px-6">
           {/* Header */}
           <View className="items-center mb-10" style={{ paddingTop: 40 }}>
@@ -148,12 +219,19 @@ export default function AuthScreen() {
             >
               <Users color="white" size={32} />
             </View>
-            <Text className="text-3xl mb-2 text-gray-900 font-bold">Welcome to ChamaPay</Text>
-            <Text className="text-gray-600 text-center">Sign in to continue</Text>
+            <Text className="text-3xl mb-2 text-gray-900 font-bold">
+              Welcome to ChamaPay
+            </Text>
+            <Text className="text-gray-600 text-center">
+              Sign in to continue
+            </Text>
           </View>
           {/* Messages */}
           {errorText ? (
-            <View className="flex-row items-center bg-red-50 p-3 rounded-lg mb-6 mx-1" style={styles.card}>
+            <View
+              className="flex-row items-center bg-red-50 p-3 rounded-lg mb-6 mx-1"
+              style={styles.card}
+            >
               <Shield color="#ef4444" size={18} />
               <Text className="text-red-600 ml-2 text-sm">{errorText}</Text>
             </View>
@@ -165,19 +243,12 @@ export default function AuthScreen() {
           {/* Footer with buttons at bottom */}
           <View className="pb-6">
             {/* Primary */}
-            {/* <Pressable
-            //   onPress={handlePhoneSignIn}
-              className="w-full bg-emerald-600 py-4 rounded-lg flex-row items-center justify-center"
-              style={styles.card}
-            >
-              <Phone color="white" size={18} />
-              <Text className="text-white ml-3 font-medium">Continue with Phone</Text>
-            </Pressable> */}
+            <ConnectButton client={client} />
 
             {/* Secondary in two columns */}
             <View className="flex-row mt-4" style={{ gap: 16 }}>
               <Pressable
-                onPress={handleGoogleSignIn}
+                onPress={() => handleThirdwebAuth("google")}
                 className="flex-1 bg-white border border-gray-200 py-3 rounded-lg flex-row items-center justify-center"
                 style={styles.card}
               >
@@ -189,7 +260,7 @@ export default function AuthScreen() {
               </Pressable>
 
               <Pressable
-                onPress={handleAppleSignIn}
+                onPress={() => handleThirdwebAuth("apple")}
                 className="flex-1 bg-black py-3 rounded-lg flex-row items-center justify-center"
                 style={styles.card}
               >
@@ -202,7 +273,8 @@ export default function AuthScreen() {
             </View>
 
             <Text className="text-xs text-gray-500 text-center mt-6 px-4 leading-relaxed">
-              By continuing, you agree to our Terms of Service and Privacy Policy
+              By continuing, you agree to our Terms of Service and Privacy
+              Policy
             </Text>
           </View>
         </View>
@@ -220,5 +292,3 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
 });
-
-
