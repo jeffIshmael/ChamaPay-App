@@ -8,7 +8,7 @@ import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { Shield, Users } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
 import { ConnectButton, useActiveAccount, useConnect } from "thirdweb/react";
@@ -208,7 +208,7 @@ export default function AuthScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-gradient-to-b from-green-50 to-white">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ flexGrow: 1 }}
@@ -216,28 +216,35 @@ export default function AuthScreen() {
       >
         <View className="flex-1 px-6">
           {/* Header */}
-          <View className="items-center mb-10" style={{ paddingTop: 40 }}>
+          <View className="items-center mb-12" style={{ paddingTop: 60 }}>
             <View
-              className="w-20 h-20 rounded-full items-center justify-center mb-6"
-              style={{ backgroundColor: "#059669" }}
+              className="w-24 h-24 rounded-full items-center justify-center mb-8 shadow-lg"
+              style={{ 
+                backgroundColor: "#059669",
+                shadowColor: "#059669",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 12,
+                elevation: 8,
+              }}
             >
-              <Users color="white" size={32} />
+              <Users color="white" size={36} />
             </View>
-            <Text className="text-3xl mb-2 text-gray-900 font-bold">
+            <Text className="text-4xl mb-3 text-gray-900 font-bold text-center">
               Welcome to ChamaPay
             </Text>
-            <Text className="text-gray-600 text-center">
-              Sign in to continue
+            <Text className="text-gray-600 text-center text-lg">
+              Sign in to continue your journey
             </Text>
           </View>
           {/* Messages */}
           {errorText ? (
             <View
-              className="flex-row items-center bg-red-50 p-3 rounded-lg mb-6 mx-1"
+              className="flex-row items-center bg-red-50 p-4 rounded-xl mb-8 mx-2 border border-red-200"
               style={styles.card}
             >
-              <Shield color="#ef4444" size={18} />
-              <Text className="text-red-600 ml-2 text-sm">{errorText}</Text>
+              <Shield color="#ef4444" size={20} />
+              <Text className="text-red-600 ml-3 text-sm font-medium">{errorText}</Text>
             </View>
           ) : null}
 
@@ -245,41 +252,53 @@ export default function AuthScreen() {
           <View style={{ flexGrow: 1 }} />
 
           {/* Footer with buttons at bottom */}
-          <View className="pb-6">
-            {/* Primary */}
-            <ConnectButton client={client} />
+          <View className="pb-8">
 
             {/* Secondary in two columns */}
-            <View className="flex-row mt-4" style={{ gap: 16 }}>
+            <View className="flex-row mb-6" style={{ gap: 12 }}>
               <Pressable
                 onPress={() => handleThirdwebAuth("google")}
-                className="flex-1 bg-white border border-gray-200 py-3 rounded-lg flex-row items-center justify-center"
-                style={styles.card}
+                className="flex-1 bg-white border border-gray-200 py-4 rounded-xl flex-row items-center justify-center"
+                style={[styles.card, { shadowOpacity: 0.08 }]}
               >
                 <GoogleIcon />
                 <View className="ml-3 items-start justify-center">
                   <Text className="text-gray-500 text-xs">Continue with</Text>
-                  <Text className="text-gray-800 font-medium">Google</Text>
+                  <Text className="text-gray-800 font-semibold text-sm">Google</Text>
                 </View>
               </Pressable>
 
               <Pressable
                 onPress={() => handleThirdwebAuth("apple")}
-                className="flex-1 bg-black py-3 rounded-lg flex-row items-center justify-center"
-                style={styles.card}
+                className="flex-1 bg-black py-4 rounded-xl flex-row items-center justify-center"
+                style={[styles.card, { shadowOpacity: 0.15 }]}
               >
                 <AppleIcon />
                 <View className="ml-3 items-start justify-center">
                   <Text className="text-gray-300 text-xs">Continue with</Text>
-                  <Text className="text-white font-medium">Apple</Text>
+                  <Text className="text-white font-semibold text-sm">Apple</Text>
                 </View>
               </Pressable>
             </View>
 
-            <Text className="text-xs text-gray-500 text-center mt-6 px-4 leading-relaxed">
-              By continuing, you agree to our Terms of Service and Privacy
-              Policy
+            <Text className="text-xs text-gray-500 text-center px-4 leading-relaxed">
+              By continuing, you agree to our{" "}
+              <Text className="text-green-600 font-medium">Terms of Service</Text> and{" "}
+              <Text className="text-green-600 font-medium">Privacy Policy</Text>
             </Text>
+            
+            {/* Powered by section */}
+            <View className="items-center mt-8">
+              <View className="flex-row items-center bg-gray-50 px-5 py-4 rounded-xl border border-gray-100">
+                <Text className="text-xs text-gray-500 mr-2 font-medium">Powered by</Text>
+                <Image 
+                  source={require("@/assets/images/thirdweb.png")} 
+                  className="w-7 h-7 mr-2 rounded-full"
+                  resizeMode="contain"
+                />
+                <Text className="text-sm font-semibold text-gray-800">Thirdweb</Text>
+              </View>
+            </View>
           </View>
         </View>
       </ScrollView>
