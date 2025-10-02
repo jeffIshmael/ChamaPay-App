@@ -1,6 +1,13 @@
 import { mockPublicChamas, PublicChama } from "@/constants/mockData";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Clock, MapPin, Shield, Wallet } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Calendar,
+  Clock,
+  Shield,
+  Star,
+  Wallet,
+} from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -36,6 +43,15 @@ export default function ChamaDetails() {
     }
     setIsLoading(false);
   }, [id]);
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
 
   const handleJoinChama = async () => {
     Alert.alert(
@@ -106,7 +122,7 @@ export default function ChamaDetails() {
               {
                 step: "1",
                 title: "Join & Lock Collateral",
-                description: `Lock ${chama.currency} ${chama.collateralRequired.toLocaleString()} as collateral to secure your position`,
+                description: `Lock ${chama.currency} ${chama.collateralAmount.toLocaleString()} as collateral to secure your position`,
               },
               {
                 step: "2",
@@ -140,6 +156,26 @@ export default function ChamaDetails() {
         )}
       </View>
 
+      {/* Admin Terms Section */}
+      {chama && chama.adminTerms && (
+        <View className="bg-white rounded-xl border border-gray-200 p-4">
+          <Text className="text-lg font-semibold text-gray-900 mb-3">
+            Admin Requirements
+          </Text>
+          <View className="gap-2">
+            {chama.adminTerms.map((term, index) => (
+              <View key={index} className="flex-row items-start gap-3">
+                <View
+                  className="w-2 h-2 rounded-full bg-emerald-600 flex-shrink-0"
+                  style={{ marginTop: 6 }}
+                />
+                <Text className="text-sm text-gray-600 flex-1">{term}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
       <View className="bg-white rounded-xl border border-gray-200 p-4">
         <Text className="text-lg font-semibold text-gray-900 mb-3">
           Financial Summary
@@ -158,7 +194,7 @@ export default function ChamaDetails() {
               ["Duration:", chama.duration],
               [
                 "Collateral Required:",
-                `${chama.currency} ${chama.collateralRequired.toLocaleString()}`,
+                `${chama.currency} ${chama.collateralAmount.toLocaleString()}`,
               ],
             ].map(([label, value], index) => (
               <View key={index} className="flex-row justify-between">
@@ -253,11 +289,6 @@ export default function ChamaDetails() {
                       <Text className="text-xl font-semibold text-gray-900 flex-1">
                         {chama.name}
                       </Text>
-                      <View className="bg-emerald-100 px-3 py-1 rounded-full">
-                        <Text className="text-emerald-700 text-sm font-medium">
-                          {chama.category}
-                        </Text>
-                      </View>
                     </View>
                   </View>
 
@@ -265,19 +296,31 @@ export default function ChamaDetails() {
                     {chama.description}
                   </Text>
 
-                  <View className="flex-row items-center gap-2 mb-4">
-                    <View className="flex-row items-center gap-1">
-                      <MapPin size={14} className="text-gray-400" />
-                      <Text className="text-sm text-gray-500">
-                        {chama.location}
-                      </Text>
-                    </View>
-                    <View className="flex-row items-center gap-1">
-                      <Clock size={14} className="text-gray-400" />
-                      <Text className="text-sm text-gray-500">
+                  {/* Start Date and Frequency */}
+                  <View className="flex-row items-center gap-6 mb-3">
+                    <View className="flex-row items-center gap-2">
+                      <Clock size={16} className="text-gray-400" />
+                      <Text className="text-sm text-gray-600">
                         {chama.frequency}
                       </Text>
                     </View>
+                    <View className="flex-row items-center gap-2">
+                      <Calendar size={16} className="text-gray-400" />
+                      <Text className="text-sm text-gray-600">
+                        Started {formatDate(chama.startDate)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Rating Section */}
+                  <View className="flex-row items-center gap-2 mb-3">
+                    <Star size={16} color="#fbbf24" fill="transparent" />
+                    <Text className="text-sm font-medium text-gray-700">
+                      {chama.rating}
+                    </Text>
+                    <Text className="text-sm text-gray-500">
+                      ({Math.floor(Math.random() * 50) + 10} ratings)
+                    </Text>
                   </View>
 
                   {/* Progress */}
@@ -315,7 +358,7 @@ export default function ChamaDetails() {
                       </View>
                       <Text className="font-medium text-gray-900">
                         {chama.currency}{" "}
-                        {chama.collateralRequired.toLocaleString()}
+                        {chama.collateralAmount.toLocaleString()}
                       </Text>
                     </View>
                   </View>
@@ -356,9 +399,7 @@ export default function ChamaDetails() {
                     <ActivityIndicator size="small" color="white" />
                   )}
                   <Text className="text-white font-medium text-center">
-                    {isJoining
-                      ? "Joining Chama..."
-                      : "Join Chama"}
+                    {isJoining ? "Joining Chama..." : "Join Chama"}
                   </Text>
                 </TouchableOpacity>
               </View>

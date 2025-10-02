@@ -1,15 +1,21 @@
+import SeedPhraseModal from '@/components/SeedPhraseModal';
+import { useAuth } from "@/Contexts/AuthContext";
+import * as Clipboard from 'expo-clipboard';
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
   Bell,
+  Check,
+  Copy,
   Edit,
   LogOut,
   Shield,
-  User,
+  Wallet
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   Alert,
+  Image,
   SafeAreaView,
   ScrollView,
   Switch,
@@ -19,27 +25,39 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-interface ProfileSettingsProps {
-  user?: {
-    name?: string;
-    email?: string;
-  };
-}
-
 interface NotificationSettings {
   pushNotifications: boolean;
   emailNotifications: boolean;
   contributionReminders: boolean;
 }
 
-export default function ProfileSettings({ user }: ProfileSettingsProps) {
+export default function ProfileSettings() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user, logout, isLoading } = useAuth();
+  const [copiedAddress, setCopiedAddress] = useState(false);
+  const [showSeedPhraseModal, setShowSeedPhraseModal] = useState(false);
   const [notifications, setNotifications] = useState<NotificationSettings>({
     pushNotifications: true,
     emailNotifications: true,
     contributionReminders: true,
   });
+
+  // Default avatar URLs based on user's initials
+  const getDefaultAvatar = () => {
+    const initials = (user?.name || user?.email || 'U')
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+    
+    return `https://api.dicebear.com/7.x/initials/svg?seed=${initials}&backgroundColor=10b981&textColor=ffffff`;
+  };
+
+  const getUserProfileImage = () => {
+    return user?.profileImageUrl || getDefaultAvatar();
+  };
 
   const handleSignOut = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -47,9 +65,30 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
       {
         text: "Sign Out",
         style: "destructive",
-        onPress: () => console.log("Sign out"),
+        onPress: async () => {
+          try {
+            await logout();
+            router.replace("/auth-screen");
+          } catch (error) {
+            console.error("Sign out error:", error);
+            Alert.alert("Error", "Failed to sign out. Please try again.");
+          }
+        },
       },
     ]);
+  };
+
+  const copyWalletAddress = async () => {
+    if (user?.address) {
+      try {
+        await Clipboard.setStringAsync(user.address);
+        setCopiedAddress(true);
+        setTimeout(() => setCopiedAddress(false), 2000);
+      } catch (error) {
+        console.error("Copy error:", error);
+        Alert.alert("Error", "Failed to copy address");
+      }
+    }
   };
 
   const updateNotificationSetting = (
@@ -58,6 +97,34 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
   ) => {
     setNotifications((prev) => ({ ...prev, [key]: value }));
   };
+
+  const formatWalletAddress = (address: string) => {
+    if (!address) return "";
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  const handleShowSeedPhrase = () => {
+    Alert.alert(
+      "Show Seed Phrase",
+      "You are about to view your wallet recovery phrase. Make sure you are in a private location and no one can see your screen.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Continue", 
+          onPress: () => setShowSeedPhraseModal(true),
+          style: "default"
+        }
+      ]
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
+        <Text className="text-gray-600">Loading profile...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView
@@ -71,7 +138,7 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
             onPress={() => router.back()}
             className="p-2 rounded-lg active:bg-gray-100"
           >
-            <ArrowLeft size={20} className="text-gray-700" />
+            <ArrowLeft size={20} color="#374151" />
           </TouchableOpacity>
           <Text className="text-xl font-semibold text-gray-900">
             Profile & Settings
@@ -83,27 +150,70 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
         {/* Profile Info */}
         <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
           <View className="flex-row items-center gap-4 mb-4">
-            <View className="w-16 h-16 rounded-full bg-emerald-100 items-center justify-center">
-              <User size={24} className="text-emerald-600" />
-            </View>
+            <Image
+              source={{ uri: getUserProfileImage() }}
+              className="w-16 h-16 rounded-full"
+              style={{ backgroundColor: '#f3f4f6' }}
+            />
             <View className="flex-1">
               <Text className="text-xl font-semibold text-gray-900">
-                {user?.name || "Sarah Njeri"}
+                {user?.name || "User"}
               </Text>
               <Text className="text-gray-600">
-                {user?.email || "sarah.njeri@gmail.com"}
+                {user?.email || "No email provided"}
               </Text>
+              {user?.role && (
+                <Text className="text-sm text-emerald-600 mt-1 capitalize">
+                  {user.role}
+                </Text>
+              )}
             </View>
-            <TouchableOpacity className="p-2 border border-gray-300 rounded-lg active:bg-gray-50">
-              <Edit size={16} className="text-gray-700" />
+            <TouchableOpacity 
+              onPress={() => router.push('/edit-profile')}
+              className="p-2 border border-gray-300 rounded-lg active:bg-gray-50"
+            >
+              <Edit size={16} color="#374151" />
             </TouchableOpacity>
           </View>
         </View>
 
+        {/* Wallet Info */}
+        {user?.address && (
+          <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+            <View className="flex-row items-center gap-2 mb-4">
+              <Wallet size={20} color="#059669" />
+              <Text className="text-lg font-medium text-gray-900">
+                Wallet Information
+              </Text>
+            </View>
+            <View className="bg-gray-50 rounded-lg p-4">
+              <Text className="text-sm text-gray-600 mb-2">Wallet Address</Text>
+              <View className="flex-row items-center justify-between">
+                <Text className="text-gray-900 font-mono text-sm flex-1">
+                  {formatWalletAddress(user.address)}
+                </Text>
+                <TouchableOpacity
+                  onPress={copyWalletAddress}
+                  className="ml-2 p-2 rounded-lg active:bg-gray-200"
+                >
+                  {copiedAddress ? (
+                    <Check size={16} color="#059669" />
+                  ) : (
+                    <Copy size={16} color="#374151" />
+                  )}
+                </TouchableOpacity>
+              </View>
+              <Text className="text-xs text-gray-500 mt-2">
+                {copiedAddress ? "Address copied!" : "Tap to copy full address"}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Notification Settings */}
         <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
           <View className="flex-row items-center gap-2 mb-4">
-            <Bell size={20} className="text-orange-600" />
+            <Bell size={20} color="#ea580c" />
             <Text className="text-lg font-medium text-gray-900">
               Notifications
             </Text>
@@ -124,9 +234,7 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
                   updateNotificationSetting("pushNotifications", value)
                 }
                 trackColor={{ false: "#f3f4f6", true: "#10b981" }}
-                thumbColor={
-                  notifications.pushNotifications ? "#ffffff" : "#ffffff"
-                }
+                thumbColor="#ffffff"
               />
             </View>
             <View className="flex-row items-center justify-between">
@@ -144,9 +252,7 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
                   updateNotificationSetting("emailNotifications", value)
                 }
                 trackColor={{ false: "#f3f4f6", true: "#10b981" }}
-                thumbColor={
-                  notifications.emailNotifications ? "#ffffff" : "#ffffff"
-                }
+                thumbColor="#ffffff"
               />
             </View>
             <View className="flex-row items-center justify-between">
@@ -164,9 +270,7 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
                   updateNotificationSetting("contributionReminders", value)
                 }
                 trackColor={{ false: "#f3f4f6", true: "#10b981" }}
-                thumbColor={
-                  notifications.contributionReminders ? "#ffffff" : "#ffffff"
-                }
+                thumbColor="#ffffff"
               />
             </View>
           </View>
@@ -175,7 +279,7 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
         {/* Security */}
         <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
           <View className="flex-row items-center gap-2 mb-4">
-            <Shield size={20} className="text-green-600" />
+            <Shield size={20} color="#059669" />
             <Text className="text-lg font-medium text-gray-900">Security</Text>
           </View>
           <View className="gap-3">
@@ -183,10 +287,27 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
               <Text className="text-gray-700 font-medium">
                 Two-Factor Authentication
               </Text>
+              <Text className="text-sm text-gray-500 mt-1">
+                Add an extra layer of security
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity className="w-full p-4 border border-gray-300 rounded-lg active:bg-gray-50">
               <Text className="text-gray-700 font-medium">
-                Connected Accounts
+                Change Password
+              </Text>
+              <Text className="text-sm text-gray-500 mt-1">
+                Update your account password
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={handleShowSeedPhrase}
+              className="w-full p-4 border border-gray-300 rounded-lg active:bg-gray-50"
+            >
+              <Text className="text-gray-700 font-medium">
+                Show Seed Phrase
+              </Text>
+              <Text className="text-sm text-gray-500 mt-1">
+                View your wallet recovery phrase (requires authentication)
               </Text>
             </TouchableOpacity>
           </View>
@@ -196,26 +317,39 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
         <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
           <View className="gap-3">
             <TouchableOpacity className="w-full p-4 border border-gray-300 rounded-lg active:bg-gray-50">
-              <Text className="text-gray-700 font-medium">Export Data</Text>
-            </TouchableOpacity>
-            <TouchableOpacity className="w-full p-4 border border-gray-300 rounded-lg active:bg-gray-50">
               <Text className="text-gray-700 font-medium">Privacy Policy</Text>
+              <Text className="text-sm text-gray-500 mt-1">
+                Read our privacy policy
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity className="w-full p-4 border border-gray-300 rounded-lg active:bg-gray-50">
               <Text className="text-gray-700 font-medium">
                 Terms of Service
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleSignOut}
-              className="w-full p-4 bg-red-600 rounded-lg active:bg-red-700 flex-row items-center justify-center"
-            >
-              <LogOut size={16} color="#ffffff" style={{ marginRight: 4 }} />
-              <Text className="text-white font-medium">Sign Out</Text>
+              <Text className="text-sm text-gray-500 mt-1">
+                Review our terms and conditions
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Sign Out Button */}
+        <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+          <TouchableOpacity
+            onPress={handleSignOut}
+            className="w-full p-4 bg-red-600 rounded-lg active:bg-red-700 flex-row items-center justify-center"
+          >
+            <LogOut size={16} color="#ffffff" style={{ marginRight: 8 }} />
+            <Text className="text-white font-medium">Sign Out</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
+
+      {/* Seed Phrase Modal */}
+      <SeedPhraseModal
+        visible={showSeedPhraseModal}
+        onClose={() => setShowSeedPhraseModal(false)}
+      />
     </SafeAreaView>
   );
 }
