@@ -179,6 +179,23 @@ ChamaPay-App/
 - Prisma issues: `npx prisma generate` then `npx prisma migrate reset`
 - Port conflicts: `lsof -i :3000` then kill the process
 
+## Screenshots
+
+Add screenshots to showcase the app and flows. Place images under `Application/assets/images/` and reference them here.
+
+```md
+### Mobile App
+
+![](Application/assets/images/logo.png)
+
+<!-- Example placeholders; replace with real screen captures -->
+![](Application/assets/images/onboarding.png)
+![](Application/assets/images/home-dashboard.png)
+![](Application/assets/images/create-chama.png)
+![](Application/assets/images/chama-details.png)
+![](Application/assets/images/wallet-setup.png)
+```
+
 ## License
 
 See individual package licenses. Server is ISC per its `package.json`.

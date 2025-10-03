@@ -37,17 +37,3 @@ export async function generateUniqueSlug(baseName: string): Promise<string> {
     return uniqueSlug;
 }
 
-// function that gets the user's id and returns a decrypted private key
-export const getUserPrivateKey = async (userId: number) => {
-    const user = await prisma.user.findUnique({
-        where: { id: userId }
-    });
-    if (!user) {
-        throw new Error("User not found");
-    }
-    
-   // decrypt the private key
-   const encryptedPrivateKey = JSON.parse(user.privKey);
-   const decryptedPrivateKey = encryptionService.decrypt(encryptedPrivateKey, encryptionSecret);
-   return decryptedPrivateKey;
-}
