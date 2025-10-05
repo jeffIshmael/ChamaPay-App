@@ -693,7 +693,6 @@ export default function CryptoWallet() {
           )}
 
           {/* Swap Tab */}
-          {/* Swap Tab */}
           {activeTab === "swap" && (
             <View >
               <Text className="text-2xl font-bold text-gray-900 mb-6">
