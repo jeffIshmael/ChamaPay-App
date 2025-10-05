@@ -38,7 +38,8 @@ model Chama {
   amount        String
   round         Int          @default(1) //  payout
   cycle         Int          @default(1) // after every member has received a payout
-  maxNo         Int           @default(15)      
+  maxNo         Int           @default(15)
+  rating        Int           @default(0)
   blockchainId  String
   adminId       Int
   canJoin       Boolean  @default(true)

@@ -156,7 +156,7 @@ export default function HomeScreen() {
           <View>
             <Text className="text-lg text-white font-medium">Welcome back</Text>
             <Text className="text-emerald-100 text-sm">
-              {user?.name || user?.email || "User"}
+              {user?.userName || user?.email || "User"}
             </Text>
           </View>
         </View>

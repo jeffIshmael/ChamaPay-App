@@ -40,8 +40,7 @@ export interface BackendChama {
   blockchainId: string;
   round: number;
   cycle: number;
-  promoCode: string | null;
-  collateralRequired: boolean;
+  rating?: number;
   admin: {
     id: number;
     name: string;
@@ -139,6 +138,29 @@ export const getChamaBySlug = async (slug: string, token: string): Promise<Chama
   }
 };
 
+// Get public chamas user is not a member of
+export const getPublicChamas = async (token: string): Promise<ChamaResponse> => {
+  try {
+    const response = await fetch(`${serverUrl}/chama/public-chamas`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching public chamas:', error);
+    return { success: false, error: 'Failed to fetch public chamas' };
+  }
+};
+
 // Transform backend chama data to frontend format
 export const transformChamaData = (backendChama: BackendChama) => {
   const memberCount = backendChama._count?.members || backendChama.members?.length || 0;
@@ -166,7 +188,7 @@ export const transformChamaData = (backendChama: BackendChama) => {
     category: backendChama.type,
     location: "Nairobi", // Default location
     adminTerms: backendChama.adminTerms ? JSON.parse(backendChama.adminTerms) : [],
-    collateralAmount: backendChama.collateralRequired ? parseFloat(backendChama.amount) : 0,
+    collateralAmount: 0,
     nextPayout: backendChama.payDate ? new Date(backendChama.payDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     myTurn: false, // Would need to calculate based on current position
     myPosition: 1, // Default position
