@@ -8,11 +8,22 @@ import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { Shield, Users } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
-import { ConnectButton, useActiveAccount, useConnect } from "thirdweb/react";
-import { getProfiles, getUserEmail, inAppWallet } from "thirdweb/wallets/in-app";
+import { useActiveAccount, useConnect } from "thirdweb/react";
+import {
+  getProfiles,
+  getUserEmail,
+  inAppWallet,
+} from "thirdweb/wallets/in-app";
 
 const GoogleIcon = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24">
@@ -141,7 +152,7 @@ export default function AuthScreen() {
       const wallet = inAppWallet({
         smartAccount: {
           chain,
-          sponsorGas: true,
+          sponsorGas: false,
         },
       });
 
@@ -150,18 +161,28 @@ export default function AuthScreen() {
         strategy: type,
       });
       // Register wallet with connection manager so it persists across app
-      try { await connect(wallet); } catch {
-        
+      try {
+        await connect(wallet);
+      } catch (error) {
+        console.log("connecting error", error);
       }
-      console.log("auth account",account);
-      console.log("auth wallet",wallet);
+      console.log("auth account", account);
+      console.log("auth wallet", wallet);
 
       // Get thirdweb profile + email
       const profiles = await getProfiles({ client });
-      const primaryProfile: any = Array.isArray(profiles) ? profiles[0] : undefined;
-      const emailFromProfile = primaryProfile?.details?.email as string | undefined;
-      const nameFromProfile = primaryProfile?.details?.name as string | undefined;
-      const pictureFromProfile = primaryProfile?.details?.picture as string | undefined;
+      const primaryProfile: any = Array.isArray(profiles)
+        ? profiles[0]
+        : undefined;
+      const emailFromProfile = primaryProfile?.details?.email as
+        | string
+        | undefined;
+      const nameFromProfile = primaryProfile?.details?.name as
+        | string
+        | undefined;
+      const pictureFromProfile = primaryProfile?.details?.picture as
+        | string
+        | undefined;
       const email = emailFromProfile || (await getUserEmail({ client }));
 
       if (!email) {
@@ -219,7 +240,7 @@ export default function AuthScreen() {
           <View className="items-center mb-12" style={{ paddingTop: 60 }}>
             <View
               className="w-24 h-24 rounded-full items-center justify-center mb-8 shadow-lg"
-              style={{ 
+              style={{
                 backgroundColor: "#059669",
                 shadowColor: "#059669",
                 shadowOffset: { width: 0, height: 4 },
@@ -244,7 +265,9 @@ export default function AuthScreen() {
               style={styles.card}
             >
               <Shield color="#ef4444" size={20} />
-              <Text className="text-red-600 ml-3 text-sm font-medium">{errorText}</Text>
+              <Text className="text-red-600 ml-3 text-sm font-medium">
+                {errorText}
+              </Text>
             </View>
           ) : null}
 
@@ -253,7 +276,6 @@ export default function AuthScreen() {
 
           {/* Footer with buttons at bottom */}
           <View className="pb-8">
-
             {/* Secondary in two columns */}
             <View className="flex-row mb-6" style={{ gap: 12 }}>
               <Pressable
@@ -264,7 +286,9 @@ export default function AuthScreen() {
                 <GoogleIcon />
                 <View className="ml-3 items-start justify-center">
                   <Text className="text-gray-500 text-xs">Continue with</Text>
-                  <Text className="text-gray-800 font-semibold text-sm">Google</Text>
+                  <Text className="text-gray-800 font-semibold text-sm">
+                    Google
+                  </Text>
                 </View>
               </Pressable>
 
@@ -276,27 +300,36 @@ export default function AuthScreen() {
                 <AppleIcon />
                 <View className="ml-3 items-start justify-center">
                   <Text className="text-gray-300 text-xs">Continue with</Text>
-                  <Text className="text-white font-semibold text-sm">Apple</Text>
+                  <Text className="text-white font-semibold text-sm">
+                    Apple
+                  </Text>
                 </View>
               </Pressable>
             </View>
 
             <Text className="text-xs text-gray-500 text-center px-4 leading-relaxed">
               By continuing, you agree to our{" "}
-              <Text className="text-green-600 font-medium">Terms of Service</Text> and{" "}
+              <Text className="text-green-600 font-medium">
+                Terms of Service
+              </Text>{" "}
+              and{" "}
               <Text className="text-green-600 font-medium">Privacy Policy</Text>
             </Text>
-            
+
             {/* Powered by section */}
             <View className="items-center mt-8">
               <View className="flex-row items-center bg-gray-50 px-5 py-4 rounded-xl border border-gray-100">
-                <Text className="text-xs text-gray-500 mr-2 font-medium">Powered by</Text>
-                <Image 
-                  source={require("@/assets/images/thirdweb.png")} 
+                <Text className="text-xs text-gray-500 mr-2 font-medium">
+                  Powered by
+                </Text>
+                <Image
+                  source={require("@/assets/images/thirdweb.png")}
                   className="w-7 h-7 mr-2 rounded-full"
                   resizeMode="contain"
                 />
-                <Text className="text-sm font-semibold text-gray-800">Thirdweb</Text>
+                <Text className="text-sm font-semibold text-gray-800">
+                  Thirdweb
+                </Text>
               </View>
             </View>
           </View>
