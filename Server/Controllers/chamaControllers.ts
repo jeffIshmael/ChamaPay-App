@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import { bcGetTotalChamas } from "../Blockchain/ReadFunctions";
 import { bcCreateChama } from "../Blockchain/WriteFunction";
-import { generateUniqueSlug, getUserPrivateKey } from "../Utils/HelperFunctions";
+import { generateUniqueSlug } from "../Utils/HelperFunctions";
 
 const prisma = new PrismaClient();
 
@@ -49,7 +49,7 @@ export const createChama = async (req: Request<{}, {}, CreateChamaRequestBody>, 
         const totalChamas = await bcGetTotalChamas();
 
         // register chama on blockchain
-        const privateKey = await getUserPrivateKey(req.user?.userId || 0);
+        // const privateKey = await getUserPrivateKey(req.user?.userId || 0);
         const startDateObj = new Date('2025-08-15T19:46:00.000Z');
         // Ensure the date is in the future and convert to seconds
         const currentTimestamp = Math.floor(Date.now() / 1000);
@@ -59,11 +59,12 @@ export const createChama = async (req: Request<{}, {}, CreateChamaRequestBody>, 
         if (startTimestamp <= currentTimestamp) {
             throw new Error("Start date must be in the future");
         }
+        const hash= "";
         
-        const hash = await bcCreateChama(privateKey as `0x${string}`, amount, cycleTime, startTimestamp, maxNo, isCollateralRequired);
-        if (!hash) {
-            throw new Error("Failed to create chama on blockchain");
-        }        
+        // const hash = await bcCreateChama(privateKey as `0x${string}`, amount, cycleTime, startTimestamp, maxNo, isCollateralRequired);
+        // if (!hash) {
+        //     throw new Error("Failed to create chama on blockchain");
+        // }        
         // First, create the Chama
         const chama = await prisma.chama.create({
             data: {
@@ -82,8 +83,6 @@ export const createChama = async (req: Request<{}, {}, CreateChamaRequestBody>, 
                 blockchainId: totalChamas,
                 round: 1,
                 cycle: 1,
-                promoCode: promoCode,
-                collateralRequired: isCollateralRequired,
                 // Note: admin connection needs proper implementation based on your auth system
                 admin: { connect: { id: req.user?.userId } },
             },

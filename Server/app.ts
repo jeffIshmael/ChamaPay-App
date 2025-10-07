@@ -4,6 +4,7 @@ import express, { Application } from "express";
 import authRoutes from "./Routes/authRoutes";
 import userRoutes from "./Routes/userRoutes";
 import chamaRoutes from "./Routes/chamaRoutes";
+import mentoRoutes from "./Routes/mentoRoutes";
 
 // Load environment variables
 dotenv.config();
@@ -19,6 +20,7 @@ app.use(cors());
 app.use("/auth", authRoutes); // All auth-related routes (e.g., /auth/register, /auth/login)
 app.use("/user", userRoutes); // All user-related routes
 app.use("/chama", chamaRoutes); // All chama-related routes
+app.use("/mento", mentoRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {

@@ -8,11 +8,10 @@ import { storage } from '../Utils/storage';
 export interface User {
   id: number;
   email: string;
-  name: string | null;
+  userName: string | null;
   phoneNo: number | null;
   address: string;
-  role: string | null;
-  profile: string | null;
+  smartAddress: string;
   profileImageUrl: string | null;
 }
 

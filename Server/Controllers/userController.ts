@@ -45,7 +45,7 @@ export const getUser = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Remove sensitive fields from response
-    const { password, privKey, mnemonics, ...userResponse } = user;
+    const { ...userResponse } = user;
     
     res.status(200).json({ user: userResponse });
   } catch (error: unknown) {
@@ -109,7 +109,7 @@ export const updateUserProfile = async (req: Request, res: Response): Promise<vo
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
-        name: name.trim(),
+        userName: name.trim(),
         email: email.trim().toLowerCase(),
         phoneNo: phoneNo,
         profileImageUrl: profileImageUrl || null
@@ -117,10 +117,7 @@ export const updateUserProfile = async (req: Request, res: Response): Promise<vo
     });
 
     // Remove sensitive fields from response
-    const { password, privKey, mnemonics, ...userResponse }: { 
-      password: string; 
-      privKey: string; 
-      mnemonics: string; 
+    const { ...userResponse }: { 
       [key: string]: any; 
     } = updatedUser;
 
@@ -147,7 +144,7 @@ export const checkUserExists = async (req: Request, res: Response): Promise<void
       res.status(200).json({ success: false });
       return;
     }
-    const { password, privKey, mnemonics, ...safeUser } = user as any;
+    const { ...safeUser } = user as any;
     res.status(200).json({ success: true, user: safeUser });
   } catch (error: unknown) {
     console.error("Check user exists error:", error);

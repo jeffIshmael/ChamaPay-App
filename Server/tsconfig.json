@@ -26,11 +26,13 @@
     "exactOptionalPropertyTypes": false,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": false,
-    "noUncheckedIndexedAccess": false
+    "noUncheckedIndexedAccess": false,
+    "typeRoots": ["./types", "./node_modules/@types"]
   },
   "include": [
     "**/*.ts",
-    "**/*.js"
+    "**/*.js",
+    "**/*.d.ts"
   ],
   "exclude": [
     "node_modules",
