@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function ReceiveCryptoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [selectedToken, setSelectedToken] = useState("ETH");
+  const [selectedToken, setSelectedToken] = useState("USDC or cUSD");
   const [amount, setAmount] = useState("");
 
   const walletAddress = "0x742d35Cc6Cd3C9C4F6a8b1E2d9F7A5B3C8e4D1f6";
