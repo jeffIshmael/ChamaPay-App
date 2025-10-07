@@ -30,6 +30,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Linking
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
@@ -38,9 +39,8 @@ import { shortenAddress } from "thirdweb/utils";
 
 import { executeSwap, getSwapQuote, approveSwap } from "@/lib/mentoSdkServices";
 import { useAuth } from "@/Contexts/AuthContext";
-import { QuoteResponse } from "@/lib/mentoSdkServices";
+import { QuoteResponse, ExecuteSwap } from "@/lib/mentoSdkServices";
 import { cUSDAddress, usdcAddress } from "@/constants/contractAddress";
-
 
 interface Token {
   symbol: string;
@@ -85,7 +85,7 @@ export default function CryptoWallet() {
   const [swapping, setSwapping] = useState(false);
   const wallet = useActiveWallet();
   const activeAccount = useActiveAccount();
-  const { user, token,  } = useAuth();
+  const { user, token } = useAuth();
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -145,7 +145,7 @@ export default function CryptoWallet() {
         symbol: userBalance?.USDC.symbol || "USDC",
         name: userBalance?.USDC.name || "USD Coin",
         amount: parseFloat(userBalance?.USDC.displayValue || "0"),
-        usdValue: parseFloat(userBalance?.cUSD.displayValue || "0"),
+        usdValue: parseFloat(userBalance?.USDC.displayValue || "0"),
         change24h: 0.01,
         icon: "💎",
         image: require("@/assets/images/usdclogo.png"),
@@ -192,64 +192,95 @@ export default function CryptoWallet() {
 
   const handleSwap = async () => {
     if (!swapAmount) {
-      Alert.alert("Error", "Please enter an amount to swap");
+      Alert.alert("Missing Amount", "Please enter the amount you want to swap.");
       return;
     }
-
+  
     if (!quoteData) {
-      Alert.alert("Error", "Please wait for quote to load");
+      Alert.alert("Quote Not Ready", "Please wait for the latest quote to load before swapping.");
       return;
     }
-
+  
     if (!token) {
-      Alert.alert("Error", "Authentication required");
+      Alert.alert("Authentication Required", "Please log in or connect your wallet to continue.");
       return;
     }
-
+  
     setSwapping(true);
     try {
-      // Get the from token address based on selection
-      const fromTokenAddress = fromToken === "cUSD" ? cUSDAddress : usdcAddress; // USDC address on Celo
-
-      console.log("Anbout to run approve.");
-      // console.log(quoteData);
-
-      // First approve the swap
-      const result = await approveSwap(fromTokenAddress, quoteData.quote.amountWei, token, activeAccount);
-      console.log("the result of approve", result);
-      if (result.success) {
-        Alert.alert("Unable to approve.");
+      const fromTokenAddress = fromToken === "cUSD" ? cUSDAddress : usdcAddress;
+      const toTokenAddress = fromToken === "cUSD" ? usdcAddress : cUSDAddress;
+  
+      // Approve swap
+      const result = await approveSwap(
+        fromTokenAddress,
+        quoteData.quote.amountWei,
+        token,
+        activeAccount
+      );
+  
+      console.log("Approval result:", result);
+  
+      if (!result?.success) {
+        Alert.alert(
+          "Approval Failed",
+          "We couldn’t approve the transaction. Please try again or check your wallet permissions."
+        );
         return;
       }
-
-      // Then execute the swap
-      // const result = await executeSwap(
-      //   swapAmount,
-      //   fromToken === "cUSD",
-      // );
-
+  
+      const executeSwapArgs: ExecuteSwap = {
+        fromTokenAddr: fromTokenAddress,
+        toTokenAddr: toTokenAddress,
+        amountWei: quoteData.quote.amountWei,
+        quoteWei: quoteData.quote.quoteWei,
+        tradablePair: quoteData.quote.tradablePair,
+      };
+  
+      // Execute swap
+      const swapResult = await executeSwap(executeSwapArgs, token, activeAccount);
+      console.log("Swap result:", swapResult);
+  
+      if (!swapResult?.success) {
+        Alert.alert(
+          "Swap Unsuccessful",
+          "Something went wrong while processing your swap. Please try again."
+        );
+        return;
+      }
+  
+      // ✅ Success message
       Alert.alert(
-        "Success!",
-        `Swapped ${swapAmount} ${fromToken} to ${estimatedOutput} ${toToken}`
+        "Swap Successful 🎉",
+        `You successfully swapped ${swapAmount} ${fromToken} for approximately ${estimatedOutput} ${toToken}.`,
+        [
+          {
+            text: "View on CeloScan",
+            onPress: () =>
+              Linking.openURL(`https://celoscan.io/tx/${swapResult.hash}`),
+          },
+          { text: "Done", style: "cancel" },
+        ]
       );
-
+  
       // Reset form
       setSwapAmount("");
       setEstimatedOutput("0.00");
       setQuoteData(null);
-
+  
       // Refresh balances
       await fetchBalances();
     } catch (error: any) {
       console.log("Swap error:", error);
       Alert.alert(
-        "Swap Failed",
-        error.message || "An error occurred during the swap"
+        "Swap Failed ❌",
+        error.message || "An unexpected error occurred while executing the swap. Please try again."
       );
     } finally {
       setSwapping(false);
     }
   };
+  
 
   const handleReceive = () => {
     router.push("/wallet/receive-crypto");
@@ -477,7 +508,7 @@ export default function CryptoWallet() {
           <Text className="text-gray-900 font-bold text-lg">
             {token.amount.toLocaleString(undefined, {
               minimumFractionDigits: 2,
-              maximumFractionDigits: 6,
+              maximumFractionDigits: 2,
             })}{" "}
             {token.symbol}
           </Text>

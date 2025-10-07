@@ -152,7 +152,7 @@ export default function AuthScreen() {
       const wallet = inAppWallet({
         smartAccount: {
           chain,
-          sponsorGas: false,
+          sponsorGas: true,
         },
       });
 

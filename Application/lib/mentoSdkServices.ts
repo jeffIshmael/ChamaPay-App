@@ -23,51 +23,47 @@ export interface QuoteResponse {
   };
 }
 
-export interface ApproveResponse {
+export interface SuccessfulTx {
   success: boolean;
   hash: string;
 }
 
-interface ExecuteSwap {
+export interface ExecuteSwap {
   fromTokenAddr: string;
   toTokenAddr: string;
   amountWei: string;
   quoteWei: string;
   tradablePair: any;
-  config: any;
 }
 
 interface TxRequest {
-    to: `0x${string}`;
-    data: `0x${string}`;
-    value?: string | bigint | null;
+  to: `0x${string}`;
+  data: `0x${string}`;
+  value?: string | bigint | null;
+}
+
+export async function executePreparedTx(txRequest: TxRequest, account: any) {
+  try {
+    const preparedTx = prepareTransaction({
+      client,
+      chain: celo,
+      to: txRequest.to,
+      data: txRequest.data,
+      value: txRequest.value ? BigInt(txRequest.value.toString()) : 0n,
+    });
+
+    const hash = await sendTransaction({
+      transaction: preparedTx,
+      account: account,
+    });
+
+    console.log("✅ Transaction sent:", hash);
+    return { success: true, hash };
+  } catch (err) {
+    console.error("❌ Error sending transaction:", err);
+    return { success: false, error: err };
   }
-  
-
-
-
-  export async function executePreparedTx(txRequest: TxRequest, account: any) {
-    try {
-      const preparedTx = prepareTransaction({
-        client,
-        chain: celo,
-        to: txRequest.to,
-        data: txRequest.data,
-        value: txRequest.value ? BigInt(txRequest.value.toString()) : 0n,
-      });
-  
-      const hash = await sendTransaction({
-        transaction: preparedTx,
-        account: account
-      });
-  
-      console.log("✅ Transaction sent:", hash);
-      return { success: true, hash };
-    } catch (err) {
-      console.error("❌ Error sending transaction:", err);
-      return { success: false, error: err };
-    }
-  }
+}
 
 // swapIn is a boolean of (from cUSD to USDC)
 export const getSwapQuote = async (
@@ -106,8 +102,8 @@ export async function approveSwap(
   fromTokenAddr: string,
   amountInWei: string,
   token: string,
-  account:any
-): Promise<ApproveResponse> {
+  account: any
+): Promise<SuccessfulTx> {
   try {
     console.log("the amount in Wei", amountInWei);
     const response = await fetch(`${serverUrl}/mento/approve-swap`, {
@@ -122,7 +118,7 @@ export async function approveSwap(
     console.log("received the prepared tx,", data);
 
     const result = await executePreparedTx(data.txRequest, account);
-    return {success: true, hash: result.hash?.transactionHash!};
+    return { success: true, hash: result.hash?.transactionHash! };
   } catch (error) {
     console.log("the error in approving swap", error);
     return { success: false, hash: "" };
@@ -130,7 +126,11 @@ export async function approveSwap(
 }
 
 // triggers the swapping
-export async function executeSwap(executingArgs: ExecuteSwap, token: string) {
+export async function executeSwap(
+  executingArgs: ExecuteSwap,
+  token: string,
+  account: any
+): Promise<SuccessfulTx> {
   try {
     const response = await fetch(`${serverUrl}/mento/execute-swap`, {
       method: "POST",
@@ -141,8 +141,11 @@ export async function executeSwap(executingArgs: ExecuteSwap, token: string) {
       body: JSON.stringify(executingArgs),
     });
     const data = await response.json();
-    return data;
+
+    const result = await executePreparedTx(data.txRequest, account);
+    return { success: true, hash: result.hash?.transactionHash! };
   } catch (error) {
     console.log("the error while swapping.", error);
+    return { success: false, hash: "" };
   }
 }
