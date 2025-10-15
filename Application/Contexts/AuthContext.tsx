@@ -63,7 +63,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (storedRefreshToken) setRefreshToken(storedRefreshToken);
         
         if (storedUser) {
+          // Set cached user immediately for fast UI, then refresh from server
           setUser(storedUser);
+          try {
+            await fetchUserData(storedToken);
+          } catch {}
         } else {
           // Token exists but no user data, fetch from server
           await fetchUserData(storedToken);
@@ -85,38 +89,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const ensureWalletConnected = async () => {
       try {
-        if (isAuthenticated && !activeWallet) {
-          // Check if we have a stored wallet connection
-          const storedWalletConnection = await storage.getWalletConnection();
-          
-          if (storedWalletConnection) {
-            // Try to restore the existing wallet connection
-            try {
-              const wallet = inAppWallet({
-                smartAccount: { chain, sponsorGas: true },
-              });
-              await connect(wallet);
-              console.log('Wallet connection restored from storage');
-            } catch (restoreError) {
-              console.log('Failed to restore wallet, creating new connection:', restoreError);
-              // If restoration fails, create a new wallet connection
-              const wallet = inAppWallet({
-                smartAccount: { chain, sponsorGas: true },
-              });
-              await connect(wallet);
-            }
-          } else {
-            // No stored connection, create new wallet
-            const wallet = inAppWallet({
-              smartAccount: { chain, sponsorGas: true },
-            });
+        if (!isAuthenticated || activeWallet) return;
+
+        // Attempt to restore previous in-app session without prompting
+        const wallet = inAppWallet({ smartAccount: { chain, sponsorGas: true } });
+        try {
+          // autoConnect resolves if a previous session exists; otherwise throws
+          // or returns without an account depending on SDK version
+          const maybeAccount: any = await (wallet as any).autoConnect?.();
+          const hasAccount = !!maybeAccount?.address || !!(wallet as any).getAccount?.();
+          if (hasAccount) {
             await connect(wallet);
+            await storeWalletConnection(wallet);
+            return;
           }
+        } catch {
+          // No previous session; do not treat as error
         }
+
+        // If no previous session, do nothing here. Auth flows (auth-screen) will connect.
       } catch (e) {
-        console.error('Wallet connection error:', e);
-        // Clear invalid wallet connection data
-        await storage.removeWalletConnection();
+        console.warn('Wallet autoConnect skipped:', e);
       }
     };
     ensureWalletConnected();
@@ -237,6 +230,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setToken(newToken);
     setUser(userData);
     if (newRefreshToken) setRefreshToken(newRefreshToken);
+    // Background refresh to ensure latest user details from server
+    try { await fetchUserData(newToken); } catch {}
   };
 
   const getToken = async () => {

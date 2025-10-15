@@ -4,8 +4,6 @@ import bcrypt from "bcryptjs";
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import emailService from "../Utils/EmailService";
-import encryptionService from "../Utils/Encryption";
-import { getWallets } from "../Utils/WalletCreation";
 import { sendWhatsAppOTP } from "../Utils/WhatsAppService";
 
 const prisma = new PrismaClient();
@@ -33,6 +31,10 @@ interface LoginRequest {
 
 interface GetMnemonicRequest {
   password: string;
+}
+
+interface GoogleCompleteRequest {
+  email: string;
 }
 
 interface AuthResponse {
@@ -177,5 +179,72 @@ export const thirdwebAuth = async (
   } catch (error: unknown) {
     console.error("Thirdweb auth error:", error);
     res.status(500).json({ error: "Google authentication failed" });
+  }
+};
+
+// Google auth complete - for existing users who already have accounts
+export const googleAuthComplete = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { email }: GoogleCompleteRequest = req.body;
+
+    if (!email) {
+      res.status(400).json({ 
+        success: false, 
+        error: "Email is required" 
+      });
+      return;
+    }
+
+    const formattedEmail: string = email.toLowerCase();
+
+    // Find existing user
+    const user = await prisma.user.findUnique({
+      where: { email: formattedEmail },
+    });
+
+    if (!user) {
+      res.status(404).json({ 
+        success: false, 
+        error: "User not found. Please sign up first." 
+      });
+      return;
+    }
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET not configured");
+    }
+
+    // Generate JWT token
+    const token: string = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // Generate refresh token
+    const refreshToken: string = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    const { password, privKey, mnemonics, ...userResponse } = user as any;
+
+    res.status(200).json({
+      success: true,
+      message: "Google authentication completed",
+      token,
+      refreshToken,
+      user: userResponse,
+    });
+  } catch (error: unknown) {
+    console.error("Google auth complete error:", error);
+    res.status(500).json({ 
+      success: false, 
+      error: "Google authentication completion failed" 
+    });
   }
 };

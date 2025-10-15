@@ -1,10 +1,10 @@
 // Routes for authentication i.e login & signup
 import express, { Router } from "express";
 import {
+    googleAuthComplete,
     sendWhatsAppCode,
     thirdwebAuth
 } from "../Controllers/authController";
-import authenticate from "../Middlewares/authMiddleware";
 
 const router: Router = express.Router();
 
@@ -16,6 +16,7 @@ router.post("/send-whatsapp-otp", sendWhatsAppCode);
 // thirweb auth
 router.post("/thirdweb", thirdwebAuth);
 
-
+// Authenticate existing user and get tokens
+router.post("/authenticate", googleAuthComplete);
 
 export default router; 
