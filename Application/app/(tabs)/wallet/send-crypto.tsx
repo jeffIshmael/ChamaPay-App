@@ -98,10 +98,10 @@ export default function SendCryptoScreen() {
                   <>
                     <Image
                       source={selectedTokenData?.image || tokens[0].image}
-                      className="w-10 h-10 rounded-full"
+                      className="w-10 h-10 rounded-full mr-2"
                     />
                     <View>
-                      <Text className="text-base text-gray-900 font-semibold">
+                      <Text className="text-base text-gray-900 font-semibold ">
                         {selectedToken}
                       </Text>
                       <Text className="text-xs text-gray-500">
@@ -379,7 +379,7 @@ export default function SendCryptoScreen() {
                 <View className="flex-row items-center space-x-3">
                   <Image
                     source={token.image}
-                    className="w-12 h-12 rounded-full"
+                    className="w-12 h-12 rounded-full mr-2"
                   />
                   <View>
                     <Text className="text-base font-bold text-gray-900">

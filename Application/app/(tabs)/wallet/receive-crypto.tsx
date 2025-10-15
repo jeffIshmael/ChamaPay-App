@@ -34,13 +34,13 @@ export default function ReceiveCryptoScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-emerald-600"
+      className="flex-1 bg-emerald-700"
       style={{ paddingTop: insets.top }}
     >
       {/* Header */}
       <View className="px-6 py-4 flex-row items-center justify-between">
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => router.push("/wallet")}
           className="p-2 rounded-full bg-white/10"
         >
           <ArrowLeft size={20} color="white" />
@@ -84,7 +84,6 @@ export default function ReceiveCryptoScreen() {
             </TouchableOpacity>
           </View>
         </View>
-
         {/* Info Section */}
         <View className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl mt-6 mb-10">
           <View className="flex-row items-start">

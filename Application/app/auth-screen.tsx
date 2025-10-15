@@ -3,6 +3,7 @@ import { serverUrl } from "@/constants/serverUrl";
 import { chain, client } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
 import { checkUserDetails } from "@/lib/chamaService";
+import { storage } from "@/Utils/storage";
 import * as Google from "expo-auth-session/providers/google";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -163,6 +164,14 @@ export default function AuthScreen() {
       // Register wallet with connection manager so it persists across app
       try {
         await connect(wallet);
+        // Store wallet connection data
+        const walletData = {
+          address: account.address,
+          connected: true,
+          timestamp: Date.now(),
+        };
+        await storage.setWalletConnection(walletData);
+        console.log('Wallet connection stored during auth:', walletData);
       } catch (error) {
         console.log("connecting error", error);
       }

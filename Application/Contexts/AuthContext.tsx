@@ -56,6 +56,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const storedToken = await storage.getToken();
       const storedRefreshToken = await storage.getRefreshToken?.();
       const storedUser = await storage.getUser();
+      const storedWalletConnection = await storage.getWalletConnection();
       
       if (storedToken) {
         setToken(storedToken);
@@ -74,6 +75,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await storage.removeToken();
       await storage.removeRefreshToken?.();
       await storage.removeUser();
+      await storage.removeWalletConnection();
     } finally {
       setIsLoading(false);
     }
@@ -83,18 +85,49 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const ensureWalletConnected = async () => {
       try {
-        if (isAuthenticated) {
-          const wallet = inAppWallet({
-            smartAccount: { chain, sponsorGas: true },
-          });
-          await connect(wallet);
+        if (isAuthenticated && !activeWallet) {
+          // Check if we have a stored wallet connection
+          const storedWalletConnection = await storage.getWalletConnection();
+          
+          if (storedWalletConnection) {
+            // Try to restore the existing wallet connection
+            try {
+              const wallet = inAppWallet({
+                smartAccount: { chain, sponsorGas: true },
+              });
+              await connect(wallet);
+              console.log('Wallet connection restored from storage');
+            } catch (restoreError) {
+              console.log('Failed to restore wallet, creating new connection:', restoreError);
+              // If restoration fails, create a new wallet connection
+              const wallet = inAppWallet({
+                smartAccount: { chain, sponsorGas: true },
+              });
+              await connect(wallet);
+            }
+          } else {
+            // No stored connection, create new wallet
+            const wallet = inAppWallet({
+              smartAccount: { chain, sponsorGas: true },
+            });
+            await connect(wallet);
+          }
         }
       } catch (e) {
-        // swallow connection errors
+        console.error('Wallet connection error:', e);
+        // Clear invalid wallet connection data
+        await storage.removeWalletConnection();
       }
     };
     ensureWalletConnected();
-  }, [isAuthenticated, connect]);
+  }, [isAuthenticated, connect, activeWallet]);
+
+  // Monitor wallet connection changes and store connection data
+  useEffect(() => {
+    if (activeWallet && isAuthenticated) {
+      storeWalletConnection(activeWallet);
+    }
+  }, [activeWallet, isAuthenticated]);
 
   const fetchUserData = async (authToken: string) => {
     try {
@@ -174,6 +207,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await storage.removeToken();
       await storage.removeRefreshToken?.();
       await storage.removeUser();
+      await storage.removeWalletConnection();
       setToken(null);
       setRefreshToken(null);
       setUser(null);
@@ -214,6 +248,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return refreshToken ?? (await storage.getRefreshToken());
     }
     return null;
+  };
+
+  // Store wallet connection data when wallet is connected
+  const storeWalletConnection = async (wallet: any) => {
+    try {
+      if (wallet) {
+        const walletData = {
+          address: wallet.account?.address,
+          connected: true,
+          timestamp: Date.now(),
+        };
+        await storage.setWalletConnection(walletData);
+        console.log('Wallet connection stored:', walletData);
+      }
+    } catch (error) {
+      console.error('Error storing wallet connection:', error);
+    }
   };
 
   const value: AuthContextType = {
