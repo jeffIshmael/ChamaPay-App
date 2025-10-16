@@ -2,6 +2,8 @@
 import express, { Router } from "express";
 import {
     googleAuthComplete,
+    refreshToken,
+    registerUser,
     sendWhatsAppCode,
     thirdwebAuth
 } from "../Controllers/authController";
@@ -18,5 +20,11 @@ router.post("/thirdweb", thirdwebAuth);
 
 // Authenticate existing user and get tokens
 router.post("/authenticate", googleAuthComplete);
+
+// Register user with username and wallet address
+router.post("/register", registerUser);
+
+// Refresh access token using refresh token
+router.post("/refresh", refreshToken);
 
 export default router; 
