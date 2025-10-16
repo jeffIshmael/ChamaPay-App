@@ -60,6 +60,22 @@ export interface ChamaResponse {
   error?: string;
 }
 
+interface RegisterChamaRequestBody {
+  name: string;
+  description: string;
+  type: string;
+  adminTerms: string;
+  amount: string;
+  cycleTime: number;
+  maxNo: number;
+  startDate: Date;
+  promoCode: string;
+  collateralRequired: boolean;
+  blockchainId: string;
+  adminId: number;
+  txHash: string;
+}
+
 // get user details
 export const checkUserDetails = async (email: string): Promise<UserDetailsResponse> => {
   try {
@@ -209,3 +225,45 @@ export const transformChamaData = (backendChama: BackendChama) => {
     recentTransactions: [], // Would need to implement transaction tracking
   };
 }; 
+
+// register chama to the database
+export const registerChamaToDatabase = async (chamaData: RegisterChamaRequestBody, token: string): Promise<ChamaResponse> => {
+  try {
+    const response = await fetch(`${serverUrl}/chama/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(chamaData),
+    });
+    const data = await response.json();
+    console.log(data);
+    return data;
+  } catch (error) {
+    console.error('Error registering chama to database:', error);
+    return { success: false, error: 'Failed to register chama to database' };
+  }
+};
+
+// const response = await fetch(`${serverUrl}/chama/create`, {
+      //   method: "POST",
+      //   headers: {
+      //     "Content-Type": "application/json",
+      //     Authorization: `Bearer ${token}`,
+      //   },
+      //   body: JSON.stringify({
+      //     chamaData: {
+      //       name: formData.name,
+      //       description: formData.description,
+      //       type: formData.isPublic ? "Public" : "Private",
+      //       adminTerms:
+      //         formData.adminTerms.length > 0
+      //           ? formData.adminTerms.join(", ")
+      //           : null,
+      //       amount: formData.contribution.toString(),
+      //       cycleTime: formData.frequency,
+      //       maxNo: formData.maxMembers,
+      //       startDate: startDateTime,
+      //       promoCode: "", 
+      //       collateralRequired: formData.isPublic,
+      //     },
+      //   }),
+      // });

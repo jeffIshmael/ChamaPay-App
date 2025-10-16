@@ -22,17 +22,17 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
+// Custom checkbox component to avoid dependency conflicts
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  prepareContractCall,
-  sendTransaction
-} from "thirdweb";
-import { useActiveAccount, useActiveWallet } from "thirdweb/react";
+import { prepareContractCall, sendTransaction, waitForReceipt } from "thirdweb";
+import { useActiveAccount, useActiveWallet, useReadContract } from "thirdweb/react";
 import { toWei } from "thirdweb/utils";
 import { useAuth } from "../../Contexts/AuthContext";
 
+import { registerChamaToDatabase } from "@/lib/chamaService";
+import { chain, client } from "../../constants/thirdweb";
 
 interface FormData {
   name: string;
@@ -48,7 +48,38 @@ interface FormData {
   collateralRequired: boolean;
 }
 
-const memberOptions = [ 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+const memberOptions = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+
+// Custom Checkbox Component
+const CustomCheckbox = ({ 
+  checked, 
+  onPress, 
+  color = "#10B981" 
+}: { 
+  checked: boolean; 
+  onPress: () => void; 
+  color?: string; 
+}) => (
+  <TouchableOpacity
+    onPress={onPress}
+    style={{
+      width: 20,
+      height: 20,
+      borderWidth: 2,
+      borderColor: checked ? color : "#6B7280",
+      backgroundColor: checked ? color : "transparent",
+      borderRadius: 4,
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+  >
+    {checked && (
+      <Text style={{ color: "white", fontSize: 12, fontWeight: "bold" }}>
+        ✓
+      </Text>
+    )}
+  </TouchableOpacity>
+);
 
 export default function CreateChama() {
   const router = useRouter();
@@ -62,14 +93,21 @@ export default function CreateChama() {
     isPublic: false,
     maxMembers: 5,
     contribution: 5, // Default to 5 cUSD
-    frequency: 30, // default to monthly
-    duration: 150, // calculated automatically
-    startDate: new Date().toISOString().slice(0, 10), // Default to today
+    frequency: 7, // default to weekly
+    duration: 35, // calculated automatically
+    startDate: new Date(Date.now() + 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10), // Default to tomorrow
     startTime: new Date().toTimeString().slice(0, 5), // Default to current time
     adminTerms: [],
     collateralRequired: false, // Will be set automatically based on isPublic
   });
   const [newTerm, setNewTerm] = useState("");
+  const { data: totalChamas } = useReadContract({
+    contract: chamapayContract,
+    method: "totalChamas",
+    params: [],
+  });
 
   // Date/Time picker states
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -79,6 +117,8 @@ export default function CreateChama() {
 
   // Dropdown states
   const [showMembersDropdown, setShowMembersDropdown] = useState(false);
+  const [showCollateralModal, setShowCollateralModal] = useState(false);
+  const [agreedToCollateral, setAgreedToCollateral] = useState(false);
   const wallet = useActiveWallet();
   const activeAccount = useActiveAccount();
 
@@ -90,7 +130,7 @@ export default function CreateChama() {
 
   // Automatically set collateralRequired based on isPublic
   useEffect(() => {
-    setFormData((prev) => ({ ...prev, collateralRequired: formData.isPublic }));
+    setFormData((prev) => ({ ...prev, collateralRequired: prev.isPublic }));
   }, [formData.isPublic]);
 
   const updateFormData = (field: keyof FormData, value: any) => {
@@ -153,66 +193,150 @@ export default function CreateChama() {
       Alert.alert("Error", "Please log in to create a chama");
       return;
     }
-    if(!activeAccount){
+    if (!activeAccount) {
       Alert.alert("Error", "No active account.");
       return;
     }
 
-
     setLoading(true);
     try {
-      // Combine start date and time into ISO string
-      // const startDateTime = new Date(
-      //   `${formData.startDate}T${formData.startTime}:00`
-      // ).toISOString();
+      // Combine start date and time into Date object
+      const startDateTime = new Date(
+        `${formData.startDate}T${formData.startTime}:00`
+      );
 
-      // const response = await fetch(`${serverUrl}/chama/create`, {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //     Authorization: `Bearer ${token}`,
-      //   },
-      //   body: JSON.stringify({
-      //     chamaData: {
-      //       name: formData.name,
-      //       description: formData.description,
-      //       type: formData.isPublic ? "Public" : "Private",
-      //       adminTerms:
-      //         formData.adminTerms.length > 0
-      //           ? formData.adminTerms.join(", ")
-      //           : null,
-      //       amount: formData.contribution.toString(),
-      //       cycleTime: formData.frequency,
-      //       maxNo: formData.maxMembers,
-      //       startDate: startDateTime,
-      //       promoCode: "", 
-      //       collateralRequired: formData.isPublic,
-      //     },
-      //   }),
-      // });
+      // convert startDateTime to timestamp
+      const startDateTimeTimestamp = Math.floor(startDateTime.getTime() / 1000);
+
+      // convert duration to timestamp
+      const durationTimestamp = BigInt(
+        Math.floor(formData.duration * 24 * 60 * 60)
+      );
+
+      // convert contribution to wei
+      const contributionInWei = toWei(formData.contribution.toString());
+
+      // user should lock amount to cater for thw whole cycle
+      const totalCollateralRequired =
+        formData.contribution * formData.maxMembers;
+      // convert contribution to wei
+      const totalCollateralRequiredInWei = toWei(
+        totalCollateralRequired.toString()
+      );
+
+      const blockchainId = Number(totalChamas).toString();
 
       // const data = await response.json();
 
-      const amountInWei = toWei("0.001");
+      // if its public, we need to sign approve tx because the contract will be calling the transferFrom due to the locking
+      if (formData.isPublic) {
+        const approveTransaction = prepareContractCall({
+          contract: chamapayContract,
+          method: "function approve(address spender, uint256 amount)",
+          params: [chamapayContract.address, totalCollateralRequiredInWei],
+        });
+        const { transactionHash: approveTransactionHash } =
+          await sendTransaction({
+            account: activeAccount,
+            transaction: approveTransaction,
+          });
+        const approveTransactionReceipt = await waitForReceipt({
+          client: client,
+          chain: chain,
+          transactionHash: approveTransactionHash,
+        });
 
+        console.log("the approve transaction receipt", approveTransactionReceipt);
+        if (!approveTransactionReceipt) {
+          Alert.alert(
+            "Error",
+            `Failed. ensure you have ${totalCollateralRequired} cUSD in your wallet.`
+          );
+          return;
+        }
+      }
 
-      const transaction = prepareContractCall({
+      // registering chama to the blockchain
+      const createChamaTransaction = prepareContractCall({
         contract: chamapayContract,
-        method: "function registerChama(uint _amount, uint _duration, uint _startDate, uint _maxMembers, bool _isPublic )",
-        params: [amountInWei, 2n,1758995261n, 5n, false],
+        method:
+          "function registerChama(uint _amount, uint _duration, uint _startDate, uint _maxMembers, bool _isPublic )",
+        params: [
+          contributionInWei,
+          durationTimestamp,
+          BigInt(startDateTimeTimestamp),
+          BigInt(formData.maxMembers),
+          formData.isPublic,
+        ],
       });
-       
-      const { transactionHash } = await sendTransaction({
-        account: activeAccount,
-        transaction,
-      });
-      console.log("the transaction hash", transactionHash);
 
-      // if (response.ok) {
-      //   router.push("/(tabs)");
-      // } else {
-      //   Alert.alert("Error", data.error || "Failed to create chama");
-      // }
+      const { transactionHash: createChamaTransactionHash } =
+        await sendTransaction({
+          account: activeAccount,
+          transaction: createChamaTransaction,
+        });
+
+      const transactionReceipt = await waitForReceipt({
+        client: client,
+        chain: chain,
+        transactionHash: createChamaTransactionHash,
+      });
+      console.log(
+        "the create chama on blockchain transaction hash",
+        transactionReceipt.transactionHash
+      );
+      if (!transactionReceipt) {
+        Alert.alert("Error", "Failed to create chama");
+        return;
+      }
+
+      // registering chama to the database
+      const registerChamaToDatabaseResponse = await registerChamaToDatabase(
+        {
+          name: formData.name,
+          description: formData.description,
+          type: formData.isPublic ? "Public" : "Private",
+          adminTerms: formData.adminTerms.join(", "),
+          amount: formData.contribution.toString(),
+          cycleTime: formData.frequency,
+          maxNo: formData.maxMembers,
+          startDate: startDateTime,
+          promoCode: "",
+          collateralRequired: formData.isPublic,
+          blockchainId: blockchainId,
+          adminId: user.id,
+          txHash: transactionReceipt.transactionHash,
+        },
+        token
+      );
+      if (!registerChamaToDatabaseResponse.success) {
+        Alert.alert(
+          "Error",
+          registerChamaToDatabaseResponse.error ||
+            "Failed to register chama to database"
+        );
+        return;
+      }
+
+      // depopulate the form data
+      setFormData({
+        name: "",
+        description: "",
+        isPublic: false,
+        maxMembers: 5,
+        contribution: 5,
+        frequency: 7,
+        duration: 35,
+        startDate: new Date(Date.now() + 24 * 60 * 60 * 1000)
+          .toISOString()
+          .slice(0, 10),
+        startTime: new Date().toTimeString().slice(0, 5),
+        adminTerms: [],
+        collateralRequired: false,
+      });
+      setStep(1);
+      Alert.alert("Success", "Chama created successfully");
+      router.push("/(tabs)");
     } catch (error) {
       console.error("Error creating chama:", error);
       Alert.alert("Error", "Network error. Please try again.");
@@ -225,7 +349,13 @@ export default function CreateChama() {
     if (step < 2) {
       setStep(step + 1);
     } else {
-      createChama();
+      // Check if collateral is required (public chama)
+      if (formData.isPublic && formData.collateralRequired) {
+        setAgreedToCollateral(false); // Reset agreement state
+        setShowCollateralModal(true);
+      } else {
+        createChama();
+      }
     }
   };
 
@@ -278,8 +408,8 @@ export default function CreateChama() {
                   {typeof option === "object"
                     ? option.label
                     : typeof option === "number"
-                      ? `${option} ${option === 1 ? "member" : "members"}`
-                      : option}
+                    ? `${option} ${option === 1 ? "member" : "members"}`
+                    : option}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -396,11 +526,12 @@ export default function CreateChama() {
                 </Text>
                 <Calendar size={20} className="text-gray-400" />
               </TouchableOpacity>
-              {!isStartDateTimeInFuture() && formData.startDate.trim() !== "" && (
-                <Text className="text-red-600 text-xs mt-1">
-                  Start date must be in the future
-                </Text>
-              )}
+              {!isStartDateTimeInFuture() &&
+                formData.startDate.trim() !== "" && (
+                  <Text className="text-red-600 text-xs mt-1">
+                    Start date must be in the future
+                  </Text>
+                )}
             </View>
 
             <View className="flex-1">
@@ -427,11 +558,12 @@ export default function CreateChama() {
                 </Text>
                 <Clock size={20} className="text-gray-400" />
               </TouchableOpacity>
-              {!isStartDateTimeInFuture() && formData.startTime.trim() !== "" && (
-                <Text className="text-red-600 text-xs mt-1">
-                  Start time must be in the future
-                </Text>
-              )}
+              {!isStartDateTimeInFuture() &&
+                formData.startTime.trim() !== "" && (
+                  <Text className="text-red-600 text-xs mt-1">
+                    Start time must be in the future
+                  </Text>
+                )}
             </View>
           </View>
 
@@ -462,17 +594,19 @@ export default function CreateChama() {
               }
               keyboardType="numeric"
               className={`bg-gray-50 border rounded-lg p-3 text-gray-900 ${
-                formData.contribution <= 0 && formData.contribution.toString() !== ""
+                formData.contribution <= 0 &&
+                formData.contribution.toString() !== ""
                   ? "border-red-300 bg-red-50"
                   : "border-gray-300"
               }`}
               placeholderTextColor="#9ca3af"
             />
-            {formData.contribution <= 0 && formData.contribution.toString() !== "" && (
-              <Text className="text-red-600 text-xs mt-1">
-                Contribution amount must be greater than 0
-              </Text>
-            )}
+            {formData.contribution <= 0 &&
+              formData.contribution.toString() !== "" && (
+                <Text className="text-red-600 text-xs mt-1">
+                  Contribution amount must be greater than 0
+                </Text>
+              )}
           </View>
 
           <View className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -494,11 +628,12 @@ export default function CreateChama() {
                   {"\n"}• Duration: {formData.duration} days
                   {"\n"}• Frequency: {formData.frequency} days
                   {"\n"}• Start: {formData.startDate} at {formData.startTime}
-                  {!isStartDateTimeInFuture() && formData.startDate.trim() !== "" && (
-                    <Text className="text-red-600">
-                      {"\n"}• Start date/time must be in the future
-                    </Text>
-                  )}
+                  {!isStartDateTimeInFuture() &&
+                    formData.startDate.trim() !== "" && (
+                      <Text className="text-red-600">
+                        {"\n"}• Start date/time must be in the future
+                      </Text>
+                    )}
                 </Text>
               </View>
             </View>
@@ -654,7 +789,9 @@ export default function CreateChama() {
   // Check if start date and time are in the future
   const isStartDateTimeInFuture = () => {
     const now = new Date();
-    const startDateTime = new Date(`${formData.startDate}T${formData.startTime}:00`);
+    const startDateTime = new Date(
+      `${formData.startDate}T${formData.startTime}:00`
+    );
     return startDateTime > now;
   };
 
@@ -668,7 +805,7 @@ export default function CreateChama() {
     isStartDateTimeInFuture();
 
   // Debug validation
-  console.log('Validation check:', {
+  console.log("Validation check:", {
     name: formData.name,
     description: formData.description,
     contribution: formData.contribution,
@@ -676,7 +813,7 @@ export default function CreateChama() {
     startDate: formData.startDate,
     startTime: formData.startTime,
     isStartDateTimeInFuture: isStartDateTimeInFuture(),
-    isValid: isStep1Valid
+    isValid: isStep1Valid,
   });
 
   return (
@@ -713,8 +850,8 @@ export default function CreateChama() {
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <ScrollView 
-          className="flex-1" 
+        <ScrollView
+          className="flex-1"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         >
@@ -746,12 +883,18 @@ export default function CreateChama() {
                 }`}
                 disabled={(step === 1 && !isStep1Valid) || loading}
               >
-                <Text className={`font-medium ${
-                  (step === 1 && !isStep1Valid) || loading
-                    ? "text-gray-500"
-                    : "text-white"
-                }`}>
-                  {loading ? "Creating..." : step === 2 ? "Create Chama" : "Next"}
+                <Text
+                  className={`font-medium ${
+                    (step === 1 && !isStep1Valid) || loading
+                      ? "text-gray-500"
+                      : "text-white"
+                  }`}
+                >
+                  {loading
+                    ? "Creating..."
+                    : step === 2
+                    ? "Create Chama"
+                    : "Next"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -766,13 +909,40 @@ export default function CreateChama() {
         transparent={true}
         animationType="slide"
       >
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
           <TouchableOpacity
-            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
             onPress={() => setShowDatePicker(false)}
           />
-          <View style={{ backgroundColor: "white", borderRadius: 12, padding: 20, margin: 20 }}>
-            <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 20, textAlign: "center" }}>
+          <View
+            style={{
+              backgroundColor: "white",
+              borderRadius: 12,
+              padding: 20,
+              margin: 20,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "600",
+                marginBottom: 20,
+                textAlign: "center",
+              }}
+            >
               Select Date
             </Text>
             <DateTimePicker
@@ -784,12 +954,12 @@ export default function CreateChama() {
             />
             <TouchableOpacity
               onPress={() => setShowDatePicker(false)}
-              style={{ 
-                backgroundColor: "#059669", 
-                padding: 12, 
-                borderRadius: 8, 
+              style={{
+                backgroundColor: "#059669",
+                padding: 12,
+                borderRadius: 8,
                 marginTop: 20,
-                alignItems: "center"
+                alignItems: "center",
               }}
             >
               <Text style={{ color: "white", fontWeight: "600" }}>Done</Text>
@@ -804,13 +974,40 @@ export default function CreateChama() {
         transparent={true}
         animationType="slide"
       >
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
           <TouchableOpacity
-            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
             onPress={() => setShowTimePicker(false)}
           />
-          <View style={{ backgroundColor: "white", borderRadius: 12, padding: 20, margin: 20 }}>
-            <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 20, textAlign: "center" }}>
+          <View
+            style={{
+              backgroundColor: "white",
+              borderRadius: 12,
+              padding: 20,
+              margin: 20,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "600",
+                marginBottom: 20,
+                textAlign: "center",
+              }}
+            >
               Select Time
             </Text>
             <DateTimePicker
@@ -822,16 +1019,261 @@ export default function CreateChama() {
             />
             <TouchableOpacity
               onPress={() => setShowTimePicker(false)}
-              style={{ 
-                backgroundColor: "#059669", 
-                padding: 12, 
-                borderRadius: 8, 
+              style={{
+                backgroundColor: "#059669",
+                padding: 12,
+                borderRadius: 8,
                 marginTop: 20,
-                alignItems: "center"
+                alignItems: "center",
               }}
             >
               <Text style={{ color: "white", fontWeight: "600" }}>Done</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Collateral Requirement Modal */}
+      <Modal
+        visible={showCollateralModal}
+        onRequestClose={() => setShowCollateralModal(false)}
+        transparent={true}
+        animationType="slide"
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: "white",
+              borderRadius: 16,
+              padding: 24,
+              margin: 20,
+              width: "95%",
+            }}
+          >
+            <View className="items-center mb-6">
+              <View
+                className="w-16 h-16 rounded-full items-center justify-center mb-4"
+                style={{
+                  backgroundColor: "#FEF3C7",
+                }}
+              >
+                <Shield size={32} color="#F59E0B" />
+              </View>
+              <Text
+                style={{
+                  fontSize: 20,
+                  fontWeight: "700",
+                  color: "#111827",
+                  textAlign: "center",
+                  marginBottom: 8,
+                }}
+              >
+                Collateral Required
+              </Text>
+              <Text
+                style={{
+                  fontSize: 14,
+                  color: "#6B7280",
+                  textAlign: "center",
+                  lineHeight: 20,
+                }}
+              >
+                For public chamas, members must provide collateral as a security measure
+              </Text>
+            </View>
+
+            <View className="mb-6">
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: "#111827",
+                  marginBottom: 12,
+                }}
+              >
+                What you need to know:
+              </Text>
+              
+              <View className="space-y-3">
+                <View className="flex-row items-start">
+                  <View
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: "#10B981",
+                      marginTop: 6,
+                      marginRight: 12,
+                    }}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: "#374151",
+                      flex: 1,
+                      lineHeight: 20,
+                    }}
+                  >
+                    You'll lock{" "}
+                    <Text style={{ fontWeight: "600" }}>
+                      {(formData.contribution * formData.maxMembers).toLocaleString()} cUSD
+                    </Text>{" "}
+                    as collateral
+                  </Text>
+                </View>
+
+                <View className="flex-row items-start">
+                  <View
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: "#10B981",
+                      marginTop: 6,
+                      marginRight: 12,
+                    }}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: "#374151",
+                      flex: 1,
+                      lineHeight: 20,
+                    }}
+                  >
+                    Payments can be deducted from your locked amount
+                  </Text>
+                </View>
+
+                <View className="flex-row items-start">
+                  <View
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: "#10B981",
+                      marginTop: 6,
+                      marginRight: 12,
+                    }}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: "#374151",
+                      flex: 1,
+                      lineHeight: 20,
+                    }}
+                  >
+                    Collateral is fully refundable when you leave the chama
+                  </Text>
+                </View>
+
+                <View className="flex-row items-start">
+                  <View
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: "#10B981",
+                      marginTop: 6,
+                      marginRight: 12,
+                    }}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: "#374151",
+                      flex: 1,
+                      lineHeight: 20,
+                    }}
+                  >
+                    This is a security measure in case a member defaults payment, ensuring the cycle continues without disruption
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Agreement Checkbox */}
+            <View className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <View className="flex-row items-start">
+                <CustomCheckbox
+                  checked={agreedToCollateral}
+                  onPress={() => setAgreedToCollateral(!agreedToCollateral)}
+                  color="#10B981"
+                />
+                <View className="flex-1 ml-3">
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: "#374151",
+                      lineHeight: 20,
+                    }}
+                  >
+                    I understand that I will lock{" "}
+                    <Text style={{ fontWeight: "600" }}>
+                      {(formData.contribution * formData.maxMembers).toLocaleString()} cUSD
+                    </Text>{" "}
+                    as collateral and agree to the terms outlined above.
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                onPress={() => setShowCollateralModal(false)}
+                style={{
+                  flex: 1,
+                  padding: 12,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: "#D1D5DB",
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "600",
+                    color: "#374151",
+                  }}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                onPress={() => {
+                  setShowCollateralModal(false);
+                  createChama();
+                }}
+                disabled={!agreedToCollateral}
+                style={{
+                  flex: 1,
+                  padding: 12,
+                  borderRadius: 8,
+                  backgroundColor: agreedToCollateral ? "#10B981" : "#D1D5DB",
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "600",
+                    color: agreedToCollateral ? "white" : "#9CA3AF",
+                  }}
+                >
+                  I Understand, Continue
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
