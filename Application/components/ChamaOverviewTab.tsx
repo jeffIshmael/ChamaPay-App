@@ -1,7 +1,8 @@
 import { Transaction } from "@/constants/mockData";
-import { DollarSign, LogOut, TrendingUp } from "lucide-react-native";
-import React, { FC } from "react";
+import { DollarSign, ExternalLink, LogOut, Receipt, TrendingUp } from "lucide-react-native";
+import React, { FC, useState } from "react";
 import {
+  Modal,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -23,6 +24,9 @@ type Props = {
   recentTransactions: Transaction[];
   nextPayoutAmount: number;
   leaveChama: () => void;
+  userAddress: `0x${string}`;
+  chamaStatus?: "active" | "pending" | "completed";
+  chamaStartDate?: string;
 };
 
 const ChamaOverviewTab: FC<Props> = ({
@@ -37,7 +41,26 @@ const ChamaOverviewTab: FC<Props> = ({
   recentTransactions,
   nextPayoutAmount,
   leaveChama,
+  userAddress,
+  chamaStatus = "active",
+  chamaStartDate,
 }) => {
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+
+  const handleTransactionPress = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setShowTransactionModal(true);
+  };
+
+  const handleViewOnChain = () => {
+    if (selectedTransaction?.txHash) {
+      // Open blockchain explorer
+      console.log("View transaction on chain:", selectedTransaction.txHash);
+      // You can implement opening a blockchain explorer URL here
+    }
+  };
+
   return (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
       {/* Contribution Progress */}
@@ -137,25 +160,51 @@ const ChamaOverviewTab: FC<Props> = ({
             <TrendingUp size={20} color="#059669" />
           </View>
           <View className="flex-1">
-            <Text className="text-lg font-semibold text-gray-900">Next Payout</Text>
-            <Text className="text-sm text-gray-600">August 15, 2024</Text>
+            <Text className="text-lg font-semibold text-gray-900">
+              {chamaStatus === "pending" ? "Payout Schedule" : "Next Payout"}
+            </Text>
+            <Text className="text-sm text-gray-600">
+              {chamaStatus === "pending" 
+                ? chamaStartDate 
+                  ? `Starts ${new Date(chamaStartDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`
+                  : "Starting soon"
+                : "August 15, 2024"
+              }
+            </Text>
           </View>
         </View>
         
-        <View className="bg-gradient-to-r from-emerald-50 to-blue-50 rounded-xl p-4">
-          <View className="gap-3">
-            <View className="flex-row justify-between items-center">
-              <Text className="text-sm font-medium text-gray-600">Recipient</Text>
-              <Text className="text-base font-semibold text-gray-900">{currentTurnMember}</Text>
-            </View>
-            <View className="flex-row justify-between items-center">
-              <Text className="text-sm font-medium text-gray-600">Amount</Text>
-              <Text className="text-lg font-bold text-emerald-600">
-                cUSD {nextPayoutAmount.toLocaleString()}
+        {chamaStatus === "pending" ? (
+          <View className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-200">
+            <View className="items-center">
+              <View className="w-16 h-16 bg-amber-100 rounded-full items-center justify-center mb-4">
+                <Text className="text-2xl">🎲</Text>
+              </View>
+              <Text className="text-lg font-semibold text-amber-800 mb-2">
+                Random Selection
+              </Text>
+              <Text className="text-sm text-amber-700 text-center leading-5">
+                The payout schedule will be randomly generated and displayed once the chama starts. 
+                All members will be notified when the schedule is ready.
               </Text>
             </View>
           </View>
-        </View>
+        ) : (
+          <View className="bg-gradient-to-r from-emerald-50 to-blue-50 rounded-xl p-4">
+            <View className="gap-3">
+              <View className="flex-row justify-between items-center">
+                <Text className="text-sm font-medium text-gray-600">Recipient</Text>
+                <Text className="text-base font-semibold text-gray-900">{currentTurnMember}</Text>
+              </View>
+              <View className="flex-row justify-between items-center">
+                <Text className="text-sm font-medium text-gray-600">Amount</Text>
+                <Text className="text-lg font-bold text-emerald-600">
+                  cUSD {nextPayoutAmount.toLocaleString()}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
       </Card>
 
       {/* Recent Transactions */}
@@ -169,61 +218,76 @@ const ChamaOverviewTab: FC<Props> = ({
         
         <View className="gap-3">
           {recentTransactions.length > 0 ? (
-            recentTransactions.slice(0, 3).map((transaction) => (
-              <View
-                key={transaction.id}
-                className="flex-row items-center justify-between py-3 px-4 bg-gray-50 rounded-xl"
-              >
-                <View className="flex-row items-center gap-4">
-                  <View
-                    className={`w-10 h-10 rounded-full items-center justify-center ${
-                      transaction.type === "contribution"
-                        ? "bg-emerald-100"
-                        : "bg-orange-100"
-                    }`}
-                  >
-                    <DollarSign
-                      size={16}
-                      color={
+            recentTransactions.slice(0, 3).map((transaction) => {
+              const isMyTransaction = transaction.user.address === userAddress;
+              return (
+                <TouchableOpacity
+                  key={transaction.id}
+                  onPress={() => handleTransactionPress(transaction)}
+                  className={`flex-row items-center justify-between py-3 px-4 rounded-xl ${
+                    isMyTransaction 
+                      ? "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200" 
+                      : "bg-gray-50"
+                  }`}
+                  activeOpacity={0.7}
+                >
+                  <View className="flex-row items-center gap-4">
+                    <View
+                      className={`w-10 h-10 rounded-full items-center justify-center ${
                         transaction.type === "contribution"
-                          ? "#059669"
-                          : "#ea580c"
-                      }
-                    />
-                  </View>
-                  <View>
-                    <Text className="text-base font-medium text-gray-900 capitalize">
-                      {transaction.type}
-                    </Text>
-                    <Text className="text-sm text-gray-600">
-                      {transaction.date}
-                    </Text>
-                  </View>
-                </View>
-                <View className="items-end">
-                  <Text className="text-base font-semibold text-gray-900">
-                    cUSD {(transaction.amount || 0).toLocaleString()}
-                  </Text>
-                  <View
-                    className={`px-2 py-1 rounded-full ${
-                      transaction.type === "contribution"
-                        ? "bg-emerald-100"
-                        : "bg-orange-100"
-                    }`}
-                  >
-                    <Text
-                      className={`text-xs font-medium ${
-                        transaction.type === "contribution"
-                          ? "text-emerald-700"
-                          : "text-orange-700"
+                          ? "bg-emerald-100"
+                          : "bg-orange-100"
                       }`}
                     >
-                      {transaction.type === "contribution" ? "In" : "Out"}
-                    </Text>
+                      <DollarSign
+                        size={16}
+                        color={
+                          transaction.type === "contribution"
+                            ? "#059669"
+                            : "#ea580c"
+                        }
+                      />
+                    </View>
+                    <View>
+                      <View className="flex-row items-center gap-2">
+                        <Text className="text-base font-medium text-gray-900 capitalize">
+                          {isMyTransaction ? (
+                            <Text className="font-bold text-blue-700">You</Text>
+                          ) : (
+                            transaction.user.name
+                          )} Deposited
+                        </Text>
+                      </View>
+                      <Text className="text-sm text-gray-600">
+                        {new Date(transaction.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              </View>
-            ))
+                  <View className="items-end">
+                    <Text className="text-base font-semibold text-gray-900">
+                    {(transaction.amount || 0).toString()} cUSD
+                    </Text>
+                    <View
+                      className={`px-2 py-1 rounded-full ${
+                        transaction.type === "contribution"
+                          ? "bg-emerald-100"
+                          : "bg-orange-100"
+                      }`}
+                    >
+                      <Text
+                        className={`text-xs font-medium ${
+                          transaction.type === "contribution"
+                            ? "text-emerald-700"
+                            : "text-orange-700"
+                        }`}
+                      >
+                        {transaction.type === "contribution" ? "In" : "Out"}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
           ) : (
             <View className="py-8 items-center">
               <View className="w-16 h-16 bg-gray-100 rounded-full items-center justify-center mb-3">
@@ -239,14 +303,14 @@ const ChamaOverviewTab: FC<Props> = ({
       </Card>
 
       {/* Leave Chama */}
-      <Card className="p-6 mb-6">
+      <Card className="p-6 mb-6 bg-red-50 border border-red-200 rounded-xl">
         <View className="flex-row items-center justify-between">
           <View className="flex-1">
             <Text className="text-lg font-semibold text-gray-900 mb-1">
               Leave Chama
             </Text>
             <Text className="text-sm text-gray-600">
-              You can leave this chama at any time. This action cannot be undone.
+              You can only leave once the current cycle is over. This action cannot be undone.
             </Text>
           </View>
           <TouchableOpacity 
@@ -260,6 +324,110 @@ const ChamaOverviewTab: FC<Props> = ({
       </Card>
 
       <View className="h-20" />
+
+      {/* Transaction Details Modal */}
+      <Modal
+        visible={showTransactionModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowTransactionModal(false)}
+      >
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="bg-white rounded-t-3xl p-6 max-h-[80%]">
+            <View className="w-10 h-1 bg-gray-300 rounded self-center mb-6" />
+            
+            {selectedTransaction && (
+              <>
+                <View className="items-center mb-6">
+                  <View className="w-16 h-16 bg-emerald-100 rounded-full items-center justify-center mb-4">
+                    <Receipt size={24} color="#059669" />
+                  </View>
+                  <Text className="text-xl font-bold text-gray-900 mb-2">
+                    Transaction Details
+                  </Text>
+                  <Text className="text-sm text-gray-600">
+                    {selectedTransaction.description}
+                  </Text>
+                </View>
+
+                <View className="space-y-4 mb-6">
+                  <View className="bg-gray-50 rounded-xl p-4">
+                    <Text className="text-sm text-gray-600 mb-1">Amount</Text>
+                    <Text className="text-2xl font-bold text-gray-900">
+                      {parseFloat(selectedTransaction.amount?.toString() || "0").toLocaleString()} cUSD
+                    </Text>
+                  </View>
+
+                  <View className="bg-gray-50 rounded-xl p-4">
+                    <Text className="text-sm text-gray-600 mb-1">From</Text>
+                    <Text className="text-base font-semibold text-gray-900">
+                      {selectedTransaction.user.address === userAddress ? (
+                        <Text className="font-bold text-gray-800">You</Text>
+                      ) : (
+                        <Text className="font-bold text-gray-900">{selectedTransaction.user.address}</Text>
+                      )}
+                    </Text>
+                  </View>
+
+                  <View className="bg-gray-50 rounded-xl p-4">
+                    <Text className="text-sm text-gray-600 mb-1">Date & Time</Text>
+                    <Text className="text-base font-semibold text-gray-900">
+                      {new Date(selectedTransaction.date).toLocaleDateString("en-US", { 
+                        weekday: "long",
+                        year: "numeric", 
+                        month: "long", 
+                        day: "numeric",
+                        hour: "2-digit", 
+                        minute: "2-digit" 
+                      })}
+                    </Text>
+                  </View>
+
+                  <View className="bg-gray-50 rounded-xl p-4">
+                    <Text className="text-sm text-gray-600 mb-1">Transaction Hash</Text>
+                    <Text className="text-xs text-gray-700 font-mono" numberOfLines={2}>
+                      {selectedTransaction.txHash}
+                    </Text>
+                  </View>
+
+                  <View className="bg-gray-50 rounded-xl p-4">
+                    <Text className="text-sm text-gray-600 mb-1">Status</Text>
+                    <View className="flex-row items-center gap-2 mt-1">
+                      <View className="w-2 h-2 bg-emerald-500 rounded-full" />
+                      <Text className="text-base font-semibold text-emerald-700 capitalize">
+                        {selectedTransaction.status}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View className="gap-3">
+                  <TouchableOpacity
+                    onPress={handleViewOnChain}
+                    className="bg-emerald-600 py-4 rounded-xl flex-row items-center justify-center gap-2"
+                    activeOpacity={0.8}
+                  >
+                    <ExternalLink size={18} color="white" />
+                    <Text className="text-white font-semibold text-base">
+                      View on Chain
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => setShowTransactionModal(false)}
+                    className="bg-gray-100 py-4 rounded-xl"
+                    activeOpacity={0.8}
+                  >
+                    <Text className="text-gray-700 font-semibold text-base text-center">
+                      Close
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };

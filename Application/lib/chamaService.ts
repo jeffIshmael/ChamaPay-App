@@ -35,6 +35,7 @@ export interface BackendChama {
   maxNo: number;
   slug: string;
   startDate: Date;
+  started: boolean;
   adminTerms: string | null;
   payDate: Date;
   blockchainId: string;
@@ -75,6 +76,14 @@ interface RegisterChamaRequestBody {
   blockchainId: string;
   adminId: number;
   txHash: string;
+}
+
+export interface UserDetails {
+  id: number;
+  name: string;
+  email: string;
+  profileImageUrl?: string;
+  address?: string;
 }
 
 // get user details
@@ -180,6 +189,21 @@ export const getPublicChamas = async (token: string): Promise<ChamaResponse> => 
   }
 };
 
+// function to get user from userID
+export const getUserFromUserId = async (userId: number, token: string): Promise<UserDetailsResponse> => {
+  try {
+    const response = await fetch(`${serverUrl}/user/${userId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching user from userId:', error);
+    return { success: false, user: { id: 0, name: '', email: '', profileImageUrl: '', address: '' } };
+  }
+};
+
 // Transform backend chama data to frontend format
 export const transformChamaData = (backendChama: BackendChama) => {
   const memberCount = backendChama._count?.members || backendChama.members?.length || 0;
@@ -196,7 +220,7 @@ export const transformChamaData = (backendChama: BackendChama) => {
     totalContributions: parseFloat(backendChama.amount) * memberCount,
     myContributions: parseFloat(backendChama.amount), // Assuming user has made at least one contribution
     nextPayoutDate: backendChama.payDate ? new Date(backendChama.payDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-    nextPayoutAmount: parseFloat(backendChama.amount) * backendChama.maxNo,
+    nextPayoutAmount: parseFloat(backendChama.amount) * memberCount,
     currentTurnMember: backendChama.members?.[0]?.user?.name || "Not assigned",
     myTurnDate: backendChama.payDate ? new Date(backendChama.payDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     contributionDueDate: backendChama.startDate ? new Date(backendChama.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
@@ -212,7 +236,7 @@ export const transformChamaData = (backendChama: BackendChama) => {
     myTurn: false, // Would need to calculate based on current position
     myPosition: 1, // Default position
     nextTurnMember: backendChama.members?.[1]?.user?.name || "Not assigned",
-    status: "active", // Default status
+    status: backendChama.started ? "active" : "pending", // Default status
     unreadMessages: 0, // Would need to implement message tracking
     isPublic: backendChama.type === "Public",
     blockchainId: backendChama.blockchainId,
@@ -226,7 +250,23 @@ export const transformChamaData = (backendChama: BackendChama) => {
       role: member.user.id === backendChama.admin.id ? "Admin" : "Member",
       contributions: parseFloat(backendChama.amount), // Default contribution
     })) || [],
-    recentTransactions: [], // Would need to implement transaction tracking
+    recentTransactions: backendChama.payments?.map(payment => ({
+      id: payment.id,
+      amount: payment.amount,
+      type: payment.description ? "contribution" : "payment",
+      date: payment.doneAt,
+      status: "completed", // Add missing status property
+      description: payment.description || "Contribution",
+      txHash: payment.txHash,
+      userId: payment.userId,
+      user: {
+        id: payment.user.id,
+        name: payment.user.userName,
+        email: payment.user.email,
+        profileImageUrl: payment.user.profileImageUrl,
+        address: payment.user.address,
+      },
+    })) || [],
   };
 }; 
 
@@ -248,26 +288,3 @@ export const registerChamaToDatabase = async (chamaData: RegisterChamaRequestBod
 };
 
 
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //     Authorization: `Bearer ${token}`,
-      //   },
-      //   body: JSON.stringify({
-      //     chamaData: {
-      //       name: formData.name,
-      //       description: formData.description,
-      //       type: formData.isPublic ? "Public" : "Private",
-      //       adminTerms:
-      //         formData.adminTerms.length > 0
-      //           ? formData.adminTerms.join(", ")
-      //           : null,
-      //       amount: formData.contribution.toString(),
-      //       cycleTime: formData.frequency,
-      //       maxNo: formData.maxMembers,
-      //       startDate: startDateTime,
-      //       promoCode: "", 
-      //       collateralRequired: formData.isPublic,
-      //     },
-      //   }),
-      // });

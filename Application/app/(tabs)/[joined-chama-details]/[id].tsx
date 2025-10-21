@@ -157,6 +157,9 @@ export default function JoinedChamaDetails() {
       recentTransactions={chama.recentTransactions}
       nextPayoutAmount={nextPayoutAmount}
       leaveChama={leaveChama}
+      userAddress={user?.address as `0x${string}` || ""}
+      chamaStatus={chama.status as "active" | "pending" | "completed"}
+      chamaStartDate={chama.contributionDueDate}
     />
   );
 
@@ -211,17 +214,17 @@ export default function JoinedChamaDetails() {
           <View className="items-center">
             <Text className="text-emerald-100 text-xs">My Position</Text>
             <Text className="text-lg text-white font-semibold">
-              #{chama.myPosition}
+              {chama.status === "active" ? `#${chama.myPosition}` : "--"}
             </Text>
           </View>
           <View className="items-center">
             <Text className="text-emerald-100 text-xs">My Turn</Text>
-            <Text className="text-lg text-white font-semibold">Sep 15</Text>
+            <Text className="text-lg text-white font-semibold">{chama.status === "active" ? chama.currentTurnMember : "--"}</Text>
           </View>
           <View className="items-center">
             <Text className="text-emerald-100 text-xs">Next Payout</Text>
             <Text className="text-lg text-white font-semibold">
-              {formatToK(chama.totalContributions)} {chama.currency} 
+              {formatToK(chama.nextPayoutAmount)} {chama.currency} 
             </Text>
           </View>
         </View>

@@ -124,13 +124,19 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
             user: true,
           },
         },
-        payments: true,
+        payments: {
+          include: {
+            user: true,
+          },
+        },
         admin: true,
+
       },
     });
     if (!chama) {
       return res.status(404).json({ success: false, error: "Chama not found" });
     }
+    console.log("the chama", chama);
     return res.status(200).json({ success: true, chama: chama });
   } catch (error) {
     console.log(error);

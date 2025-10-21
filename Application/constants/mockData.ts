@@ -31,6 +31,16 @@ export interface Transaction {
   amount: number;
   date: string;
   status: string;
+  description: string;
+  txHash: string;
+  userId: number;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    profileImageUrl: string;
+    address: string;
+  };
 }
 
 export interface JoinedChama {

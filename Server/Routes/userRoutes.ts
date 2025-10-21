@@ -4,6 +4,7 @@ import {
     getUser,
     updateUserProfile,
     checkUserExists,
+    getUserById,
 } from "../Controllers/userController";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -17,5 +18,8 @@ router.get("/", authenticate, getUser);
 
 // Update functions
 router.put("/profile", authenticate, updateUserProfile);
+
+// Get functions
+router.get("/:userId", authenticate, getUserById);
 
 export default router; 
