@@ -151,3 +151,19 @@ export const checkUserExists = async (req: Request, res: Response): Promise<void
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
+
+// function to get user by userId
+export const getUserById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.params as { userId: string };
+    const user = await prisma.user.findUnique({ where: { id: parseInt(userId) } });
+    if (!user) {
+      res.status(404).json({ success: false, error: "User not found" });
+      return;
+    }
+    res.status(200).json({ user: user });
+  } catch (error: unknown) {
+    console.error("Get user by userId error:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};

@@ -45,7 +45,7 @@ export default function ProfileSettings() {
 
   // Default avatar URLs based on user's initials
   const getDefaultAvatar = () => {
-    const initials = (user?.name || user?.email || 'U')
+    const initials = (user?.userName || user?.email || 'U')
       .split(' ')
       .map(n => n[0])
       .join('')
@@ -157,16 +157,11 @@ export default function ProfileSettings() {
             />
             <View className="flex-1">
               <Text className="text-xl font-semibold text-gray-900">
-                {user?.name || "User"}
+                {user?.userName || "User"}
               </Text>
               <Text className="text-gray-600">
                 {user?.email || "No email provided"}
               </Text>
-              {user?.role && (
-                <Text className="text-sm text-emerald-600 mt-1 capitalize">
-                  {user.role}
-                </Text>
-              )}
             </View>
             <TouchableOpacity 
               onPress={() => router.push('/edit-profile')}

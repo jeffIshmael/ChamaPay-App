@@ -31,10 +31,21 @@ export interface Transaction {
   amount: number;
   date: string;
   status: string;
+  description: string;
+  txHash: string;
+  userId: number;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    profileImageUrl: string;
+    address: string;
+  };
 }
 
 export interface JoinedChama {
-  id: string;
+  id: number;
+  blockchainId: string;
   slug: string;
   name: string;
   description: string;
@@ -72,12 +83,13 @@ export interface JoinedChama {
 
 export const mockJoinedChamas: JoinedChama[] = [
   {
-    id: "1",
+    id: 1,
     slug: "women-entrepreneurs-chama",
     name: "Women Entrepreneurs Chama",
     description:
       "Supporting women entrepreneurs in building successful businesses and financial independence",
-    currency: "KES",
+    currency: "cUSD",
+    blockchainId: "1",
     totalMembers: 5,
     maxMembers: 5,
     contribution: 5000,
@@ -232,12 +244,13 @@ export const mockJoinedChamas: JoinedChama[] = [
     ] as Transaction[],
   },
   {
-    id: "2",
+    id: 2,
     slug: "young-professionals-investment-group",
     name: "Young Professionals Investment Group",
     description:
       "A group of young professionals pooling resources for joint investments and financial growth.",
-    currency: "KES",
+    currency: "cUSD",
+    blockchainId: "2",
     totalMembers: 8,
     maxMembers: 10,
     contribution: 3000,
@@ -366,12 +379,13 @@ export const mockJoinedChamas: JoinedChama[] = [
     ] as Transaction[],
   },
   {
-    id: "3",
+    id: 3,
     slug: "family-welfare-chama",
     name: "Family Welfare Chama",
     description:
       "A family-based chama for supporting each other in times of need and celebrating milestones.",
-    currency: "KES",
+    currency: "cUSD",
+    blockchainId: "3",
     totalMembers: 6,
     maxMembers: 10,
     contribution: 2000,

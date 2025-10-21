@@ -3,11 +3,12 @@ import { serverUrl } from "@/constants/serverUrl";
 import { chain, client } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
 import { checkUserDetails } from "@/lib/chamaService";
+import { storage } from "@/Utils/storage";
 import * as Google from "expo-auth-session/providers/google";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { Shield, Users } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Image,
   Pressable,
@@ -68,82 +69,7 @@ export default function AuthScreen() {
   const { connect, isConnecting } = useConnect();
   const account = useActiveAccount();
 
-  //   const handlePhoneSignIn = () => {
-  //     router.push("/phone-verification");
-  //   };
 
-  useEffect(() => {
-    handleResponse();
-  }, [response]);
-
-  async function handleResponse() {
-    try {
-      if (response?.type === "success") {
-        const accessToken = response.authentication?.accessToken;
-        // Fetch profile from Google
-        const profileRes = await fetch(
-          "https://www.googleapis.com/oauth2/v3/userinfo",
-          {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          }
-        );
-        const profile = await profileRes.json();
-        const email = profile?.email;
-        const name = profile?.name;
-        const picture = profile?.picture;
-        if (!email) {
-          setErrorText("Google account email not available.");
-          return;
-        }
-
-        const userDetails = await checkUserDetails(email);
-
-        if (userDetails.success) {
-          // If backend returns token on existing user login via Google, call auth endpoint
-          // Fallback: navigate and let app fetch user with stored token
-          try {
-            const resp = await fetch(`${serverUrl}/auth/google/complete`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ email }),
-            });
-            const data = await resp.json();
-            if (resp.ok && data?.token && data?.user) {
-              await setAuth(data.token, data.user, data.refreshToken || null);
-            }
-          } catch {}
-          router.replace("/(tabs)");
-        } else {
-          // Proceed to wallet setup to simulate and prompt username first
-          router.replace({
-            pathname: "/wallet-setup",
-            params: {
-              mode: "google",
-              email,
-              name: name || "",
-              picture: picture || "",
-            },
-          } as any);
-        }
-      } else if (response?.type === "cancel") {
-        return;
-      }
-    } catch (error) {
-      setErrorText("An error happened. Try again.");
-      console.log("the error", error);
-      return;
-    }
-  }
-
-  // normal google sign in
-  const handleGoogleSignIn = async () => {
-    setErrorText("");
-    try {
-      await promptAsync();
-    } catch (e) {
-      setErrorText("Google sign-in failed. Please try again.");
-    }
-  };
 
   // thirdweb google auth
   const handleThirdwebAuth = async (type: "google" | "apple") => {
@@ -163,6 +89,14 @@ export default function AuthScreen() {
       // Register wallet with connection manager so it persists across app
       try {
         await connect(wallet);
+        // Store wallet connection data
+        const walletData = {
+          address: account.address,
+          connected: true,
+          timestamp: Date.now(),
+        };
+        await storage.setWalletConnection(walletData);
+        console.log('Wallet connection stored during auth:', walletData);
       } catch (error) {
         console.log("connecting error", error);
       }
@@ -193,8 +127,8 @@ export default function AuthScreen() {
       // Check backend for existing user
       const userDetails = await checkUserDetails(email);
       if (userDetails.success) {
-        try {
-          const resp = await fetch(`${serverUrl}/auth/google/complete`, {
+
+            const resp = await fetch(`${serverUrl}/auth/authenticate`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email }),
@@ -203,7 +137,7 @@ export default function AuthScreen() {
           if (resp.ok && data?.token && data?.user) {
             await setAuth(data.token, data.user, data.refreshToken || null);
           }
-        } catch {}
+
         router.replace("/(tabs)");
       } else {
         // Not in backend; send to wallet setup to choose username

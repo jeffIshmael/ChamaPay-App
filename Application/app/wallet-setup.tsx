@@ -1,5 +1,9 @@
+import { serverUrl } from "@/constants/serverUrl";
+import { useAuth } from "@/Contexts/AuthContext";
+import { storage } from "@/Utils/storage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   CheckCircle,
   Copy,
@@ -9,10 +13,7 @@ import {
 import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ConnectButton, useActiveAccount, useConnect } from "thirdweb/react";
-import { serverUrl } from "@/constants/serverUrl";
-import { useAuth } from "@/Contexts/AuthContext";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useActiveAccount } from "thirdweb/react";
 
 export default function WalletSetup() {
   const router = useRouter();
@@ -55,6 +56,26 @@ export default function WalletSetup() {
       clearTimeout(timer2);
     };
   }, []);
+
+  // Store wallet connection data when account becomes available
+  useEffect(() => {
+    const storeWalletConnection = async () => {
+      if (account?.address) {
+        try {
+          const walletData = {
+            address: account.address,
+            connected: true,
+            timestamp: Date.now(),
+          };
+          await storage.setWalletConnection(walletData);
+          console.log('Wallet connection stored in wallet-setup:', walletData);
+        } catch (error) {
+          console.error('Error storing wallet connection in wallet-setup:', error);
+        }
+      }
+    };
+    storeWalletConnection();
+  }, [account]);
 
 
   const getUserDetails = async () => {

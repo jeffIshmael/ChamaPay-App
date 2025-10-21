@@ -21,11 +21,18 @@ interface AuthContextType {
   refreshToken: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  isWalletConnected: boolean;
+  // Wallet connection methods
+  connectWallet: () => Promise<{ success: boolean; error?: string }>;
+  disconnectWallet: () => Promise<void>;
+  forceDisconnectWallet: () => Promise<void>;
+  // User registration/login methods
+  registerUser: (username: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithRefreshToken: () => Promise<{ success: boolean; error?: string }>;
+  setAuth: (newToken: string, userData: User, newRefreshToken?: string | null) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
   refreshUser: () => Promise<void>;
-  setAuth: (newToken: string, userData: User, newRefreshToken?: string | null) => Promise<void>;
   getToken: () => Promise<string | null>;
   getRefreshToken: () => Promise<string | null>;
 }
@@ -42,9 +49,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const isAuthenticated = !!token && !!user;
   const { connect } = useConnect();
   const activeWallet = useActiveWallet();
+  
+  const isAuthenticated = !!token && !!user;
+  const isWalletConnected = !!activeWallet;
 
   // Load stored token and user data on app start
   useEffect(() => {
@@ -56,16 +65,48 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const storedToken = await storage.getToken();
       const storedRefreshToken = await storage.getRefreshToken?.();
       const storedUser = await storage.getUser();
+      const storedWalletConnection = await storage.getWalletConnection();
       
+      // First, try to restore wallet connection
+      if (storedWalletConnection?.connected) {
+        try {
+          const wallet = inAppWallet({ smartAccount: { chain, sponsorGas: true } });
+          const maybeAccount: any = await (wallet as any).autoConnect?.();
+          const hasAccount = !!maybeAccount?.address || !!(wallet as any).getAccount?.();
+          if (hasAccount) {
+            await connect(wallet);
+          }
+        } catch (error) {
+          console.warn('Failed to restore wallet connection:', error);
+        }
+      }
+      
+      // Then handle user authentication
       if (storedToken) {
         setToken(storedToken);
         if (storedRefreshToken) setRefreshToken(storedRefreshToken);
         
         if (storedUser) {
+          // Set cached user immediately for fast UI, then refresh from server
           setUser(storedUser);
+          try {
+            await fetchUserData(storedToken);
+          } catch {
+            // Token might be expired, try refresh token
+            if (storedRefreshToken) {
+              await loginWithRefreshToken();
+            }
+          }
         } else {
           // Token exists but no user data, fetch from server
-          await fetchUserData(storedToken);
+          try {
+            await fetchUserData(storedToken);
+          } catch {
+            // Token might be expired, try refresh token
+            if (storedRefreshToken) {
+              await loginWithRefreshToken();
+            }
+          }
         }
       }
     } catch (error) {
@@ -74,27 +115,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await storage.removeToken();
       await storage.removeRefreshToken?.();
       await storage.removeUser();
+      await storage.removeWalletConnection();
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Ensure thirdweb in-app wallet is connected when app has an authenticated user
+  // Monitor wallet connection changes and store connection data
   useEffect(() => {
-    const ensureWalletConnected = async () => {
-      try {
-        if (isAuthenticated) {
-          const wallet = inAppWallet({
-            smartAccount: { chain, sponsorGas: true },
-          });
-          await connect(wallet);
+    if (activeWallet) {
+      storeWalletConnection(activeWallet);
+    }
+  }, [activeWallet]);
+
+  // Auto-reconnect wallet if it disconnects unexpectedly
+  useEffect(() => {
+    const checkWalletConnection = async () => {
+      // Only attempt reconnection if user is authenticated but wallet is disconnected
+      if (isAuthenticated && !activeWallet) {
+        try {
+          const storedWalletConnection = await storage.getWalletConnection();
+          if (storedWalletConnection?.connected) {
+            console.log('Wallet disconnected unexpectedly, attempting to reconnect...');
+            const wallet = inAppWallet({ smartAccount: { chain, sponsorGas: true } });
+            const maybeAccount: any = await (wallet as any).autoConnect?.();
+            const hasAccount = !!maybeAccount?.address || !!(wallet as any).getAccount?.();
+            if (hasAccount) {
+              await connect(wallet);
+              console.log('Wallet reconnected successfully');
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to auto-reconnect wallet:', error);
         }
-      } catch (e) {
-        // swallow connection errors
       }
     };
-    ensureWalletConnected();
-  }, [isAuthenticated, connect]);
+
+    // Check wallet connection periodically
+    const interval = setInterval(checkWalletConnection, 5000); // Check every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated, activeWallet, connect]);
 
   const fetchUserData = async (authToken: string) => {
     try {
@@ -129,12 +190,60 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  // Connect to in-app wallet
+  const connectWallet = async (): Promise<{ success: boolean; error?: string }> => {
     try {
-      const response = await fetch(`${serverUrl}/auth/login`, {
+      const wallet = inAppWallet({ smartAccount: { chain, sponsorGas: true } });
+      await connect(wallet);
+      await storeWalletConnection(wallet);
+      return { success: true };
+    } catch (error) {
+      console.error('Wallet connection error:', error);
+      return { 
+        success: false, 
+        error: 'Failed to connect wallet. Please try again.' 
+      };
+    }
+  };
+
+  // Disconnect wallet (only when user is not authenticated)
+  const disconnectWallet = async () => {
+    try {
+      // Only disconnect if user is not authenticated
+      if (isAuthenticated) {
+        console.warn('Cannot disconnect wallet while user is authenticated');
+        return;
+      }
+      
+      if (activeWallet) {
+        await activeWallet.disconnect();
+      }
+      await storage.removeWalletConnection();
+    } catch (error) {
+      console.error('Wallet disconnection error:', error);
+    }
+  };
+
+  // Register user with username after wallet connection
+  const registerUser = async (username: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (!activeWallet) {
+        return { success: false, error: 'Wallet not connected' };
+      }
+
+      // Get wallet address from the wallet
+      const walletAddress = activeWallet.getAccount()?.address;
+      if (!walletAddress) {
+        return { success: false, error: 'Could not get wallet address' };
+      }
+
+      const response = await fetch(`${serverUrl}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ 
+          username,
+          walletAddress 
+        }),
       });
 
       const data = await response.json();
@@ -155,11 +264,63 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         return { 
           success: false, 
-          error: data.error || 'Login failed. Please try again.' 
+          error: data.error || 'Registration failed. Please try again.' 
         };
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Registration error:', error);
+      return { 
+        success: false, 
+        error: 'An error occurred. Please try again.' 
+      };
+    }
+  };
+
+  // Login using refresh token
+  const loginWithRefreshToken = async (): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const storedRefreshToken = await storage.getRefreshToken?.();
+      if (!storedRefreshToken) {
+        return { success: false, error: 'No refresh token available' };
+      }
+
+      const response = await fetch(`${serverUrl}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: storedRefreshToken }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const { token: newToken, user: userData, refreshToken: newRefreshToken } = data;
+        
+        // Store new token and user data
+        await storage.setToken(newToken);
+        await storage.setUser(userData);
+        if (newRefreshToken) await storage.setRefreshToken?.(newRefreshToken);
+        
+        setToken(newToken);
+        setUser(userData);
+        if (newRefreshToken) setRefreshToken(newRefreshToken);
+        
+        return { success: true };
+      } else {
+        // Refresh token is invalid, clear everything
+        await storage.removeToken();
+        await storage.removeRefreshToken?.();
+        await storage.removeUser();
+        setToken(null);
+        setRefreshToken(null);
+        setUser(null);
+        
+        return { 
+          success: false, 
+          error: 'Session expired. Please reconnect your wallet.' 
+        };
+      }
+    } catch (error) {
+      console.error('Refresh token error:', error);
       return { 
         success: false, 
         error: 'An error occurred. Please try again.' 
@@ -169,16 +330,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async () => {
     try {
-      // Disconnect thirdweb in-app wallet session if present
-      try { await activeWallet?.disconnect(); } catch {}
+      // Clear all auth data but keep wallet connected
       await storage.removeToken();
       await storage.removeRefreshToken?.();
       await storage.removeUser();
       setToken(null);
       setRefreshToken(null);
       setUser(null);
+      
+      // Note: Wallet stays connected for potential re-authentication
     } catch (error) {
       console.error('Logout error:', error);
+    }
+  };
+
+  // Force disconnect wallet (for complete logout)
+  const forceDisconnectWallet = async () => {
+    try {
+      if (activeWallet) {
+        await activeWallet.disconnect();
+      }
+      await storage.removeWalletConnection();
+    } catch (error) {
+      console.error('Force wallet disconnection error:', error);
     }
   };
 
@@ -196,14 +370,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const setAuth = async (newToken: string, userData: User, newRefreshToken?: string | null) => {
+  // Set auth state (used by auth-screen after backend auth)
+  const setAuth = async (
+    newToken: string,
+    userData: User,
+    newRefreshToken?: string | null
+  ) => {
     await storage.setToken(newToken);
     await storage.setUser(userData);
     if (newRefreshToken) await storage.setRefreshToken?.(newRefreshToken);
     setToken(newToken);
     setUser(userData);
     if (newRefreshToken) setRefreshToken(newRefreshToken);
+    // Background refresh to ensure latest user details
+    try { await fetchUserData(newToken); } catch {}
   };
+
 
   const getToken = async () => {
     return token ?? (await storage.getToken());
@@ -216,17 +398,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return null;
   };
 
+  // Store wallet connection data when wallet is connected
+  const storeWalletConnection = async (wallet: any) => {
+    try {
+      if (wallet) {
+        const walletAddress = wallet.getAccount()?.address;
+        const walletData = {
+          address: walletAddress,
+          connected: true,
+          timestamp: Date.now(),
+        };
+        await storage.setWalletConnection(walletData);
+        console.log('Wallet connection stored:', walletData);
+      }
+    } catch (error) {
+      console.error('Error storing wallet connection:', error);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     token,
     refreshToken,
     isLoading,
     isAuthenticated,
-    login,
+    isWalletConnected,
+    connectWallet,
+    disconnectWallet,
+    forceDisconnectWallet,
+    registerUser,
+    loginWithRefreshToken,
+    setAuth,
     logout,
     updateUser,
     refreshUser,
-    setAuth,
     getToken,
     getRefreshToken,
   };

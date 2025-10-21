@@ -5,6 +5,7 @@ const STORAGE_KEYS = {
   TOKEN: 'token',
   REFRESH_TOKEN: 'refreshToken',
   USER: 'user',
+  WALLET_CONNECTION: 'walletConnection',
 } as const;
 
 export const storage = {
@@ -105,6 +106,33 @@ export const storage = {
     }
   },
 
+  // Wallet connection
+  async getWalletConnection(): Promise<any | null> {
+    try {
+      const walletData = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_CONNECTION);
+      return walletData ? JSON.parse(walletData) : null;
+    } catch (error) {
+      console.error('Error getting wallet connection:', error);
+      return null;
+    }
+  },
+
+  async setWalletConnection(walletData: any): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_CONNECTION, JSON.stringify(walletData));
+    } catch (error) {
+      console.error('Error setting wallet connection:', error);
+    }
+  },
+
+  async removeWalletConnection(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEYS.WALLET_CONNECTION);
+    } catch (error) {
+      console.error('Error removing wallet connection:', error);
+    }
+  },
+
   // Clear all data
   async clearAll(): Promise<void> {
     try {
@@ -113,6 +141,7 @@ export const storage = {
         STORAGE_KEYS.REFRESH_TOKEN,
         STORAGE_KEYS.USER,
         STORAGE_KEYS.HAS_SEEN_ONBOARDING,
+        STORAGE_KEYS.WALLET_CONNECTION,
       ]);
     } catch (error) {
       console.error('Error clearing storage:', error);

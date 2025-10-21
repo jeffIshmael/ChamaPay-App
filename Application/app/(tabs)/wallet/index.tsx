@@ -1,4 +1,4 @@
-import { AllBalances, getAllBalances } from "@/constants/thirdweb";
+
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import {
@@ -41,6 +41,8 @@ import { executeSwap, getSwapQuote, approveSwap } from "@/lib/mentoSdkServices";
 import { useAuth } from "@/Contexts/AuthContext";
 import { QuoteResponse, ExecuteSwap } from "@/lib/mentoSdkServices";
 import { cUSDAddress, usdcAddress } from "@/constants/contractAddress";
+import { AllBalances, getAllBalances, getAllTransferFunctions } from "@/constants/thirdweb";
+
 
 interface Token {
   symbol: string;
@@ -93,8 +95,17 @@ export default function CryptoWallet() {
     if (wallet && activeAccount) {
       const balances = await getAllBalances(activeAccount.address);
       setUserBalance(balances);
+      await getAllTransferFunctions("0x4821ced48Fb4456055c86E42587f61c1F39c6315");
     }
   };
+
+  useEffect(()=>{
+    const getTx = async () =>{
+      await getAllTransferFunctions("0x4821ced48Fb4456055c86E42587f61c1F39c6315");
+    }
+    getTx();
+
+  },[])
 
   useEffect(() => {
     fetchBalances();
