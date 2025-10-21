@@ -153,11 +153,27 @@ const ChatTab: FC<Props> = ({
                               >
                                 {message.message}
                               </Text>
+                              
+                              {/* Time inside the bubble */}
+                              <Text className={`text-xs mt-1 ${
+                                isMyMessage
+                                  ? "text-emerald-100"
+                                  : message.isAdmin
+                                  ? "text-emerald-600"
+                                  : "text-gray-500"
+                              }`}>
+                                {message.time}
+                              </Text>
                             </View>
                             
-                            <Text className="text-xs mt-1 px-1 text-gray-500">
-                              {message.time}
-                            </Text>
+                            {/* Sender name outside the bubble */}
+                            <View className={`mt-1 ${isMyMessage ? "items-end" : "items-start"}`}>
+                              <Text className={`text-xs font-medium ${
+                                message.isAdmin ? "text-emerald-700" : "text-gray-600"
+                              }`}>
+                                {message.sender}
+                              </Text>
+                            </View>
                           </View>
                         </View>
                       </View>

@@ -173,7 +173,10 @@ export default function JoinedChamaDetails() {
   );
 
   const renderScheduleTab = () => (
-    <ScheduleTab payoutSchedule={chama.payoutSchedule} />
+    <ScheduleTab 
+      payoutSchedule={chama.payoutSchedule} 
+      chamaStatus={chama.status as "active" | "pending" | "completed"}
+    />
   );
 
   const renderMembersTab = () => <MembersTab members={chama.members} />;
@@ -196,7 +199,7 @@ export default function JoinedChamaDetails() {
   return (
     <View className="flex-1 bg-gray-50">
       {/* Header */}
-      <SafeAreaView className=" bg-emerald-600">
+      <SafeAreaView className=" bg-emerald-600 rounded-b-2xl">
         <View className="p-6 pb-4">
         <View className="flex-row items-center justify-between mb-4">
           <TouchableOpacity

@@ -129,6 +129,11 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
             user: true,
           },
         },
+        messages: {
+          include: {
+            sender: true,
+          },
+        },
         admin: true,
 
       },

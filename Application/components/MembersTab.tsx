@@ -1,52 +1,143 @@
-import React, { FC } from "react";
-import { View, Text, ScrollView } from "react-native";
 import { Card } from "@/components/ui/Card";
-import { Badge } from "./ui/Badge";
 import { Member } from "@/constants/mockData";
+import { Crown, DollarSign, User } from "lucide-react-native";
+import React, { FC } from "react";
+import { ScrollView, Text, View } from "react-native";
 
 
 type Props = {
   members: Member[];
 };
 
-const getInitials = (name: string) =>
-  name
+const getInitials = (name: string) => {
+  if (!name) return "??";
+  return name
     .split(" ")
     .map((n) => n[0])
-    .join("");
+    .join("")
+    .toUpperCase();
+};
 
-const MembersTab: FC<Props> = ({ members }) => {
+
+const MembersTab: FC<Props> = ({ members = [] }) => {
+  const totalMembers = members?.length || 0;
+  const adminMembers = members?.filter(m => m && m.role === "Admin").length || 0;
+
   return (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-      <View className="gap-3">
-        {members.map((member) => (
-          <Card key={member.id} className="p-4">
-            <View className="flex-row items-center gap-6">
-              <View className="w-10 h-10 rounded-full bg-emerald-100 items-center justify-center">
-                <Text className="text-emerald-600 text-sm font-medium">
-                  {getInitials(member.name)}
+      <View className="gap-4">
+        {/* Members Summary Card */}
+        <Card className="p-6 px-2 ">
+          <View className=" px-2 flex-row items-center justify-between pb-4">
+            <Text className="text-lg font-semibold text-gray-900">Members</Text>
+            <View className="flex-row items-center gap-2">
+              <User size={16} color="#6b7280" />
+              <Text className="text-sm text-gray-600">{totalMembers} total</Text>
+            </View>
+          </View>
+          
+          {/* <View className="flex-row gap-4">
+            <View className="flex-1 bg-emerald-50 rounded-xl p-4 border border-emerald-200">
+              <View className="flex-row items-center gap-2 mb-2">
+                <User size={16} color="#059669" />
+                <Text className="text-sm font-medium text-emerald-800">Total Members</Text>
+              </View>
+              <Text className="text-2xl font-bold text-emerald-900">{totalMembers}</Text>
+            </View>
+            
+            <View className="flex-1 bg-purple-50 rounded-xl p-4 border border-purple-200">
+              <View className="flex-row items-center gap-2 mb-2">
+                <Crown size={16} color="#7c3aed" />
+                <Text className="text-sm font-medium text-purple-800">Admins</Text>
+              </View>
+              <Text className="text-2xl font-bold text-purple-900">{adminMembers}</Text>
+            </View>
+          </View> */}
+
+            {/* Members List */}
+        <View className="gap-3">
+          {members && members.length > 0 ? (
+            members.map((member, index) => {
+              if (!member) return null;
+              const isCurrentUser = member.name?.includes("You") || member.name?.includes("Sarah");
+              
+              return (
+                <Card key={member.id} className={`p-4 ${isCurrentUser ? "border-2 border-emerald-200 bg-emerald-50" : ""}`}>
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center gap-4 flex-1">
+                      {/* Avatar */}
+                      <View className={`w-12 h-12 rounded-full items-center justify-center ${
+                        isCurrentUser ? "bg-emerald-500" : "bg-gray-100"
+                      }`}>
+                        <Text className={`text-sm font-bold ${
+                          isCurrentUser ? "text-white" : "text-gray-600"
+                        }`}>
+                          {getInitials(member.name || "")}
+                        </Text>
+                      </View>
+                      
+                      {/* Member Info */}
+                      <View className="flex-1">
+                        <View className="flex-row items-center gap-2 mb-2">
+                          <Text className={`text-base font-semibold ${
+                            isCurrentUser ? "text-emerald-900" : "text-gray-900"
+                          }`}>
+                            {member.name || "Unknown Member"}
+                          </Text>
+                          {member.role === "Admin" && (
+                            <View className="bg-purple-100 px-2 py-1 rounded-full">
+                              <View className="flex-row items-center gap-1">
+                                <Crown size={10} color="#7c3aed" />
+                                <Text className="text-xs font-medium text-purple-700">Admin</Text>
+                              </View>
+                            </View>
+                          )}
+                          {isCurrentUser && (
+                            <View className="bg-emerald-100 px-2 py-1 rounded-full">
+                              <Text className="text-xs font-medium text-emerald-700">You</Text>
+                            </View>
+                          )}
+                        </View>
+                        
+                        {/* Balance */}
+                        <View className="flex-row items-center gap-2">
+                          <DollarSign size={14} color="#6b7280" />
+                          <Text className="text-sm text-gray-600">
+                            Contribution: {(member.contributions || 0).toLocaleString()} cUSD
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    
+                    {/* Position Number */}
+                    <View className="items-center">
+                      <View className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center">
+                        <Text className="text-sm font-bold text-gray-600">
+                          #{index + 1}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </Card>
+              );
+            })
+          ) : (
+            <Card className="p-6">
+              <View className="items-center">
+                <View className="w-16 h-16 bg-gray-100 rounded-full items-center justify-center mb-4">
+                  <User size={24} color="#9ca3af" />
+                </View>
+                <Text className="text-gray-500 font-medium text-lg mb-2">No members yet</Text>
+                <Text className="text-gray-400 text-sm text-center">
+                  Members will appear here once they join the chama
                 </Text>
               </View>
-              <View>
-                <View className="flex-row items-center gap-2">
-                  <Text className="text-gray-900 text-sm font-medium">
-                    {member.name}
-                  </Text>
-                  {member.role === "Admin" && (
-                    <Badge variant="secondary">
-                      <Text className="text-emerald-700">Admin</Text>
-                    </Badge>
-                  )}
-                </View>
-                <View className="flex-row items-center gap-3 mt-1">
-                  <Text className="text-gray-600 text-xs">
-                    KES {(member.contributions || 0).toLocaleString()}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </Card>
-        ))}
+            </Card>
+          )}
+        </View>
+        </Card>
+
+      
       </View>
       <View className="h-20" />
     </ScrollView>

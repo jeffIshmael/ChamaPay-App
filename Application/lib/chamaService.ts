@@ -19,9 +19,11 @@ export interface ChamaMember {
   joinedAt: Date;
   user: {
     id: number;
-    name: string;
+    name?: string;
+    userName?: string;
     email: string;
     profileImageUrl?: string;
+    address?: string;
   };
 }
 
@@ -45,8 +47,10 @@ export interface BackendChama {
   rating?: number;
   admin: {
     id: number;
-    name: string;
+    name?: string;
+    userName?: string;
     email: string;
+    address?: string;
   };
   members: ChamaMember[];
   payments?: any[];
@@ -221,7 +225,7 @@ export const transformChamaData = (backendChama: BackendChama) => {
     myContributions: parseFloat(backendChama.amount), // Assuming user has made at least one contribution
     nextPayoutDate: backendChama.payDate ? new Date(backendChama.payDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     nextPayoutAmount: parseFloat(backendChama.amount) * memberCount,
-    currentTurnMember: backendChama.members?.[0]?.user?.name || "Not assigned",
+    currentTurnMember: backendChama.members?.[0]?.user?.name || backendChama.members?.[0]?.user?.userName || "Not assigned",
     myTurnDate: backendChama.payDate ? new Date(backendChama.payDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     contributionDueDate: backendChama.startDate ? new Date(backendChama.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     hasOutstandingPayment: false, // Would need to check payment status
@@ -235,7 +239,7 @@ export const transformChamaData = (backendChama: BackendChama) => {
     nextPayout: backendChama.payDate ? new Date(backendChama.payDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     myTurn: false, // Would need to calculate based on current position
     myPosition: 1, // Default position
-    nextTurnMember: backendChama.members?.[1]?.user?.name || "Not assigned",
+    nextTurnMember: backendChama.members?.[1]?.user?.name || backendChama.members?.[1]?.user?.userName || "Not assigned",
     status: backendChama.started ? "active" : "pending", // Default status
     unreadMessages: 0, // Would need to implement message tracking
     isPublic: backendChama.type === "Public",
@@ -244,7 +248,7 @@ export const transformChamaData = (backendChama: BackendChama) => {
     payoutSchedule: JSON.stringify(backendChama.payOutOrder) ? JSON.parse(backendChama.payOutOrder) : [], // Would need to generate based on cycle
     members: backendChama.members?.map(member => ({
       id: member.user.id,
-      name: member.user.name,
+      name: member.user.name || member.user.userName || "Unknown Member",
       phone: "", // Not available in backend
       email: member.user.email,
       role: member.user.id === backendChama.admin.id ? "Admin" : "Member",
