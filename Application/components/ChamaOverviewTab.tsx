@@ -4,11 +4,9 @@ import React, { FC } from "react";
 import {
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-import { AlertCard } from "./ui/AlertCard";
 import { Badge } from "./ui/Badge";
 import { Card } from "./ui/Card";
 import { ProgressBar } from "./ui/ProgressBar";
@@ -43,10 +41,10 @@ const ChamaOverviewTab: FC<Props> = ({
   return (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
       {/* Contribution Progress */}
-      <Card className="p-4 mb-4">
-        <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-gray-900 font-medium">
-            This Month&apos;s Contribution
+      <Card className="p-6 mb-6">
+        <View className="flex-row items-center justify-between mb-4">
+          <Text className="text-xl font-semibold text-gray-900">
+            Monthly Contribution
           </Text>
           <Badge
             variant={myContributions >= contribution ? "default" : "secondary"}
@@ -62,132 +60,204 @@ const ChamaOverviewTab: FC<Props> = ({
             </Text>
           </Badge>
         </View>
-        <View className="gap-3">
-          <View className="flex-row justify-between">
-            <Text className="text-sm text-gray-600">
-              Contributed cUSD {myContributions.toLocaleString()}
-            </Text>
-          </View>
-          <ProgressBar
-            value={
-              contribution > 0 ? (myContributions / contribution) * 100 : 0
-            }
-          />
-          {myContributions >= contribution ? (
-            <Text className="text-xs text-green-600">
-              ✓ Thank you for your contribution this month!
-            </Text>
-          ) : (
-            <View className="gap-2">
-              <Text className="text-xs text-gray-600">
-                cUSD {remainingAmount.toLocaleString()} remaining • Due:{" "}
-                {contributionDueDate}
+        
+        <View className="gap-4">
+          {/* Contribution Stats */}
+          <View className="bg-gray-50 rounded-xl p-4">
+            <View className="flex-row justify-between items-center mb-2">
+              <Text className="text-sm font-medium text-gray-600">Required</Text>
+              <Text className="text-lg font-semibold text-gray-900">
+                cUSD {contribution.toLocaleString()}
               </Text>
-              <View className="flex-row gap-2">
-                <TextInput
-                  value={paymentAmount}
-                  onChangeText={setPaymentAmount}
-                  keyboardType="numeric"
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="Amount"
-                />
-                <TouchableOpacity
-                  onPress={makePayment}
-                  className="bg-emerald-600 px-4 py-2 rounded-lg"
-                >
-                  <Text className="text-white text-sm font-medium">Pay</Text>
-                </TouchableOpacity>
+            </View>
+            <View className="flex-row justify-between items-center mb-3">
+              <Text className="text-sm font-medium text-gray-600">Contributed</Text>
+              <Text className="text-lg font-semibold text-emerald-600">
+                cUSD {myContributions.toLocaleString()}
+              </Text>
+            </View>
+            <ProgressBar
+              value={
+                contribution > 0 ? Math.min((myContributions / contribution) * 100, 100) : 0
+              }
+            />
+          </View>
+
+          {/* Status Message */}
+          {myContributions >= contribution ? (
+            <View className="bg-green-50 border border-green-200 rounded-xl p-4">
+              <View className="flex-row items-center gap-2 mb-2">
+                <View className="w-5 h-5 bg-green-100 rounded-full items-center justify-center">
+                  <Text className="text-green-600 text-xs font-bold">✓</Text>
+                </View>
+                <Text className="text-green-800 font-medium">
+                  Contribution Complete!
+                </Text>
               </View>
+              <Text className="text-sm text-green-700">
+                Thank you for your contribution this month. You can still make additional payments if needed.
+              </Text>
+            </View>
+          ) : (
+            <View className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+              <View className="flex-row items-center gap-2 mb-2">
+                <View className="w-5 h-5 bg-orange-100 rounded-full items-center justify-center">
+                  <Text className="text-orange-600 text-xs font-bold">!</Text>
+                </View>
+                <Text className="text-orange-800 font-medium">
+                  Payment Required
+                </Text>
+              </View>
+              <Text className="text-sm text-orange-700 mb-3">
+                cUSD {remainingAmount.toLocaleString()} remaining • Due: {contributionDueDate}
+              </Text>
             </View>
           )}
+
+          {/* Make Payment Button - Always Visible */}
+          <TouchableOpacity
+            onPress={makePayment}
+            className="bg-emerald-600 py-4 rounded-xl shadow-sm"
+            activeOpacity={0.8}
+          >
+            <View className="flex-row items-center justify-center gap-2">
+              <DollarSign size={18} color="white" />
+              <Text className="text-white text-base font-semibold">
+                {myContributions >= contribution ? "Make Additional Payment" : "Make Payment"}
+              </Text>
+            </View>
+          </TouchableOpacity>
         </View>
       </Card>
 
       {/* Next Payout Info */}
-      <Card className="p-4 mb-4">
-        <View className="flex-row items-center gap-3 mb-3">
-          <View className="w-8 h-8 rounded-full bg-emerald-100 items-center justify-center">
-            <TrendingUp size={16} color="#059669" />
+      <Card className="p-6 mb-6">
+        <View className="flex-row items-center gap-4 mb-4">
+          <View className="w-12 h-12 rounded-full bg-emerald-100 items-center justify-center">
+            <TrendingUp size={20} color="#059669" />
           </View>
-          <View>
-            <Text className="text-gray-900 font-medium">Next Payout</Text>
+          <View className="flex-1">
+            <Text className="text-lg font-semibold text-gray-900">Next Payout</Text>
             <Text className="text-sm text-gray-600">August 15, 2024</Text>
           </View>
         </View>
-        <View className="gap-2">
-          <View className="flex-row justify-between">
-            <Text className="text-gray-600 text-sm">Recipient:</Text>
-            <Text className="text-gray-900 text-sm">
-              {currentTurnMember}
-            </Text>
-          </View>
-          <View className="flex-row justify-between">
-            <Text className="text-gray-600 text-sm">Amount:</Text>
-            <Text className="text-gray-900 text-sm">
-              cUSD {nextPayoutAmount.toLocaleString()}
-            </Text>
+        
+        <View className="bg-gradient-to-r from-emerald-50 to-blue-50 rounded-xl p-4">
+          <View className="gap-3">
+            <View className="flex-row justify-between items-center">
+              <Text className="text-sm font-medium text-gray-600">Recipient</Text>
+              <Text className="text-base font-semibold text-gray-900">{currentTurnMember}</Text>
+            </View>
+            <View className="flex-row justify-between items-center">
+              <Text className="text-sm font-medium text-gray-600">Amount</Text>
+              <Text className="text-lg font-bold text-emerald-600">
+                cUSD {nextPayoutAmount.toLocaleString()}
+              </Text>
+            </View>
           </View>
         </View>
       </Card>
 
       {/* Recent Transactions */}
-      <Card className="p-4 mb-4">
-        <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-gray-900 font-medium">Recent Transactions</Text>
+      <Card className="p-6 mb-6">
+        <View className="flex-row items-center justify-between mb-4">
+          <Text className="text-lg font-semibold text-gray-900">Recent Transactions</Text>
+          <TouchableOpacity className="bg-gray-100 px-3 py-1 rounded-full">
+            <Text className="text-xs text-gray-600 font-medium">View All</Text>
+          </TouchableOpacity>
         </View>
-        <View className="gap-2">
-          {recentTransactions.slice(0, 3).map((transaction) => (
-            <View
-              key={transaction.id}
-              className="flex-row items-center justify-between py-2"
-            >
-              <View className="flex-row items-center gap-3">
-                <View
-                  className={`w-6 h-6 rounded-full items-center justify-center ${
-                    transaction.type === "contribution"
-                      ? "bg-emerald-100"
-                      : "bg-orange-100"
-                  }`}
-                >
-                  <DollarSign
-                    size={12}
-                    color={
+        
+        <View className="gap-3">
+          {recentTransactions.length > 0 ? (
+            recentTransactions.slice(0, 3).map((transaction) => (
+              <View
+                key={transaction.id}
+                className="flex-row items-center justify-between py-3 px-4 bg-gray-50 rounded-xl"
+              >
+                <View className="flex-row items-center gap-4">
+                  <View
+                    className={`w-10 h-10 rounded-full items-center justify-center ${
                       transaction.type === "contribution"
-                        ? "#059669"
-                        : "#ea580c"
-                    }
-                  />
+                        ? "bg-emerald-100"
+                        : "bg-orange-100"
+                    }`}
+                  >
+                    <DollarSign
+                      size={16}
+                      color={
+                        transaction.type === "contribution"
+                          ? "#059669"
+                          : "#ea580c"
+                      }
+                    />
+                  </View>
+                  <View>
+                    <Text className="text-base font-medium text-gray-900 capitalize">
+                      {transaction.type}
+                    </Text>
+                    <Text className="text-sm text-gray-600">
+                      {transaction.date}
+                    </Text>
+                  </View>
                 </View>
-                <View>
-                  <Text className="text-sm text-gray-900 capitalize">
-                    {transaction.type}
+                <View className="items-end">
+                  <Text className="text-base font-semibold text-gray-900">
+                    cUSD {(transaction.amount || 0).toLocaleString()}
                   </Text>
-                  <Text className="text-xs text-gray-600">
-                    {transaction.date}
-                  </Text>
+                  <View
+                    className={`px-2 py-1 rounded-full ${
+                      transaction.type === "contribution"
+                        ? "bg-emerald-100"
+                        : "bg-orange-100"
+                    }`}
+                  >
+                    <Text
+                      className={`text-xs font-medium ${
+                        transaction.type === "contribution"
+                          ? "text-emerald-700"
+                          : "text-orange-700"
+                      }`}
+                    >
+                      {transaction.type === "contribution" ? "In" : "Out"}
+                    </Text>
+                  </View>
                 </View>
               </View>
-              <Text className="text-sm text-gray-900">
-                cUSD {(transaction.amount || 0).toLocaleString()}
+            ))
+          ) : (
+            <View className="py-8 items-center">
+              <View className="w-16 h-16 bg-gray-100 rounded-full items-center justify-center mb-3">
+                <DollarSign size={24} color="#9ca3af" />
+              </View>
+              <Text className="text-gray-500 font-medium">No transactions yet</Text>
+              <Text className="text-gray-400 text-sm text-center mt-1">
+                Your recent transactions will appear here
               </Text>
             </View>
-          ))}
+          )}
         </View>
       </Card>
 
       {/* Leave Chama */}
-      <AlertCard type="error">
+      <Card className="p-6 mb-6">
         <View className="flex-row items-center justify-between">
           <View className="flex-1">
-            <Text className="text-sm text-red-700 font-medium">
-              Leave chama
+            <Text className="text-lg font-semibold text-gray-900 mb-1">
+              Leave Chama
+            </Text>
+            <Text className="text-sm text-gray-600">
+              You can leave this chama at any time. This action cannot be undone.
             </Text>
           </View>
-          <TouchableOpacity onPress={leaveChama} className="p-2">
-            <LogOut size={16} color="#dc2626" />
+          <TouchableOpacity 
+            onPress={leaveChama} 
+            className="bg-red-50 border border-red-200 p-3 rounded-xl"
+            activeOpacity={0.8}
+          >
+            <LogOut size={20} color="#dc2626" />
           </TouchableOpacity>
         </View>
-      </AlertCard>
+      </Card>
 
       <View className="h-20" />
     </ScrollView>
