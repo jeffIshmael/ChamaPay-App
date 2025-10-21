@@ -5,6 +5,7 @@ import PaymentModal from "@/components/PaymentModal";
 import ScheduleTab from "@/components/ScheduleTab";
 import { TabButton } from "@/components/ui/TabButton";
 import { JoinedChama } from "@/constants/mockData";
+import { chamapayContract } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
 import { getChamaBySlug, transformChamaData } from "@/lib/chamaService";
 import { formatToK } from "@/lib/formatNumbers";
@@ -18,8 +19,10 @@ import {
   SafeAreaView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
+import { useReadContract } from "thirdweb/react";
+import { toEther } from "thirdweb/utils";
 
 export default function JoinedChamaDetails() {
   const { id } = useLocalSearchParams();
@@ -31,26 +34,40 @@ export default function JoinedChamaDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [chama, setChama] = useState<JoinedChama | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const {data: chamaBalance, isLoading: isChamaBalanceLoading, error: chamaBalanceError} = useReadContract({
+    contract: chamapayContract,
+    method: "function getEachMemberBalance(uint256 _chamaId) view returns (address[] memory, uint256[][] memory)",
+    params: [BigInt(Number(chama?.blockchainId) || 0) as bigint],
+  });
+  const {data: individualBalance, isLoading: isIndividualBalanceLoading, error: individualBalanceError} = useReadContract({
+    contract: chamapayContract,
+    method: "function getBalance(uint256 _chamaId, address _member) view returns (uint256[] memory)",
+    params: [BigInt(Number(chama?.blockchainId) || 0) as bigint, user?.address as `0x${string}`],
+  });
+  const [myBalance, setMyBalance] = useState<bigint [] | undefined>();
 
   useEffect(() => {
-    const fetchChama = async () => {
+    setMyBalance(individualBalance as unknown as bigint[]);
+    console.log("the individual balance", individualBalance);
+  }, [individualBalance]);
+
+  const fetchChama = async () => {
     if (!token) {   
       Alert.alert("Error", "Please login to continue");
       return;
     }
     setIsLoading(true);
-    console.log(" the id", id);
     const response = await getChamaBySlug(id as string, token);
     if (response.success && response.chama) {
       const transformedChama = transformChamaData(response.chama);
       console.log(transformedChama);
       setChama(transformedChama);
-      
+
+      // get my chama balance
+      const myChamaBalance = (toEther(myBalance?.[0] || BigInt(0)) || 0);
+      console.log("the my chama balance", myChamaBalance);
       // Set payment amount for the payment modal
-      const remainingAmount = Math.max(
-        0,
-        transformedChama.contribution - transformedChama.myContributions
-      );
+      const remainingAmount = Number(transformedChama?.contribution) - Number(myChamaBalance);
       setPaymentAmount(remainingAmount.toString());
     } else {
       setChama(null);
@@ -60,7 +77,9 @@ export default function JoinedChamaDetails() {
     }
     setIsLoading(false);
   };
-  fetchChama();
+
+  useEffect(() => {
+    fetchChama();
   }, [id, token]);
 
   const sendMessage = () => {
@@ -81,17 +100,9 @@ export default function JoinedChamaDetails() {
   };
 
   const handlePaymentSuccess = () => {
-    // Handle successful payment
-    if (chama && paymentAmount) {
-      const updatedChama = {
-        ...chama,
-        myContributions: chama.myContributions + parseFloat(paymentAmount),
-      };
-      setChama(updatedChama);
-      setPaymentAmount("");
-    }
+    // Close payment modal and reload page data
     setShowPaymentModal(false);
-    Alert.alert("Success", "Payment processed successfully!");
+    fetchChama();
   };
 
   const handlePaymentClose = () => {
@@ -128,8 +139,8 @@ export default function JoinedChamaDetails() {
   }
 
   const contribution = chama.contribution || 0;
-  const myContributions = chama.myContributions || 0;
-  const remainingAmount = Math.max(0, contribution - myContributions);
+  const myContributions = Number(toEther(myBalance?.[0] || BigInt(0)) || 0);
+  const remainingAmount = Number(contribution) - Number(myContributions);
   const nextPayoutAmount = chama.nextPayoutAmount || 0;
   const unreadMessages = chama.unreadMessages || 0;
 
@@ -264,11 +275,12 @@ export default function JoinedChamaDetails() {
           visible={showPaymentModal}
           onClose={handlePaymentClose}
           onSuccess={handlePaymentSuccess}
-          chamaId={parseInt(id as string)}
-          chamaBlockchainId={1} // Default blockchain ID since it's not in the interface
+          chamaId={Number(chama.id)}
+          chamaBlockchainId={Number(chama.blockchainId)} // Default blockchain ID since it's not in the interface
           chamaName={chama.name}
         />
       )}
+
     </View>
   );
 }

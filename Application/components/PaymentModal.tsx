@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Image,
   Modal,
@@ -7,13 +7,15 @@ import {
   View,
 } from "react-native";
 
+import { useAuth } from "@/Contexts/AuthContext";
+import { getAllBalances } from "@/constants/thirdweb";
 import CUSDPay from "./CUSDPay";
 import MPesaPay from "./Mpesapay";
 
 interface PaymentModalProps {
   visible: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (data?: { txHash: string; message: string; amount: string }) => void;
   chamaId: number;
   chamaBlockchainId: number;
   chamaName: string;
@@ -30,10 +32,29 @@ const PaymentModal = ({
   const [paymentMethod, setPaymentMethod] = useState("");
   const [showCUSDPay, setShowCUSDPay] = useState(false);
   const [showMPesaPay, setShowMPesaPay] = useState(false);
+  const [cUSDBalance, setcUSDBalance] = useState <string | null>(null);
+  const { user } = useAuth();
 
   const handlePaymentMethod = (method: string) => {
     setPaymentMethod(method);
   };
+
+  const handlePaymentSuccess = () => {
+    // CUSDPay will handle its own success modal
+    // Just close the CUSDPay component and reset
+    setShowCUSDPay(false);
+    setPaymentMethod("");
+  };
+
+
+  useEffect(() => {
+    console.log("the payment method", paymentMethod);
+    const fetchcUSDBalance = async () => {
+      const balance = await getAllBalances(user?.address as string);
+      setcUSDBalance((balance.cUSD.displayValue));
+    };
+    fetchcUSDBalance();
+  }, [user?.address]);
 
   return (
     <Modal
@@ -65,8 +86,12 @@ const PaymentModal = ({
                         source={require("../assets/images/cusd.jpg")}
                         className="w-10 h-10 mr-4"
                       />
-                      <Text className="text-lg font-medium">cUSD</Text>
+                      <View>
+                        <Text className="text-lg font-medium">cUSD</Text>
+                        <Text className="text-xs text-gray-500">{Number(cUSDBalance).toFixed(3)} cUSD</Text>
+                      </View>
                     </View>
+                   
                     <Text className="text-2xl text-gray-500">➔</Text>
                   </TouchableOpacity>
 
@@ -94,10 +119,12 @@ const PaymentModal = ({
               onClose={() => {
                 setPaymentMethod("");
                 setShowCUSDPay(false);
+                onClose();
               }}
-              onSuccess={onSuccess}
+              onSuccess={handlePaymentSuccess}
               chamaId={chamaId}
               chamaBlockchainId={chamaBlockchainId}
+              cUSDBalance={cUSDBalance || "0"}
               chamaName={chamaName}
             />
           )}

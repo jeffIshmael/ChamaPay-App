@@ -8,12 +8,11 @@ import {
   Calendar,
   Settings,
   Users,
-  Wallet
+  Wallet,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -22,7 +21,6 @@ export default function HomeScreen() {
   const [chamas, setChamas] = useState<JoinedChama[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
 
   // Fetch user's chamas from backend
   useEffect(() => {
@@ -35,24 +33,26 @@ export default function HomeScreen() {
       try {
         setLoading(true);
         const response = await getUserChamas(token);
-        
-                  if (response.success && response.chamas) {
-            const transformedChamas = response.chamas.map((chamaMember: any) => {
-              // Extract the actual chama data from the nested structure
-              const chamaData = chamaMember.chama;
-              return transformChamaData(chamaData);
-            });
-            console.log(transformedChamas);
-            setChamas(transformedChamas);
-          } else {
+        console.log("the response from the getUserChamas function", response);
+
+        if (response.success && response.chamas) {
+          const transformedChamas = response.chamas.map((chamaMember: any) => {
+            // Extract the actual chama data from the nested structure
+            const chamaData = chamaMember.chama;
+            console.log("the chama data", chamaData);
+            return transformChamaData(chamaData);
+          });
+          console.log(transformedChamas);
+          setChamas(transformedChamas);
+        } else {
           setChamas([]);
           if (response.error) {
             setError(response.error);
           }
         }
       } catch (err) {
-        console.error('Error fetching chamas:', err);
-        setError('Failed to fetch chamas');
+        console.error("Error fetching chamas:", err);
+        setError("Failed to fetch chamas");
         setChamas([]);
       } finally {
         setLoading(false);
@@ -66,7 +66,7 @@ export default function HomeScreen() {
     children,
     variant = "default",
     style,
-  }: {  
+  }: {
     children: React.ReactNode;
     variant?: "default" | "secondary" | "destructive";
     style?: any;
@@ -129,9 +129,9 @@ export default function HomeScreen() {
   return (
     <View className="flex-1 bg-gray-50">
       {/* Header */}
-      <View 
+      <View
         className="flex-row items-center justify-between bg-emerald-600 px-3 pb-4 border-b rounded-b-3xl border-gray-200"
-        style={{ paddingTop: insets.top}}
+        style={{ paddingTop: insets.top }}
       >
         <View className="flex-row items-center">
           <TouchableOpacity
@@ -139,19 +139,17 @@ export default function HomeScreen() {
             className="mr-3"
             activeOpacity={0.8}
           >
-             {user?.profileImageUrl ? (
+            {user?.profileImageUrl ? (
               <Image
                 source={{ uri: user.profileImageUrl }}
                 className="w-10 h-10 rounded-full"
-                style={{ 
-                  backgroundColor: '#f3f4f6',
+                style={{
+                  backgroundColor: "#f3f4f6",
                   borderWidth: 2,
-                  borderColor: 'rgba(255, 255, 255, 0.3)'
+                  borderColor: "rgba(255, 255, 255, 0.3)",
                 }}
               />
-            ) : (
-            null
-            )}
+            ) : null}
           </TouchableOpacity>
           <View>
             <Text className="text-lg text-white font-medium">Welcome back</Text>
@@ -206,64 +204,67 @@ export default function HomeScreen() {
                   router.push({
                     pathname: "/[joined-chama-details]/[id]",
                     params: {
-                      "joined-chama-details": chama.id || `chama-${index}`,
-                      id: chama.id,
+                      "joined-chama-details": chama.slug || `chama-${index}`,
+                      id: chama.slug,
                     },
                   })
                 }
               >
-              <View className="flex-row items-start justify-between mb-3">
-                <View className="flex-1">
-                  <View className="flex-row items-center mb-1">
-                    <Text className="text-gray-900 font-medium mr-2">
-                      {chama.name}
+                <View className="flex-row items-start justify-between mb-3">
+                  <View className="flex-1">
+                    <View className="flex-row items-center mb-1">
+                      <Text className="text-gray-900 font-medium mr-2">
+                        {chama.name}
+                      </Text>
+                      {chama.unreadMessages > 0 && (
+                        <Badge variant="destructive">
+                          {chama.unreadMessages}
+                        </Badge>
+                      )}
+                    </View>
+                    <View className="flex-row items-center">
+                      <View className="flex-row items-center mr-4">
+                        <Users color="#6b7280" size={14} />
+                        <Text className="text-sm text-gray-600 ml-1">
+                          {chama.totalMembers}/{chama.maxMembers}
+                        </Text>
+                      </View>
+                      <View className="flex-row items-center">
+                        <Wallet color="#6b7280" size={14} />
+                        <Text className="text-sm text-gray-600 ml-1">
+                          {chama.currency}{" "}
+                          {chama.contribution?.toLocaleString() || "0"}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  <Badge
+                    variant={
+                      chama.status === "active" ? "secondary" : "default"
+                    }
+                  >
+                    {chama.status}
+                  </Badge>
+                </View>
+
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center flex-1">
+                    <Calendar color="#6b7280" size={14} />
+                    <Text className="text-sm text-gray-600 ml-1 mr-2">
+                      Next: {chama.nextTurnMember}
                     </Text>
-                    {chama.unreadMessages > 0 && (
-                      <Badge variant="destructive">
-                        {chama.unreadMessages}
+                    {chama.myTurn && (
+                      <Badge style={{ backgroundColor: "#059669" }}>
+                        Your turn!
                       </Badge>
                     )}
                   </View>
-                  <View className="flex-row items-center">
-                    <View className="flex-row items-center mr-4">
-                      <Users color="#6b7280" size={14} />
-                      <Text className="text-sm text-gray-600 ml-1">
-                        {chama.totalMembers}/{chama.maxMembers}
-                      </Text>
-                    </View>
-                    <View className="flex-row items-center">
-                                              <Wallet color="#6b7280" size={14} />
-                        <Text className="text-sm text-gray-600 ml-1">
-                          {chama.currency} {chama.contribution?.toLocaleString() || '0'}
-                        </Text>
-                    </View>
+                  <View className="flex-row">
+                    <ArrowRight color="#6b7280" size={16} />
                   </View>
                 </View>
-                <Badge
-                  variant={chama.status === "active" ? "secondary" : "default"}
-                >
-                  {chama.status}
-                </Badge>
-              </View>
-
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center flex-1">
-                  <Calendar color="#6b7280" size={14} />
-                  <Text className="text-sm text-gray-600 ml-1 mr-2">
-                    Next: {chama.nextTurnMember}
-                  </Text>
-                  {chama.myTurn && (
-                    <Badge style={{ backgroundColor: "#059669" }}>
-                      Your turn!
-                    </Badge>
-                  )}
-                </View>
-                <View className="flex-row">
-                  <ArrowRight color="#6b7280" size={16} />
-                </View>
-              </View>
-            </Card>
-          ))
+              </Card>
+            ))
           ) : (
             <Card style={{ alignItems: "center", paddingVertical: 32 }}>
               <Users color="#9ca3af" size={48} />

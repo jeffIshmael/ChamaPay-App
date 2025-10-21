@@ -2,6 +2,7 @@
 import express, { Router } from "express";
 import {
     createChama,
+    depositToChama,
     getChamaBySlug,
     getChamasUserIsMemberOf,
     getPublicChamasUserIsNotMemberOf
@@ -24,5 +25,8 @@ router.get("/public-chamas", authenticate, getPublicChamasUserIsNotMemberOf);
 
 // get chama by slug
 router.get("/:slug", authenticate, getChamaBySlug);
+
+// deposit funds to a chama
+router.post("/deposit", authenticate, depositToChama);
 
 export default router; 

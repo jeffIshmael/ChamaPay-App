@@ -1,15 +1,20 @@
+import { useAuth } from "@/Contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
-    ActivityIndicator, Alert, Image, Linking, Modal, Text,
-    TextInput,
-    TouchableOpacity, View
+  ActivityIndicator,
+  Image,
+  Modal, Text,
+  TextInput,
+  TouchableOpacity, View
 } from "react-native";
+import { prepareContractCall, sendTransaction, waitForReceipt } from "thirdweb";
+import { useActiveAccount } from "thirdweb/react";
+import { parseEther } from "viem";
 import { serverUrl } from "../constants/serverUrl";
+import { chain, chamapayContract, client, cUSDContract } from "../constants/thirdweb";
 
 const CUSDPay = ({
   visible,
@@ -17,24 +22,27 @@ const CUSDPay = ({
   onSuccess,
   chamaId,
   chamaBlockchainId,
+  cUSDBalance,
   chamaName,
 }: {
   visible: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (data?: { txHash: string; message: string; amount: string }) => void;
   chamaId: number;
   chamaBlockchainId: number;
+  cUSDBalance: string;
   chamaName: string;
 }) => {
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState("");
-  const [balance, setBalance] = useState(0);
-  const [fetchingTxFee, setFetchingTxFee] = useState(false);
-  const [transactionFee, setTransactionFee] = useState<number | null>(null);
+  const [transactionFee, setTransactionFee] = useState<number>(0);
   const [error, setError] = useState("");
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [txHash, setTxHash] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const router = useRouter();
+  const activeAccount = useActiveAccount();
+  const { user, token } = useAuth();
 
   const handlePayment = async () => {
     setLoading(true);
@@ -48,23 +56,79 @@ const CUSDPay = ({
         return;
       }
 
-      if (paymentAmount > balance) {
-        setError("Insufficient balance");
+      const totalAmount = paymentAmount + transactionFee;
+      if (totalAmount > Number(cUSDBalance)) {
+        setError(`Insufficient balance. Total required: ${totalAmount.toFixed(4)} cUSD (including 2% fee)`);
         return;
       }
 
-      const token = await AsyncStorage.getItem("token");
+      if (!activeAccount) {
+        setError("Wallet not connected");
+        return;
+      }
+
       if (!token) {
         setError("Authentication required");
         return;
       }
 
-      // Send request with proper body format
+      // Convert amount to wei for blockchain transaction
+      const amountInWei = parseEther(totalAmount.toString());
+      console.log("the amount in wei", amountInWei);
+      console.log("the chama blockchain id", chamaBlockchainId);
+
+      // first call approve function
+      const approveTransaction = prepareContractCall({
+        contract: cUSDContract,
+        method: "function approve(address spender, uint256 amount)",
+        params: [chamapayContract.address, amountInWei],
+      });
+      const { transactionHash: approveTransactionHash } = await sendTransaction({
+        account: activeAccount,
+        transaction: approveTransaction,
+      });
+      const approveTransactionReceipt = await waitForReceipt({
+        client: client,
+        chain: chain,
+        transactionHash: approveTransactionHash,
+      });
+      console.log("the approve transaction receipt", approveTransactionReceipt);
+
+      if (!approveTransactionReceipt) {
+        setError("Failed to approve transaction");
+        return;
+      }
+
+      // Prepare the deposit transaction
+      const depositTransaction = prepareContractCall({
+        contract: chamapayContract,
+        method: "function depositCash(uint256 _chamaId, uint256 _amount)",
+        params: [BigInt(chamaBlockchainId), amountInWei],
+      });
+
+      // Send the blockchain transaction
+      const { transactionHash } = await sendTransaction({
+        account: activeAccount,
+        transaction: depositTransaction,
+      });
+
+      // get the receipt of the transaction
+      const receipt = await waitForReceipt({
+        client: client,
+        chain: chain,
+        transactionHash: transactionHash,
+      });
+
+      console.log("the receipt", receipt);
+
+      // Send the transaction hash to the server for recording
       const response = await axios.post(
-        `${serverUrl}/chama/deposit/${chamaId}`,
+        `${serverUrl}/chama/deposit`,
         {
-          amount: amount.toString(), // Send as string to avoid floating point issues
+          amount: amount.toString(),
           blockchainId: chamaBlockchainId,
+          txHash: receipt.transactionHash,
+          chamaId: chamaId,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -76,7 +140,9 @@ const CUSDPay = ({
         return;
       }
 
-      setTxHash(response.data.txHash);
+      setTxHash(transactionHash);
+      setSuccessMessage(`Successfully deposited ${amount} cUSD to ${chamaName}`);
+      // Show success modal
       setShowSuccessModal(true);
     } catch (error) {
       console.log("Payment error:", error);
@@ -86,58 +152,37 @@ const CUSDPay = ({
     }
   };
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const token = await AsyncStorage.getItem("token");
-        if (!token) {
-          console.log("No token found");
-          return;
-        }
-        const response = await axios.get(`${serverUrl}/user`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (response) {
-          // console.log(response.data);
-          setBalance(Number(response.data.balance));
-        }
-      } catch (error) {
-        console.log("Error fetching user:", error);
-        Alert.alert("Error", "Failed to load user data.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchUser();
-  }, []);
 
-  const handleAmountChange = async (text: string) => {
+  const handleAmountChange = (text: string) => {
     setAmount(text);
+    setError("");
     if (Number(text) <= 0) {
+      setTransactionFee(0);
       return;
     }
-    setFetchingTxFee(true);
+    
+    // Calculate 2% transaction fee locally
+    const amountValue = Number(text);
+    const fee = amountValue * 0.02; // 2% of the amount
+    setTransactionFee(fee);
+  };
 
-    // Get the tx fee for the amount
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) {
-        console.log("No token found");
-        return;
-      }
-      const response = await axios.get(`${serverUrl}/transaction`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { amount: text },
-      });
-      if (response) {
-        setTransactionFee(Number(response.data.fee));
-        setFetchingTxFee(false);
-      }
-    } catch (error) {
-      console.log(error);
-    } finally {
-      setFetchingTxFee(false);
-    }
+  const handleClose = () => {
+    setAmount("");
+    setTransactionFee(0);
+    setShowSuccessModal(false);
+    onClose();
+  };
+
+  const handleSuccessClose = () => {
+    setShowSuccessModal(false);
+    setAmount("");
+    setTransactionFee(0);
+    setError("");
+    setTxHash("");
+    setSuccessMessage("");
+    // Call onClose to reload the page
+    onClose();
   };
 
   //function to handle the gas fee
@@ -158,11 +203,11 @@ const CUSDPay = ({
       onRequestClose={onClose}
     >
       <View className="flex-1 justify-end bg-black/50">
-        <TouchableOpacity
-          className="flex-1"
-          activeOpacity={1}
-          onPress={onClose}
-        />
+      <TouchableOpacity
+        className="flex-1"
+        activeOpacity={1}
+        onPress={handleClose}
+      />
         <View className="bg-white rounded-t-3xl px-6 pt-4 pb-8 shadow-lg">
           <View className="w-10 h-1 bg-gray-300 rounded self-center mb-4" />
           <View>
@@ -188,28 +233,20 @@ const CUSDPay = ({
               </View>
 
               <Text className="text-black font-light text-base mb-4">
-                Available balance: {balance.toFixed(2)} cUSD
+                Available balance: {Number(cUSDBalance).toFixed(3)} cUSD
               </Text>
 
-              {fetchingTxFee ? (
-                <View className="flex-row items-center mb-4">
-                  <LinearGradient
-                    colors={["transparent", "rgba(0,0,0,0.1)", "transparent"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    className="flex-1 justify-center pl-2"
-                  >
-                    <Text className="text-gray-500 text-sm">
-                      Calculating fee...
-                    </Text>
-                  </LinearGradient>
-                </View>
-              ) : (
-                <Text className="text-black font-light text-base mb-6">
-                  Transaction fee:{" "}
-                  {transactionFee === null ? 0 : formatGasFee(transactionFee)}{" "}
+              {Number(amount) > 0 && (<View className="mb-6">
+                <Text className="text-black font-light text-base mb-2">
+                  Transaction fee (2%):{" "}
+                  {transactionFee.toFixed(3)}{" "}
                   cUSD
                 </Text>
+               
+                  <Text className="text-black font-semibold text-base">
+                    Total: {(Number(amount) + transactionFee).toFixed(3)} cUSD
+                  </Text>
+                </View>
               )}
 
               <TouchableOpacity
@@ -238,6 +275,45 @@ const CUSDPay = ({
           </View>
         </View>
       </View>
+
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleSuccessClose}
+      >
+        <View className="flex-1 justify-center items-center bg-black/50">
+          <View className="bg-white rounded-2xl p-6 mx-6 shadow-lg">
+            <View className="items-center mb-4">
+              <View className="w-16 h-16 bg-green-100 rounded-full items-center justify-center mb-4">
+                <Ionicons name="checkmark" size={32} color="#059669" />
+              </View>
+              <Text className="text-xl font-semibold text-gray-900 mb-2">
+                Payment Successful!
+              </Text>
+              <Text className="text-gray-600 text-center mb-4">
+                {successMessage}
+              </Text>
+              <View className="bg-gray-50 rounded-lg p-3 mb-4 w-full">
+                <Text className="text-sm text-gray-500 mb-1">Transaction Hash:</Text>
+                <Text className="text-xs text-gray-700 font-mono" numberOfLines={1}>
+                  {txHash}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={handleSuccessClose}
+              className="bg-emerald-600 py-3 rounded-xl"
+              activeOpacity={0.8}
+            >
+              <Text className="text-white font-semibold text-center text-base">
+                Done
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 };

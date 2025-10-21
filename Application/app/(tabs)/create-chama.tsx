@@ -1,4 +1,4 @@
-import { chamapayContract } from "@/constants/thirdweb";
+import { chamapayContract, cUSDContract } from "@/constants/thirdweb";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import {
@@ -103,10 +103,9 @@ export default function CreateChama() {
     collateralRequired: false, // Will be set automatically based on isPublic
   });
   const [newTerm, setNewTerm] = useState("");
-  const { data: totalChamas } = useReadContract({
+  const { data: totalChamas, isLoading } = useReadContract({
     contract: chamapayContract,
-    method: "totalChamas",
-    params: [],
+    method: "function totalChamas() view returns (uint256)",
   });
 
   // Date/Time picker states
@@ -132,6 +131,11 @@ export default function CreateChama() {
   useEffect(() => {
     setFormData((prev) => ({ ...prev, collateralRequired: prev.isPublic }));
   }, [formData.isPublic]);
+
+  // log the total chamas when the component mounts
+  useEffect(() => {
+    console.log("the total chamas", totalChamas);
+  }, [totalChamas]);
 
   const updateFormData = (field: keyof FormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -225,13 +229,14 @@ export default function CreateChama() {
       );
 
       const blockchainId = Number(totalChamas).toString();
+      console.log("the total chamas", totalChamas);
 
       // const data = await response.json();
 
       // if its public, we need to sign approve tx because the contract will be calling the transferFrom due to the locking
       if (formData.isPublic) {
         const approveTransaction = prepareContractCall({
-          contract: chamapayContract,
+          contract: cUSDContract,
           method: "function approve(address spender, uint256 amount)",
           params: [chamapayContract.address, totalCollateralRequiredInWei],
         });
@@ -296,7 +301,7 @@ export default function CreateChama() {
           name: formData.name,
           description: formData.description,
           type: formData.isPublic ? "Public" : "Private",
-          adminTerms: formData.adminTerms.join(", "),
+          adminTerms: JSON.stringify(formData.adminTerms),
           amount: formData.contribution.toString(),
           cycleTime: formData.frequency,
           maxNo: formData.maxMembers,

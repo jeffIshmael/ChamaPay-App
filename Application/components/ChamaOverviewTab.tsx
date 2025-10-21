@@ -65,7 +65,7 @@ const ChamaOverviewTab: FC<Props> = ({
         <View className="gap-3">
           <View className="flex-row justify-between">
             <Text className="text-sm text-gray-600">
-              Contributed KES {myContributions.toLocaleString()}
+              Contributed cUSD {myContributions.toLocaleString()}
             </Text>
           </View>
           <ProgressBar
@@ -80,7 +80,7 @@ const ChamaOverviewTab: FC<Props> = ({
           ) : (
             <View className="gap-2">
               <Text className="text-xs text-gray-600">
-                KES {remainingAmount.toLocaleString()} remaining • Due:{" "}
+                cUSD {remainingAmount.toLocaleString()} remaining • Due:{" "}
                 {contributionDueDate}
               </Text>
               <View className="flex-row gap-2">
@@ -124,7 +124,7 @@ const ChamaOverviewTab: FC<Props> = ({
           <View className="flex-row justify-between">
             <Text className="text-gray-600 text-sm">Amount:</Text>
             <Text className="text-gray-900 text-sm">
-              KES {nextPayoutAmount.toLocaleString()}
+              cUSD {nextPayoutAmount.toLocaleString()}
             </Text>
           </View>
         </View>
@@ -168,7 +168,7 @@ const ChamaOverviewTab: FC<Props> = ({
                 </View>
               </View>
               <Text className="text-sm text-gray-900">
-                KES {(transaction.amount || 0).toLocaleString()}
+                cUSD {(transaction.amount || 0).toLocaleString()}
               </Text>
             </View>
           ))}

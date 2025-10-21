@@ -128,6 +128,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [activeWallet]);
 
+  // Auto-reconnect wallet if it disconnects unexpectedly
+  useEffect(() => {
+    const checkWalletConnection = async () => {
+      // Only attempt reconnection if user is authenticated but wallet is disconnected
+      if (isAuthenticated && !activeWallet) {
+        try {
+          const storedWalletConnection = await storage.getWalletConnection();
+          if (storedWalletConnection?.connected) {
+            console.log('Wallet disconnected unexpectedly, attempting to reconnect...');
+            const wallet = inAppWallet({ smartAccount: { chain, sponsorGas: true } });
+            const maybeAccount: any = await (wallet as any).autoConnect?.();
+            const hasAccount = !!maybeAccount?.address || !!(wallet as any).getAccount?.();
+            if (hasAccount) {
+              await connect(wallet);
+              console.log('Wallet reconnected successfully');
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to auto-reconnect wallet:', error);
+        }
+      }
+    };
+
+    // Check wallet connection periodically
+    const interval = setInterval(checkWalletConnection, 5000); // Check every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated, activeWallet, connect]);
+
   const fetchUserData = async (authToken: string) => {
     try {
       const response = await fetch(`${serverUrl}/user`, {

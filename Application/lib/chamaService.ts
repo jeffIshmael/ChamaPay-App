@@ -40,6 +40,7 @@ export interface BackendChama {
   blockchainId: string;
   round: number;
   cycle: number;
+  payOutOrder: string;
   rating?: number;
   admin: {
     id: number;
@@ -119,6 +120,8 @@ export const getUserChamas = async (token: string): Promise<ChamaResponse> => {
       },
     });
 
+    console.log("the response", response);
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -182,11 +185,11 @@ export const transformChamaData = (backendChama: BackendChama) => {
   const memberCount = backendChama._count?.members || backendChama.members?.length || 0;
   
   return {
-    id: backendChama.slug, // Use slug as ID for routing
+    id: backendChama.id, // Use id as ID for routing
     slug: backendChama.slug, // Include slug for navigation
     name: backendChama.name,
     description: backendChama.description,
-    currency: "KES", // Default currency
+    currency: "cUSD", // Default currency
     totalMembers: memberCount,
     maxMembers: backendChama.maxNo,
     contribution: parseFloat(backendChama.amount),
@@ -198,12 +201,12 @@ export const transformChamaData = (backendChama: BackendChama) => {
     myTurnDate: backendChama.payDate ? new Date(backendChama.payDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     contributionDueDate: backendChama.startDate ? new Date(backendChama.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     hasOutstandingPayment: false, // Would need to check payment status
-    frequency: "Monthly", // Default frequency
+    frequency: `${backendChama.cycleTime} days`, // Convert cycle time to frequency string
     duration: `${backendChama.cycleTime} days`, // Convert cycle time to duration
-    rating: 4.5, // Default rating
+    rating: backendChama.rating || 0, // Default rating
     category: backendChama.type,
     location: "Nairobi", // Default location
-    adminTerms: backendChama.adminTerms ? JSON.parse(backendChama.adminTerms) : [],
+    adminTerms: backendChama.adminTerms ? (typeof backendChama.adminTerms === 'string' ? JSON.parse(backendChama.adminTerms) : backendChama.adminTerms) : [],
     collateralAmount: 0,
     nextPayout: backendChama.payDate ? new Date(backendChama.payDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     myTurn: false, // Would need to calculate based on current position
@@ -212,8 +215,9 @@ export const transformChamaData = (backendChama: BackendChama) => {
     status: "active", // Default status
     unreadMessages: 0, // Would need to implement message tracking
     isPublic: backendChama.type === "Public",
+    blockchainId: backendChama.blockchainId,
     messages: [], // Empty for now
-    payoutSchedule: [], // Would need to generate based on cycle
+    payoutSchedule: JSON.stringify(backendChama.payOutOrder) ? JSON.parse(backendChama.payOutOrder) : [], // Would need to generate based on cycle
     members: backendChama.members?.map(member => ({
       id: member.user.id,
       name: member.user.name,
@@ -243,7 +247,7 @@ export const registerChamaToDatabase = async (chamaData: RegisterChamaRequestBod
   }
 };
 
-// const response = await fetch(`${serverUrl}/chama/create`, {
+
       //   method: "POST",
       //   headers: {
       //     "Content-Type": "application/json",

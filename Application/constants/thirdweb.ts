@@ -64,6 +64,12 @@ export const chamapayContract = getContract({
   client,
 });
 
+export const cUSDContract = getContract({
+  address: cUSDAddress,
+  chain: celo,
+  client,
+});
+
 //  Function to get wallet balances
 export async function getAllBalances(address: string): Promise<AllBalances> {
   const [cUSDBalance, USDCBalance] = await Promise.all([
