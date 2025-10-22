@@ -1,7 +1,7 @@
 import { useAuth } from "@/Contexts/AuthContext";
 import { BackendChama, getPublicChamas } from "@/lib/chamaService";
 import { useRouter } from "expo-router";
-import { Calendar, CalendarClock, Search, Star, Users, Wallet } from "lucide-react-native";
+import { Calendar, Search, Star, Users, TrendingUp, Zap } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   FlatList,
@@ -10,6 +10,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -17,8 +18,6 @@ export default function DiscoverChamas() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedLocation, setSelectedLocation] = useState("all");
   const { token } = useAuth();
   const [backendChamas, setBackendChamas] = useState<BackendChama[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -61,10 +60,12 @@ export default function DiscoverChamas() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
+    return date.toLocaleDateString('en-US', {
       month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
+      day: 'numeric',
+      hour12: false,
+      hour:"numeric",
+      minute:"numeric",
     });
   };
 
@@ -78,27 +79,38 @@ export default function DiscoverChamas() {
     );
   };
 
-  const renderChamaCard = ({ item: chama }: { item: BackendChama }) => (
-    <TouchableOpacity
-      key={chama.slug}
-      className="bg-white rounded-xl border border-gray-200 p-4 mb-4"
-      activeOpacity={0.7}
-      onPress={() =>
-        router.push({
-          pathname: "/chama-details/[id]",
-          params: { id: chama.slug },
-        })
-      }
-    >
-      <View className="flex-row items-start justify-between mb-3">
-        <View className="flex-1">
-          <Text className="text-lg font-semibold text-gray-900 mb-2">
-            {chama.name}
-          </Text>
-          <Text className="text-sm text-gray-600 mb-2">{chama.description}</Text>
-          
-          {/* Rating Section */}
-          <View className="flex-row items-center gap-2 mb-3">
+  const getProgressPercentage = (chama: BackendChama) => {
+    const current = chama._count?.members || 0;
+    const max = chama.maxNo;
+    return (current / max) * 100;
+  };
+
+  const renderChamaCard = ({ item: chama }: { item: BackendChama }) => {
+    const progress = getProgressPercentage(chama);
+    const isFilling = progress > 70;
+
+    return (
+      <TouchableOpacity
+        className="bg-white rounded-2xl p-5 mb-3 active:scale-[0.98] shadow-sm"
+        activeOpacity={1}
+        onPress={() =>
+          router.push({
+            pathname: "/chama-details/[slug]",
+            params: { slug: chama.slug },
+          })
+        }
+      >
+        {/* Header */}
+        <View className="flex-row items-start justify-between mb-3">
+          <View className="flex-1 pr-3">
+            <Text className="text-lg font-bold text-gray-900 mb-1">
+              {chama.name}
+            </Text>
+            <Text className="text-sm text-gray-500 leading-5" numberOfLines={2}>
+              {chama.description}
+            </Text>
+             {/* Rating Section */}
+          <View className="flex-row items-center gap-2 mt-2">
             <View className="flex-row items-center gap-1">
               {renderStars((chama.rating ?? 0))}
             </View>
@@ -108,75 +120,102 @@ export default function DiscoverChamas() {
             <Text className="text-sm text-gray-500">
               ({Math.floor(Math.random() * 50) + 10} ratings)
             </Text>
+            </View>
           </View>
+          
+          {isFilling && (
+            <View className="bg-amber-50 px-2.5 py-1 rounded-full flex-row items-center gap-1">
+              <Zap size={12} color="#f59e0b" fill="#f59e0b" />
+              <Text className="text-xs font-semibold text-amber-700">Filling Fast</Text>
+            </View>
+          )}
         </View>
-      </View>
 
-      <View className="gap-2 mb-3">
-        <View className="flex-row justify-between">
-          <View className="flex-row items-center gap-2 flex-1">
-            <Users size={14} className="text-gray-400" />
-            <Text className="text-sm text-gray-600">
-              {/* Members count is not included; could be derived via include _count in API */}
-              Max {chama.maxNo} members
+        {/* Amount Highlight */}
+        <View className=" rounded-xl p-3 mb-3">
+          <Text className="text-xs text-emerald-600 font-medium mb-1">Monthly Contribution</Text>
+          <Text className="text-2xl font-bold text-emerald-700">
+            {parseFloat(chama.amount).toLocaleString()} <Text className="text-base">cUSD</Text>
+          </Text>
+        </View>
+
+        {/* Stats Grid */}
+        <View className="flex-row gap-3 mb-3">
+          <View className="flex-1 bg-gray-50 rounded-xl p-3">
+            <View className="flex-row items-center gap-1.5 mb-1">
+              <Users size={14} color="#6b7280" />
+              <Text className="text-xs text-gray-500 font-medium">Members</Text>
+            </View>
+            <Text className="text-base font-bold text-gray-900">
+              {chama._count?.members || 0}/{chama.maxNo}
             </Text>
           </View>
-          <View className="flex-row items-center gap-2 flex-1">
-            <Wallet size={14} className="text-gray-400" />
-            <Text className="text-sm text-gray-600">
-              KES {parseFloat(chama.amount).toLocaleString()}
+
+          <View className="flex-1 bg-gray-50 rounded-xl p-3">
+            <View className="flex-row items-center gap-1.5 mb-1">
+              <Calendar size={14} color="#6b7280" />
+              <Text className="text-xs text-gray-500 font-medium">Starts</Text>
+            </View>
+            <Text className="text-base font-bold text-gray-900">
+              {formatDate(chama.payDate as unknown as string)}
+            </Text>
+          </View>
+
+          <View className="flex-1 bg-gray-50 rounded-xl p-3">
+            <View className="flex-row items-center gap-1.5 mb-1">
+              <TrendingUp size={14} color="#6b7280" />
+              <Text className="text-xs text-gray-500 font-medium">Cycle</Text>
+            </View>
+            <Text className="text-base font-bold text-gray-900">
+              {chama.cycleTime}d
             </Text>
           </View>
         </View>
-        <View className="flex-row justify-between">
-          <View className="flex-row items-center gap-2 flex-1">
-            <CalendarClock size={14} className="text-gray-400" />
-            <Text className="text-sm text-gray-600">Every {chama.cycleTime} days</Text>
-          </View>
-          <View className="flex-row items-center gap-2 flex-1">
-            <Calendar size={14} className="text-gray-400" />
-            <Text className="text-sm text-gray-600">
-              Next payout {formatDate(chama.payDate as unknown as string)}
-            </Text>
-          </View>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView
       className="flex-1 bg-gray-50"
       style={{ paddingTop: insets.top }}
     >
-      {/* Header */}
-      <View className="bg-white border-b border-gray-200 px-4 pt-2">
-        <View className="flex-row items-center gap-4 mb-2">
-          <Text className="text-xl font-semibold text-gray-900 flex-1">
-            Discover Chamas
-          </Text>
-        </View>
+      {/* Clean Header */}
+      <View className="bg-white px-6 pt-4 pb-5">
+        <Text className="text-2xl font-bold text-gray-900 mb-4">
+          Discover Chamas
+        </Text>
 
-        {/* Search */}
-        <View className="relative mb-4">
-          <View className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
-            <Search size={20} color="#9ca3af" />
+        {/* Search Bar */}
+        <View className="relative">
+          <View className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
+            <Search size={18} color="#9ca3af" />
           </View>
           <TextInput
-            placeholder="Search chamas by name..."
+            placeholder="Search chamas..."
             value={searchTerm}
             onChangeText={setSearchTerm}
-            className="bg-gray-50 border-0 rounded-lg pl-10 pr-4 py-3 text-gray-900"
+            className="bg-gray-100 rounded-full pl-11 pr-4 py-3 text-gray-900 text-sm"
             placeholderTextColor="#9ca3af"
           />
         </View>
       </View>
 
-      {/* Results */}
-      <View className="flex-1 px-4">
+      {/* Content */}
+      <View className="flex-1 px-6">
         {loading ? (
-          <View className="bg-white rounded-xl border border-gray-200 p-8 items-center">
-            <Text className="text-gray-600">Loading chamas...</Text>
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator size="large" color="#10b981" />
+            <Text className="text-gray-500 mt-3">Loading chamas...</Text>
+          </View>
+        ) : error ? (
+          <View className="flex-1 items-center justify-center px-8">
+            <View className="w-16 h-16 bg-red-50 rounded-full items-center justify-center mb-4">
+              <Text className="text-3xl">⚠️</Text>
+            </View>
+            <Text className="text-lg font-bold text-gray-900 mb-2">Error Loading</Text>
+            <Text className="text-sm text-gray-600 text-center">{error}</Text>
           </View>
         ) : filteredChamas.length > 0 ? (
           <FlatList
@@ -184,22 +223,19 @@ export default function DiscoverChamas() {
             renderItem={renderChamaCard}
             keyExtractor={(item) => item.slug}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 20, paddingTop: 12 }}
+            contentContainerStyle={{ paddingTop: 16, paddingBottom: 20 }}
           />
         ) : (
-          <View className="bg-white rounded-xl border border-gray-200 p-8 items-center">
-            <Search size={48} className="text-gray-400 mb-4" />
-            {error ? (
-              <>
-                <Text className="text-lg font-medium text-gray-900 mb-2">Error</Text>
-                <Text className="text-sm text-gray-600 text-center">{error}</Text>
-              </>
-            ) : (
-              <>
-                <Text className="text-lg font-medium text-gray-900 mb-2">No Chamas Found</Text>
-                <Text className="text-sm text-gray-600 text-center">Try adjusting your search or filters</Text>
-              </>
-            )}
+          <View className="flex-1 items-center justify-center px-8">
+            <View className="w-16 h-16 bg-gray-100 rounded-full items-center justify-center mb-4">
+              <Search size={28} color="#9ca3af" />
+            </View>
+            <Text className="text-lg font-bold text-gray-900 mb-2">No Chamas Found</Text>
+            <Text className="text-sm text-gray-500 text-center">
+              {searchTerm 
+                ? "Try a different search term" 
+                : "No chamas available at the moment"}
+            </Text>
           </View>
         )}
       </View>

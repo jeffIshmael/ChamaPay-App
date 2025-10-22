@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -11,71 +10,61 @@ async function main() {
     prisma.user.create({
       data: {
         email: 'sarah@email.com',
-        name: 'Sarah Johnson',
+        userName: 'Sarah Johnson',
         phoneNo: 722345678,
         address: '0x1234567890abcdef1234567890abcdef12345678',
-        privKey: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
-        mnemonics: 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
-        password: await bcrypt.hash('password123', 10),
-        role: 'user',
-        profile: 'Young professional interested in investment opportunities',
-        profileImageUrl: null,
+        smartAddress: '0x1234567890abcdef1234567890abcdef12345678',
+        profileImageUrl: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=40&h=40&fit=crop&crop=face',
       },
     }),
     prisma.user.create({
       data: {
         email: 'alice@email.com',
-        name: 'Alice Mwangi',
+        userName: 'Alice Mwangi',
         phoneNo: 700111222,
         address: '0x2345678901bcdef1234567890abcdef1234567890',
-        privKey: '0xbcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab',
-        mnemonics: 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
-        password: await bcrypt.hash('password123', 10),
-        role: 'admin',
-        profile: 'Experienced chama administrator',
-        profileImageUrl: null,
+        smartAddress: '0x2345678901bcdef1234567890abcdef1234567890',
+        profileImageUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face',
       },
     }),
     prisma.user.create({
       data: {
         email: 'mary@email.com',
-        name: 'Mary Wanjiru',
+        userName: 'Mary Wanjiru',
         phoneNo: 700222333,
         address: '0x3456789012cdef1234567890abcdef12345678901',
-        privKey: '0xcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abc',
-        mnemonics: 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
-        password: await bcrypt.hash('password123', 10),
-        role: 'user',
-        profile: 'Entrepreneur focused on women empowerment',
-        profileImageUrl: null,
+        smartAddress: '0x3456789012cdef1234567890abcdef12345678901',
+        profileImageUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=40&h=40&fit=crop&crop=face',
       },
     }),
     prisma.user.create({
       data: {
         email: 'james@email.com',
-        name: 'James Mwangi',
+        userName: 'James Mwangi',
         phoneNo: 701444555,
         address: '0x4567890123def1234567890abcdef123456789012',
-        privKey: '0xdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd',
-        mnemonics: 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
-        password: await bcrypt.hash('password123', 10),
-        role: 'user',
-        profile: 'Family man looking to support his community',
-        profileImageUrl: null,
+        smartAddress: '0x4567890123def1234567890abcdef123456789012',
+        profileImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face',
       },
     }),
     prisma.user.create({
       data: {
         email: 'brian@email.com',
-        name: 'Brian Otieno',
+        userName: 'Brian Otieno',
         phoneNo: 702555666,
         address: '0x5678901234ef1234567890abcdef1234567890123',
-        privKey: '0xef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcde',
-        mnemonics: 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
-        password: await bcrypt.hash('password123', 10),
-        role: 'user',
-        profile: 'Young professional in tech industry',
-        profileImageUrl: null,
+        smartAddress: '0x5678901234ef1234567890abcdef1234567890123',
+        profileImageUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=40&h=40&fit=crop&crop=face',
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'jeff@email.com',
+        userName: 'Jeff Admin',
+        phoneNo: 703666777,
+        address: '0x6789012345f1234567890abcdef12345678901234',
+        smartAddress: '0x6789012345f1234567890abcdef12345678901234',
+        profileImageUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face',
       },
     }),
   ]);
@@ -84,6 +73,7 @@ async function main() {
 
   // Create chamas
   const chamas = await Promise.all([
+    // Private chamas (existing ones)
     prisma.chama.create({
       data: {
         name: 'Women Entrepreneurs Chama',
@@ -96,28 +86,9 @@ async function main() {
         cycleTime: 30,
         amount: '5000',
         maxNo: 5,
+        rating: 4,
         blockchainId: '1',
         adminId: users[1].id, // Alice as admin
-        collateralRequired: true,
-        promoCode: 'WOMEN2024',
-      },
-    }),
-    prisma.chama.create({
-      data: {
-        name: 'Young Professionals Investment Group',
-        slug: 'young-professionals-investment-group',
-        description: 'A group of young professionals pooling resources for joint investments and financial growth.',
-        adminTerms: JSON.stringify(['Must be a young professional.', 'Contributions must be made monthly.']),
-        type: 'Public',
-        startDate: new Date('2024-07-01'),
-        payDate: new Date('2024-08-25'),
-        cycleTime: 30,
-        amount: '3000',
-        maxNo: 10,
-        blockchainId: '2',
-        adminId: users[1].id, // Alice as admin
-        collateralRequired: false,
-        promoCode: 'YOUNG2024',
       },
     }),
     prisma.chama.create({
@@ -132,10 +103,130 @@ async function main() {
         cycleTime: 30,
         amount: '2000',
         maxNo: 10,
+        rating: 5,
         blockchainId: '3',
         adminId: users[3].id, // James as admin
-        collateralRequired: false,
-        promoCode: 'FAMILY2024',
+      },
+    }),
+    
+    // Public chamas for discover page
+    prisma.chama.create({
+      data: {
+        name: 'Digital Nomads Savings',
+        slug: 'digital-nomads-savings',
+        description: 'For remote workers and freelancers building financial security',
+        adminTerms: JSON.stringify(['Must be a remote worker or freelancer.', 'Contributions must be made monthly.']),
+        type: 'Public',
+        startDate: new Date('2024-01-15'),
+        payDate: new Date('2025-02-10'),
+        cycleTime: 30,
+        amount: '8000',
+        maxNo: 12,
+        rating: 4,
+        blockchainId: '4',
+        adminId: users[5].id, // Jeff as admin
+      },
+    }),
+    prisma.chama.create({
+      data: {
+        name: 'Small Business Owners Circle',
+        slug: 'small-business-owners-circle',
+        description: 'Supporting entrepreneurs and small business growth',
+        adminTerms: JSON.stringify(['Must be an entrepreneur or small business owner.', 'Contributions must be made monthly.']),
+        type: 'Public',
+        startDate: new Date('2024-03-20'),
+        payDate: new Date('2025-01-30'),
+        cycleTime: 30,
+        amount: '15000',
+        maxNo: 10,
+        rating: 5,
+        blockchainId: '5',
+        adminId: users[5].id, // Jeff as admin
+      },
+    }),
+    prisma.chama.create({
+      data: {
+        name: 'Student Loan Repayment Group',
+        slug: 'student-loan-repayment-group',
+        description: 'Helping students manage and repay their education loans together',
+        adminTerms: JSON.stringify(['Must be a student with an education loan.', 'Contributions must be made monthly.']),
+        type: 'Public',
+        startDate: new Date('2024-02-10'),
+        payDate: new Date('2025-06-15'),
+        cycleTime: 30,
+        amount: '3000',
+        maxNo: 15,
+        rating: 4,
+        blockchainId: '6',
+        adminId: users[5].id, // Jeff as admin
+      },
+    }),
+    prisma.chama.create({
+      data: {
+        name: 'Real Estate Investment Pool',
+        slug: 'real-estate-investment-pool',
+        description: 'Collective investment in real estate properties and land',
+        adminTerms: JSON.stringify(['Must have a real estate property or land to invest in.', 'Contributions must be made monthly.']),
+        type: 'Public',
+        startDate: new Date('2024-04-05'),
+        payDate: new Date('2025-12-20'),
+        cycleTime: 30,
+        amount: '25000',
+        maxNo: 12,
+        rating: 4,
+        blockchainId: '7',
+        adminId: users[5].id, // Jeff as admin
+      },
+    }),
+    prisma.chama.create({
+      data: {
+        name: 'Tech Startup Founders',
+        slug: 'tech-startup-founders',
+        description: 'Funding and support for tech startup founders and innovators',
+        adminTerms: JSON.stringify(['Must be a tech startup founder or innovator.', 'Contributions must be made monthly.']),
+        type: 'Public',
+        startDate: new Date('2024-05-12'),
+        payDate: new Date('2025-09-10'),
+        cycleTime: 30,
+        amount: '20000',
+        maxNo: 10,
+        rating: 4,
+        blockchainId: '8',
+        adminId: users[5].id, // Jeff as admin
+      },
+    }),
+    prisma.chama.create({
+      data: {
+        name: 'Healthcare Workers Support',
+        slug: 'healthcare-workers-support',
+        description: 'Financial support group for healthcare professionals and medical workers',
+        adminTerms: JSON.stringify(['Must be a healthcare professional or medical worker.', 'Contributions must be made monthly.']),
+        type: 'Public',
+        startDate: new Date('2024-06-18'),
+        payDate: new Date('2025-08-25'),
+        cycleTime: 30,
+        amount: '12000',
+        maxNo: 12,
+        rating: 5,
+        blockchainId: '9',
+        adminId: users[5].id, // Jeff as admin
+      },
+    }),
+    prisma.chama.create({
+      data: {
+        name: 'Creative Artists Collective',
+        slug: 'creative-artists-collective',
+        description: 'Supporting artists, musicians, and creative professionals',
+        adminTerms: JSON.stringify(['Must be an artist, musician, or creative professional.', 'Contributions must be made monthly.']),
+        type: 'Public',
+        startDate: new Date('2024-07-22'),
+        payDate: new Date('2025-10-15'),
+        cycleTime: 30,
+        amount: '6000',
+        maxNo: 15,
+        rating: 4,
+        blockchainId: '10',
+        adminId: users[5].id, // Jeff as admin
       },
     }),
   ]);
@@ -170,37 +261,11 @@ async function main() {
       },
     }),
 
-    // Young Professionals Investment Group members
-    prisma.chamaMember.create({
-      data: {
-        userId: users[0].id, // Sarah
-        chamaId: chamas[1].id,
-        isPaid: true,
-        payDate: new Date('2024-07-01'),
-      },
-    }),
-    prisma.chamaMember.create({
-      data: {
-        userId: users[1].id, // Alice (admin)
-        chamaId: chamas[1].id,
-        isPaid: true,
-        payDate: new Date('2024-07-01'),
-      },
-    }),
-    prisma.chamaMember.create({
-      data: {
-        userId: users[4].id, // Brian
-        chamaId: chamas[1].id,
-        isPaid: true,
-        payDate: new Date('2024-07-01'),
-      },
-    }),
-
     // Family Welfare Chama members
     prisma.chamaMember.create({
       data: {
         userId: users[0].id, // Sarah
-        chamaId: chamas[2].id,
+        chamaId: chamas[1].id,
         isPaid: true,
         payDate: new Date('2024-07-01'),
       },
@@ -208,7 +273,7 @@ async function main() {
     prisma.chamaMember.create({
       data: {
         userId: users[3].id, // James (admin)
-        chamaId: chamas[2].id,
+        chamaId: chamas[1].id,
         isPaid: true,
         payDate: new Date('2024-07-01'),
       },
@@ -224,7 +289,7 @@ async function main() {
       data: {
         chamaId: chamas[0].id,
         senderId: users[1].id, // Alice (admin)
-        text: 'Welcome to Savings Champions! Please make sure to contribute by the 30th of each month.',
+        text: 'Welcome to Women Entrepreneurs Chama! Please make sure to contribute by the 30th of each month.',
       },
     }),
     prisma.message.create({
@@ -249,47 +314,24 @@ async function main() {
       },
     }),
 
-    // Young Professionals Investment Group messages
-    prisma.message.create({
-      data: {
-        chamaId: chamas[1].id,
-        senderId: users[1].id, // Alice (admin)
-        text: 'Welcome to the group! Let\'s make smart investments together.',
-      },
-    }),
-    prisma.message.create({
-      data: {
-        chamaId: chamas[1].id,
-        senderId: users[4].id, // Brian
-        text: 'Looking forward to the next payout round!',
-      },
-    }),
-    prisma.message.create({
-      data: {
-        chamaId: chamas[1].id,
-        senderId: users[0].id, // Sarah
-        text: 'Excited for my turn this month!',
-      },
-    }),
-
     // Family Welfare Chama messages
     prisma.message.create({
       data: {
-        chamaId: chamas[2].id,
+        chamaId: chamas[1].id,
         senderId: users[3].id, // James (admin)
         text: 'Remember to contribute before the end of the month.',
       },
     }),
     prisma.message.create({
       data: {
-        chamaId: chamas[2].id,
+        chamaId: chamas[1].id,
         senderId: users[3].id, // James
         text: 'Thank you all for your support!',
       },
     }),
     prisma.message.create({
       data: {
-        chamaId: chamas[2].id,
+        chamaId: chamas[1].id,
         senderId: users[0].id, // Sarah
         text: 'Happy to help, James!',
       },
@@ -319,24 +361,13 @@ async function main() {
         chamaId: chamas[0].id,
       },
     }),
-
-    // Young Professionals Investment Group payments
     prisma.payment.create({
       data: {
-        amount: '3000',
+        amount: '5000',
         description: 'Monthly contribution',
         txHash: '0x3456789012cdef1234567890abcdef1234567890abcdef1234567890abcdef123',
-        userId: users[0].id,
-        chamaId: chamas[1].id,
-      },
-    }),
-    prisma.payment.create({
-      data: {
-        amount: '3000',
-        description: 'Monthly contribution',
-        txHash: '0x4567890123def1234567890abcdef1234567890abcdef1234567890abcdef1234',
-        userId: users[4].id,
-        chamaId: chamas[1].id,
+        userId: users[2].id,
+        chamaId: chamas[0].id,
       },
     }),
 
@@ -345,18 +376,18 @@ async function main() {
       data: {
         amount: '2000',
         description: 'Monthly contribution',
-        txHash: '0x5678901234ef1234567890abcdef1234567890abcdef1234567890abcdef12345',
+        txHash: '0x4567890123def1234567890abcdef1234567890abcdef1234567890abcdef1234',
         userId: users[0].id,
-        chamaId: chamas[2].id,
+        chamaId: chamas[1].id,
       },
     }),
     prisma.payment.create({
       data: {
         amount: '2000',
         description: 'Monthly contribution',
-        txHash: '0x6789012345f1234567890abcdef1234567890abcdef1234567890abcdef123456',
+        txHash: '0x5678901234ef1234567890abcdef1234567890abcdef1234567890abcdef12345',
         userId: users[3].id,
-        chamaId: chamas[2].id,
+        chamaId: chamas[1].id,
       },
     }),
   ]);
@@ -375,17 +406,9 @@ async function main() {
     }),
     prisma.notification.create({
       data: {
-        message: 'Payment reminder for Young Professionals Investment Group',
-        userId: users[0].id,
-        chamaId: chamas[1].id,
-        read: false,
-      },
-    }),
-    prisma.notification.create({
-      data: {
         message: 'Your turn is coming up in Family Welfare Chama',
         userId: users[0].id,
-        chamaId: chamas[2].id,
+        chamaId: chamas[1].id,
         read: true,
       },
     }),
@@ -399,17 +422,17 @@ async function main() {
       data: {
         amount: BigInt(25000),
         txHash: '0x78901234561234567890abcdef1234567890abcdef1234567890abcdef1234567',
-        receiver: users[2].name || 'Mary Wanjiru',
+        receiver: users[2].userName || 'Mary Wanjiru',
         userId: users[2].id,
         chamaId: chamas[0].id,
       },
     }),
     prisma.payOut.create({
       data: {
-        amount: BigInt(24000),
+        amount: BigInt(20000),
         txHash: '0x8901234567234567890abcdef1234567890abcdef1234567890abcdef12345678',
-        receiver: users[1].name || 'Alice Mwangi',
-        userId: users[1].id,
+        receiver: users[3].userName || 'James Mwangi',
+        userId: users[3].id,
         chamaId: chamas[1].id,
       },
     }),

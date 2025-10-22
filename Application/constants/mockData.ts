@@ -517,6 +517,7 @@ export const mockJoinedChamas: JoinedChama[] = [
 
 export type PublicChama = {
   id: string;
+  slug: string;
   name: string;
   description: string;
   members: number;
@@ -536,6 +537,7 @@ export type PublicChama = {
 export const mockPublicChamas: PublicChama[] = [
   {
     id: "4",
+    slug: "digital-nomads-savings",
     name: "Digital Nomads Savings",
     description:
       "For remote workers and freelancers building financial security",
@@ -554,6 +556,7 @@ export const mockPublicChamas: PublicChama[] = [
   },
   {
     id: "5",
+    slug: "small-business-owners-circle",
     name: "Small Business Owners Circle",
     description: "Supporting entrepreneurs and small business growth",
     members: 6,
@@ -571,6 +574,7 @@ export const mockPublicChamas: PublicChama[] = [
   },
   {
     id: "6",
+    slug: "student-loan-repayment-group",
     name: "Student Loan Repayment Group",
     description: "Helping students manage and repay their education loans together",
     members: 12,
@@ -588,6 +592,7 @@ export const mockPublicChamas: PublicChama[] = [
   },
   {
     id: "7",
+    slug: "real-estate-investment-pool",
     name: "Real Estate Investment Pool",
     description: "Collective investment in real estate properties and land",
     members: 10,
@@ -605,6 +610,7 @@ export const mockPublicChamas: PublicChama[] = [
   },
   {
     id: "8",
+    slug: "tech-startup-founders",
     name: "Tech Startup Founders",
     description: "Funding and support for tech startup founders and innovators",
     members: 7,
@@ -622,6 +628,7 @@ export const mockPublicChamas: PublicChama[] = [
   },
   {
     id: "9",
+    slug: "healthcare-workers-support",
     name: "Healthcare Workers Support",
     description: "Financial support group for healthcare professionals and medical workers",
     members: 9,
@@ -639,6 +646,7 @@ export const mockPublicChamas: PublicChama[] = [
   },
   {
     id: "10",
+    slug: "creative-artists-collective",
     name: "Creative Artists Collective",
     description: "Supporting artists, musicians, and creative professionals",
     members: 11,

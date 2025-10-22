@@ -108,15 +108,6 @@ const MembersTab: FC<Props> = ({ members = [] }) => {
                         </View>
                       </View>
                     </View>
-                    
-                    {/* Position Number */}
-                    <View className="items-center">
-                      <View className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center">
-                        <Text className="text-sm font-bold text-gray-600">
-                          #{index + 1}
-                        </Text>
-                      </View>
-                    </View>
                   </View>
                 </Card>
               );
