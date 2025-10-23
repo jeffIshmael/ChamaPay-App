@@ -1,16 +1,23 @@
-import SeedPhraseModal from '@/components/SeedPhraseModal';
+import SeedPhraseModal from "@/components/SeedPhraseModal";
 import { useAuth } from "@/Contexts/AuthContext";
-import * as Clipboard from 'expo-clipboard';
+import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
   Bell,
   Check,
+  ChevronRight,
   Copy,
   Edit,
+  Eye,
+  FileText,
+  HelpCircle,
+  Key,
   LogOut,
+  Settings,
   Shield,
-  Wallet
+  User,
+  Wallet,
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -45,13 +52,13 @@ export default function ProfileSettings() {
 
   // Default avatar URLs based on user's initials
   const getDefaultAvatar = () => {
-    const initials = (user?.userName || user?.email || 'U')
-      .split(' ')
-      .map(n => n[0])
-      .join('')
+    const initials = (user?.userName || user?.email || "U")
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
       .toUpperCase()
       .slice(0, 2);
-    
+
     return `https://api.dicebear.com/7.x/initials/svg?seed=${initials}&backgroundColor=10b981&textColor=ffffff`;
   };
 
@@ -109,11 +116,11 @@ export default function ProfileSettings() {
       "You are about to view your wallet recovery phrase. Make sure you are in a private location and no one can see your screen.",
       [
         { text: "Cancel", style: "cancel" },
-        { 
-          text: "Continue", 
+        {
+          text: "Continue",
           onPress: () => setShowSeedPhraseModal(true),
-          style: "default"
-        }
+          style: "default",
+        },
       ]
     );
   };
@@ -127,216 +134,337 @@ export default function ProfileSettings() {
   }
 
   return (
-    <SafeAreaView
-      className="flex-1 bg-gray-50"
-      style={{ paddingTop: insets.top }}
-    >
-      {/* Header */}
-      <View className="bg-white border-b border-gray-200 px-4 py-2">
-        <View className="flex-row items-center gap-4">
+    <View className="flex-1 bg-gray-50">
+      {/* Enhanced Header */}
+      <View
+        className="bg-emerald-700 px-6 pb-8 pt-4"
+        style={{ paddingTop: insets.top + 16 }}
+      >
+        <View className="flex-row items-center justify-between mb-6">
           <TouchableOpacity
             onPress={() => router.back()}
-            className="p-2 rounded-lg active:bg-gray-100"
+            className="w-10 h-10 bg-white/20 rounded-full items-center justify-center"
+            activeOpacity={0.8}
           >
-            <ArrowLeft size={20} color="#374151" />
+            <ArrowLeft size={20} color="white" />
           </TouchableOpacity>
-          <Text className="text-xl font-semibold text-gray-900">
-            Profile & Settings
-          </Text>
+          <View className="flex-row items-center gap-2">
+            <Settings size={20} color="white" />
+            <Text className="text-xl font-bold text-white">
+              Profile & Settings
+            </Text>
+          </View>
+          <View className="w-10" />
+        </View>
+
+        {/* Profile Preview Card */}
+        <View className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
+          <View className="flex-row items-center gap-4">
+            <View className="relative">
+              <Image
+                source={{ uri: getUserProfileImage() }}
+                className="w-16 h-16 rounded-full border-2 border-white/30"
+              />
+              <View className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full items-center justify-center border-2 border-white">
+                <User size={12} color="white" />
+              </View>
+            </View>
+            <View className="flex-1">
+              <Text className="text-lg font-bold text-white">
+                {user?.userName || "User"}
+              </Text>
+              <Text className="text-emerald-100 text-sm">
+                {user?.email || "No email provided"}
+              </Text>
+              <View className="flex-row items-center gap-1 mt-1">
+                <View className="w-2 h-2 bg-emerald-300 rounded-full" />
+                <Text className="text-emerald-100 text-xs">Active</Text>
+              </View>
+            </View>
+          </View>
         </View>
       </View>
 
-      <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
-        {/* Profile Info */}
-        <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-          <View className="flex-row items-center gap-4 mb-4">
-            <Image
-              source={{ uri: getUserProfileImage() }}
-              className="w-16 h-16 rounded-full"
-              style={{ backgroundColor: '#f3f4f6' }}
-            />
-            <View className="flex-1">
-              <Text className="text-xl font-semibold text-gray-900">
-                {user?.userName || "User"}
-              </Text>
-              <Text className="text-gray-600">
-                {user?.email || "No email provided"}
-              </Text>
-            </View>
-            <TouchableOpacity 
-              onPress={() => router.push('/edit-profile')}
-              className="p-2 border border-gray-300 rounded-lg active:bg-gray-50"
-            >
-              <Edit size={16} color="#374151" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Wallet Info */}
-        {user?.address && (
-          <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-            <View className="flex-row items-center gap-2 mb-4">
-              <Wallet size={20} color="#059669" />
-              <Text className="text-lg font-medium text-gray-900">
-                Wallet Information
-              </Text>
-            </View>
-            <View className="bg-gray-50 rounded-lg p-4">
-              <Text className="text-sm text-gray-600 mb-2">Wallet Address</Text>
+      <ScrollView className="flex-1 -mt-4" showsVerticalScrollIndicator={false}>
+        <View className="px-6">
+          {/* Edit Profile Card */}
+          <TouchableOpacity onPress={() => router.push("/edit-profile")}>
+            <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
               <View className="flex-row items-center justify-between">
-                <Text className="text-gray-900 font-mono text-sm flex-1">
-                  {formatWalletAddress(user.address)}
-                </Text>
+                <View className="flex-row items-center gap-4">
+                  <View className="w-12 h-12 bg-emerald-100 rounded-xl items-center justify-center">
+                    <Edit size={20} color="#10b981" />
+                  </View>
+                  <View>
+                    <Text className="text-lg font-bold text-gray-900">
+                      Edit Profile
+                    </Text>
+                    <Text className="text-gray-600 text-sm">
+                      Update your personal information
+                    </Text>
+                  </View>
+                </View>
                 <TouchableOpacity
-                  onPress={copyWalletAddress}
-                  className="ml-2 p-2 rounded-lg active:bg-gray-200"
+                  onPress={() => router.push("/edit-profile")}
+                  className="w-10 h-10 bg-emerald-50 rounded-xl items-center justify-center"
+                  activeOpacity={0.8}
                 >
-                  {copiedAddress ? (
-                    <Check size={16} color="#059669" />
-                  ) : (
-                    <Copy size={16} color="#374151" />
-                  )}
+                  <ChevronRight size={20} color="#10b981" />
                 </TouchableOpacity>
               </View>
-              <Text className="text-xs text-gray-500 mt-2">
-                {copiedAddress ? "Address copied!" : "Tap to copy full address"}
-              </Text>
             </View>
-          </View>
-        )}
-
-        {/* Notification Settings */}
-        <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-          <View className="flex-row items-center gap-2 mb-4">
-            <Bell size={20} color="#ea580c" />
-            <Text className="text-lg font-medium text-gray-900">
-              Notifications
-            </Text>
-          </View>
-          <View className="gap-4">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1 pr-4">
-                <Text className="text-gray-900 font-medium">
-                  Push Notifications
-                </Text>
-                <Text className="text-sm text-gray-600">
-                  Receive notifications on your device
-                </Text>
-              </View>
-              <Switch
-                value={notifications.pushNotifications}
-                onValueChange={(value) =>
-                  updateNotificationSetting("pushNotifications", value)
-                }
-                trackColor={{ false: "#f3f4f6", true: "#10b981" }}
-                thumbColor="#ffffff"
-              />
-            </View>
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1 pr-4">
-                <Text className="text-gray-900 font-medium">
-                  Email Notifications
-                </Text>
-                <Text className="text-sm text-gray-600">
-                  Receive updates via email
-                </Text>
-              </View>
-              <Switch
-                value={notifications.emailNotifications}
-                onValueChange={(value) =>
-                  updateNotificationSetting("emailNotifications", value)
-                }
-                trackColor={{ false: "#f3f4f6", true: "#10b981" }}
-                thumbColor="#ffffff"
-              />
-            </View>
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1 pr-4">
-                <Text className="text-gray-900 font-medium">
-                  Contribution Reminders
-                </Text>
-                <Text className="text-sm text-gray-600">
-                  Reminders before due dates
-                </Text>
-              </View>
-              <Switch
-                value={notifications.contributionReminders}
-                onValueChange={(value) =>
-                  updateNotificationSetting("contributionReminders", value)
-                }
-                trackColor={{ false: "#f3f4f6", true: "#10b981" }}
-                thumbColor="#ffffff"
-              />
-            </View>
-          </View>
-        </View>
-
-        {/* Security */}
-        <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-          <View className="flex-row items-center gap-2 mb-4">
-            <Shield size={20} color="#059669" />
-            <Text className="text-lg font-medium text-gray-900">Security</Text>
-          </View>
-          <View className="gap-3">
-            <TouchableOpacity className="w-full p-4 border border-gray-300 rounded-lg active:bg-gray-50">
-              <Text className="text-gray-700 font-medium">
-                Two-Factor Authentication
-              </Text>
-              <Text className="text-sm text-gray-500 mt-1">
-                Add an extra layer of security
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity className="w-full p-4 border border-gray-300 rounded-lg active:bg-gray-50">
-              <Text className="text-gray-700 font-medium">
-                Change Password
-              </Text>
-              <Text className="text-sm text-gray-500 mt-1">
-                Update your account password
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              onPress={handleShowSeedPhrase}
-              className="w-full p-4 border border-gray-300 rounded-lg active:bg-gray-50"
-            >
-              <Text className="text-gray-700 font-medium">
-                Show Seed Phrase
-              </Text>
-              <Text className="text-sm text-gray-500 mt-1">
-                View your wallet recovery phrase (requires authentication)
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Account Actions */}
-        <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-          <View className="gap-3">
-            <TouchableOpacity className="w-full p-4 border border-gray-300 rounded-lg active:bg-gray-50">
-              <Text className="text-gray-700 font-medium">Privacy Policy</Text>
-              <Text className="text-sm text-gray-500 mt-1">
-                Read our privacy policy
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity className="w-full p-4 border border-gray-300 rounded-lg active:bg-gray-50">
-              <Text className="text-gray-700 font-medium">
-                Terms of Service
-              </Text>
-              <Text className="text-sm text-gray-500 mt-1">
-                Review our terms and conditions
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Sign Out Button */}
-        <View className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-          <TouchableOpacity
-            onPress={handleSignOut}
-            className="w-full p-4 bg-red-600 rounded-lg active:bg-red-700 flex-row items-center justify-center"
-          >
-            <LogOut size={16} color="#ffffff" style={{ marginRight: 8 }} />
-            <Text className="text-white font-medium">Sign Out</Text>
           </TouchableOpacity>
+
+          {/* Wallet Info */}
+          {user?.address && (
+            <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
+              <View className="flex-row items-center gap-3 mb-4">
+                {/* <View className="w-12 h-12 bg-blue-100 rounded-xl items-center justify-center">
+                  <Wallet size={20} color="#3b82f6" />
+                </View> */}
+                <View>
+                  <Text className="text-lg font-bold text-gray-900">
+                    Wallet Information
+                  </Text>
+                  <Text className="text-gray-600 text-sm">
+                    Your blockchain wallet details
+                  </Text>
+                </View>
+              </View>
+              <View className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+                <Text className="text-sm text-blue-700 font-medium mb-2">
+                  Wallet Address
+                </Text>
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-gray-900 font-mono text-sm flex-1">
+                    {formatWalletAddress(user.address)}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={copyWalletAddress}
+                    className="ml-3 p-2 bg-blue-600 rounded-lg active:bg-blue-700"
+                    activeOpacity={0.8}
+                  >
+                    {copiedAddress ? (
+                      <Check size={16} color="white" />
+                    ) : (
+                      <Copy size={16} color="white" />
+                    )}
+                  </TouchableOpacity>
+                </View>
+                <Text className="text-xs text-blue-600 mt-2 font-medium">
+                  {copiedAddress
+                    ? "✓ Address copied to clipboard!"
+                    : "Tap to copy full address"}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Notification Settings */}
+          <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
+            <View className="flex-row items-center gap-3 mb-6">
+              {/* <View className="w-12 h-12 bg-orange-100 rounded-xl items-center justify-center">
+                <Bell size={20} color="#ea580c" />
+              </View> */}
+              <View>
+                <Text className="text-lg font-bold text-gray-900">
+                  Notifications
+                </Text>
+                <Text className="text-gray-600 text-sm">
+                  Manage your notification preferences
+                </Text>
+              </View>
+            </View>
+            <View className="gap-4">
+              <View className="flex-row items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <View className="flex-1 pr-4">
+                  <Text className="text-gray-900 font-semibold text-base">
+                    Push Notifications
+                  </Text>
+                  <Text className="text-sm text-gray-600 mt-1">
+                    Receive notifications on your device
+                  </Text>
+                </View>
+                <Switch
+                  value={notifications.pushNotifications}
+                  onValueChange={(value) =>
+                    updateNotificationSetting("pushNotifications", value)
+                  }
+                  trackColor={{ false: "#e5e7eb", true: "#10b981" }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+              <View className="flex-row items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <View className="flex-1 pr-4">
+                  <Text className="text-gray-900 font-semibold text-base">
+                    Email Notifications
+                  </Text>
+                  <Text className="text-sm text-gray-600 mt-1">
+                    Receive updates via email
+                  </Text>
+                </View>
+                <Switch
+                  value={notifications.emailNotifications}
+                  onValueChange={(value) =>
+                    updateNotificationSetting("emailNotifications", value)
+                  }
+                  trackColor={{ false: "#e5e7eb", true: "#10b981" }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+              <View className="flex-row items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <View className="flex-1 pr-4">
+                  <Text className="text-gray-900 font-semibold text-base">
+                    Contribution Reminders
+                  </Text>
+                  <Text className="text-sm text-gray-600 mt-1">
+                    Reminders before due dates
+                  </Text>
+                </View>
+                <Switch
+                  value={notifications.contributionReminders}
+                  onValueChange={(value) =>
+                    updateNotificationSetting("contributionReminders", value)
+                  }
+                  trackColor={{ false: "#e5e7eb", true: "#10b981" }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* Security */}
+          <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
+            <View className="flex-row items-center gap-3 mb-6">
+              {/* <View className="w-12 h-12 bg-red-100 rounded-xl items-center justify-center">
+                <Shield size={20} color="#dc2626" />
+              </View> */}
+              <View>
+                <Text className="text-lg font-bold text-gray-900">
+                  Security
+                </Text>
+                <Text className="text-gray-600 text-sm">
+                  Protect your account and wallet
+                </Text>
+              </View>
+            </View>
+            <View className="gap-3">
+              <TouchableOpacity className="w-full p-4 bg-gray-50 rounded-xl active:bg-gray-100 flex-row items-center justify-between">
+                <View className="flex-row items-center gap-3">
+                  <View className="w-10 h-10 bg-blue-100 rounded-lg items-center justify-center">
+                    <Key size={16} color="#3b82f6" />
+                  </View>
+                  <View>
+                    <Text className="text-gray-900 font-semibold text-base">
+                      Two-Factor Authentication
+                    </Text>
+                    <Text className="text-sm text-gray-600 mt-1">
+                      Add an extra layer of security
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={20} color="#9ca3af" />
+              </TouchableOpacity>
+
+              <TouchableOpacity className="w-full p-4 bg-gray-50 rounded-xl active:bg-gray-100 flex-row items-center justify-between">
+                <View className="flex-row items-center gap-3">
+                  <View className="w-10 h-10 bg-green-100 rounded-lg items-center justify-center">
+                    <Key size={16} color="#059669" />
+                  </View>
+                  <View>
+                    <Text className="text-gray-900 font-semibold text-base">
+                      Change Password
+                    </Text>
+                    <Text className="text-sm text-gray-600 mt-1">
+                      Update your account password
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={20} color="#9ca3af" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Legal & Support */}
+          <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
+            <View className="flex-row items-center gap-3 mb-6">
+              {/* <View className="w-12 h-12 bg-indigo-100 rounded-xl items-center justify-center">
+                <FileText size={20} color="#4f46e5" />
+              </View> */}
+              <View>
+                <Text className="text-lg font-bold text-gray-900">
+                  Legal & Support
+                </Text>
+                <Text className="text-gray-600 text-sm">
+                  Policies and help resources
+                </Text>
+              </View>
+            </View>
+            <View className="gap-3">
+              <TouchableOpacity className="w-full p-4 bg-gray-50 rounded-xl active:bg-gray-100 flex-row items-center justify-between">
+                <View className="flex-row items-center gap-3">
+                  <View className="w-10 h-10 bg-blue-100 rounded-lg items-center justify-center">
+                    <FileText size={16} color="#3b82f6" />
+                  </View>
+                  <View>
+                    <Text className="text-gray-900 font-semibold text-base">
+                      Privacy Policy
+                    </Text>
+                    <Text className="text-sm text-gray-600 mt-1">
+                      Read our privacy policy
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={20} color="#9ca3af" />
+              </TouchableOpacity>
+
+              <TouchableOpacity className="w-full p-4 bg-gray-50 rounded-xl active:bg-gray-100 flex-row items-center justify-between">
+                <View className="flex-row items-center gap-3">
+                  <View className="w-10 h-10 bg-green-100 rounded-lg items-center justify-center">
+                    <FileText size={16} color="#059669" />
+                  </View>
+                  <View>
+                    <Text className="text-gray-900 font-semibold text-base">
+                      Terms of Service
+                    </Text>
+                    <Text className="text-sm text-gray-600 mt-1">
+                      Review our terms and conditions
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={20} color="#9ca3af" />
+              </TouchableOpacity>
+
+              <TouchableOpacity className="w-full p-4 bg-gray-50 rounded-xl active:bg-gray-100 flex-row items-center justify-between">
+                <View className="flex-row items-center gap-3">
+                  <View className="w-10 h-10 bg-orange-100 rounded-lg items-center justify-center">
+                    <HelpCircle size={16} color="#ea580c" />
+                  </View>
+                  <View>
+                    <Text className="text-gray-900 font-semibold text-base">
+                      Help & Support
+                    </Text>
+                    <Text className="text-sm text-gray-600 mt-1">
+                      Get help and contact support
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={20} color="#9ca3af" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Sign Out Button */}
+          <View className="bg-red-500 opacity-85 rounded-2xl shadow-lg border border-gray-100 p-2 mb-8">
+            <TouchableOpacity
+              onPress={handleSignOut}
+              className="w-full py-4 bg-red-700 opacity-95 rounded-xl active:bg-red-600 flex-row items-center justify-center shadow-lg"
+              activeOpacity={0.8}
+            >
+              <LogOut size={20} color="white" style={{ marginRight: 8 }} />
+              <Text className="text-white font-bold text-lg">Sign Out</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
 
@@ -345,6 +473,6 @@ export default function ProfileSettings() {
         visible={showSeedPhraseModal}
         onClose={() => setShowSeedPhraseModal(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 }

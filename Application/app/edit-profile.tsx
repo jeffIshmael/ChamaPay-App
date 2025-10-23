@@ -2,18 +2,17 @@ import { serverUrl } from '@/constants/serverUrl';
 import { useAuth } from '@/Contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Camera, Mail, Phone, Save, User } from 'lucide-react-native';
+import { ArrowLeft, Camera, Edit3, Mail, Phone, Save, User } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    SafeAreaView,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -39,7 +38,7 @@ export default function EditProfile() {
   useEffect(() => {
     if (user) {
       setFormData({
-        name: user.name || '',
+        name: user.userName || '',
         email: user.email || '',
         phoneNo: user.phoneNo?.toString() || '',
         profileImageUrl: user.profileImageUrl || '',
@@ -49,7 +48,7 @@ export default function EditProfile() {
 
   // Default avatar URLs based on user's initials or id
   const getDefaultAvatar = () => {
-    const initials = (user?.name || user?.email || 'U')
+    const initials = (user?.userName || user?.email || 'U')
       .split(' ')
       .map(n => n[0])
       .join('')
@@ -68,26 +67,7 @@ export default function EditProfile() {
     const newErrors = { name: '', email: '', phoneNo: '' };
     let isValid = true;
 
-    // Validate name
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
-      isValid = false;
-    } else if (formData.name.trim().length < 2) {
-      newErrors.name = 'Name must be at least 2 characters';
-      isValid = false;
-    }
-
-    // Validate email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-      isValid = false;
-    } else if (!emailRegex.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
-      isValid = false;
-    }
-
-    // Validate phone number (optional)
+    // Only validate phone number since it's the only editable field
     if (formData.phoneNo && formData.phoneNo.trim()) {
       const phoneRegex = /^\d{10,15}$/;
       if (!phoneRegex.test(formData.phoneNo.replace(/\D/g, ''))) {
@@ -200,10 +180,7 @@ export default function EditProfile() {
     setLoading(true);
     try {
       const updateData = {
-        name: formData.name.trim(),
-        email: formData.email.trim(),
         phoneNo: formData.phoneNo ? parseInt(formData.phoneNo.replace(/\D/g, '')) : null,
-        profileImageUrl: formData.profileImageUrl || null,
       };
 
       const response = await fetch(`${serverUrl}/user/profile`, {
@@ -239,175 +216,226 @@ export default function EditProfile() {
   };
 
   const hasChanges = () => {
-    return (
-      formData.name !== (user?.name || '') ||
-      formData.email !== (user?.email || '') ||
-      formData.phoneNo !== (user?.phoneNo?.toString() || '') ||
-      formData.profileImageUrl !== (user?.profileImageUrl || '')
-    );
+    // Only check phone number since that's the only editable field
+    return formData.phoneNo !== (user?.phoneNo?.toString() || '');
   };
 
   return (
-    <SafeAreaView
-      className="flex-1 bg-gray-50"
-      style={{ paddingTop: insets.top }}
-    >
-      {/* Header */}
-      <View className="bg-white border-b border-gray-200 px-4 py-2">
-        <View className="flex-row items-center gap-4">
+    <View className="flex-1 bg-gray-50">
+      {/* Enhanced Header */}
+      <View 
+        className="bg-emerald-700 px-6 pb-8 pt-4 rounded-b-md"
+        style={{ paddingTop: insets.top + 16 }}
+      >
+        <View className="flex-row items-center justify-between mb-6">
           <TouchableOpacity
             onPress={() => router.back()}
-            className="p-2 rounded-lg active:bg-gray-100"
+            className="w-10 h-10 bg-white/20 rounded-full items-center justify-center"
+            activeOpacity={0.8}
           >
-            <ArrowLeft size={20} color="#374151" />
+            <ArrowLeft size={20} color="white" />
           </TouchableOpacity>
-          <Text className="text-xl font-semibold text-gray-900">
-            Edit Profile
-          </Text>
+          <View className="flex-row items-center gap-2">
+            <Edit3 size={20} color="white" />
+            <Text className="text-xl font-bold text-white">
+              Edit Profile
+            </Text>
+          </View>
+          <View className="w-10" />
         </View>
-      </View>
 
-      <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
-        {/* Profile Image Section */}
-        <View className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-          <Text className="text-lg font-semibold text-gray-900 mb-4">
-            Profile Picture
-          </Text>
-          
-          <View className="items-center">
+        {/* Profile Preview Card */}
+        {/* <View className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
+          <View className="flex-row items-center gap-4">
             <View className="relative">
               <Image
                 source={{ uri: getCurrentProfileImage() }}
-                className="w-24 h-24 rounded-full"
-                style={{ backgroundColor: '#f3f4f6' }}
+                className="w-16 h-16 rounded-full border-2 border-white/30"
               />
               {imageUploading && (
-                <View className="absolute inset-0 bg-black bg-opacity-50 rounded-full items-center justify-center">
-                  <ActivityIndicator color="white" />
+                <View className="absolute inset-0 bg-black/50 rounded-full items-center justify-center">
+                  <ActivityIndicator color="white" size="small" />
                 </View>
               )}
             </View>
-            
-            <TouchableOpacity
-              onPress={showImageOptions}
-              disabled={imageUploading}
-              className="mt-3 px-4 py-2 bg-emerald-600 rounded-lg flex-row items-center active:bg-emerald-700"
-            >
-              <Camera size={16} color="white" style={{ marginRight: 6 }} />
-              <Text className="text-white font-medium">
-                {imageUploading ? 'Uploading...' : 'Change Photo'}
+            <View className="flex-1">
+              <Text className="text-lg font-bold text-white">
+                {formData.name || user?.userName || "User"}
               </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Profile Form */}
-        <View className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-          <Text className="text-lg font-semibold text-gray-900 mb-4">
-            Profile Information
-          </Text>
-
-          {/* Name Field */}
-          <View className="mb-4">
-            <Text className="text-gray-700 font-medium mb-2">Full Name</Text>
-            <View className={`flex-row items-center border rounded-lg px-4 py-3 ${
-              errors.name ? 'border-red-300' : 'border-gray-300'
-            }`}>
-              <User size={18} color="#9ca3af" />
-              <TextInput
-                className="flex-1 ml-3 text-gray-900"
-                placeholder="Enter your full name"
-                value={formData.name}
-                onChangeText={(text) => {
-                  setFormData(prev => ({ ...prev, name: text }));
-                  if (errors.name) setErrors(prev => ({ ...prev, name: '' }));
-                }}
-                autoCapitalize="words"
-              />
+              <Text className="text-emerald-100 text-sm">
+                {formData.email || user?.email || "No email provided"}
+              </Text>
+              <View className="flex-row items-center gap-1 mt-1">
+                <View className="w-2 h-2 bg-emerald-300 rounded-full" />
+                <Text className="text-emerald-100 text-xs">
+                  {hasChanges() ? "Unsaved changes" : "Profile updated"}
+                </Text>
+              </View>
             </View>
-            {errors.name ? (
-              <Text className="text-red-500 text-sm mt-1">{errors.name}</Text>
-            ) : null}
           </View>
+        </View> */}
+      </View>
 
-          {/* Email Field */}
-          <View className="mb-4">
-            <Text className="text-gray-700 font-medium mb-2">Email Address</Text>
-            <View className={`flex-row items-center border rounded-lg px-4 py-3 ${
-              errors.email ? 'border-red-300' : 'border-gray-300'
-            }`}>
-              <Mail size={18} color="#9ca3af" />
-              <TextInput
-                className="flex-1 ml-3 text-gray-900"
-                placeholder="Enter your email address"
-                value={formData.email}
-                onChangeText={(text) => {
-                  setFormData(prev => ({ ...prev, email: text }));
-                  if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
-                }}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+      <ScrollView className="flex-1 -mt-8" showsVerticalScrollIndicator={false}>
+        <View className="px-6">
+          {/* Profile Image Section */}
+          <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
+            <View className="flex-row items-center gap-3 mb-6">
+              {/* <View className="w-12 h-12 bg-purple-100 rounded-xl items-center justify-center">
+                <ImageIcon size={20} color="#7c3aed" />
+              </View> */}
+              <View>
+                <Text className="text-lg font-bold text-gray-900">Profile Picture</Text>
+                <Text className="text-gray-600 text-sm">Update your profile photo</Text>
+              </View>
             </View>
-            {errors.email ? (
-              <Text className="text-red-500 text-sm mt-1">{errors.email}</Text>
-            ) : null}
-          </View>
-
-          {/* Phone Number Field */}
-          <View className="mb-4">
-            <Text className="text-gray-700 font-medium mb-2">Phone Number (Optional)</Text>
-            <View className={`flex-row items-center border rounded-lg px-4 py-3 ${
-              errors.phoneNo ? 'border-red-300' : 'border-gray-300'
-            }`}>
-              <Phone size={18} color="#9ca3af" />
-              <TextInput
-                className="flex-1 ml-3 text-gray-900"
-                placeholder="Enter your phone number"
-                value={formData.phoneNo}
-                onChangeText={(text) => {
-                  setFormData(prev => ({ ...prev, phoneNo: text }));
-                  if (errors.phoneNo) setErrors(prev => ({ ...prev, phoneNo: '' }));
-                }}
-                keyboardType="phone-pad"
-              />
+            
+            <View className="items-center">
+              <View className="relative">
+                <Image
+                  source={{ uri: getCurrentProfileImage() }}
+                  className="w-28 h-28 rounded-full border-4 border-gray-100"
+                />
+                {imageUploading && (
+                  <View className="absolute inset-0 bg-black/50 rounded-full items-center justify-center">
+                    <ActivityIndicator color="white" size="large" />
+                  </View>
+                )}
+                <View className="absolute -bottom-2 -right-2 w-8 h-8 bg-emerald-500 rounded-full items-center justify-center border-2 border-white">
+                  <Camera size={14} color="white" />
+                </View>
+              </View>
+              
+              <TouchableOpacity
+                onPress={showImageOptions}
+                disabled={imageUploading}
+                className={`mt-6 px-6 py-3 rounded-xl flex-row items-center ${
+                  imageUploading 
+                    ? 'bg-gray-300' 
+                    : 'bg-emerald-600 opacity-95'
+                }`}
+                activeOpacity={0.8}
+              >
+                <Camera size={18} color="white" style={{ marginRight: 8 }} />
+                <Text className="text-white font-semibold text-base">
+                  {imageUploading ? 'Uploading...' : 'Change Photo'}
+                </Text>
+              </TouchableOpacity>
             </View>
-            {errors.phoneNo ? (
-              <Text className="text-red-500 text-sm mt-1">{errors.phoneNo}</Text>
-            ) : null}
           </View>
 
-          <View className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
-            <Text className="text-blue-800 text-sm">
-              💡 Your wallet address and other security information cannot be changed for security reasons.
-            </Text>
+          {/* Profile Form */}
+          <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
+            <View className="flex-row items-center gap-3 mb-6">
+              {/* <View className="w-12 h-12 bg-blue-100 rounded-xl items-center justify-center">
+                <User size={20} color="#3b82f6" />
+              </View> */}
+              <View>
+                <Text className="text-lg font-bold text-gray-900">Profile Information</Text>
+                <Text className="text-gray-600 text-sm">Update your personal details</Text>
+              </View>
+            </View>
+
+            {/* Name Field - Read Only */}
+            <View className="mb-6">
+              <View className="flex-row items-center gap-2 mb-3">
+                <Text className="text-gray-900 font-semibold text-base">User Name</Text>
+                <View className="bg-gray-100 px-2 py-1 rounded-md">
+                  <Text className="text-gray-600 text-xs font-medium">Read Only</Text>
+                </View>
+              </View>
+              <View className="flex-row items-center border-2 border-gray-200 bg-gray-100 rounded-xl px-4 py-4">
+                <User size={20} color="#9ca3af" />
+                <Text className="flex-1 ml-3 text-gray-500 text-base">
+                  {formData.name || user?.userName || "No name set"}
+                </Text>
+              </View>
+              <Text className="text-gray-500 text-xs mt-2">
+                Username cannot be changed for security reasons
+              </Text>
+            </View>
+
+            {/* Email Field - Read Only */}
+            <View className="mb-6">
+              <View className="flex-row items-center gap-2 mb-3">
+                <Text className="text-gray-900 font-semibold text-base">Email Address</Text>
+                <View className="bg-gray-100 px-2 py-1 rounded-md">
+                  <Text className="text-gray-600 text-xs font-medium">Read Only</Text>
+                </View>
+              </View>
+              <View className="flex-row items-center border-2 border-gray-200 bg-gray-100 rounded-xl px-4 py-4">
+                <Mail size={20} color="#9ca3af" />
+                <Text className="flex-1 ml-3 text-gray-500 text-base">
+                  {formData.email || user?.email || "No email set"}
+                </Text>
+              </View>
+              <Text className="text-gray-500 text-xs mt-2">
+                Email cannot be changed for security reasons
+              </Text>
+            </View>
+
+            {/* Phone Number Field - Editable */}
+            <View className="mb-6">
+              <View className="flex-row items-center gap-2 mb-3">
+                <Text className="text-gray-900 font-semibold text-base">Phone Number</Text>
+                <View className="bg-emerald-100 px-2 py-1 rounded-md">
+                  <Text className="text-emerald-700 text-xs font-medium">Editable</Text>
+                </View>
+              </View>
+              <View className={`flex-row items-center border-2 rounded-xl px-4 py-4 ${
+                errors.phoneNo ? 'border-red-300 bg-red-50' : 'border-emerald-200 bg-white'
+              }`}>
+                <Phone size={20} color={errors.phoneNo ? "#dc2626" : "#10b981"} />
+                <TextInput
+                  className="flex-1 ml-3 text-gray-900 text-base"
+                  placeholder="Enter your phone number"
+                  placeholderTextColor="#9ca3af"
+                  value={formData.phoneNo}
+                  onChangeText={(text) => {
+                    setFormData(prev => ({ ...prev, phoneNo: text }));
+                    if (errors.phoneNo) setErrors(prev => ({ ...prev, phoneNo: '' }));
+                  }}
+                  keyboardType="phone-pad"
+                />
+              </View>
+              {errors.phoneNo && (
+                <Text className="text-red-500 text-sm mt-2 font-medium">{errors.phoneNo}</Text>
+              )}
+            </View>
+
+            {/* Save Button - Inline */}
+            <View className="mt-4">
+              <TouchableOpacity
+                onPress={handleSave}
+                disabled={loading || !hasChanges()}
+                className={`w-full py-4 rounded-2xl flex-row items-center justify-center shadow-lg ${
+                  loading || !hasChanges()
+                    ? 'bg-gray-300'
+                    : 'bg-emerald-600'
+                }`}
+                activeOpacity={0.8}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <>
+                    <Save size={20} color="white" style={{ marginRight: 8 }} />
+                    <Text className="text-white font-bold text-lg">
+                      {hasChanges() ? 'Save Changes' : 'No Changes to Save'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              
+              {hasChanges() && (
+                <Text className="text-gray-500 text-sm text-center mt-3">
+                  You have unsaved changes
+                </Text>
+              )}
+            </View>
           </View>
         </View>
       </ScrollView>
-
-      {/* Save Button - Fixed at bottom */}
-      <View className="bg-white border-t border-gray-200 px-4 py-4">
-        <TouchableOpacity
-          onPress={handleSave}
-          disabled={loading || !hasChanges()}
-          className={`w-full py-4 rounded-lg flex-row items-center justify-center ${
-            loading || !hasChanges()
-              ? 'bg-gray-300'
-              : 'bg-emerald-600 active:bg-emerald-700'
-          }`}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color="white" />
-          ) : (
-            <>
-              <Save size={16} color="white" style={{ marginRight: 8 }} />
-              <Text className="text-white font-medium text-lg">
-                Save Changes
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+    </View>
   );
 } 

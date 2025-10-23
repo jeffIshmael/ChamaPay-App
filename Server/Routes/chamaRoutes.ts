@@ -5,7 +5,7 @@ import {
     depositToChama,
     getChamaBySlug,
     getChamasUserIsMemberOf,
-    getPublicChamasUserIsNotMemberOf
+    getPublicChamasUserIsNotMemberOf, addMemberToChama
 } from "../Controllers/chamaControllers";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -23,10 +23,15 @@ router.get("/my-chamas", authenticate, getChamasUserIsMemberOf);
 // get public chamas user is not member of
 router.get("/public-chamas", authenticate, getPublicChamasUserIsNotMemberOf);
 
-// get chama by slug
-router.get("/:slug", authenticate, getChamaBySlug);
+
 
 // deposit funds to a chama
 router.post("/deposit", authenticate, depositToChama);
+
+// add a member to a chama
+router.post("/add-member", authenticate, addMemberToChama);
+
+// get chama by slug
+router.get("/:slug", authenticate, getChamaBySlug);
 
 export default router; 

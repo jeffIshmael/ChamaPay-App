@@ -5,6 +5,7 @@ export interface Member {
   email: string;
   role: string;
   contributions: number;
+  address?: string;
 }
 
 export interface Message {
@@ -15,7 +16,7 @@ export interface Message {
   isAdmin?: boolean;
 }
 
-export type PayoutStatus = "completed" | "next" | "pending" | "upcoming";
+export type PayoutStatus = "completed" | "next" | "not started" | "upcoming";
 
 export interface PayoutScheduleItem {
   position: number;
@@ -64,6 +65,7 @@ export interface JoinedChama {
   frequency: string;
   duration: string;
   rating: number;
+  raterCount: number;
   category: string;
   location: string;
   adminTerms: string[];
@@ -104,6 +106,7 @@ export const mockJoinedChamas: JoinedChama[] = [
     frequency: "Monthly",
     duration: "10 months",
     rating: 4.7,
+    raterCount: 23,
     category: "Professional",
     location: "Nairobi",
     adminTerms: ["Must be a woman entrepreneur.", "Contributions must be made monthly."],
@@ -265,6 +268,7 @@ export const mockJoinedChamas: JoinedChama[] = [
     frequency: "Monthly",
     duration: "8 months",
     rating: 4.3,
+    raterCount: 18,
     category: "Investment",
     location: "Nairobi",
     adminTerms: ["Must be a young professional.", "Contributions must be made monthly."],
@@ -400,6 +404,7 @@ export const mockJoinedChamas: JoinedChama[] = [
     frequency: "Monthly",
     duration: "6 months",
     rating: 4.9,
+    raterCount: 31,
     category: "Family",
     location: "Nakuru",
     adminTerms: ["Must be a family member.", "Contributions must be made monthly."],
@@ -517,6 +522,7 @@ export const mockJoinedChamas: JoinedChama[] = [
 
 export type PublicChama = {
   id: string;
+  slug: string;
   name: string;
   description: string;
   members: number;
@@ -525,6 +531,7 @@ export type PublicChama = {
   frequency: string;
   duration: string;
   rating: number;
+  raterCount: number;
   collateralAmount: number;
   nextPayout: string;
   currency: string;
@@ -536,6 +543,7 @@ export type PublicChama = {
 export const mockPublicChamas: PublicChama[] = [
   {
     id: "4",
+    slug: "digital-nomads-savings",
     name: "Digital Nomads Savings",
     description:
       "For remote workers and freelancers building financial security",
@@ -545,6 +553,7 @@ export const mockPublicChamas: PublicChama[] = [
     frequency: "Monthly",
     duration: "12 months",
     rating: 4.8,
+    raterCount: 42,
     collateralAmount: 8000,
     nextPayout: "2025-02-10",
     currency: "KES",
@@ -554,6 +563,7 @@ export const mockPublicChamas: PublicChama[] = [
   },
   {
     id: "5",
+    slug: "small-business-owners-circle",
     name: "Small Business Owners Circle",
     description: "Supporting entrepreneurs and small business growth",
     members: 6,
@@ -562,6 +572,7 @@ export const mockPublicChamas: PublicChama[] = [
     frequency: "Monthly",
     duration: "10 months",
     rating: 4.9,
+    raterCount: 56,
     collateralAmount: 15000,
     nextPayout: "2025-01-30",
     currency: "KES",
@@ -571,6 +582,7 @@ export const mockPublicChamas: PublicChama[] = [
   },
   {
     id: "6",
+    slug: "student-loan-repayment-group",
     name: "Student Loan Repayment Group",
     description: "Helping students manage and repay their education loans together",
     members: 12,
@@ -579,6 +591,7 @@ export const mockPublicChamas: PublicChama[] = [
     frequency: "Monthly",
     duration: "18 months",
     rating: 4.6,
+    raterCount: 28,
     collateralAmount: 3000,
     nextPayout: "2025-06-15",
     currency: "KES",
@@ -588,6 +601,7 @@ export const mockPublicChamas: PublicChama[] = [
   },
   {
     id: "7",
+    slug: "real-estate-investment-pool",
     name: "Real Estate Investment Pool",
     description: "Collective investment in real estate properties and land",
     members: 10,
@@ -596,6 +610,7 @@ export const mockPublicChamas: PublicChama[] = [
     frequency: "Monthly",
     duration: "24 months",
     rating: 4.7,
+    raterCount: 37,
     collateralAmount: 25000,
     nextPayout: "2025-12-20",
     currency: "KES",
@@ -605,6 +620,7 @@ export const mockPublicChamas: PublicChama[] = [
   },
   {
     id: "8",
+    slug: "tech-startup-founders",
     name: "Tech Startup Founders",
     description: "Funding and support for tech startup founders and innovators",
     members: 7,
@@ -613,6 +629,7 @@ export const mockPublicChamas: PublicChama[] = [
     frequency: "Monthly",
     duration: "15 months",
     rating: 4.5,
+    raterCount: 24,
     collateralAmount: 20000,
     nextPayout: "2025-09-10",
     currency: "KES",
@@ -622,6 +639,7 @@ export const mockPublicChamas: PublicChama[] = [
   },
   {
     id: "9",
+    slug: "healthcare-workers-support",
     name: "Healthcare Workers Support",
     description: "Financial support group for healthcare professionals and medical workers",
     members: 9,
@@ -630,6 +648,7 @@ export const mockPublicChamas: PublicChama[] = [
     frequency: "Monthly",
     duration: "14 months",
     rating: 4.8,
+    raterCount: 45,
     collateralAmount: 12000,
     nextPayout: "2025-08-25",
     currency: "KES",
@@ -639,6 +658,7 @@ export const mockPublicChamas: PublicChama[] = [
   },
   {
     id: "10",
+    slug: "creative-artists-collective",
     name: "Creative Artists Collective",
     description: "Supporting artists, musicians, and creative professionals",
     members: 11,
@@ -647,6 +667,7 @@ export const mockPublicChamas: PublicChama[] = [
     frequency: "Monthly",
     duration: "16 months",
     rating: 4.4,
+    raterCount: 19,
     collateralAmount: 6000,
     nextPayout: "2025-10-15",
     currency: "KES",

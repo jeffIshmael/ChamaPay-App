@@ -1,12 +1,14 @@
 import { Card } from "@/components/ui/Card";
 import { Member } from "@/constants/mockData";
-import { Crown, DollarSign, User } from "lucide-react-native";
+import { Crown, DollarSign, Lock, User } from "lucide-react-native";
 import React, { FC } from "react";
 import { ScrollView, Text, View } from "react-native";
-
+import { toEther } from "thirdweb/utils";
 
 type Props = {
   members: Member[];
+  eachMemberBalances?: readonly [readonly string[], readonly (readonly bigint[])[]] | null;
+  isPublic?: boolean;
 };
 
 const getInitials = (name: string) => {
@@ -19,9 +21,29 @@ const getInitials = (name: string) => {
 };
 
 
-const MembersTab: FC<Props> = ({ members = [] }) => {
+const MembersTab: FC<Props> = ({ members = [], eachMemberBalances, isPublic = false }) => {
   const totalMembers = members?.length || 0;
   const adminMembers = members?.filter(m => m && m.role === "Admin").length || 0;
+
+  // Helper function to get member balance from blockchain data
+  const getMemberBalance = (memberAddress: string) => {
+    if (!eachMemberBalances || !eachMemberBalances[0] || !eachMemberBalances[1]) {
+      return { balance: 0, locked: 0 };
+    }
+    
+    const [addresses, balances] = eachMemberBalances;
+    const memberIndex = addresses.findIndex(addr => addr.toLowerCase() === memberAddress.toLowerCase());
+    
+    if (memberIndex === -1 || !balances[memberIndex]) {
+      return { balance: 0, locked: 0 };
+    }
+    
+    const memberBalances = balances[memberIndex];
+    const balance = Number(toEther(memberBalances[0] || BigInt(0)));
+    const locked = Number(toEther(memberBalances[1] || BigInt(0)));
+    
+    return { balance, locked };
+  };
 
   return (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
@@ -60,6 +82,7 @@ const MembersTab: FC<Props> = ({ members = [] }) => {
             members.map((member, index) => {
               if (!member) return null;
               const isCurrentUser = member.name?.includes("You") || member.name?.includes("Sarah");
+              const memberBalance = getMemberBalance(member.address || "");
               
               return (
                 <Card key={member.id} className={`p-4 ${isCurrentUser ? "border-2 border-emerald-200 bg-emerald-50" : ""}`}>
@@ -99,22 +122,26 @@ const MembersTab: FC<Props> = ({ members = [] }) => {
                           )}
                         </View>
                         
-                        {/* Balance */}
-                        <View className="flex-row items-center gap-2">
-                          <DollarSign size={14} color="#6b7280" />
-                          <Text className="text-sm text-gray-600">
-                            Contribution: {(member.contributions || 0).toLocaleString()} cUSD
-                          </Text>
+                        {/* Balance Information */}
+                        <View className="gap-1">
+                          {/* Available Balance */}
+                          <View className="flex-row items-center gap-2">
+                            <DollarSign size={14} color="#6b7280" />
+                            <Text className="text-sm text-gray-600">
+                              Balance: {memberBalance.balance.toLocaleString()} cUSD
+                            </Text>
+                          </View>
+                          
+                          {/* Locked Balance (only for public chamas) */}
+                          {isPublic && memberBalance.locked > 0 && (
+                            <View className="flex-row items-center gap-2">
+                              <Lock size={14} color="#f59e0b" />
+                              <Text className="text-sm text-amber-600">
+                                Locked: {memberBalance.locked.toLocaleString()} cUSD
+                              </Text>
+                            </View>
+                          )}
                         </View>
-                      </View>
-                    </View>
-                    
-                    {/* Position Number */}
-                    <View className="items-center">
-                      <View className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center">
-                        <Text className="text-sm font-bold text-gray-600">
-                          #{index + 1}
-                        </Text>
                       </View>
                     </View>
                   </View>
