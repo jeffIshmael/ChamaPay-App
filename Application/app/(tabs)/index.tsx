@@ -115,7 +115,7 @@ export default function HomeScreen() {
     <View className="flex-1 bg-gray-50">
       {/* Header */}
       <View
-        className="bg-emerald-600 rounded-b-3xl px-5 pb-5 flex-row items-center justify-between"
+        className="bg-downy-800 rounded-b-3xl px-5 pb-5 flex-row items-center justify-between"
         style={{ paddingTop: insets.top + 10 }}
       >
         <View className="flex-row items-center">

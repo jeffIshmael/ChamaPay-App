@@ -554,7 +554,7 @@ export default function ChamaDetails() {
           <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
             {/* Dark Header - extends to top */}
             <View
-              className="bg-emerald-900 pt-4 pb-8 px-6 shadow-lg rounded-b-2xl"
+              className="bg-downy-800 pt-4 pb-8 px-6 shadow-lg rounded-b-2xl"
               style={{ paddingTop: insets.top + 16 }}
             >
               {/* Back Button and Share Button */}

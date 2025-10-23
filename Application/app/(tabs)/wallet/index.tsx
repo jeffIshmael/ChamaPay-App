@@ -1,5 +1,4 @@
 
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import {
   ArrowDownRight,
@@ -11,16 +10,16 @@ import {
   Eye,
   EyeOff,
   History,
-  Info,
   QrCode,
   Send,
-  Upload,
+  Upload
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   RefreshControl,
@@ -29,19 +28,17 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  Linking
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useActiveAccount, useActiveWallet } from "thirdweb/react";
 import { shortenAddress } from "thirdweb/utils";
 
-import { executeSwap, getSwapQuote, approveSwap } from "@/lib/mentoSdkServices";
-import { useAuth } from "@/Contexts/AuthContext";
-import { QuoteResponse, ExecuteSwap } from "@/lib/mentoSdkServices";
 import { cUSDAddress, usdcAddress } from "@/constants/contractAddress";
 import { AllBalances, getAllBalances, getAllTransferFunctions } from "@/constants/thirdweb";
+import { useAuth } from "@/Contexts/AuthContext";
+import { approveSwap, executeSwap, ExecuteSwap, getSwapQuote, QuoteResponse } from "@/lib/mentoSdkServices";
 
 
 interface Token {
@@ -666,17 +663,11 @@ export default function CryptoWallet() {
   );
 
   return (
-    <LinearGradient
-      colors={["#059669", "#047857"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={{ flex: 1 }}
-    >
+   
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={insets.top + 64}
-        style={{ paddingTop: insets.top }}
       >
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -692,13 +683,10 @@ export default function CryptoWallet() {
           }
         >
           {/* Header */}
-          <View>
-            <LinearGradient
-              colors={["#059669", "#047857"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              className="px-6 pb-8 pt-6 rounded-b-3xl shadow-md"
-            >
+          <View 
+            className="bg-downy-800 px-6 pb-8 rounded-b-3xl shadow-md"
+            style={{ paddingTop: insets.top + 24 }}
+          >
               {/* Total Balance */}
               <View className="items-center mb-6">
                 <Text className="text-lg text-emerald-100">Total Balance</Text>
@@ -759,11 +747,10 @@ export default function CryptoWallet() {
                   </TouchableOpacity>
                 </View>
               </View>
-            </LinearGradient>
           </View>
 
           {/* Quick Actions */}
-          <View className="px-6 py-4 -mt-8">
+          <View className="px-6 py-4 -mt-10">
             <View
               className="bg-white rounded-2xl p-5 shadow-md"
               style={styles.card}
@@ -1101,7 +1088,7 @@ export default function CryptoWallet() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+
   );
 }
 
