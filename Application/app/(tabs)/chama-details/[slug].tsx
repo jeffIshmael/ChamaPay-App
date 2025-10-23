@@ -17,6 +17,8 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
+  Share,
+  Share2,
   Shield,
   Star,
   Users,
@@ -30,6 +32,7 @@ import {
   SafeAreaView,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -50,6 +53,8 @@ export default function ChamaDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
   const [showCollateralModal, setShowCollateralModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareUsername, setShareUsername] = useState("");
   const [activeTab, setActiveTab] = useState<"overview" | "schedule" | "terms">(
     "overview"
   );
@@ -98,6 +103,28 @@ export default function ChamaDetails() {
 
   const handleJoinChama = () => {
     setShowCollateralModal(true);
+  };
+
+  const handleShare = () => {
+    setShowShareModal(true);
+  };
+
+  const copyLink = () => {
+    const link = `https://chamapay.app/chama/${slug}`;
+    // In a real app, you'd use Clipboard.setString(link)
+    Alert.alert("Link Copied", "Chama link has been copied to clipboard!");
+    setShowShareModal(false);
+  };
+
+  const shareToUser = () => {
+    if (!shareUsername.trim()) {
+      Alert.alert("Error", "Please enter a username");
+      return;
+    }
+    // In a real app, you'd implement the sharing logic here
+    Alert.alert("Shared", `Chama shared with @${shareUsername}`);
+    setShareUsername("");
+    setShowShareModal(false);
   };
 
   const handleProceedJoin = async () => {
@@ -503,14 +530,23 @@ export default function ChamaDetails() {
               className="bg-emerald-900 pt-4 pb-8 px-6 shadow-lg rounded-b-2xl"
               style={{ paddingTop: insets.top + 16 }}
             >
-              {/* Back Button */}
-              <TouchableOpacity
-                onPress={() => router.back()}
-                className="w-10 h-10 bg-white/30 rounded-full items-center justify-center mb-4"
-                activeOpacity={0.8}
-              >
-                <ArrowLeft size={20} color="white" />
-              </TouchableOpacity>
+              {/* Back Button and Share Button */}
+              <View className="flex-row items-center justify-between mb-4">
+                <TouchableOpacity
+                  onPress={() => router.back()}
+                  className="w-10 h-10 bg-white/30 rounded-full items-center justify-center"
+                  activeOpacity={0.8}
+                >
+                  <ArrowLeft size={20} color="white" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleShare}
+                  className="w-10 h-10 bg-white/30 rounded-full items-center justify-center"
+                  activeOpacity={0.8}
+                >
+                  <Share2 size={20} color="white" />
+                </TouchableOpacity>
+              </View>
 
               {/* Title & Description */}
               <Text className="text-3xl font-bold text-white mb-3">
@@ -729,6 +765,114 @@ export default function ChamaDetails() {
                 </Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Share Modal */}
+      <Modal
+        visible={showShareModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowShareModal(false)}
+      >
+        <View className="flex-1 items-center justify-center bg-black/70 px-6">
+          <View className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+            {/* Header */}
+            <View className="items-center mb-6">
+              <View className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-full items-center justify-center mb-3 shadow-sm">
+                <Share size={28} color="#10b981" />
+              </View>
+              <Text className="text-2xl font-bold text-gray-900 mb-1">
+                Share Chama
+              </Text>
+              <Text className="text-gray-500 text-center text-sm">
+                Invite others to join this chama
+              </Text>
+            </View>
+
+            <View className="gap-4">
+              {/* Quick Copy Link Button */}
+              <TouchableOpacity
+                onPress={copyLink}
+                className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 flex-row items-center gap-3"
+                activeOpacity={0.7}
+              >
+                <View className="w-12 h-12 bg-emerald-100 rounded-xl items-center justify-center">
+                  <Text className="text-2xl">🔗</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="font-bold text-gray-900 text-base">
+                    Copy Invite Link
+                  </Text>
+                  <Text className="text-gray-600 text-sm mt-0.5">
+                    Share via any platform
+                  </Text>
+                </View>
+                <View className="bg-emerald-600 rounded-lg px-3 py-1.5">
+                  <Text className="text-white font-semibold text-xs">Copy</Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Divider */}
+              <View className="flex-row items-center gap-3">
+                <View className="flex-1 h-px bg-gray-200" />
+                <Text className="text-gray-400 text-xs font-medium">OR</Text>
+                <View className="flex-1 h-px bg-gray-200" />
+              </View>
+
+              {/* Share to Specific User */}
+              <View className="bg-sky-100 border border-emerald-200 rounded-2xl p-5">
+                {/* Section Header */}
+                <View className="flex-row items-center mb-4">
+                  <View className="w-10 h-10 bg-white rounded-xl items-center justify-center shadow-sm">
+                    <Text className="text-xl">👤</Text>
+                  </View>
+                  <View className="ml-3 flex-1">
+                    <Text className="text-base font-bold text-gray-900">
+                      Send to ChamaPay User
+                    </Text>
+                    <Text className="text-xs text-gray-600">
+                      Enter their username
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Input Field */}
+                <View className="mb-3">
+                  <TextInput
+                    value={shareUsername}
+                    onChangeText={setShareUsername}
+                    placeholder="@username"
+                    className="bg-white border border-emerald-300 rounded-xl px-4 py-3.5 text-gray-900 font-medium"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+
+                {/* Send Button */}
+                <TouchableOpacity
+                  onPress={shareToUser}
+                  activeOpacity={0.7}
+                  className="bg-emerald-600 py-3.5 rounded-xl flex-row items-center justify-center shadow-lg"
+                >
+
+                  <Text className="text-white font-bold text-base">
+                    Send Invite
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Cancel Button */}
+            <TouchableOpacity
+              onPress={() => setShowShareModal(false)}
+              className="mt-6 bg-gray-300 py-3.5 rounded-xl"
+              activeOpacity={0.7}
+            >
+              <Text className="text-gray-700 font-semibold text-center text-base">
+                Close
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
