@@ -135,7 +135,6 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
           },
         },
         admin: true,
-
       },
     });
     if (!chama) {
@@ -157,7 +156,9 @@ export const getChamasUserIsMemberOf = async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     console.log("the user id is", userId);
     if (!userId) {
-      return res.status(401).json({ success: false, error: "No user id found." });
+      return res
+        .status(401)
+        .json({ success: false, error: "No user id found." });
     }
     const chamas = await prisma.chamaMember.findMany({
       where: {
@@ -273,7 +274,9 @@ export const depositToChama = async (req: Request, res: Response) => {
     await prisma.payment.create({
       data: {
         amount: amount,
-        description: `Deposit to ${chama.name} (including 2% fee: ${transactionFee.toFixed(4)} cUSD)`,
+        description: `Deposit to ${
+          chama.name
+        } (including 2% fee: ${transactionFee.toFixed(4)} cUSD)`,
         txHash: txHash,
         chamaId: parseInt(chamaId),
         userId: userId,
@@ -293,6 +296,57 @@ export const depositToChama = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       error: "Failed to process deposit",
+    });
+  }
+};
+
+// add a member to a chama
+export const addMemberToChama = async (req: Request, res: Response) => {
+  try {
+    const { chamaId, isPublic, memberId, amount, txHash } = req.body;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+    if (!chamaId || !isPublic || !memberId || !txHash) {
+      return res
+        .status(400)
+        .json({ success: false, error: "All fields are required" });
+    }
+
+    const chamaMember = await prisma.chamaMember.create({
+      data: {
+        userId: memberId,
+        chamaId: parseInt(chamaId),
+        payDate: new Date(),
+        isPaid: false,
+      },
+    });
+
+    if (!chamaMember) {
+      return res.status(400).json({ success: false, error: "Failed to add member" });
+    }
+
+    if(isPublic) {
+      await prisma.payment.create({
+        data: {
+          amount: amount,
+          description: `Joining collateral`,
+          txHash: txHash,
+          chamaId: parseInt(chamaId),
+          userId: memberId,
+        },
+      });
+    }
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Member added successfully" });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to add member to chama",
     });
   }
 };

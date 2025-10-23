@@ -235,7 +235,7 @@ export const transformChamaData = (backendChama: BackendChama) => {
     category: backendChama.type,
     location: "Nairobi", // Default location
     adminTerms: backendChama.adminTerms ? (typeof backendChama.adminTerms === 'string' ? JSON.parse(backendChama.adminTerms) : backendChama.adminTerms) : [],
-    collateralAmount: 0,
+    collateralAmount: parseFloat(backendChama.amount) * memberCount,
     nextPayout: backendChama.payDate ? new Date(backendChama.payDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     myTurn: false, // Would need to calculate based on current position
     myPosition: 1, // Default position
@@ -288,6 +288,22 @@ export const registerChamaToDatabase = async (chamaData: RegisterChamaRequestBod
   } catch (error) {
     console.error('Error registering chama to database:', error);
     return { success: false, error: 'Failed to register chama to database' };
+  }
+};
+
+// add a member to a chama
+export const addMemberToChama = async (chamaId: number, isPublic: boolean, memberId: number, amount: string, txHash: string, token: string): Promise<ChamaResponse> => {
+  try {
+    const response = await fetch(`${serverUrl}/chama/add-member`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ chamaId, isPublic, memberId, amount, txHash }),
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error adding member to chama:', error);
+    return { success: false, error: 'Failed to add member to chama' };
   }
 };
 
