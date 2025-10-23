@@ -1,16 +1,16 @@
 import { useAuth } from "@/Contexts/AuthContext";
 import { BackendChama, getPublicChamas } from "@/lib/chamaService";
 import { useRouter } from "expo-router";
-import { Calendar, Search, Star, Users, TrendingUp, Zap } from "lucide-react-native";
+import { Calendar, Search, Star, TrendingUp, Users, Zap } from "lucide-react-native";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   SafeAreaView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -60,13 +60,12 @@ export default function DiscoverChamas() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+    const dateStr = date.toLocaleDateString('en-US', {
       month: 'short', 
       day: 'numeric',
-      hour12: false,
-      hour:"numeric",
-      minute:"numeric",
     });
+   
+    return dateStr;
   };
 
   const renderStars = (rating: number) => {
@@ -80,7 +79,7 @@ export default function DiscoverChamas() {
   };
 
   const getProgressPercentage = (chama: BackendChama) => {
-    const current = chama._count?.members || 0;
+    const current = chama.members?.length || 0;
     const max = chama.maxNo;
     return (current / max) * 100;
   };
@@ -118,7 +117,7 @@ export default function DiscoverChamas() {
               {chama.rating ?? 0}
             </Text>
             <Text className="text-sm text-gray-500">
-              ({Math.floor(Math.random() * 50) + 10} ratings)
+              ({chama.raterCount ?? 0} ratings)
             </Text>
             </View>
           </View>
@@ -147,7 +146,7 @@ export default function DiscoverChamas() {
               <Text className="text-xs text-gray-500 font-medium">Members</Text>
             </View>
             <Text className="text-base font-bold text-gray-900">
-              {chama._count?.members || 0}/{chama.maxNo}
+              {chama.members?.length ?? 0}/{chama.maxNo}
             </Text>
           </View>
 
@@ -193,7 +192,7 @@ export default function DiscoverChamas() {
             <Search size={18} color="#9ca3af" />
           </View>
           <TextInput
-            placeholder="Search chamas..."
+            placeholder="Search chamas / paste link to join..."
             value={searchTerm}
             onChangeText={setSearchTerm}
             className="bg-gray-100 rounded-full pl-11 pr-4 py-3 text-gray-900 text-sm"

@@ -45,6 +45,7 @@ export interface BackendChama {
   cycle: number;
   payOutOrder: string;
   rating?: number;
+  raterCount?: number;
   admin: {
     id: number;
     name?: string;
@@ -232,6 +233,7 @@ export const transformChamaData = (backendChama: BackendChama) => {
     frequency: `${backendChama.cycleTime} days`, // Convert cycle time to frequency string
     duration: `${backendChama.cycleTime} days`, // Convert cycle time to duration
     rating: backendChama.rating || 0, // Default rating
+    raterCount: backendChama.raterCount || 0, // Default rater count
     category: backendChama.type,
     location: "Nairobi", // Default location
     adminTerms: backendChama.adminTerms ? (typeof backendChama.adminTerms === 'string' ? JSON.parse(backendChama.adminTerms) : backendChama.adminTerms) : [],
@@ -240,7 +242,7 @@ export const transformChamaData = (backendChama: BackendChama) => {
     myTurn: false, // Would need to calculate based on current position
     myPosition: 1, // Default position
     nextTurnMember: backendChama.members?.[1]?.user?.name || backendChama.members?.[1]?.user?.userName || "Not assigned",
-    status: backendChama.started ? "active" : "pending", // Default status
+    status: backendChama.started ? "active" : "not started", // Default status
     unreadMessages: 0, // Would need to implement message tracking
     isPublic: backendChama.type === "Public",
     blockchainId: backendChama.blockchainId,
@@ -306,5 +308,7 @@ export const addMemberToChama = async (chamaId: number, isPublic: boolean, membe
     return { success: false, error: 'Failed to add member to chama' };
   }
 };
+
+
 
 

@@ -90,9 +90,9 @@ export const createChama = async (
       if (type === "Public" && collateralRequired && txHash) {
         await prisma.payment.create({
           data: {
-            amount: amount, // amount in string
+            amount: (parseFloat(amount) * maxNo).toString(), // amount in string
             txHash: txHash,
-            description: "Chama creation collateral payment.",
+            description: "Locked.",
             chamaId: chama.id,
             userId: req.user?.userId || 0,
           },
@@ -207,6 +207,9 @@ export const getPublicChamasUserIsNotMemberOf = async (
           },
         },
       },
+      include: {
+        members: true,
+      },
     });
     return res.status(200).json({ success: true, chamas: chamas });
   } catch (error) {
@@ -319,7 +322,6 @@ export const addMemberToChama = async (req: Request, res: Response) => {
         userId: memberId,
         chamaId: parseInt(chamaId),
         payDate: new Date(),
-        isPaid: false,
       },
     });
 

@@ -255,7 +255,7 @@ const ChamaOverviewTab: FC<Props> = ({
                             <Text className="font-bold text-blue-700">You</Text>
                           ) : (
                             transaction.user.name
-                          )} Deposited
+                          )} {transaction.description}
                         </Text>
                       </View>
                       <Text className="text-sm text-gray-600">

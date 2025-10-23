@@ -687,7 +687,7 @@ export default function CreateChama() {
                 Collateral Required
               </Text>
               <Text className="text-sm text-gray-600">
-                Members must provide collateral equal to one contribution amount
+                Members must provide collateral that caters for one cycle.
               </Text>
             </View>
           </View>
@@ -760,7 +760,7 @@ export default function CreateChama() {
             • Frequency: {formData.frequency} days
           </Text>
           <Text className="text-emerald-800 text-sm">
-            • Duration: {formData.duration} days
+            • One Cycle Duration: {formData.duration} days
           </Text>
           <Text className="text-emerald-800 text-sm">
             • Start: {formatDate(formData.startDate)} at{" "}
@@ -771,7 +771,7 @@ export default function CreateChama() {
           </Text>
           {formData.isPublic && (
             <Text className="text-emerald-800 text-sm">
-              • Collateral: Required
+              • Collateral Required: {formData.contribution * formData.maxMembers} cUSD
             </Text>
           )}
           {formData.adminTerms.length > 0 && (

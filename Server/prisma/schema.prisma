@@ -40,6 +40,7 @@ model Chama {
   cycle         Int          @default(1) // after every member has received a payout
   maxNo         Int           @default(15)
   rating        Int           @default(0)
+  raterCount    Int           @default(0)
   blockchainId  String
   adminId       Int
   canJoin       Boolean  @default(true)
@@ -59,7 +60,6 @@ model ChamaMember {
   id      Int   @id @default(autoincrement())
   userId  Int
   chamaId Int
-  isPaid    Boolean  @default(false)
   chama   Chama @relation(fields: [chamaId], references: [id])
   user    User  @relation(fields: [userId], references: [id])
   payDate         DateTime // To track the payment rotation date

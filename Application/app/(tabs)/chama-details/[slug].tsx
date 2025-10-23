@@ -101,8 +101,35 @@ export default function ChamaDetails() {
     return chama.totalMembers;
   };
 
-  const handleJoinChama = () => {
-    setShowCollateralModal(true);
+  const handleJoinChama = async () => {
+    if (!chama) {
+      Alert.alert("Error", "Chama not found");
+      return;
+    }
+    if (!chama.isPublic) {
+      try {
+        setIsJoining(true);
+        // send a notification to the admin to approve the join request
+        // const response = await sendNotificationToAdmin(chama.id, user.id);
+        // if (!response.success) {
+        //   Alert.alert("Error", "Failed to send notification to admin.");
+        //   return;
+        // }
+        Alert.alert(
+          "Success",
+          "Notification sent to admin. Please wait for approval."
+        );
+        return;
+      } catch (error) {
+        console.log(error);
+        Alert.alert("Error", "Failed to join chama. Please try again.");
+        return;
+      } finally {
+        setIsJoining(false);
+      }
+    } else {
+      setShowCollateralModal(true);
+    }
   };
 
   const handleShare = () => {
@@ -533,7 +560,7 @@ export default function ChamaDetails() {
               {/* Back Button and Share Button */}
               <View className="flex-row items-center justify-between mb-4">
                 <TouchableOpacity
-                  onPress={() => router.back()}
+                  onPress={() => router.push("/(tabs)/discover-chamas")}
                   className="w-10 h-10 bg-white/30 rounded-full items-center justify-center"
                   activeOpacity={0.8}
                 >
@@ -588,7 +615,7 @@ export default function ChamaDetails() {
                   <Text className="text-sm text-yellow-300 font-semibold">
                     {chama.rating}{" "}
                     <Text className="text-xs text-gray-400">
-                      ({Math.floor(Math.random() * 50) + 10} ratings)
+                      ({chama.raterCount ?? 0} ratings)
                     </Text>
                   </Text>
                 </View>
@@ -855,7 +882,6 @@ export default function ChamaDetails() {
                   activeOpacity={0.7}
                   className="bg-emerald-600 py-3.5 rounded-xl flex-row items-center justify-center shadow-lg"
                 >
-
                   <Text className="text-white font-bold text-base">
                     Send Invite
                   </Text>

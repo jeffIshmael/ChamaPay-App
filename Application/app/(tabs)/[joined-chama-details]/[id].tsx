@@ -436,7 +436,7 @@ export default function JoinedChamaDetails() {
             {/* Cancel Button */}
             <TouchableOpacity
               onPress={() => setShowShareModal(false)}
-              className="mt-6 bg-gray-300 py-3.5 rounded-xl"
+              className="mt-6 bg-gray-500 py-3.5 rounded-xl"
               activeOpacity={0.7}
             >
               <Text className="text-gray-700 font-semibold text-center text-base">
