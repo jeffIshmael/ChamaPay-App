@@ -1,7 +1,7 @@
 import { JoinedChama } from "@/constants/mockData";
 import { useAuth } from "@/Contexts/AuthContext";
 import { getUserChamas, transformChamaData } from "@/lib/chamaService";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import {
   ArrowRight,
   Bell,
@@ -10,14 +10,14 @@ import {
   Users,
   Wallet,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -29,35 +29,45 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch user's chamas
-  useEffect(() => {
-    const fetchChamas = async () => {
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-      try {
-        setLoading(true);
-        const response = await getUserChamas(token);
-        if (response.success && response.chamas) {
-          const transformed = response.chamas.map((member: any) =>
-            transformChamaData(member.chama)
-          );
-          setChamas(transformed);
-        } else {
-          setChamas([]);
-          setError(response.error || "No chamas found");
-        }
-      } catch (err) {
-        console.error(err);
-        setError("Failed to fetch chamas");
+  // Fetch user's chamas function
+  const fetchChamas = useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      const response = await getUserChamas(token);
+      if (response.success && response.chamas) {
+        const transformed = response.chamas.map((member: any) =>
+          transformChamaData(member.chama)
+        );
+        setChamas(transformed);
+        setError(null);
+      } else {
         setChamas([]);
-      } finally {
-        setLoading(false);
+        setError(response.error || "No chamas found");
       }
-    };
-    fetchChamas();
+    } catch (err) {
+      console.error(err);
+      setError("Failed to fetch chamas");
+      setChamas([]);
+    } finally {
+      setLoading(false);
+    }
   }, [token]);
+
+  // Fetch chamas on component mount
+  useEffect(() => {
+    fetchChamas();
+  }, [fetchChamas]);
+
+  // Refresh chamas when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchChamas();
+    }, [fetchChamas])
+  );
 
   const Badge = ({
     children,

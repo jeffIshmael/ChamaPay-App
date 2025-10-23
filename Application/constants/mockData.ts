@@ -5,6 +5,7 @@ export interface Member {
   email: string;
   role: string;
   contributions: number;
+  address?: string;
 }
 
 export interface Message {
@@ -15,7 +16,7 @@ export interface Message {
   isAdmin?: boolean;
 }
 
-export type PayoutStatus = "completed" | "next" | "pending" | "upcoming";
+export type PayoutStatus = "completed" | "next" | "not started" | "upcoming";
 
 export interface PayoutScheduleItem {
   position: number;

@@ -277,9 +277,7 @@ export const depositToChama = async (req: Request, res: Response) => {
     await prisma.payment.create({
       data: {
         amount: amount,
-        description: `Deposit to ${
-          chama.name
-        } (including 2% fee: ${transactionFee.toFixed(4)} cUSD)`,
+        description: `deposited`,
         txHash: txHash,
         chamaId: parseInt(chamaId),
         userId: userId,
@@ -326,10 +324,12 @@ export const addMemberToChama = async (req: Request, res: Response) => {
     });
 
     if (!chamaMember) {
-      return res.status(400).json({ success: false, error: "Failed to add member" });
+      return res
+        .status(400)
+        .json({ success: false, error: "Failed to add member" });
     }
 
-    if(isPublic) {
+    if (isPublic) {
       await prisma.payment.create({
         data: {
           amount: amount,

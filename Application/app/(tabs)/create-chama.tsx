@@ -27,7 +27,11 @@ import {
 // Custom checkbox component to avoid dependency conflicts
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { prepareContractCall, sendTransaction, waitForReceipt } from "thirdweb";
-import { useActiveAccount, useActiveWallet, useReadContract } from "thirdweb/react";
+import {
+  useActiveAccount,
+  useActiveWallet,
+  useReadContract,
+} from "thirdweb/react";
 import { toWei } from "thirdweb/utils";
 import { useAuth } from "../../Contexts/AuthContext";
 
@@ -51,14 +55,14 @@ interface FormData {
 const memberOptions = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
 // Custom Checkbox Component
-const CustomCheckbox = ({ 
-  checked, 
-  onPress, 
-  color = "#10B981" 
-}: { 
-  checked: boolean; 
-  onPress: () => void; 
-  color?: string; 
+const CustomCheckbox = ({
+  checked,
+  onPress,
+  color = "#10B981",
+}: {
+  checked: boolean;
+  onPress: () => void;
+  color?: string;
 }) => (
   <TouchableOpacity
     onPress={onPress}
@@ -87,6 +91,7 @@ export default function CreateChama() {
   const { user, token } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [loadingState, setLoadingState] = useState<string>("");
   const [formData, setFormData] = useState<FormData>({
     name: "",
     description: "",
@@ -204,6 +209,11 @@ export default function CreateChama() {
 
     setLoading(true);
     try {
+      // Set initial loading state based on chama type
+      if (formData.isPublic) {
+        setLoadingState("Processing...");
+      }
+
       // Combine start date and time into Date object
       const startDateTime = new Date(
         `${formData.startDate}T${formData.startTime}:00`
@@ -231,10 +241,10 @@ export default function CreateChama() {
       const blockchainId = Number(totalChamas).toString();
       console.log("the total chamas", totalChamas);
 
-      // const data = await response.json();
-
       // if its public, we need to sign approve tx because the contract will be calling the transferFrom due to the locking
       if (formData.isPublic) {
+        setLoadingState("Checking payment...");
+
         const approveTransaction = prepareContractCall({
           contract: cUSDContract,
           method: "function approve(address spender, uint256 amount)",
@@ -251,14 +261,25 @@ export default function CreateChama() {
           transactionHash: approveTransactionHash,
         });
 
-        console.log("the approve transaction receipt", approveTransactionReceipt);
+        console.log(
+          "the approve transaction receipt",
+          approveTransactionReceipt
+        );
         if (!approveTransactionReceipt) {
+          setLoadingState("");
           Alert.alert(
             "Error",
             `Failed. ensure you have ${totalCollateralRequired} cUSD in your wallet.`
           );
           return;
         }
+      }
+
+      // Set creating state
+      if (formData.isPublic) {
+        setLoadingState("Creating...");
+      } else {
+        setLoadingState("Checking details...");
       }
 
       // registering chama to the blockchain
@@ -280,6 +301,11 @@ export default function CreateChama() {
           account: activeAccount,
           transaction: createChamaTransaction,
         });
+      if (!formData.isPublic) {
+        setTimeout(() => {
+          setLoadingState("Creating...");
+        }, 2000);
+      }
 
       const transactionReceipt = await waitForReceipt({
         client: client,
@@ -291,6 +317,7 @@ export default function CreateChama() {
         transactionReceipt.transactionHash
       );
       if (!transactionReceipt) {
+        setLoadingState("");
         Alert.alert("Error", "Failed to create chama");
         return;
       }
@@ -315,6 +342,7 @@ export default function CreateChama() {
         token
       );
       if (!registerChamaToDatabaseResponse.success) {
+        setLoadingState("");
         Alert.alert(
           "Error",
           registerChamaToDatabaseResponse.error ||
@@ -340,10 +368,12 @@ export default function CreateChama() {
         collateralRequired: false,
       });
       setStep(1);
+      setLoadingState("");
       Alert.alert("Success", "Chama created successfully");
       router.push("/(tabs)");
     } catch (error) {
       console.error("Error creating chama:", error);
+      setLoadingState("");
       Alert.alert("Error", "Network error. Please try again.");
     } finally {
       setLoading(false);
@@ -771,7 +801,8 @@ export default function CreateChama() {
           </Text>
           {formData.isPublic && (
             <Text className="text-emerald-800 text-sm">
-              • Collateral Required: {formData.contribution * formData.maxMembers} cUSD
+              • Collateral Required:{" "}
+              {formData.contribution * formData.maxMembers} cUSD
             </Text>
           )}
           {formData.adminTerms.length > 0 && (
@@ -896,7 +927,7 @@ export default function CreateChama() {
                   }`}
                 >
                   {loading
-                    ? "Creating..."
+                    ? loadingState || "Creating..."
                     : step === 2
                     ? "Create Chama"
                     : "Next"}
@@ -1090,7 +1121,8 @@ export default function CreateChama() {
                   lineHeight: 20,
                 }}
               >
-                For public chamas, members must provide collateral as a security measure
+                For public chamas, members must provide collateral as a security
+                measure
               </Text>
             </View>
 
@@ -1105,7 +1137,7 @@ export default function CreateChama() {
               >
                 What you need to know:
               </Text>
-              
+
               <View className="space-y-3">
                 <View className="flex-row items-start">
                   <View
@@ -1128,7 +1160,10 @@ export default function CreateChama() {
                   >
                     You'll lock{" "}
                     <Text style={{ fontWeight: "600" }}>
-                      {(formData.contribution * formData.maxMembers).toLocaleString()} cUSD
+                      {(
+                        formData.contribution * formData.maxMembers
+                      ).toLocaleString()}{" "}
+                      cUSD
                     </Text>{" "}
                     as collateral
                   </Text>
@@ -1199,7 +1234,8 @@ export default function CreateChama() {
                       lineHeight: 20,
                     }}
                   >
-                    This is a security measure in case a member defaults payment, ensuring the cycle continues without disruption
+                    This is a security measure in case a member defaults
+                    payment, ensuring the cycle continues without disruption
                   </Text>
                 </View>
               </View>
@@ -1223,7 +1259,10 @@ export default function CreateChama() {
                   >
                     I understand that I will lock{" "}
                     <Text style={{ fontWeight: "600" }}>
-                      {(formData.contribution * formData.maxMembers).toLocaleString()} cUSD
+                      {(
+                        formData.contribution * formData.maxMembers
+                      ).toLocaleString()}{" "}
+                      cUSD
                     </Text>{" "}
                     as collateral and agree to the terms outlined above.
                   </Text>
@@ -1253,7 +1292,7 @@ export default function CreateChama() {
                   Cancel
                 </Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 onPress={() => {
                   setShowCollateralModal(false);

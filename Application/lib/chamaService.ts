@@ -255,6 +255,7 @@ export const transformChamaData = (backendChama: BackendChama) => {
       email: member.user.email,
       role: member.user.id === backendChama.admin.id ? "Admin" : "Member",
       contributions: parseFloat(backendChama.amount), // Default contribution
+      address: member.user.address || "", // Add wallet address
     })) || [],
     recentTransactions: backendChama.payments?.map(payment => ({
       id: payment.id,

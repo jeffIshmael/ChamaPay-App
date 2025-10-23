@@ -61,6 +61,18 @@ export default function JoinedChamaDetails() {
       user?.address as `0x${string}`,
     ],
   });
+    const {
+      data: eachMemberBalances,
+    isLoading: isEachMemberBalancesLoading,
+    error: eachMemberBalancesError,
+  } = useReadContract({
+    contract: chamapayContract,
+    method:
+      "function getEachMemberBalance(uint256 _chamaId) view returns (address[] memory, uint256[][] memory)",
+    params: [
+      BigInt(Number(chama?.blockchainId) || 0) as bigint,
+    ],
+  });
   const [myBalance, setMyBalance] = useState<bigint[] | undefined>();
 
   useEffect(() => {
@@ -215,11 +227,17 @@ export default function JoinedChamaDetails() {
   const renderScheduleTab = () => (
     <ScheduleTab
       payoutSchedule={chama.payoutSchedule}
-      chamaStatus={chama.status as "active" | "pending" | "completed"}
+      chamaStatus={chama.status === "not started" ? "pending" : chama.status as "active" | "pending" | "completed"}
     />
   );
 
-  const renderMembersTab = () => <MembersTab members={chama.members} />;
+  const renderMembersTab = () => (
+    <MembersTab 
+      members={chama.members} 
+      eachMemberBalances={eachMemberBalances}
+      isPublic={chama.isPublic}
+    />
+  );
 
   const renderTabContent = () => {
     switch (activeTab) {
