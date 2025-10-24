@@ -167,3 +167,103 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
+
+// Check if username is available
+export const checkUsernameAvailability = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { username } = req.body as { username?: string };
+    
+    if (!username?.trim()) {
+      res.status(400).json({ success: false, error: "Username is required" });
+      return;
+    }
+
+    const trimmedUsername = username.trim().toLowerCase();
+    
+    // Check if username is already taken
+    const existingUser = await prisma.user.findFirst({
+      where: { 
+        userName: trimmedUsername
+      },
+      select: { id: true, userName: true }
+    });
+
+    if (existingUser) {
+      res.status(200).json({ 
+        success: false, 
+        available: false, 
+        message: "Username is already taken" 
+      });
+      return;
+    }
+
+    // Check username format (alphanumeric, underscores, hyphens)
+    const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+    if (!usernameRegex.test(trimmedUsername)) {
+      res.status(400).json({ 
+        success: false, 
+        available: false, 
+        message: "Username can only contain letters, numbers, underscores, and hyphens" 
+      });
+      return;
+    }
+
+    // Check minimum length
+    if (trimmedUsername.length < 3) {
+      res.status(400).json({ 
+        success: false, 
+        available: false, 
+        message: "Username must be at least 3 characters long" 
+      });
+      return;
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      available: true, 
+      message: "Username is available" 
+    });
+  } catch (error: unknown) {
+    console.error("Check username availability error:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};
+
+// Search users by username
+export const searchUsers = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { query } = req.query as { query?: string };
+    
+    if (!query?.trim()) {
+      res.status(400).json({ success: false, error: "Search query is required" });
+      return;
+    }
+
+    const trimmedQuery = query.trim().toLowerCase();
+    
+    // Search for users by username (case insensitive)
+    const users = await prisma.user.findMany({
+      where: {
+        userName: {
+          contains: trimmedQuery
+        }
+      },
+      select: {
+        id: true,
+        userName: true,
+        email: true,
+        address: true,
+        profileImageUrl: true
+      },
+      take: 10 // Limit to 10 results
+    });
+
+    res.status(200).json({ 
+      success: true, 
+      users: users 
+    });
+  } catch (error: unknown) {
+    console.error("Search users error:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};

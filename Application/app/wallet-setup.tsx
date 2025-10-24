@@ -1,5 +1,6 @@
 import { serverUrl } from "@/constants/serverUrl";
 import { useAuth } from "@/Contexts/AuthContext";
+import { checkUsernameAvailability } from "@/lib/chamaService";
 import { storage } from "@/Utils/storage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
@@ -8,7 +9,8 @@ import {
   CheckCircle,
   Copy,
   Shield,
-  Wallet
+  Wallet,
+  X
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -43,8 +45,41 @@ export default function WalletSetup() {
   const [username, setUsername] = useState ("");
   const [savingName, setSavingName] = useState(false);
   const [hasNameMissing, setHasNameMissing] = useState(true);
-  const isUsernameValid = username.trim().length > 2;
+  const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "unavailable" | "invalid">("idle");
+  const [usernameMessage, setUsernameMessage] = useState("");
+  const isUsernameValid = username.trim().length > 2 && usernameStatus === "available";
   const account = useActiveAccount();
+
+  // Check username availability with debouncing
+  useEffect(() => {
+    const checkUsername = async () => {
+      if (username.trim().length < 3) {
+        setUsernameStatus("idle");
+        setUsernameMessage("");
+        return;
+      }
+
+      setUsernameStatus("checking");
+      setUsernameMessage("Checking availability...");
+
+      try {
+        const result = await checkUsernameAvailability(username.trim());
+        if (result.success && result.available) {
+          setUsernameStatus("available");
+          setUsernameMessage("Username is available");
+        } else {
+          setUsernameStatus("unavailable");
+          setUsernameMessage(result.message || "Username is not available");
+        }
+      } catch (error) {
+        setUsernameStatus("invalid");
+        setUsernameMessage("Error checking username");
+      }
+    };
+
+    const timeoutId = setTimeout(checkUsername, 500); // 500ms debounce
+    return () => clearTimeout(timeoutId);
+  }, [username]);
 
   useEffect(() => {
     // Simulate wallet creation process
@@ -469,7 +504,15 @@ export default function WalletSetup() {
             }}
           >
             <Text className="text-gray-900 font-medium mb-2">Choose a username</Text>
-            <View className="flex-row items-center border border-gray-200 rounded-lg px-4 py-3 mb-3">
+            <View className={`flex-row items-center border-2 rounded-lg px-4 py-3 mb-3 ${
+              usernameStatus === "available" 
+                ? "border-green-500 bg-green-50" 
+                : usernameStatus === "unavailable" || usernameStatus === "invalid"
+                ? "border-red-500 bg-red-50"
+                : usernameStatus === "checking"
+                ? "border-yellow-500 bg-yellow-50"
+                : "border-gray-200"
+            }`}>
               <Text className="text-gray-700 mr-2">@</Text>
               <TextInput
                 className="flex-1 text-gray-900"
@@ -478,7 +521,29 @@ export default function WalletSetup() {
                 value={username}
                 onChangeText={setUsername}
               />
+              {usernameStatus === "checking" && (
+                <View className="w-4 h-4 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+              )}
+              {usernameStatus === "available" && (
+                <CheckCircle size={16} color="#10b981" />
+              )}
+              {(usernameStatus === "unavailable" || usernameStatus === "invalid") && (
+                <X size={16} color="#ef4444" />
+              )}
             </View>
+            
+            {/* Username status message */}
+            {usernameMessage && (
+              <Text className={`text-sm mb-3 ${
+                usernameStatus === "available" 
+                  ? "text-green-600" 
+                  : usernameStatus === "unavailable" || usernameStatus === "invalid"
+                  ? "text-red-600"
+                  : "text-yellow-600"
+              }`}>
+                {usernameMessage}
+              </Text>
+            )}
             <TouchableOpacity
               onPress={saveUsername}
               disabled={savingName || !isUsernameValid}
