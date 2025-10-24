@@ -1,10 +1,12 @@
 import { useAuth } from "@/Contexts/AuthContext";
-import { BackendChama, getPublicChamas } from "@/lib/chamaService";
+import { BackendChama, getChamaBySlug, getPublicChamas } from "@/lib/chamaService";
+import { decryptChamaSlug, parseChamaShareUrl } from "@/lib/encryption";
 import { useRouter } from "expo-router";
 import { Calendar, Search, Star, TrendingUp, Users, Zap } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   SafeAreaView,
   Text,
@@ -18,10 +20,11 @@ export default function DiscoverChamas() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [searchTerm, setSearchTerm] = useState("");
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [backendChamas, setBackendChamas] = useState<BackendChama[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isProcessingLink, setIsProcessingLink] = useState<boolean>(false);
 
   React.useEffect(() => {
     const fetchPublic = async () => {
@@ -57,6 +60,80 @@ export default function DiscoverChamas() {
       description.includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
+
+  // Handle pasted chama links
+  const handleChamaLink = async (link: string) => {
+    try {
+      setIsProcessingLink(true);
+      
+      const encryptedSlug = parseChamaShareUrl(link);
+      if (!encryptedSlug) {
+        Alert.alert("Invalid Link", "This doesn't appear to be a valid ChamaPay link.");
+        return;
+      }
+
+      console.log("the encrypted slug", encryptedSlug);
+
+      const originalSlug = decryptChamaSlug(encryptedSlug);
+      if (!originalSlug) {
+        Alert.alert("Invalid Link", "Unable to decode this chama link.");
+        return;
+      }
+
+      console.log("the original slug", originalSlug);
+
+      // Check if chama exists
+      const response = await getChamaBySlug(originalSlug, token!);
+      if (response.success && response.chama) {
+        const chama = response.chama;
+        
+        // Check if user is already a member of this chama
+        const isMember = chama.members?.some(member => 
+          member.user?.id === user?.id || 
+          member.user?.email === user?.email ||
+          member.user?.userName === user?.userName
+        );
+
+        console.log("User is member:", isMember);
+
+        if (isMember) {
+          // User is already a member - route to joined chama details
+          router.push(`/(tabs)/[joined-chama-details]/${originalSlug}`);
+        } else {
+          // User is not a member - route to chama details (join page)
+          router.push({
+            pathname: "/chama-details/[slug]",
+            params: { slug: originalSlug },
+          });
+        }
+        
+        setSearchTerm(""); // Clear search
+      } else {
+        Alert.alert("Chama Not Found", "This chama no longer exists or is not available.");
+      }
+    } catch (error) {
+      console.error("Error handling chama link:", error);
+      Alert.alert("Error", "Failed to process the chama link. Please try again.");
+    } finally {
+      setIsProcessingLink(false);
+    }
+  };
+
+  // Handle search input changes
+  const handleSearchChange = (text: string) => {
+    setSearchTerm(text);
+
+    // Check if the input looks like a chama link (more specific patterns)
+    if (text.includes('chamapay.com') || text.includes('/chama/') || /^[a-zA-Z0-9]{20,}$/i.test(text.trim())) {
+      console.log("checking the link.....");
+      // Debounce the link check
+      const timeoutId = setTimeout(() => {
+        handleChamaLink(text);
+      }, 1000);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -189,14 +266,21 @@ export default function DiscoverChamas() {
         {/* Search Bar */}
         <View className="relative">
           <View className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
-            <Search size={18} color="#9ca3af" />
+            {isProcessingLink ? (
+              <ActivityIndicator size="small" color="#10b981" />
+            ) : (
+              <Search size={18} color="#9ca3af" />
+            )}
           </View>
           <TextInput
-            placeholder="Search chamas / paste link to join..."
+            placeholder={isProcessingLink ? "Processing link..." : "Search chamas / paste link to join..."}
             value={searchTerm}
-            onChangeText={setSearchTerm}
-            className="bg-gray-100 rounded-full pl-11 pr-4 py-3 text-gray-900 text-sm"
+            onChangeText={handleSearchChange}
+            className={`bg-gray-100 rounded-full pl-11 pr-4 py-3 text-gray-900 text-sm ${
+              isProcessingLink ? "opacity-70" : ""
+            }`}
             placeholderTextColor="#9ca3af"
+            editable={!isProcessingLink}
           />
         </View>
       </View>
@@ -238,6 +322,21 @@ export default function DiscoverChamas() {
           </View>
         )}
       </View>
+
+      {/* Link Processing Overlay */}
+      {isProcessingLink && (
+        <View className="absolute inset-0 bg-black/20 items-center justify-center">
+          <View className="bg-white rounded-2xl p-6 mx-6 shadow-lg items-center">
+            <ActivityIndicator size="large" color="#10b981" />
+            <Text className="text-gray-900 font-semibold mt-3 text-base">
+              Processing Link
+            </Text>
+            <Text className="text-gray-600 text-center mt-2 text-sm">
+              Decrypting and checking membership...
+            </Text>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }

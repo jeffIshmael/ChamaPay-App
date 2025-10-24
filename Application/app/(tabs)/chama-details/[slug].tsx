@@ -11,6 +11,7 @@ import {
   getChamaBySlug,
   transformChamaData,
 } from "@/lib/chamaService";
+import { generateChamaShareUrl } from "@/lib/encryption";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
@@ -137,7 +138,9 @@ export default function ChamaDetails() {
   };
 
   const copyLink = () => {
-    const link = `https://chamapay.app/chama/${slug}`;
+    if (!chama) return;
+    const link = generateChamaShareUrl(chama.slug);
+    console.log("the link", link);
     // In a real app, you'd use Clipboard.setString(link)
     Alert.alert("Link Copied", "Chama link has been copied to clipboard!");
     setShowShareModal(false);

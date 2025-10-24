@@ -8,6 +8,7 @@ import { JoinedChama } from "@/constants/mockData";
 import { chamapayContract } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
 import { getChamaBySlug, transformChamaData } from "@/lib/chamaService";
+import { generateChamaShareUrl } from "@/lib/encryption";
 import { formatToK } from "@/lib/formatNumbers";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Share, Share2 } from "lucide-react-native";
@@ -158,8 +159,10 @@ export default function JoinedChamaDetails() {
   };
 
   const copyLink = () => {
-    const link = `https://chamapay.app/chama/${id}`;
+    if (!chama) return;
+    const link = generateChamaShareUrl(chama.slug);
     // In a real app, you'd use Clipboard.setString(link)
+    console.log("the link", link);
     Alert.alert("Link Copied", "Chama link has been copied to clipboard!");
     setShowShareModal(false);
   };
@@ -257,7 +260,7 @@ export default function JoinedChamaDetails() {
   return (
     <View className="flex-1 bg-gray-50">
       {/* Header */}
-      <SafeAreaView className=" bg-emerald-600 rounded-b-2xl">
+      <SafeAreaView className=" bg-downy-800 rounded-b-2xl">
         <View className="p-6 pb-4">
           <View className="flex-row items-center justify-between mb-4">
             <TouchableOpacity
