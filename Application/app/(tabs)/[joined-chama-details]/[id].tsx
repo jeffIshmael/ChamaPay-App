@@ -7,14 +7,15 @@ import { TabButton } from "@/components/ui/TabButton";
 import { JoinedChama } from "@/constants/mockData";
 import { chamapayContract } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
-import { getChamaBySlug, transformChamaData } from "@/lib/chamaService";
+import { getChamaBySlug, searchUsers, transformChamaData } from "@/lib/chamaService";
 import { generateChamaShareUrl } from "@/lib/encryption";
 import { formatToK } from "@/lib/formatNumbers";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Share, Share2 } from "lucide-react-native";
+import { ArrowLeft, Share, Share2, User } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -39,6 +40,22 @@ export default function JoinedChamaDetails() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareUsername, setShareUsername] = useState("");
+  const [shareSearchResults, setShareSearchResults] = useState<Array<{
+    id: number;
+    userName: string;
+    email: string;
+    address: string;
+    profileImageUrl: string | null;
+  }>>([]);
+  const [isShareSearching, setIsShareSearching] = useState(false);
+  const [showShareSearchResults, setShowShareSearchResults] = useState(false);
+  const [selectedShareUser, setSelectedShareUser] = useState<{
+    id: number;
+    userName: string;
+    email: string;
+    address: string;
+    profileImageUrl: string | null;
+  } | null>(null);
   const {
     data: chamaBalance,
     isLoading: isChamaBalanceLoading,
@@ -167,14 +184,53 @@ export default function JoinedChamaDetails() {
     setShowShareModal(false);
   };
 
+  // Search users for sharing with debouncing
+  useEffect(() => {
+    const searchForShareUsers = async () => {
+      if (!shareUsername.trim() || shareUsername.trim().length < 2) {
+        setShareSearchResults([]);
+        setShowShareSearchResults(false);
+        return;
+      }
+
+      setIsShareSearching(true);
+      try {
+        const result = await searchUsers(shareUsername.trim());
+        if (result.success && result.users) {
+          setShareSearchResults(result.users);
+          setShowShareSearchResults(true);
+        } else {
+          setShareSearchResults([]);
+          setShowShareSearchResults(false);
+        }
+      } catch (error) {
+        console.error("Error searching users for sharing:", error);
+        setShareSearchResults([]);
+        setShowShareSearchResults(false);
+      } finally {
+        setIsShareSearching(false);
+      }
+    };
+
+    const timeoutId = setTimeout(searchForShareUsers, 300);
+    return () => clearTimeout(timeoutId);
+  }, [shareUsername]);
+
+  const handleShareUserSelect = (user: typeof selectedShareUser) => {
+    setSelectedShareUser(user);
+    setShareUsername(user?.userName || "");
+    setShowShareSearchResults(false);
+  };
+
   const shareToUser = () => {
-    if (!shareUsername.trim()) {
-      Alert.alert("Error", "Please enter a username");
+    if (!selectedShareUser) {
+      Alert.alert("Error", "Please select a user from the search results");
       return;
     }
     // In a real app, you'd implement the sharing logic here
-    Alert.alert("Shared", `Chama shared with @${shareUsername}`);
+    Alert.alert("Shared", `Chama shared with @${selectedShareUser.userName}`);
     setShareUsername("");
+    setSelectedShareUser(null);
     setShowShareModal(false);
   };
 
@@ -431,23 +487,87 @@ export default function JoinedChamaDetails() {
                 </View>
 
                 {/* Input Field */}
-                <View className="mb-3">
-                  <TextInput
-                    value={shareUsername}
-                    onChangeText={setShareUsername}
-                    placeholder="@username"
-                    className="bg-white border border-emerald-300 rounded-xl px-4 py-3.5 text-gray-900 font-medium"
-                    placeholderTextColor="#9CA3AF"
-                  />
+                <View className="mb-3 relative">
+                  <View className="flex-row items-center bg-white border border-emerald-300 rounded-xl px-4 py-3.5">
+                    <Text className="text-lg font-semibold text-emerald-600 mr-2">@</Text>
+                    <TextInput
+                      value={shareUsername}
+                      onChangeText={(text) => {
+                        setShareUsername(text);
+                        setSelectedShareUser(null);
+                      }}
+                      placeholder="username"
+                      className="flex-1 text-gray-900 font-medium"
+                      placeholderTextColor="#9CA3AF"
+                      onFocus={() => {
+                        if (shareSearchResults.length > 0) {
+                          setShowShareSearchResults(true);
+                        }
+                      }}
+                    />
+                    {isShareSearching && (
+                      <View className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                    )}
+                  </View>
+                  
+                  {/* Search Results Dropdown */}
+                  {showShareSearchResults && shareSearchResults.length > 0 && (
+                    <View className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-emerald-200 shadow-lg z-50 max-h-48">
+                      {shareSearchResults.map((user) => (
+                        <TouchableOpacity
+                          key={user.id}
+                          onPress={() => handleShareUserSelect(user)}
+                          className="flex-row items-center p-3 border-b border-gray-100 last:border-b-0"
+                          activeOpacity={0.7}
+                        >
+                          <View className="w-10 h-10 bg-emerald-100 rounded-full items-center justify-center mr-3">
+                            {user.profileImageUrl ? (
+                              <Image
+                                source={{ uri: user.profileImageUrl }}
+                                className="w-10 h-10 rounded-full"
+                              />
+                            ) : (
+                              <User size={20} color="#10b981" />
+                            )}
+                          </View>
+                          <View className="flex-1">
+                            <Text className="font-semibold text-gray-900">
+                              @{user.userName}
+                            </Text>
+                            <Text className="text-sm text-gray-500">
+                              {user.email}
+                            </Text>
+                            <Text className="text-xs text-gray-400 font-mono">
+                              {user.address.slice(0, 6)}...{user.address.slice(-4)}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* User Not Found Message */}
+                  {shareUsername.trim().length >= 2 && !isShareSearching && shareSearchResults.length === 0 && (
+                    <View className="absolute top-full left-0 right-0 mt-1 bg-red-50 border border-red-200 rounded-xl p-3 z-50">
+                      <Text className="text-red-600 text-sm font-medium text-center">
+                        User not found
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 {/* Send Button */}
                 <TouchableOpacity
                   onPress={shareToUser}
+                  disabled={!selectedShareUser}
                   activeOpacity={0.7}
-                  className="bg-emerald-600 py-3.5 rounded-xl flex-row items-center justify-center shadow-lg"
+                  className={`py-3.5 rounded-xl flex-row items-center justify-center shadow-lg ${
+                    selectedShareUser ? "bg-emerald-600" : "bg-gray-300"
+                  }`}
                 >
-                  <Text className="text-white font-bold text-base">
+                  <Text className={`font-bold text-base ${
+                    selectedShareUser ? "text-white" : "text-gray-500"
+                  }`}>
                     Send Invite
                   </Text>
                 </TouchableOpacity>

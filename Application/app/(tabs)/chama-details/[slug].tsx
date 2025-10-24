@@ -9,6 +9,7 @@ import { useAuth } from "@/Contexts/AuthContext";
 import {
   addMemberToChama,
   getChamaBySlug,
+  searchUsers,
   transformChamaData,
 } from "@/lib/chamaService";
 import { generateChamaShareUrl } from "@/lib/encryption";
@@ -22,6 +23,7 @@ import {
   Share2,
   Shield,
   Star,
+  User,
   Users,
   Wallet,
 } from "lucide-react-native";
@@ -29,6 +31,7 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -56,6 +59,22 @@ export default function ChamaDetails() {
   const [showCollateralModal, setShowCollateralModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareUsername, setShareUsername] = useState("");
+  const [shareSearchResults, setShareSearchResults] = useState<Array<{
+    id: number;
+    userName: string;
+    email: string;
+    address: string;
+    profileImageUrl: string | null;
+  }>>([]);
+  const [isShareSearching, setIsShareSearching] = useState(false);
+  const [showShareSearchResults, setShowShareSearchResults] = useState(false);
+  const [selectedShareUser, setSelectedShareUser] = useState<{
+    id: number;
+    userName: string;
+    email: string;
+    address: string;
+    profileImageUrl: string | null;
+  } | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "schedule" | "terms">(
     "overview"
   );
@@ -70,23 +89,23 @@ export default function ChamaDetails() {
 
   useEffect(() => {
     const fetchChama = async () => {
-      setIsLoading(true);
+    setIsLoading(true);
       try {
-        const response = await getChamaBySlug(slug as string, token);
-        if (response.success && response.chama) {
+      const response = await getChamaBySlug(slug as string, token);
+      if (response.success && response.chama) {
           const transformedChama = transformChamaData(response.chama);
           console.log("the transformed chama", transformedChama);
           setChama(transformedChama);
-          setProgressPercentage(
+      setProgressPercentage(
             (transformedChama.totalMembers / transformedChama.maxMembers) * 100
-          );
+      );
         }
       } catch (error) {
         console.error("Error fetching chama:", error);
-      }
-      setIsLoading(false);
-    };
-    fetchChama();
+    }
+    setIsLoading(false);
+  };
+  fetchChama();
   }, [slug, token]);
 
   const formatDate = (dateString: string) => {
@@ -116,7 +135,7 @@ export default function ChamaDetails() {
         //   Alert.alert("Error", "Failed to send notification to admin.");
         //   return;
         // }
-        Alert.alert(
+    Alert.alert(
           "Success",
           "Notification sent to admin. Please wait for approval."
         );
@@ -146,14 +165,53 @@ export default function ChamaDetails() {
     setShowShareModal(false);
   };
 
+  // Search users for sharing with debouncing
+  useEffect(() => {
+    const searchForShareUsers = async () => {
+      if (!shareUsername.trim() || shareUsername.trim().length < 2) {
+        setShareSearchResults([]);
+        setShowShareSearchResults(false);
+        return;
+      }
+
+      setIsShareSearching(true);
+      try {
+        const result = await searchUsers(shareUsername.trim());
+        if (result.success && result.users) {
+          setShareSearchResults(result.users);
+          setShowShareSearchResults(true);
+        } else {
+          setShareSearchResults([]);
+          setShowShareSearchResults(false);
+        }
+      } catch (error) {
+        console.error("Error searching users for sharing:", error);
+        setShareSearchResults([]);
+        setShowShareSearchResults(false);
+      } finally {
+        setIsShareSearching(false);
+      }
+    };
+
+    const timeoutId = setTimeout(searchForShareUsers, 300);
+    return () => clearTimeout(timeoutId);
+  }, [shareUsername]);
+
+  const handleShareUserSelect = (user: typeof selectedShareUser) => {
+    setSelectedShareUser(user);
+    setShareUsername(user?.userName || "");
+    setShowShareSearchResults(false);
+  };
+
   const shareToUser = () => {
-    if (!shareUsername.trim()) {
-      Alert.alert("Error", "Please enter a username");
+    if (!selectedShareUser) {
+      Alert.alert("Error", "Please select a user from the search results");
       return;
     }
     // In a real app, you'd implement the sharing logic here
-    Alert.alert("Shared", `Chama shared with @${shareUsername}`);
+    Alert.alert("Shared", `Chama shared with @${selectedShareUser.userName}`);
     setShareUsername("");
+    setSelectedShareUser(null);
     setShowShareModal(false);
   };
 
@@ -247,7 +305,7 @@ export default function ChamaDetails() {
       Alert.alert("Error", "Failed to join chama. Please try again.");
       return;
     } finally {
-      setIsJoining(false);
+              setIsJoining(false);
     }
   };
 
@@ -373,15 +431,15 @@ export default function ChamaDetails() {
               <Text className="text-2xl">📋</Text>
             </View>
             <Text className="text-xl font-bold text-gray-900">
-              Admin Requirements
-            </Text>
+            Admin Requirements
+          </Text>
           </View>
           <View className="gap-3">
             {(Array.isArray(chama.adminTerms)
               ? chama.adminTerms
               : JSON.parse(chama.adminTerms)
             ).map((term: string, index: number) => (
-              <View
+                <View
                 key={index}
                 className="flex-row items-start gap-3 bg-white/60 rounded-xl p-3"
               >
@@ -406,8 +464,8 @@ export default function ChamaDetails() {
             <Text className="text-xl">💳</Text>
           </View>
           <Text className="text-lg font-bold text-gray-900">
-            Financial Summary
-          </Text>
+          Financial Summary
+        </Text>
         </View>
 
         {chama && (
@@ -508,8 +566,8 @@ export default function ChamaDetails() {
             <View className="flex-row items-center gap-2 mb-3">
               <Text className="text-xl">{section.icon}</Text>
               <Text className="font-bold text-gray-900 text-base">
-                {section.title}
-              </Text>
+              {section.title}
+            </Text>
             </View>
             <View className="gap-2">
               {section.items.map((item, itemIndex) => (
@@ -519,7 +577,7 @@ export default function ChamaDetails() {
                   />
                   <Text className="text-sm text-gray-700 flex-1 leading-5">
                     {item}
-                  </Text>
+                </Text>
                 </View>
               ))}
             </View>
@@ -552,8 +610,8 @@ export default function ChamaDetails() {
             The chama you're looking for doesn't exist
           </Text>
         </SafeAreaView>
-      ) : (
-        <View className="h-full">
+          ) : (
+            <View className="h-full">
           <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
             {/* Dark Header - extends to top */}
             <View
@@ -569,21 +627,21 @@ export default function ChamaDetails() {
                 >
                   <ArrowLeft size={20} color="white" />
                 </TouchableOpacity>
-                <TouchableOpacity
+                    <TouchableOpacity
                   onPress={handleShare}
                   className="w-10 h-10 bg-white/30 rounded-full items-center justify-center"
                   activeOpacity={0.8}
-                >
+                    >
                   <Share2 size={20} color="white" />
-                </TouchableOpacity>
+                    </TouchableOpacity>
               </View>
 
               {/* Title & Description */}
               <Text className="text-3xl font-bold text-white mb-3">
-                {chama.name}
-              </Text>
+                        {chama.name}
+                      </Text>
               <Text className="text-gray-200 text-base leading-6 mb-6">
-                {chama.description}
+                    {chama.description}
               </Text>
 
               {/* Meta Info Pills */}
@@ -606,8 +664,8 @@ export default function ChamaDetails() {
                       "en-US",
                       { hour: "numeric", minute: "2-digit", hour12: false }
                     )}
-                  </Text>
-                </View>
+                      </Text>
+                    </View>
                 <View className="flex-row items-center gap-2  px-4 py-2">
                   <Star
                     size={16}
@@ -620,9 +678,9 @@ export default function ChamaDetails() {
                     <Text className="text-xs text-gray-400">
                       ({chama.raterCount ?? 0} ratings)
                     </Text>
-                  </Text>
-                </View>
-              </View>
+                      </Text>
+                    </View>
+                  </View>
 
               {/* Member Progress */}
               <View className="bg-white/20 rounded-2xl p-4 mb-4">
@@ -633,8 +691,8 @@ export default function ChamaDetails() {
                   </View>
                   <Text className="text-white font-bold text-lg">
                     {chama?.totalMembers}/{chama?.maxMembers}
-                  </Text>
-                </View>
+                      </Text>
+                    </View>
                 {progressPercentage !== undefined && (
                   <View className="w-full bg-white/30 rounded-full h-2.5">
                     <View
@@ -643,7 +701,7 @@ export default function ChamaDetails() {
                     />
                   </View>
                 )}
-              </View>
+                  </View>
 
               {/* Key Stats Cards */}
               <View className="flex-row gap-3">
@@ -652,45 +710,45 @@ export default function ChamaDetails() {
                     <Wallet size={18} color="#10b981" />
                     <Text className="text-gray-600 text-xs font-medium">
                       Monthly
-                    </Text>
-                  </View>
+                        </Text>
+                      </View>
                   <Text className="font-bold text-gray-900 text-lg">
                     {chama.contribution} cUSD
-                  </Text>
-                </View>
+                      </Text>
+                    </View>
                 <View className="flex-1 bg-white rounded-2xl p-4 shadow-md">
                   <View className="flex-row items-center gap-2 mb-2">
                     <Shield size={18} color="#10b981" />
                     <Text className="text-gray-600 text-xs font-medium">
                       Collateral Required
-                    </Text>
-                  </View>
+                        </Text>
+                      </View>
                   <Text className="font-bold text-gray-900 text-lg">
                     {chama.collateralAmount} cUSD
-                  </Text>
+                      </Text>
+                    </View>
+                  </View>
                 </View>
-              </View>
-            </View>
 
             {/* Content Area */}
             <View className="px-6 py-6">
-              {/* Tabs */}
+                {/* Tabs */}
               <View className="bg-gray-100 rounded-2xl p-1.5 mb-6 flex-row">
-                <TabButton
-                  id="overview"
-                  title="Overview"
-                  active={activeTab === "overview"}
-                />
-                <TabButton
-                  id="terms"
-                  title="Terms"
-                  active={activeTab === "terms"}
-                />
-              </View>
+                    <TabButton
+                      id="overview"
+                      title="Overview"
+                      active={activeTab === "overview"}
+                    />
+                    <TabButton
+                      id="terms"
+                      title="Terms"
+                      active={activeTab === "terms"}
+                    />
+                  </View>
 
               {/* Tab Content */}
-              {activeTab === "overview" && renderOverview()}
-              {activeTab === "terms" && renderTerms()}
+                  {activeTab === "overview" && renderOverview()}
+                  {activeTab === "terms" && renderTerms()}
 
               {/* Inline Join Button (not fixed) */}
               <View className="mt-6">
@@ -869,23 +927,84 @@ export default function ChamaDetails() {
                 </View>
 
                 {/* Input Field */}
-                <View className="mb-3">
-                  <TextInput
-                    value={shareUsername}
-                    onChangeText={setShareUsername}
-                    placeholder="@username"
-                    className="bg-white border border-emerald-300 rounded-xl px-4 py-3.5 text-gray-900 font-medium"
-                    placeholderTextColor="#9CA3AF"
-                  />
+                <View className="mb-3 relative">
+                  <View className="flex-row items-center bg-white border border-emerald-300 rounded-xl px-4 py-3.5">
+                    <Text className="text-lg font-semibold text-emerald-600 mr-2">@</Text>
+                    <TextInput
+                      value={shareUsername}
+                      onChangeText={(text) => {
+                        setShareUsername(text);
+                        setSelectedShareUser(null);
+                      }}
+                      placeholder="username"
+                      className="flex-1 text-gray-900 font-medium"
+                      placeholderTextColor="#9CA3AF"
+                      onFocus={() => {
+                        if (shareSearchResults.length > 0) {
+                          setShowShareSearchResults(true);
+                        }
+                      }}
+                    />
+                    {isShareSearching && (
+                      <View className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                    )}
+                  </View>
+                  
+                  {/* Search Results Dropdown */}
+                  {showShareSearchResults && shareSearchResults.length > 0 && (
+                    <View className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-emerald-200 shadow-lg z-50 max-h-48">
+                      {shareSearchResults.map((user) => (
+                        <TouchableOpacity
+                          key={user.id}
+                          onPress={() => handleShareUserSelect(user)}
+                          className="flex-row items-center p-3 border-b border-gray-100 last:border-b-0"
+                          activeOpacity={0.7}
+                        >
+                          <View className="w-10 h-10 bg-emerald-100 rounded-full items-center justify-center mr-3">
+                            {user.profileImageUrl ? (
+                              <Image
+                                source={{ uri: user.profileImageUrl }}
+                                className="w-10 h-10 rounded-full"
+                              />
+                            ) : (
+                              <User size={20} color="#10b981" />
+                            )}
+                          </View>
+                          <View className="flex-1">
+                            <Text className="font-semibold text-gray-900">
+                              @{user.userName}
+                            </Text>
+                            <Text className="text-xs text-gray-400 font-mono">
+                              {user.address.slice(0, 6)}...{user.address.slice(-4)}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* User Not Found Message */}
+                  {shareUsername.trim().length >= 2 && !isShareSearching && shareSearchResults.length === 0 && (
+                    <View className="absolute top-full left-0 right-0 mt-1 bg-red-50 border border-red-200 rounded-xl p-3 z-50">
+                      <Text className="text-red-600 text-sm font-medium text-center">
+                        User not found
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 {/* Send Button */}
                 <TouchableOpacity
                   onPress={shareToUser}
+                  disabled={!selectedShareUser}
                   activeOpacity={0.7}
-                  className="bg-emerald-600 py-3.5 rounded-xl flex-row items-center justify-center shadow-lg"
+                  className={`py-3.5 rounded-xl flex-row items-center justify-center shadow-lg ${
+                    selectedShareUser ? "bg-emerald-600" : "bg-gray-300"
+                  }`}
                 >
-                  <Text className="text-white font-bold text-base">
+                  <Text className={`font-bold text-base ${
+                    selectedShareUser ? "text-white" : "text-gray-500"
+                  }`}>
                     Send Invite
                   </Text>
                 </TouchableOpacity>

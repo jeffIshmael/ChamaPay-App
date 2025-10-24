@@ -1,7 +1,7 @@
-import { Picker } from "@react-native-picker/picker";
+import { searchUsers } from "@/lib/chamaService";
 import { useRouter } from "expo-router";
-import { ArrowLeft, WalletMinimal } from "lucide-react-native";
-import React, { useState } from "react";
+import { ArrowLeft, User, WalletMinimal } from "lucide-react-native";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Image,
@@ -23,6 +23,24 @@ export default function SendCryptoScreen() {
   const [recipient, setRecipient] = useState("");
   const [isTokenModalVisible, setIsTokenModalVisible] = useState(false);
   const [amount, setAmount] = useState("");
+  const [searchResults, setSearchResults] = useState<
+    Array<{
+      id: number;
+      userName: string;
+      email: string;
+      address: string;
+      profileImageUrl: string | null;
+    }>
+  >([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<{
+    id: number;
+    userName: string;
+    email: string;
+    address: string;
+    profileImageUrl: string | null;
+  } | null>(null);
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -41,8 +59,57 @@ export default function SendCryptoScreen() {
     },
   ];
 
+  // Search users with debouncing
+  useEffect(() => {
+    const searchForUsers = async () => {
+      if (
+        sendMode !== "chamapay" ||
+        !recipient.trim() ||
+        recipient.trim().length < 2
+      ) {
+        setSearchResults([]);
+        setShowSearchResults(false);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        const result = await searchUsers(recipient.trim());
+        if (result.success && result.users) {
+          setSearchResults(result.users);
+          setShowSearchResults(true);
+        } else {
+          setSearchResults([]);
+          setShowSearchResults(false);
+        }
+      } catch (error) {
+        console.error("Error searching users:", error);
+        setSearchResults([]);
+        setShowSearchResults(false);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const timeoutId = setTimeout(searchForUsers, 300); // 300ms debounce
+    return () => clearTimeout(timeoutId);
+  }, [recipient, sendMode]);
+
   const scanQR = () => {
     Alert.alert("QR Scanner", "QR code scanner would open here");
+  };
+
+  const handleUserSelect = (user: typeof selectedUser) => {
+    setSelectedUser(user);
+    setRecipient(user?.userName || "");
+    setShowSearchResults(false);
+  };
+
+  const handleInputBlur = () => {
+    // Delay hiding results to allow for selection
+    setTimeout(() => {
+      setShowSearchResults(false);
+    }, 200);
   };
 
   const handleSend = () => {
@@ -50,6 +117,12 @@ export default function SendCryptoScreen() {
       Alert.alert("Error", "Please fill in all required fields");
       return;
     }
+
+    if (sendMode === "chamapay" && !selectedUser) {
+      Alert.alert("Error", "Please select a user from the search results");
+      return;
+    }
+
     Alert.alert("Send Crypto", `Sending ${amount} ${selectedToken}...`);
   };
 
@@ -80,7 +153,10 @@ export default function SendCryptoScreen() {
       </View>
 
       {/* Main Content */}
-      <ScrollView className="flex-1 bg-gray-50 rounded-t-3xl">
+      <ScrollView
+        className="flex-1 bg-gray-50 rounded-t-3xl"
+        keyboardShouldPersistTaps="handled"
+      >
         <View className="px-6 py-8 gap-5">
           {/* Select Token */}
           <View className="bg-white px-5 py-6 rounded-2xl shadow-sm">
@@ -186,51 +262,9 @@ export default function SendCryptoScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
-              {/* <View className="flex-row gap-3">
-                <TouchableOpacity
-                  onPress={() => setSendMode("chamapay")}
-                  className={`flex-1 py-4 px-4 rounded-2xl flex-row items-center justify-center gap-2 ${
-                    sendMode === "chamapay" 
-                      ? "bg-emerald-600 shadow-md" 
-                      : "bg-white border-2 border-gray-200"
-                  }`}
-                  activeOpacity={0.7}
-                >
-                  <Image 
-                    source={require("@/assets/images/logo.png")}
-                    className="w-6 h-6 rounded-md"
-                    style={{ tintColor: sendMode === "chamapay" ? "#fff" : "#059669" }}
-                  />
-                  <Text
-                    className={`font-bold text-sm ${
-                      sendMode === "chamapay" ? "text-white" : "text-gray-700"
-                    }`}
-                  >
-                    ChamaPay User
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setSendMode("external")}
-                  className={`flex-1 py-4 px-4 rounded-2xl flex-row items-center justify-center gap-2 ${
-                    sendMode === "external" 
-                      ? "bg-emerald-600 shadow-md" 
-                      : "bg-white border-2 border-gray-200"
-                  }`}
-                  activeOpacity={0.7}
-                >
-                  <WalletMinimal />
-                  <Text
-                    className={`font-bold text-sm ${
-                      sendMode === "external" ? "text-white" : "text-gray-700"
-                    }`}
-                  >
-                    External Wallet
-                  </Text>
-                </TouchableOpacity>
-              </View> */}
 
               {/* Recipient Input */}
-              <View className="bg-white px-5 py-6 rounded-2xl shadow-sm">
+              <View className="bg-white px-5 py-6 rounded-2xl shadow-sm" style={{ zIndex: 1000, elevation: 1000 }}>
                 <Text className="text-base font-bold text-gray-900 mb-2">
                   {sendMode === "chamapay" ? "Username" : "Recipient Address"}
                 </Text>
@@ -242,17 +276,79 @@ export default function SendCryptoScreen() {
                 )}
 
                 {sendMode === "chamapay" ? (
-                  <View className="flex-row items-center bg-gray-50 rounded-xl border-2 border-gray-200 px-4">
-                    <Text className="text-lg font-semibold text-emerald-600 mr-1">
-                      @
-                    </Text>
-                    <TextInput
-                      value={recipient}
-                      onChangeText={setRecipient}
-                      placeholder="username"
-                      placeholderTextColor="#9CA3AF"
-                      className="flex-1 text-base py-3"
-                    />
+                  <View className="relative">
+                    <View className="flex-row items-center bg-gray-50 rounded-xl border-2 border-gray-200 px-4">
+                      <Text className="text-lg font-semibold text-emerald-600 mr-1">
+                        @
+                      </Text>
+                      <TextInput
+                        value={recipient}
+                        onChangeText={(text) => {
+                          setRecipient(text);
+                          setSelectedUser(null);
+                        }}
+                        placeholder="username"
+                        placeholderTextColor="#9CA3AF"
+                        className="flex-1 text-base py-3"
+                        onFocus={() => {
+                          if (searchResults.length > 0) {
+                            setShowSearchResults(true);
+                          }
+                        }}
+                        onBlur={handleInputBlur}
+                      />
+                      {isSearching && (
+                        <View className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                      )}
+                    </View>
+
+                    {/* Search Results Dropdown */}
+                    {showSearchResults && searchResults.length > 0 && (
+                      <View
+                        className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg max-h-48"
+                        style={{ zIndex: 9999, elevation: 10 }}
+                      >
+                        {searchResults.map((item) => (
+                          <TouchableOpacity
+                            key={item.id}
+                            onPress={() => handleUserSelect(item)}
+                            className="flex-row items-center p-3 border-b border-gray-100 last:border-b-0"
+                            activeOpacity={0.7}
+                          >
+                            <View className="w-10 h-10 bg-emerald-100 rounded-full items-center justify-center mr-3">
+                              {item.profileImageUrl ? (
+                                <Image
+                                  source={{ uri: item.profileImageUrl }}
+                                  className="w-10 h-10 rounded-full"
+                                />
+                              ) : (
+                                <User size={20} color="#10b981" />
+                              )}
+                            </View>
+                            <View className="flex-1">
+                              <Text className="font-semibold text-gray-900">
+                                @{item.userName}
+                              </Text>
+                              <Text className="text-xs text-gray-400 font-mono">
+                                {item.address.slice(0, 6)}...
+                                {item.address.slice(-4)}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
+                    {/* User Not Found Message */}
+                    {recipient.trim().length >= 2 &&
+                      !isSearching &&
+                      searchResults.length === 0 && (
+                        <View className="absolute top-full left-0 right-0 mt-1 bg-red-50 border border-red-200 rounded-xl p-3 z-50">
+                          <Text className="text-red-600 text-sm font-medium text-center">
+                            User not found
+                          </Text>
+                        </View>
+                      )}
                   </View>
                 ) : (
                   <View className="flex-row items-center space-x-2">
@@ -284,7 +380,7 @@ export default function SendCryptoScreen() {
               </View>
 
               {/* Amount Input */}
-              <View className="bg-white p-5 rounded-2xl shadow-sm">
+              <View className="bg-white p-5 rounded-2xl shadow-sm" style={{ zIndex: 1, elevation: 1 }}>
                 <Text className="text-base font-bold text-gray-900 mb-3">
                   Amount
                 </Text>
@@ -325,9 +421,15 @@ export default function SendCryptoScreen() {
               {/* Submit Button */}
               <TouchableOpacity
                 onPress={handleSend}
-                disabled={!recipient.trim() || !amount.trim()}
+                disabled={
+                  !recipient.trim() ||
+                  !amount.trim() ||
+                  (sendMode === "chamapay" && !selectedUser)
+                }
                 className={`w-full py-4 rounded-2xl shadow-lg ${
-                  !recipient.trim() || !amount.trim()
+                  !recipient.trim() ||
+                  !amount.trim() ||
+                  (sendMode === "chamapay" && !selectedUser)
                     ? "bg-gray-300"
                     : "bg-emerald-600"
                 }`}
@@ -335,7 +437,9 @@ export default function SendCryptoScreen() {
               >
                 <Text
                   className={`text-center text-lg font-bold ${
-                    !recipient.trim() || !amount.trim()
+                    !recipient.trim() ||
+                    !amount.trim() ||
+                    (sendMode === "chamapay" && !selectedUser)
                       ? "text-gray-500"
                       : "text-white"
                   }`}
@@ -348,7 +452,7 @@ export default function SendCryptoScreen() {
         </View>
       </ScrollView>
 
-      {/* Token Modal - Fixed z-index issue */}
+      {/* Token Modal */}
       <Modal
         visible={isTokenModalVisible}
         transparent={true}

@@ -1,5 +1,62 @@
 import { serverUrl } from '@/constants/serverUrl';
 
+// User service functions
+export const checkUsernameAvailability = async (username: string): Promise<{
+  success: boolean;
+  available?: boolean;
+  message?: string;
+  error?: string;
+}> => {
+  try {
+    const response = await fetch(`${serverUrl}/user/checkUsernameAvailability`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username }),
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error checking username availability:', error);
+    return {
+      success: false,
+      error: 'Failed to check username availability',
+    };
+  }
+};
+
+export const searchUsers = async (query: string): Promise<{
+  success: boolean;
+  users?: Array<{
+    id: number;
+    userName: string;
+    email: string;
+    address: string;
+    profileImageUrl: string | null;
+  }>;
+  error?: string;
+}> => {
+  try {
+    const response = await fetch(`${serverUrl}/user/search?query=${encodeURIComponent(query)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error searching users:', error);
+    return {
+      success: false,
+      error: 'Failed to search users',
+    };
+  }
+};
+
 export interface UserDetailsResponse {
   success: boolean;
   user: {
