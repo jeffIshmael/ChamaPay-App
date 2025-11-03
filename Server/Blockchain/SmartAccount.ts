@@ -1,12 +1,21 @@
 // This file contains functio to get a smart account from private key
-import dotenv from "dotenv"
-import { createSmartAccountClient } from "permissionless"
-import { toSafeSmartAccount } from "permissionless/accounts"
-import { createPimlicoClient } from "permissionless/clients/pimlico"
-import { createPublicClient, http } from "viem"
-import { entryPoint07Address } from "viem/account-abstraction"
-import { privateKeyToAccount } from "viem/accounts"
-import { celo } from "viem/chains"
+import dotenv from "dotenv";
+// Use runtime requires and 'any' types to avoid compiling third-party TS sources
+// which were causing build-time type conflicts.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { createSmartAccountClient } = require("permissionless") as any;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { toSafeSmartAccount } = require("permissionless/accounts") as any;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { createPimlicoClient } = require("permissionless/clients/pimlico") as any;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { createPublicClient, http } = require("viem") as any;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { entryPoint07Address } = require("viem/account-abstraction") as any;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { privateKeyToAccount } = require("viem/accounts") as any;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { celo } = require("viem/chains") as any;
 
 dotenv.config()
 
@@ -33,7 +42,7 @@ const pimlicoClient = createPimlicoClient({
 
 
 // create a smart account from private key
-export const createSmartAccount = async (privateKey: `0x${string}`) => {
+export const createSmartAccount = async (privateKey: string) => {
     try{
     // create an owner from the private key
     const owner = privateKeyToAccount(privateKey);
