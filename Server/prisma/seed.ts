@@ -240,7 +240,6 @@ async function main() {
       data: {
         userId: users[0].id, // Sarah
         chamaId: chamas[0].id,
-        isPaid: true,
         payDate: new Date('2024-07-01'),
       },
     }),
@@ -248,7 +247,6 @@ async function main() {
       data: {
         userId: users[1].id, // Alice (admin)
         chamaId: chamas[0].id,
-        isPaid: true,
         payDate: new Date('2024-07-01'),
       },
     }),
@@ -256,7 +254,6 @@ async function main() {
       data: {
         userId: users[2].id, // Mary
         chamaId: chamas[0].id,
-        isPaid: true,
         payDate: new Date('2024-07-01'),
       },
     }),
@@ -266,7 +263,6 @@ async function main() {
       data: {
         userId: users[0].id, // Sarah
         chamaId: chamas[1].id,
-        isPaid: true,
         payDate: new Date('2024-07-01'),
       },
     }),
@@ -274,7 +270,6 @@ async function main() {
       data: {
         userId: users[3].id, // James (admin)
         chamaId: chamas[1].id,
-        isPaid: true,
         payDate: new Date('2024-07-01'),
       },
     }),

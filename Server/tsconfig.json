@@ -14,8 +14,8 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
+    "declaration": false,
+    "declarationMap": false,
     "sourceMap": true,
     "removeComments": false,
     "noImplicitAny": true,
@@ -30,13 +30,20 @@
     "typeRoots": ["./types", "./node_modules/@types"]
   },
   "include": [
-    "**/*.ts",
-    "**/*.js",
-    "**/*.d.ts"
+    "index.ts",
+    "app.ts",
+    "Controllers/**/*.ts",
+    "Routes/**/*.ts",
+    "Middlewares/**/*.ts",
+    "Blockchain/**/*.ts",
+    "Utils/**/*.ts",
+    "types/**/*.d.ts",
+    "types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
     "dist",
+    "prisma/**",
     "**/*.test.ts",
     "**/*.spec.ts"
   ],
