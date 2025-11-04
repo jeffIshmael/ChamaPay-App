@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && mkdir -p dist/Blockchain && cp Blockchain/chamaPay.json dist/Blockchain/chamaPay.json && test -f dist/Blockchain/chamaPay.json || (echo 'ERROR: chamaPay.json not copied!' && exit 1)",
     "start": "node dist/index.js",
     "dev": "ts-node index.ts",
     "dev:watch": "nodemon --exec ts-node index.ts",
