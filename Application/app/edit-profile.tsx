@@ -224,7 +224,7 @@ export default function EditProfile() {
     <View className="flex-1 bg-gray-50">
       {/* Enhanced Header */}
       <View 
-        className="bg-emerald-700 px-6 pb-8 pt-4 rounded-b-md"
+        className="bg-downy-800 px-6 pb-8 pt-4 rounded-b-md"
         style={{ paddingTop: insets.top + 16 }}
       >
         <View className="flex-row items-center justify-between mb-6">
@@ -301,7 +301,7 @@ export default function EditProfile() {
                     <ActivityIndicator color="white" size="large" />
                   </View>
                 )}
-                <View className="absolute -bottom-2 -right-2 w-8 h-8 bg-emerald-500 rounded-full items-center justify-center border-2 border-white">
+                <View className="absolute -bottom-2 -right-2 w-8 h-8 bg-downy-600 rounded-full items-center justify-center border-2 border-white">
                   <Camera size={14} color="white" />
                 </View>
               </View>
@@ -312,7 +312,7 @@ export default function EditProfile() {
                 className={`mt-6 px-6 py-3 rounded-xl flex-row items-center ${
                   imageUploading 
                     ? 'bg-gray-300' 
-                    : 'bg-emerald-600 opacity-95'
+                    : 'bg-downy-700 opacity-95'
                 }`}
                 activeOpacity={0.8}
               >

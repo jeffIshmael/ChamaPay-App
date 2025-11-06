@@ -94,8 +94,14 @@ export default function JoinedChamaDetails() {
   const [myBalance, setMyBalance] = useState<bigint[] | undefined>();
 
   useEffect(() => {
-    setMyBalance(individualBalance as unknown as bigint[]);
-    console.log("the individual balance", individualBalance);
+    // Handle individualBalance which comes as an array of BigInt values
+    if (individualBalance) {
+      const balanceArray = Array.isArray(individualBalance) 
+        ? individualBalance 
+        : [individualBalance];
+      setMyBalance(balanceArray as bigint[]);
+      console.log("the individual balance", balanceArray);
+    }
   }, [individualBalance]);
 
   const fetchChama = async () => {
@@ -110,8 +116,10 @@ export default function JoinedChamaDetails() {
       console.log(transformedChama);
       setChama(transformedChama);
 
-      // get my chama balance
-      const myChamaBalance = toEther(myBalance?.[0] || BigInt(0)) || 0;
+      // get my chama balance - use individualBalance directly if myBalance is not set yet
+      const balanceToUse = myBalance || (individualBalance as unknown as bigint[]);
+      const firstBalance = Array.isArray(balanceToUse) ? balanceToUse[0] : balanceToUse;
+      const myChamaBalance = toEther(firstBalance || BigInt(0)) || 0;
       console.log("the my chama balance", myChamaBalance);
       // Set payment amount for the payment modal
       const remainingAmount =
@@ -250,7 +258,10 @@ export default function JoinedChamaDetails() {
   }
 
   const contribution = chama.contribution || 0;
-  const myContributions = Number(toEther(myBalance?.[0] || BigInt(0)) || 0);
+  // Handle balance - use individualBalance directly if myBalance is not set yet
+  const balanceToUse = myBalance || (individualBalance as unknown as bigint[]);
+  const firstBalance = Array.isArray(balanceToUse) ? balanceToUse[0] : balanceToUse;
+  const myContributions = Number(toEther(firstBalance || BigInt(0)) || 0);
   const remainingAmount = Number(contribution) - Number(myContributions);
   const nextPayoutAmount = chama.nextPayoutAmount || 0;
   const unreadMessages = chama.unreadMessages || 0;
@@ -416,7 +427,6 @@ export default function JoinedChamaDetails() {
         />
       )}
 
-      {/* Share Modal */}
       {/* Share Modal */}
       <Modal
         visible={showShareModal}

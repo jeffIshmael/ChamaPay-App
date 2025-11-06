@@ -1,11 +1,14 @@
 import { JoinedChama } from "@/constants/mockData";
 import { useAuth } from "@/Contexts/AuthContext";
-import { getUserChamas, transformChamaData } from "@/lib/chamaService";
+import { getChamaBySlug, getUserChamas, transformChamaData } from "@/lib/chamaService";
+import { decryptChamaSlug, parseChamaShareUrl } from "@/lib/encryption";
+import * as Clipboard from "expo-clipboard";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   ArrowRight,
   Bell,
   Calendar,
+  Link,
   Settings,
   Users,
   Wallet,
@@ -13,9 +16,12 @@ import {
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
+  Modal,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -28,6 +34,9 @@ export default function HomeScreen() {
   const [chamas, setChamas] = useState<JoinedChama[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showPasteModal, setShowPasteModal] = useState(false);
+  const [pasteLink, setPasteLink] = useState("");
+  const [isProcessingLink, setIsProcessingLink] = useState(false);
 
   // Fetch user's chamas function
   const fetchChamas = useCallback(async () => {
@@ -69,6 +78,77 @@ export default function HomeScreen() {
     }, [fetchChamas])
   );
 
+  // Handle paste link functionality
+  const handlePasteLink = async () => {
+    try {
+      const clipboardText = await Clipboard.getStringAsync();
+      if (clipboardText) {
+        setPasteLink(clipboardText);
+        setShowPasteModal(true);
+      } else {
+        setShowPasteModal(true);
+      }
+    } catch (error) {
+      console.error("Error reading clipboard:", error);
+      setShowPasteModal(true);
+    }
+  };
+
+  // Process the chama link
+  const handleProcessLink = async (link: string) => {
+    try {
+      setIsProcessingLink(true);
+      
+      const encryptedSlug = parseChamaShareUrl(link);
+      if (!encryptedSlug) {
+        Alert.alert("Invalid Link", "This doesn't appear to be a valid ChamaPay link.");
+        setShowPasteModal(false);
+        return;
+      }
+
+      const originalSlug = decryptChamaSlug(encryptedSlug);
+      if (!originalSlug) {
+        Alert.alert("Invalid Link", "Unable to decode this chama link.");
+        setShowPasteModal(false);
+        return;
+      }
+
+      // Check if chama exists
+      const response = await getChamaBySlug(originalSlug, token!);
+      if (response.success && response.chama) {
+        const chama = response.chama;
+        
+        // Check if user is already a member
+        const isMember = chama.members?.some(member => 
+          member.user?.id === user?.id || 
+          member.user?.email === user?.email ||
+          member.user?.userName === user?.userName
+        );
+
+        if (isMember) {
+          router.push(`/(tabs)/[joined-chama-details]/${originalSlug}`);
+        } else {
+          router.push({
+            pathname: "/chama-details/[slug]",
+            params: { slug: originalSlug },
+          });
+        }
+        
+        setPasteLink("");
+        setShowPasteModal(false);
+      } else {
+        Alert.alert("Chama Not Found", "This chama no longer exists or is not available.");
+        setShowPasteModal(false);
+      }
+    } catch (error) {
+      console.error("Error handling chama link:", error);
+      Alert.alert("Error", "Failed to process the chama link. Please try again.");
+      setShowPasteModal(false);
+    } finally {
+      setIsProcessingLink(false);
+    }
+  };
+
   const Badge = ({
     children,
     color = "#10b981",
@@ -97,13 +177,13 @@ export default function HomeScreen() {
   }) => (
     <TouchableOpacity
       onPress={onPress}
-      className="bg-white rounded-2xl p-4 mb-4 shadow-sm"
+      className="bg-white rounded-3xl p-5 mb-4 border border-gray-100"
       style={{
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
+        shadowColor: "#10b981",
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
-        shadowRadius: 6,
-        elevation: 3,
+        shadowRadius: 8,
+        elevation: 4,
       }}
       activeOpacity={onPress ? 0.8 : 1}
     >
@@ -171,9 +251,21 @@ export default function HomeScreen() {
         style={{ paddingTop: 20 }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="flex-row items-center justify-between mb-4">
-          <Text className="text-xl font-bold text-gray-900">My Chamas</Text>
-          <Badge>{chamas.length}</Badge>
+        <View className="flex-row items-center justify-between mb-5">
+          <View className="flex-1">
+            <View className="flex-row items-center gap-3 mb-1">
+              <Text className="text-2xl font-bold text-gray-900">My Chamas</Text>
+              <Badge color="#10b981" bg="#d1fae5">{chamas.length}</Badge>
+            </View>
+            <Text className="text-sm text-gray-500">Your active savings groups</Text>
+          </View>
+          <TouchableOpacity
+            onPress={handlePasteLink}
+            className="p-2 bg-emerald-100 rounded-full"
+            activeOpacity={0.7}
+          >
+            <Link color="#10b981" size={20} />
+          </TouchableOpacity>
         </View>
 
         {loading ? (
@@ -199,21 +291,25 @@ export default function HomeScreen() {
                 })
               }
             >
-              <View className="flex-row items-center justify-between mb-3">
-                <View className="flex-1">
-                  <Text className="text-lg font-semibold text-gray-900">
+              <View className="flex-row items-start justify-between mb-4">
+                <View className="flex-1 pr-3">
+                  <Text className="text-xl font-bold text-gray-900 mb-2">
                     {chama.name}
                   </Text>
-                  <View className="flex-row items-center mt-1">
-                    <Users color="#6b7280" size={14} />
-                    <Text className="text-sm text-gray-600 ml-1 mr-3">
-                      {chama.totalMembers}/{chama.maxMembers}
-                    </Text>
-                    <Wallet color="#6b7280" size={14} />
-                    <Text className="text-sm text-gray-600 ml-1">
-                      {chama.currency}{" "}
-                      {chama.contribution?.toLocaleString() || "0"}
-                    </Text>
+                  <View className="flex-row items-center gap-4 mb-3">
+                    <View className="flex-row items-center bg-emerald-50 px-3 py-1.5 rounded-lg">
+                      <Users color="#10b981" size={16} />
+                      <Text className="text-sm font-semibold text-emerald-700 ml-1.5">
+                        {chama.totalMembers}/{chama.maxMembers}
+                      </Text>
+                    </View>
+                    <View className="flex-row items-center bg-blue-50 px-3 py-1.5 rounded-lg">
+                      <Wallet color="#3b82f6" size={16} />
+                      <Text className="text-sm font-semibold text-blue-700 ml-1.5">
+                        {chama.currency}{" "}
+                        {chama.contribution?.toLocaleString() || "0"}
+                      </Text>
+                    </View>
                   </View>
                 </View>
                 <Badge
@@ -226,19 +322,19 @@ export default function HomeScreen() {
                 </Badge>
               </View>
 
-              <View className="flex-row items-center justify-between mt-2">
+              <View className="flex-row items-center justify-between pt-3 border-t border-gray-100">
                 <View className="flex-row items-center flex-1">
-                  <Calendar color="#6b7280" size={14} />
-                  <Text className="text-sm text-gray-600 ml-1">
+                  <Calendar color="#6b7280" size={16} />
+                  <Text className="text-sm font-medium text-gray-700 ml-2">
                     Next: {chama.nextTurnMember}
                   </Text>
                 </View>
                 {chama.myTurn && (
                   <Badge bg="#059669" color="white">
-                    🎉 Your Turn
+                    Your Turn
                   </Badge>
                 )}
-                <ArrowRight color="#9ca3af" size={16} />
+                <ArrowRight color="#10b981" size={18} />
               </View>
             </Card>
           ))
@@ -264,6 +360,67 @@ export default function HomeScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Paste Link Modal */}
+      <Modal
+        visible={showPasteModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPasteModal(false)}
+      >
+        <View className="flex-1 items-center justify-center bg-black/50 px-6">
+          <View className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+            <Text className="text-2xl font-bold text-gray-900 mb-2">
+              Paste Invite Link
+            </Text>
+            <Text className="text-gray-600 text-sm mb-4">
+              Paste the chama invite link below to join
+            </Text>
+            
+            <TextInput
+              value={pasteLink}
+              onChangeText={setPasteLink}
+              placeholder="Paste link here..."
+              className="bg-gray-100 rounded-xl px-4 py-3 text-gray-900 mb-4"
+              placeholderTextColor="#9ca3af"
+              multiline
+            />
+
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                onPress={() => {
+                  setShowPasteModal(false);
+                  setPasteLink("");
+                }}
+                className="flex-1 bg-gray-200 py-3 rounded-xl"
+                activeOpacity={0.7}
+              >
+                <Text className="text-gray-700 font-semibold text-center">
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleProcessLink(pasteLink)}
+                disabled={!pasteLink.trim() || isProcessingLink}
+                className={`flex-1 py-3 rounded-xl ${
+                  !pasteLink.trim() || isProcessingLink
+                    ? "bg-gray-300"
+                    : "bg-emerald-600"
+                }`}
+                activeOpacity={0.7}
+              >
+                {isProcessingLink ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text className="text-white font-semibold text-center">
+                    Open
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

@@ -8,11 +8,10 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  SafeAreaView,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -253,13 +252,10 @@ export default function DiscoverChamas() {
   };
 
   return (
-    <SafeAreaView
-      className="flex-1 bg-gray-50"
-      style={{ paddingTop: insets.top }}
-    >
+    <View className="flex-1 bg-downy-50">
       {/* Clean Header */}
-      <View className="bg-white px-6 pt-4 pb-5">
-        <Text className="text-2xl font-bold text-gray-900 mb-4">
+      <View className="bg-downy-800 px-6 pb-5 rounded-b-2xl" style={{ paddingTop: insets.top + 16 }}>
+        <Text className="text-2xl font-bold text-white mb-4">
           Discover Chamas
         </Text>
 
@@ -267,19 +263,19 @@ export default function DiscoverChamas() {
         <View className="relative">
           <View className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
             {isProcessingLink ? (
-              <ActivityIndicator size="small" color="#10b981" />
+              <ActivityIndicator size="small" color="#ffffff" />
             ) : (
-              <Search size={18} color="#9ca3af" />
+              <Search size={18} color="#ffffff" />
             )}
           </View>
           <TextInput
             placeholder={isProcessingLink ? "Processing link..." : "Search chamas / paste link to join..."}
             value={searchTerm}
             onChangeText={handleSearchChange}
-            className={`bg-gray-100 rounded-full pl-11 pr-4 py-3 text-gray-900 text-sm ${
+            className={`bg-white/20 backdrop-blur-sm rounded-full pl-11 pr-4 py-3.5 text-white text-sm border border-white/30 ${
               isProcessingLink ? "opacity-70" : ""
             }`}
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor="rgba(255, 255, 255, 0.7)"
             editable={!isProcessingLink}
           />
         </View>
@@ -337,6 +333,6 @@ export default function DiscoverChamas() {
           </View>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }

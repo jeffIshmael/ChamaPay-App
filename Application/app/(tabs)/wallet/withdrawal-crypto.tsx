@@ -1,9 +1,10 @@
-import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
   Check,
+  ChevronDown,
   DollarSign,
+  QrCode,
   Wallet
 } from "lucide-react-native";
 import React, { useState } from "react";
@@ -11,6 +12,7 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   Text,
@@ -19,7 +21,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Path } from "react-native-svg";
 
 export default function WithdrawCryptoScreen() {
   const router = useRouter();
@@ -31,6 +32,7 @@ export default function WithdrawCryptoScreen() {
   const [amount, setAmount] = useState("");
   const [bankAccount, setBankAccount] = useState("");
   const [walletAddress, setWalletAddress] = useState("");
+  const [showTokenModal, setShowTokenModal] = useState(false);
 
   const tokens = [
     { 
@@ -91,225 +93,286 @@ export default function WithdrawCryptoScreen() {
     // });
   };
 
+  const currentToken = tokens.find(t => t.symbol === selectedToken) || tokens[0];
+
   return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-emerald-600"
-      style={{ paddingTop: insets.top }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
+    <View className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="px-6">
-        <View className="flex-row items-center justify-between mb-4">
+      <View className="bg-downy-800 rounded-b-3xl" style={{ paddingTop: insets.top + 16, paddingBottom: 20, paddingHorizontal: 20 }}>
+        <View className="flex-row items-center justify-between">
           <TouchableOpacity
             onPress={() => router.back()}
-            className="p-2 rounded-full"
+            className="w-10 h-10 rounded-full bg-white/20 items-center justify-center active:bg-white/30"
             activeOpacity={0.7}
           >
             <ArrowLeft size={20} color="white" />
           </TouchableOpacity>
-          <Text className="text-lg text-white font-medium">
+          <Text className="text-2xl font-bold text-white">
             Withdraw Crypto
           </Text>
           <View className="w-10" />
         </View>
       </View>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        className="flex-1 bg-gray-50"
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
       >
-        <View className="px-6 py-6 gap-6">
-          {/* Select Token */}
-          <View className="bg-white p-4 rounded-lg border border-gray-200">
-            <Text className="text-gray-900 font-medium mb-3">
-              Select Token to Withdraw
-            </Text>
-            <View className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <View className="flex-row items-center justify-between mb-2">
-                <View className="flex-row items-center flex-1 mr-4">
-                  <Image 
-                    source={tokens.find(t => t.symbol === selectedToken)?.image || tokens[0].image}
-                    className="w-8 h-8 rounded-full mr-3"
-                    resizeMode="cover"
-                  />
-                  <View className="flex-1">
-                    <Picker
-                      selectedValue={selectedToken}
-                      onValueChange={setSelectedToken}
-                      style={{ height: 50, width: 120 }}
-                      itemStyle={{ color: "black" }}
-                    >
-                      {tokens.map((token) => (
-                        <Picker.Item
-                          key={token.symbol}
-                          label={token.symbol}
-                          value={token.symbol}
-                        />
-                      ))}
-                    </Picker>
-                  </View>
-                </View>
-                <View className="items-end">
-                  <Text className="text-gray-900 font-medium">
-                    {tokens.find(t => t.symbol === selectedToken)?.balance || 0} {selectedToken}
-                  </Text>
-                  <Text className="text-sm text-gray-600">
-                    {tokens.find(t => t.symbol === selectedToken)?.name}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* Amount */}
-          <View className="bg-white p-4 rounded-lg border border-gray-200">
-            <Text className="text-gray-900 font-medium mb-3">
-              Withdrawal Amount
-            </Text>
-            <TextInput
-              value={amount}
-              onChangeText={setAmount}
-              placeholder="0.00"
-              keyboardType="numeric"
-              className="border border-gray-300 rounded-lg px-3 py-3 text-lg font-medium text-center mb-3"
-            />
-            <View className="flex-row items-center justify-between">
-              <Text className="text-sm text-gray-600">
-                Available:{" "}
-                {tokens.find((t) => t.symbol === selectedToken)?.balance}{" "}
-                {selectedToken}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          className="flex-1"
+        >
+          <View className="px-6 py-6 gap-6">
+            {/* Select Token */}
+            <View className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+              <Text className="text-gray-900 font-semibold mb-4 text-base">
+                Select Token to Withdraw
               </Text>
               <TouchableOpacity
-                onPress={() =>
-                  setAmount(
-                    tokens
-                      .find((t) => t.symbol === selectedToken)
-                      ?.balance.toString() || ""
-                  )
-                }
-                className="bg-emerald-100 px-3 py-1 rounded-full"
+                onPress={() => setShowTokenModal(true)}
+                className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex-row items-center justify-between active:bg-emerald-100"
                 activeOpacity={0.7}
               >
-                <Text className="text-emerald-700 text-sm font-medium">
-                  Max
-                </Text>
+                <View className="flex-row items-center flex-1">
+                  <View className="w-12 h-12 rounded-full bg-white items-center justify-center mr-3 border border-emerald-200">
+                    <Image 
+                      source={currentToken.image}
+                      className="w-10 h-10 rounded-full"
+                      resizeMode="cover"
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-xl font-bold text-gray-900">
+                      {currentToken.balance} {currentToken.symbol}
+                    </Text>
+                    <Text className="text-sm text-gray-600 mt-0.5">
+                      {currentToken.name}
+                    </Text>
+                  </View>
+                </View>
+                <ChevronDown size={20} color="#059669" />
               </TouchableOpacity>
             </View>
-          </View>
 
-          {/* Withdrawal Method */}
-          <View className="bg-white p-4 rounded-lg border border-gray-200">
-            <Text className="text-gray-900 font-medium mb-3">
-              Withdrawal Method
-            </Text>
-            <View className="gap-3">
-              {withdrawMethods.map((method) => (
-                <TouchableOpacity
-                  key={method.id}
-                  onPress={() => setSelectedMethod(method.id as any)}
-                  className={`flex-row items-center justify-between p-3 rounded-lg border ${
-                    selectedMethod === method.id
-                      ? "border-emerald-500 bg-emerald-50"
-                      : "border-gray-200 bg-gray-50"
-                  }`}
-                  activeOpacity={0.7}
-                >
-                  <View className="flex-row items-center">
-                    <View className="w-10 h-10 rounded-full bg-white items-center justify-center mr-3 border border-gray-200">
-                      {method.icon}
-                    </View>
-                    <View>
-                      <Text className="text-gray-900 font-medium">
-                        {method.title}
-                      </Text>
-                      <Text className="text-sm text-gray-600">
-                        {method.subtitle}
-                      </Text>
-                    </View>
-                  </View>
-                  {selectedMethod === method.id && (
-                    <Check size={16} color="#ea580c" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Destination Details */}
-          {selectedMethod === "bank" && (
-            <View className="bg-white p-4 rounded-lg border border-gray-200">
-              <Text className="text-gray-900 font-medium mb-3">
-                Bank Account Details
+            {/* Amount */}
+            <View className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+              <Text className="text-gray-900 font-semibold mb-4 text-base">
+                Withdrawal Amount
               </Text>
               <TextInput
-                value={bankAccount}
-                onChangeText={setBankAccount}
-                placeholder="Enter bank account number"
-                className="border border-gray-300 rounded-lg px-3 py-2 mb-3"
+                value={amount}
+                onChangeText={setAmount}
+                placeholder="0.00"
+                keyboardType="numeric"
+                className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-2xl font-bold text-center mb-4 text-gray-900"
+                placeholderTextColor="#9ca3af"
               />
-              <Text className="text-xs text-gray-500">
-                Funds will be converted to your local currency and deposited to
-                this account
-              </Text>
-            </View>
-          )}
-
-          {selectedMethod === "crypto" && (
-            <View className="bg-white p-4 rounded-lg border border-gray-200">
-              <Text className="text-gray-900 font-medium mb-3">
-                Destination Wallet
-              </Text>
-              <View className="flex-row gap-3">
-                <TextInput
-                  value={walletAddress}
-                  onChangeText={setWalletAddress}
-                  placeholder="Enter wallet address"
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2"
-                  multiline={true}
-                  numberOfLines={2}
-                />
+              <View className="flex-row items-center justify-between">
+                <Text className="text-sm text-gray-600 font-medium">
+                  Available: {currentToken.balance} {currentToken.symbol}
+                </Text>
                 <TouchableOpacity
-                  className="w-12 h-12 bg-emerald-600 rounded-lg items-center justify-center"
+                  onPress={() => setAmount(currentToken.balance.toString())}
+                  className="bg-emerald-600 px-4 py-2 rounded-lg active:bg-emerald-700"
                   activeOpacity={0.7}
                 >
-                  <Svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                  <Path d="M4 4h5V2H2v7h2V4zM4 15H2v7h7v-2H4v-5zM15 2v2h5v5h2V2h-7zM20 20h-5v2h7v-7h-2v5zM2 11h20v2H2z"/>
-                </Svg>
+                  <Text className="text-white text-sm font-semibold">
+                    Max
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
-          )}
 
-          {/* Withdraw Button */}
-          <TouchableOpacity
-            onPress={handleWithdraw}
-            disabled={
-              !amount.trim() ||
-              (selectedMethod === "bank" && !bankAccount.trim()) ||
-              (selectedMethod === "crypto" && !walletAddress.trim())
-            }
-            className={`w-full py-4 rounded-lg ${
-              !amount.trim() ||
-              (selectedMethod === "bank" && !bankAccount.trim()) ||
-              (selectedMethod === "crypto" && !walletAddress.trim())
-                ? "bg-gray-300"
-                : "bg-emerald-600"
-            }`}
-            activeOpacity={0.8}
-          >
-            <Text
-              className={`text-center font-medium text-lg ${
+            {/* Withdrawal Method */}
+            <View className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+              <Text className="text-gray-900 font-semibold mb-4 text-base">
+                Withdrawal Method
+              </Text>
+              <View className="gap-3">
+                {withdrawMethods.map((method) => (
+                  <TouchableOpacity
+                    key={method.id}
+                    onPress={() => setSelectedMethod(method.id as any)}
+                    className={`flex-row items-center justify-between p-4 rounded-xl border-2 ${
+                      selectedMethod === method.id
+                        ? "border-emerald-500 bg-emerald-50"
+                        : "border-gray-200 bg-gray-50"
+                    }`}
+                    activeOpacity={0.7}
+                  >
+                    <View className="flex-row items-center flex-1">
+                      <View className={`w-12 h-12 rounded-full items-center justify-center mr-3 ${
+                        selectedMethod === method.id
+                          ? "bg-emerald-100"
+                          : "bg-white border border-gray-200"
+                      }`}>
+                        {method.icon}
+                      </View>
+                      <View className="flex-1">
+                        <Text className={`font-semibold ${
+                          selectedMethod === method.id ? "text-gray-900" : "text-gray-700"
+                        }`}>
+                          {method.title}
+                        </Text>
+                        <Text className="text-sm text-gray-600 mt-0.5">
+                          {method.subtitle}
+                        </Text>
+                      </View>
+                    </View>
+                    {selectedMethod === method.id && (
+                      <View className="w-6 h-6 rounded-full bg-emerald-600 items-center justify-center">
+                        <Check size={14} color="white" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Destination Details */}
+            {selectedMethod === "bank" && (
+              <View className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                <Text className="text-gray-900 font-semibold mb-4 text-base">
+                  Bank Account Details
+                </Text>
+                <TextInput
+                  value={bankAccount}
+                  onChangeText={setBankAccount}
+                  placeholder="Enter bank account number"
+                  className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-3 text-gray-900"
+                  placeholderTextColor="#9ca3af"
+                />
+                <Text className="text-xs text-gray-500 leading-4">
+                  Funds will be converted to your local currency and deposited to
+                  this account
+                </Text>
+              </View>
+            )}
+
+            {selectedMethod === "crypto" && (
+              <View className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                <Text className="text-gray-900 font-semibold mb-4 text-base">
+                  Destination Wallet
+                </Text>
+                <View className="flex-row gap-3">
+                  <TextInput
+                    value={walletAddress}
+                    onChangeText={setWalletAddress}
+                    placeholder="Enter wallet address"
+                    className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900"
+                    placeholderTextColor="#9ca3af"
+                    multiline={true}
+                    numberOfLines={2}
+                  />
+                  <TouchableOpacity
+                    className="w-14 h-14 bg-emerald-600 rounded-xl items-center justify-center active:bg-emerald-700"
+                    activeOpacity={0.7}
+                  >
+                    <QrCode size={24} color="white" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Withdraw Button */}
+            <TouchableOpacity
+              onPress={handleWithdraw}
+              disabled={
                 !amount.trim() ||
                 (selectedMethod === "bank" && !bankAccount.trim()) ||
                 (selectedMethod === "crypto" && !walletAddress.trim())
-                  ? "text-gray-500"
-                  : "text-white"
+              }
+              className={`w-full py-4 rounded-xl ${
+                !amount.trim() ||
+                (selectedMethod === "bank" && !bankAccount.trim()) ||
+                (selectedMethod === "crypto" && !walletAddress.trim())
+                  ? "bg-gray-300"
+                  : "bg-emerald-600"
               }`}
+              activeOpacity={0.8}
             >
-              Review Withdrawal
-            </Text>
-          </TouchableOpacity>
+              <Text
+                className={`text-center font-semibold text-lg ${
+                  !amount.trim() ||
+                  (selectedMethod === "bank" && !bankAccount.trim()) ||
+                  (selectedMethod === "crypto" && !walletAddress.trim())
+                    ? "text-gray-500"
+                    : "text-white"
+                }`}
+              >
+                Review Withdrawal
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Token Selection Modal */}
+      <Modal
+        visible={showTokenModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowTokenModal(false)}
+      >
+        <View className="flex-1 bg-black/50 items-center justify-end">
+          <View className="bg-white w-full rounded-t-3xl p-6 max-h-[50%]">
+            <View className="flex-row items-center justify-between mb-6">
+              <Text className="text-xl font-bold text-gray-900">
+                Select Token
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowTokenModal(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center"
+                activeOpacity={0.7}
+              >
+                <Text className="text-gray-600 text-lg">×</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {tokens.map((token) => (
+                <TouchableOpacity
+                  key={token.symbol}
+                  onPress={() => {
+                    setSelectedToken(token.symbol);
+                    setShowTokenModal(false);
+                  }}
+                  className={`flex-row items-center p-4 rounded-xl mb-3 ${
+                    selectedToken === token.symbol
+                      ? "bg-emerald-50 border-2 border-emerald-500"
+                      : "bg-gray-50 border border-gray-200"
+                  }`}
+                  activeOpacity={0.7}
+                >
+                  <View className="w-12 h-12 rounded-full bg-white items-center justify-center mr-4 border border-gray-200">
+                    <Image 
+                      source={token.image}
+                      className="w-10 h-10 rounded-full"
+                      resizeMode="cover"
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-lg font-bold text-gray-900">
+                      {token.symbol}
+                    </Text>
+                    <Text className="text-sm text-gray-600">
+                      {token.name}
+                    </Text>
+                  </View>
+                  <View className="items-end">
+                    <Text className="text-base font-semibold text-gray-900">
+                      {token.balance} {token.symbol}
+                    </Text>
+                  </View>
+                  {selectedToken === token.symbol && (
+                    <View className="ml-3 w-6 h-6 rounded-full bg-emerald-600 items-center justify-center">
+                      <Check size={14} color="white" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </Modal>
+    </View>
   );
 }

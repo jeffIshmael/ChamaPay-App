@@ -5,18 +5,17 @@ import {
   Calendar,
   CheckCircle,
   MessageCircle,
-  Settings,
   Users,
-  Wallet,
+  Wallet
 } from "lucide-react-native";
 import React from "react";
 import {
-  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface Notification {
   id: string;
@@ -94,6 +93,7 @@ const mockNotifications: Notification[] = [
 
 export default function Notifications() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const getNotificationIcon = (type: Notification["type"]) => {
     const iconProps = { size: 20 };
 
@@ -146,42 +146,46 @@ export default function Notifications() {
   const unreadCount: number = mockNotifications.filter((n) => !n.read).length;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      {/* Header */}
-      <View className="bg-white mt-2 border-b border-gray-200 p-4">
-        <View className="flex-row items-center gap-4 mb-4">
+    <View className="flex-1 bg-gray-50">
+      {/* Modern Digital Header */}
+      <View className="bg-downy-800 rounded-b-3xl" style={{ paddingTop: insets.top + 16, paddingBottom: 20, paddingHorizontal: 20 }}>
+        {/* Top Bar */}
+        <View className="flex-row items-center justify-between mb-6">
           <TouchableOpacity
             onPress={() => router.back()}
-            className="p-2 rounded-lg active:bg-gray-100"
+            className="w-10 h-10 rounded-full bg-white/20 items-center justify-center active:bg-white/30"
+            activeOpacity={0.7}
           >
-            <ArrowLeft size={20} className="text-gray-700" />
+            <ArrowLeft size={20} color="white" />
           </TouchableOpacity>
 
-          <View className="flex-1">
-            <Text className="text-xl font-semibold text-gray-900">
-              Notifications
-            </Text>
-            {unreadCount > 0 && (
-              <Text className="text-sm text-gray-600">
-                {unreadCount} unread notifications
+          <View className="flex-1 items-center">
+            <View className="flex-row items-center gap-3">
+              <Text className="text-3xl font-bold text-white">
+                Notifications
               </Text>
-            )}
+            </View>
           </View>
 
-          <TouchableOpacity className="p-2 rounded-lg active:bg-gray-100">
-            <Settings size={20} className="text-gray-700" />
-          </TouchableOpacity>
+          {unreadCount > 0 && (
+            <View className="bg-emerald-500 px-3 py-1.5 rounded-full">
+              <Text className="text-xs font-bold text-white">
+                {unreadCount} unread
+              </Text>
+            </View>
+          )}
         </View>
 
+        {/* Action Buttons */}
         {unreadCount > 0 && (
-          <View className="flex-row justify-between items-center">
-            <TouchableOpacity className="px-4 py-2 border border-gray-300 rounded-lg active:bg-gray-50">
-              <Text className="text-sm font-medium text-gray-700">
+          <View className="flex-row gap-3">
+            <TouchableOpacity className="flex-1 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl py-3 items-center active:bg-white/30">
+              <Text className="text-sm font-semibold text-white">
                 Mark all as read
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity className="px-4 py-2 rounded-lg active:bg-gray-100">
-              <Text className="text-sm font-medium text-gray-700">
+            <TouchableOpacity className="flex-1 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl py-3 items-center active:bg-white/30">
+              <Text className="text-sm font-semibold text-white">
                 Clear all
               </Text>
             </TouchableOpacity>
@@ -262,6 +266,6 @@ export default function Notifications() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

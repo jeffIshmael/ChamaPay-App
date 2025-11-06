@@ -60,13 +60,13 @@ export default function BottomNavigation({ state, navigation }: BottomTabBarProp
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       navigation.navigate(tab.name as never);
                     }}
-                    className="rounded-full bg-emerald-500 p-3"
+                    className="rounded-full bg-downy-600 p-3"
                   >
                     <Icon size={24} color="#fff" strokeWidth={2.5} />
                   </Pressable>
                   <Text className={cn(
                     "text-xs mt-1",
-                    isActive ? "text-emerald-500" : "text-gray-500"
+                    isActive ? "text-downy-700" : "text-gray-500"
                   )}>Create chama</Text>
                 </View>
               );
@@ -91,7 +91,7 @@ export default function BottomNavigation({ state, navigation }: BottomTabBarProp
                 <View className="relative flex items-center justify-center">
                   <Icon
                     size={24}
-                    color={isActive ? "#059669" : "#6b7280"}
+                    color={isActive ? "#1c8584" : "#6b7280"}
                     strokeWidth={2}
                   />
                   {/* Badge */}
@@ -106,7 +106,7 @@ export default function BottomNavigation({ state, navigation }: BottomTabBarProp
                 <Text
                   className={cn(
                     "text-xs mt-1",
-                    isActive ? "text-emerald-500" : "text-gray-500"
+                    isActive ? "text-downy-600" : "text-gray-500"
                   )}
                 >
                   {tab.label}
