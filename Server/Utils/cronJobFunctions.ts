@@ -1,0 +1,183 @@
+// this file will contain the functions for the cron jobs
+// which are :- checking if its startdate has started and set it to started
+// checking if its paydate has reached and process the payout
+
+import { PrismaClient } from "@prisma/client";
+import { toEther } from "thirdweb";
+import {
+    getChamasThatHaveReachedPaydate,
+    getNonStartedChamas,
+    shuffleArray,
+} from "./HelperFunctions";
+import { checkPayoutResult, setPayoutOrder, triggerPayout } from "./Thirdweb";
+
+const prisma = new PrismaClient();
+
+interface PayoutOrder {
+  userAddress: string;
+  payDate: Date;
+  paid: boolean;
+}
+
+// set as started
+export const checkStartDate = async () => {
+  try {
+    const nonStartedChamas = await getNonStartedChamas();
+    if (nonStartedChamas.length < 0) {
+      return;
+    }
+    for (const chama of nonStartedChamas) {
+      const members = chama.members;
+      // shuffle the members to get the payout order
+      const shuffledPayoutOrder = shuffleArray(
+        members.map((member: any) => member.address)
+      );
+      // set the payout order on the blockchain
+      const txHash = await setPayoutOrder(chama.id, shuffledPayoutOrder);
+      if (!txHash) {
+        throw new Error("Failed to set payout order");
+      }
+      // add the paydate, status to the payout order
+      const payoutOrder: PayoutOrder[] = await Promise.all(
+        shuffledPayoutOrder.map(async (address: string, index: number) => {
+          return {
+            userAddress: address,
+            payDate: new Date(
+              chama.payDate.getTime() +
+                chama.cycleTime * 24 * 60 * 60 * 1000 * index
+            ),
+            paid: false,
+          };
+        })
+      );
+      // update the payout order in the chama
+      await prisma.chama.update({
+        where: { id: chama.id },
+        data: { payOutOrder: JSON.stringify(payoutOrder), started: true },
+      });
+
+      //TO DO: we will send the notification to the members
+    }
+  } catch (error) {
+    console.log(error);
+    return;
+  }
+};
+
+// check whether the paydate has reached and process the payout
+export const checkPaydate = async () => {
+  try {
+    const chamasThatHaveReachedPaydate =
+      await getChamasThatHaveReachedPaydate();
+    if (chamasThatHaveReachedPaydate.length <= 0) {
+      return;
+    }
+    for (const chama of chamasThatHaveReachedPaydate) {
+      // trigger the payout on the blockchain
+      const receipt = await triggerPayout(Number(chama.blockchainId));
+      if (!receipt) {
+        throw new Error("Failed to trigger payout");
+      }
+
+      // Check whether what happened was a disburse or refund
+      const payoutResult = await checkPayoutResult(
+        Number(chama.blockchainId),
+        receipt
+      );
+
+      if (payoutResult.type === "disburse") {
+        // Handle disburse - update database, send notifications, etc.
+        console.log(
+          `Chama ${chama.id}: Disbursed ${payoutResult.amount} to ${payoutResult.recipient}`
+        );
+
+        // get the user
+        const user = await prisma.user.findUnique({
+          where: {
+            smartAddress: payoutResult.recipient,
+          },
+        });
+        if (!user) {
+          throw new Error("User not found");
+        };
+
+        // update a payout record in the database
+        await prisma.payOut.create({
+          data: {
+            chamaId: chama.id,
+            receiver: payoutResult.recipient,
+            amount: toEther(payoutResult.amount),
+            userId: user.id,
+          },
+        });
+
+        // update the payout order in the chama
+        const payoutOrder: PayoutOrder[] = JSON.parse(
+          chama.payOutOrder as string
+        );
+        const updatedPayoutOrder = payoutOrder.map((order: PayoutOrder) => {
+          if (order.userAddress === payoutResult.recipient) {
+            return {
+              ...order,
+              paid: true,
+              amount: toEther(payoutResult.amount),
+            };
+          }
+          return order;
+        });
+        await prisma.chama.update({
+          where: { id: chama.id },
+          data: {
+            payOutOrder: JSON.stringify(updatedPayoutOrder),
+            round: chama.round === chama.members.length ? 1 : chama.round + 1,
+            cycle:
+              chama.round === chama.members.length
+                ? chama.cycle + 1
+                : chama.cycle,
+            payDate: new Date(
+              chama.payDate.getTime() + chama.cycleTime * 24 * 60 * 60 * 1000
+            ),
+          },
+        });
+        // TODO: Send notification to recipient
+        // TODO: Send notification to other members
+      } else if (payoutResult.type === "refund") {
+        // Handle refund - notify members
+        console.log(`Chama ${chama.id}: Refund processed`);
+
+        // update the payout order in the chama
+        const payoutOrder: PayoutOrder[] = JSON.parse(
+          chama.payOutOrder as string
+        );
+        const updatedPayoutOrder = payoutOrder.map((order: PayoutOrder) => {          // Extend paydate for unpaid members by cycleTime
+          if (!order.paid) {
+            return {
+              ...order,
+              payDate: new Date(
+                new Date(order.payDate).getTime() + chama.cycleTime * 24 * 60 * 60 * 1000
+              ),
+            };
+          }
+          return order;
+        });
+
+        // Update chama with extended paydate
+        await prisma.chama.update({
+          where: { id: chama.id },
+          data: {
+            payOutOrder: JSON.stringify(updatedPayoutOrder),
+            payDate: new Date(
+              chama.payDate.getTime() + chama.cycleTime * 24 * 60 * 60 * 1000
+            ),
+          },
+        });
+        // TODO: Send notification to all members about refund
+      } else {
+        console.warn(`Chama ${chama.id}: Unknown payout result`);
+      }
+    }
+  } catch (error) {
+    console.log(error);
+    return;
+  }
+};

@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "PayOut" ALTER COLUMN "amount" SET DATA TYPE TEXT;

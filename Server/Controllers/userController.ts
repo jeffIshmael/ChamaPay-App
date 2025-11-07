@@ -37,6 +37,33 @@ export const getUser = async (req: Request, res: Response): Promise<void> => {
 
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
+      include: {
+
+        joinRequests: {
+          include: {
+            chama: true,
+          },
+        },
+        notifications: {
+          include: {
+            chama: true,
+            user: true,
+
+          },
+        },
+        payments: {
+          include: {
+            chama: true,
+            user: true,
+          },
+        },
+        payOuts: {
+          include: {
+            chama: true,
+            user: true,
+          },
+        },
+      },
     });
 
     if (!user) {
