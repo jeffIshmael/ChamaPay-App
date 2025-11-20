@@ -20,7 +20,8 @@
     "@react-navigation/bottom-tabs": "^7.3.10",
     "@react-navigation/elements": "^2.3.8",
     "@react-navigation/native": "^7.1.6",
-    "@thirdweb-dev/react-native-adapter": "^1.5.4",
+    "@thirdweb-dev/react-native-adapter": "^1.5.5",
+    "@thirdweb-dev/wallets": "^2.5.39",
     "@walletconnect/react-native-compat": "^2.21.9",
     "amazon-cognito-identity-js": "^6.3.15",
     "axios": "^1.11.0",
@@ -33,6 +34,7 @@
     "expo-clipboard": "~7.1.5",
     "expo-constants": "~17.1.7",
     "expo-crypto": "~14.1.5",
+    "expo-device": "~7.1.4",
     "expo-font": "~13.3.2",
     "expo-haptics": "~14.1.4",
     "expo-image": "~2.4.0",
@@ -40,6 +42,7 @@
     "expo-linear-gradient": "~14.1.5",
     "expo-linking": "~7.1.7",
     "expo-local-authentication": "~16.0.5",
+    "expo-notifications": "~0.31.4",
     "expo-router": "~5.1.4",
     "expo-secure-store": "~14.2.4",
     "expo-splash-screen": "~0.30.10",
@@ -67,7 +70,7 @@
     "react-native-web": "~0.20.0",
     "react-native-webview": "13.13.5",
     "tailwindcss": "^3.4.17",
-    "thirdweb": "^5.108.3"
+    "thirdweb": "^5.112.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

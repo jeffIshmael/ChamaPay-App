@@ -30,7 +30,8 @@
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT"
       ],
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "pan",
+      "minSdkVersion": 26
     },
     "web": {
       "bundler": "metro",
@@ -56,10 +57,9 @@
         }
       ],
       "expo-secure-store",
-      [
-        "expo-apple-authentication"
-      ],
-      "expo-web-browser"
+      ["expo-apple-authentication"],
+      "expo-web-browser",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true

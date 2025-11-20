@@ -668,9 +668,21 @@ export default function ChamaDetails() {
               </View>
 
               {/* Title & Description */}
-              <Text className="text-3xl font-bold text-white mb-3">
-                {chama.name}
-              </Text>
+              <View className="flex-row items-center gap-3 mb-3">
+                <Text className="text-3xl font-bold text-white flex-1">
+                  {chama.name}
+                </Text>
+                <View className={`px-3 py-1.5 rounded-full flex-row items-center gap-1.5 ${
+                  chama.isPublic ? "bg-emerald-500/30" : "bg-gray-500/30"
+                }`}>
+                  <Text className="text-base">
+                    {chama.isPublic ? "🌍" : "🔒"}
+                  </Text>
+                  <Text className="text-sm text-white font-semibold">
+                    {chama.isPublic ? "Public" : "Private"}
+                  </Text>
+                </View>
+              </View>
               <Text className="text-gray-200 text-base leading-6 mb-6">
                 {chama.description}
               </Text>

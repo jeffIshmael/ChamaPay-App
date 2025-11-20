@@ -178,9 +178,23 @@ export default function DiscoverChamas() {
         {/* Header */}
         <View className="flex-row items-start justify-between mb-3">
           <View className="flex-1 pr-3">
-            <Text className="text-lg font-bold text-gray-900 mb-1">
-              {chama.name}
-            </Text>
+            <View className="flex-row items-center gap-2 mb-1">
+              <Text className="text-lg font-bold text-gray-900">
+                {chama.name}
+              </Text>
+              <View className={`px-2 py-1 rounded-full flex-row items-center gap-1 ${
+                chama.type === "Public" ? "bg-emerald-100" : "bg-gray-100"
+              }`}>
+                <Text className="text-xs">
+                  {chama.type === "Public" ? "🌍" : "🔒"}
+                </Text>
+                <Text className={`text-xs font-semibold ${
+                  chama.type === "Public" ? "text-emerald-700" : "text-gray-700"
+                }`}>
+                  {chama.type}
+                </Text>
+              </View>
+            </View>
             <Text className="text-sm text-gray-500 leading-5" numberOfLines={2}>
               {chama.description}
             </Text>

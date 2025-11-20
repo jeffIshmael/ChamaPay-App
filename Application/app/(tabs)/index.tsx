@@ -1,8 +1,14 @@
 import { JoinedChama } from "@/constants/mockData";
 import { useAuth } from "@/Contexts/AuthContext";
-import { getChamaBySlug, getUserChamas, transformChamaData } from "@/lib/chamaService";
+import {
+  getChamaBySlug,
+  getUserChamas,
+  transformChamaData,
+} from "@/lib/chamaService";
 import { decryptChamaSlug, parseChamaShareUrl } from "@/lib/encryption";
 import * as Clipboard from "expo-clipboard";
+import Constants from "expo-constants";
+import * as ExpoNotifications from "expo-notifications";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   ArrowRight,
@@ -46,6 +52,13 @@ export default function HomeScreen() {
     }
     try {
       setLoading(true);
+      const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId ??
+        Constants?.easConfig?.projectId;
+      const pushTokenString = (
+        await ExpoNotifications.getExpoPushTokenAsync({ projectId: projectId! })
+      ).data;
+      console.log("the push token", pushTokenString);
       const response = await getUserChamas(token);
       if (response.success && response.chamas) {
         const transformed = response.chamas.map((member: any) =>
@@ -98,10 +111,13 @@ export default function HomeScreen() {
   const handleProcessLink = async (link: string) => {
     try {
       setIsProcessingLink(true);
-      
+
       const encryptedSlug = parseChamaShareUrl(link);
       if (!encryptedSlug) {
-        Alert.alert("Invalid Link", "This doesn't appear to be a valid ChamaPay link.");
+        Alert.alert(
+          "Invalid Link",
+          "This doesn't appear to be a valid ChamaPay link."
+        );
         setShowPasteModal(false);
         return;
       }
@@ -117,12 +133,13 @@ export default function HomeScreen() {
       const response = await getChamaBySlug(originalSlug, token!);
       if (response.success && response.chama) {
         const chama = response.chama;
-        
+
         // Check if user is already a member
-        const isMember = chama.members?.some(member => 
-          member.user?.id === user?.id || 
-          member.user?.email === user?.email ||
-          member.user?.userName === user?.userName
+        const isMember = chama.members?.some(
+          (member) =>
+            member.user?.id === user?.id ||
+            member.user?.email === user?.email ||
+            member.user?.userName === user?.userName
         );
 
         if (isMember) {
@@ -133,16 +150,22 @@ export default function HomeScreen() {
             params: { slug: originalSlug },
           });
         }
-        
+
         setPasteLink("");
         setShowPasteModal(false);
       } else {
-        Alert.alert("Chama Not Found", "This chama no longer exists or is not available.");
+        Alert.alert(
+          "Chama Not Found",
+          "This chama no longer exists or is not available."
+        );
         setShowPasteModal(false);
       }
     } catch (error) {
       console.error("Error handling chama link:", error);
-      Alert.alert("Error", "Failed to process the chama link. Please try again.");
+      Alert.alert(
+        "Error",
+        "Failed to process the chama link. Please try again."
+      );
       setShowPasteModal(false);
     } finally {
       setIsProcessingLink(false);
@@ -254,10 +277,16 @@ export default function HomeScreen() {
         <View className="flex-row items-center justify-between mb-5">
           <View className="flex-1">
             <View className="flex-row items-center gap-3 mb-1">
-              <Text className="text-2xl font-bold text-gray-900">My Chamas</Text>
-              <Badge color="#10b981" bg="#d1fae5">{chamas.length}</Badge>
+              <Text className="text-2xl font-bold text-gray-900">
+                My Chamas
+              </Text>
+              <Badge color="#10b981" bg="#d1fae5">
+                {chamas.length}
+              </Badge>
             </View>
-            <Text className="text-sm text-gray-500">Your active savings groups</Text>
+            <Text className="text-sm text-gray-500">
+              Your active savings groups
+            </Text>
           </View>
           <TouchableOpacity
             onPress={handlePasteLink}
@@ -293,9 +322,27 @@ export default function HomeScreen() {
             >
               <View className="flex-row items-start justify-between mb-4">
                 <View className="flex-1 pr-3">
-                  <Text className="text-xl font-bold text-gray-900 mb-2">
-                    {chama.name}
-                  </Text>
+                  <View className="flex-row items-center gap-2 mb-2">
+                    <Text className="text-xl font-bold text-gray-900">
+                      {chama.name}
+                    </Text>
+                    <View
+                      className={`px-2 py-1 rounded-full flex-row items-center gap-1 ${
+                        chama.isPublic ? "bg-emerald-100" : "bg-gray-100"
+                      }`}
+                    >
+                      <Text className="text-xs">
+                        {chama.isPublic ? "🌍" : "🔒"}
+                      </Text>
+                      <Text
+                        className={`text-xs font-semibold ${
+                          chama.isPublic ? "text-emerald-700" : "text-gray-700"
+                        }`}
+                      >
+                        {chama.isPublic ? "Public" : "Private"}
+                      </Text>
+                    </View>
+                  </View>
                   <View className="flex-row items-center gap-4 mb-3">
                     <View className="flex-row items-center bg-emerald-50 px-3 py-1.5 rounded-lg">
                       <Users color="#10b981" size={16} />
@@ -315,7 +362,9 @@ export default function HomeScreen() {
                 <Badge
                   color={chama.status === "active" ? "#047857" : "#9ca3af"}
                   bg={
-                    chama.status === "active" ? "#d1fae5" : "rgba(156,163,175,0.2)"
+                    chama.status === "active"
+                      ? "#d1fae5"
+                      : "rgba(156,163,175,0.2)"
                   }
                 >
                   {chama.status}
@@ -376,7 +425,7 @@ export default function HomeScreen() {
             <Text className="text-gray-600 text-sm mb-4">
               Paste the chama invite link below to join
             </Text>
-            
+
             <TextInput
               value={pasteLink}
               onChangeText={setPasteLink}

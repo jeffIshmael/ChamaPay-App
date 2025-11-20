@@ -337,7 +337,19 @@ export default function JoinedChamaDetails() {
             >
               <ArrowLeft size={20} color="white" />
             </TouchableOpacity>
-            <Text className="text-lg text-white font-medium">{chama.name}</Text>
+            <View className="flex-1 items-center">
+              <Text className="text-lg text-white font-medium">{chama.name}</Text>
+              <View className={`mt-1 px-2 py-0.5 rounded-full flex-row items-center gap-1 ${
+                chama.isPublic ? "bg-emerald-500/30" : "bg-gray-500/30"
+              }`}>
+                <Text className="text-xs">
+                  {chama.isPublic ? "🌍" : "🔒"}
+                </Text>
+                <Text className="text-xs text-white font-semibold">
+                  {chama.isPublic ? "Public" : "Private"}
+                </Text>
+              </View>
+            </View>
             <TouchableOpacity
               onPress={handleShare}
               className="p-2 rounded-full"
