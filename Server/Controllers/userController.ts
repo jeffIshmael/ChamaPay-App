@@ -29,7 +29,6 @@ interface UserResponse {
 // Function to get a user
 export const getUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    
     if (!req.user?.userId) {
       res.status(401).json({ message: "User not authenticated" });
       return;
@@ -38,7 +37,6 @@ export const getUser = async (req: Request, res: Response): Promise<void> => {
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
       include: {
-
         joinRequests: {
           include: {
             chama: true,
@@ -48,7 +46,6 @@ export const getUser = async (req: Request, res: Response): Promise<void> => {
           include: {
             chama: true,
             user: true,
-
           },
         },
         payments: {
@@ -71,14 +68,58 @@ export const getUser = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-     // all the details
-     const allDetails = user;
-
     // Remove sensitive fields from response
     const { ...userResponse } = user;
-   
-    
-    res.status(200).json({ user: userResponse, allUserDeatils: allDetails });
+
+    res.status(200).json({ user: userResponse });
+  } catch (error: unknown) {
+    console.error("Get user error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// function to get all the userdaitls
+export const getUserDetails = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.user?.userId) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      include: {
+        joinRequests: {
+          include: {
+            chama: true,
+          },
+        },
+        notifications: {
+          include: {
+            chama: true,
+            user: true,
+          },
+        },
+        payments: {
+          include: {
+            chama: true,
+            user: true,
+          },
+        },
+        payOuts: {
+          include: {
+            chama: true,
+            user: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+    res.status(200).json({ user: user });
   } catch (error: unknown) {
     console.error("Get user error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -86,15 +127,19 @@ export const getUser = async (req: Request, res: Response): Promise<void> => {
 };
 
 // Function to update user profile
-export const updateUserProfile = async (req: Request, res: Response): Promise<void> => {
+export const updateUserProfile = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
-    const { name, email, phoneNo, profileImageUrl }: UpdateProfileRequest = req.body;
-    
+    const { name, email, phoneNo, profileImageUrl }: UpdateProfileRequest =
+      req.body;
+
     if (!req.user?.userId) {
       res.status(401).json({ message: "User not authenticated" });
       return;
     }
-    
+
     const userId: number = req.user.userId;
 
     // Validate required fields
@@ -117,10 +162,10 @@ export const updateUserProfile = async (req: Request, res: Response): Promise<vo
 
     // Check if email is already taken by another user
     const existingUser = await prisma.user.findFirst({
-      where: { 
+      where: {
         email: email.trim(),
-        NOT: { id: userId }
-      }
+        NOT: { id: userId },
+      },
     });
 
     if (existingUser) {
@@ -130,7 +175,7 @@ export const updateUserProfile = async (req: Request, res: Response): Promise<vo
 
     // Validate phone number if provided
     if (phoneNo !== null && phoneNo !== undefined) {
-      if (typeof phoneNo !== 'number' || phoneNo < 0) {
+      if (typeof phoneNo !== "number" || phoneNo < 0) {
         res.status(400).json({ error: "Please enter a valid phone number" });
         return;
       }
@@ -143,34 +188,41 @@ export const updateUserProfile = async (req: Request, res: Response): Promise<vo
         userName: name.trim(),
         email: email.trim().toLowerCase(),
         phoneNo: phoneNo,
-        profileImageUrl: profileImageUrl || null
-      }
+        profileImageUrl: profileImageUrl || null,
+      },
     });
 
     // Remove sensitive fields from response
-    const { ...userResponse }: { 
-      [key: string]: any; 
+    const {
+      ...userResponse
+    }: {
+      [key: string]: any;
     } = updatedUser;
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: "Profile updated successfully",
-      user: userResponse as UserResponse
+      user: userResponse as UserResponse,
     });
   } catch (error: unknown) {
     console.error("Update profile error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
-}; 
+};
 
 // Public endpoint to check if a user exists by email
-export const checkUserExists = async (req: Request, res: Response): Promise<void> => {
+export const checkUserExists = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { email } = req.body as { email?: string };
     if (!email?.trim()) {
       res.status(400).json({ success: false, error: "Email is required" });
       return;
     }
-    const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    const user = await prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
     if (!user) {
       res.status(200).json({ success: false });
       return;
@@ -184,10 +236,15 @@ export const checkUserExists = async (req: Request, res: Response): Promise<void
 };
 
 // function to get user by userId
-export const getUserById = async (req: Request, res: Response): Promise<void> => {
+export const getUserById = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { userId } = req.params as { userId: string };
-    const user = await prisma.user.findUnique({ where: { id: parseInt(userId) } });
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(userId) },
+    });
     if (!user) {
       res.status(404).json({ success: false, error: "User not found" });
       return;
@@ -200,30 +257,33 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
 };
 
 // Check if username is available
-export const checkUsernameAvailability = async (req: Request, res: Response): Promise<void> => {
+export const checkUsernameAvailability = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { username } = req.body as { username?: string };
-    
+
     if (!username?.trim()) {
       res.status(400).json({ success: false, error: "Username is required" });
       return;
     }
 
     const trimmedUsername = username.trim().toLowerCase();
-    
+
     // Check if username is already taken
     const existingUser = await prisma.user.findFirst({
-      where: { 
-        userName: trimmedUsername
+      where: {
+        userName: trimmedUsername,
       },
-      select: { id: true, userName: true }
+      select: { id: true, userName: true },
     });
 
     if (existingUser) {
-      res.status(200).json({ 
-        success: false, 
-        available: false, 
-        message: "Username is already taken" 
+      res.status(200).json({
+        success: false,
+        available: false,
+        message: "Username is already taken",
       });
       return;
     }
@@ -231,28 +291,29 @@ export const checkUsernameAvailability = async (req: Request, res: Response): Pr
     // Check username format (alphanumeric, underscores, hyphens)
     const usernameRegex = /^[a-zA-Z0-9_-]+$/;
     if (!usernameRegex.test(trimmedUsername)) {
-      res.status(400).json({ 
-        success: false, 
-        available: false, 
-        message: "Username can only contain letters, numbers, underscores, and hyphens" 
+      res.status(400).json({
+        success: false,
+        available: false,
+        message:
+          "Username can only contain letters, numbers, underscores, and hyphens",
       });
       return;
     }
 
     // Check minimum length
     if (trimmedUsername.length < 3) {
-      res.status(400).json({ 
-        success: false, 
-        available: false, 
-        message: "Username must be at least 3 characters long" 
+      res.status(400).json({
+        success: false,
+        available: false,
+        message: "Username must be at least 3 characters long",
       });
       return;
     }
 
-    res.status(200).json({ 
-      success: true, 
-      available: true, 
-      message: "Username is available" 
+    res.status(200).json({
+      success: true,
+      available: true,
+      message: "Username is available",
     });
   } catch (error: unknown) {
     console.error("Check username availability error:", error);
@@ -261,37 +322,42 @@ export const checkUsernameAvailability = async (req: Request, res: Response): Pr
 };
 
 // Search users by username
-export const searchUsers = async (req: Request, res: Response): Promise<void> => {
+export const searchUsers = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { query } = req.query as { query?: string };
-    
+
     if (!query?.trim()) {
-      res.status(400).json({ success: false, error: "Search query is required" });
+      res
+        .status(400)
+        .json({ success: false, error: "Search query is required" });
       return;
     }
 
     const trimmedQuery = query.trim().toLowerCase();
-    
+
     // Search for users by username (case insensitive)
     const users = await prisma.user.findMany({
       where: {
         userName: {
-          contains: trimmedQuery
-        }
+          contains: trimmedQuery,
+        },
       },
       select: {
         id: true,
         userName: true,
         email: true,
         address: true,
-        profileImageUrl: true
+        profileImageUrl: true,
       },
-      take: 10 // Limit to 10 results
+      take: 10, // Limit to 10 results
     });
 
-    res.status(200).json({ 
-      success: true, 
-      users: users 
+    res.status(200).json({
+      success: true,
+      users: users,
     });
   } catch (error: unknown) {
     console.error("Search users error:", error);

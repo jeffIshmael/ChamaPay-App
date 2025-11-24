@@ -57,7 +57,7 @@ export const getTheUserTx = async (
   authToken: string
 ): Promise<Transaction[] | null> => {
   try {
-    const response = await fetch(`${serverUrl}/user`, {
+    const response = await fetch(`${serverUrl}/user/details`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${authToken}`,
