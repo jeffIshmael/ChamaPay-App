@@ -26,24 +26,21 @@ export function initialiseSocket(server: any): socketIOServer {
           return next(new Error("Auth token is not set."));
         }
 
-        let userData = decoded.user;
-        socket.data = userData;
-        socket.data.useId = userData.id;
+        console.log("decoded is", decoded);
         next();
       }
     );
   });
 
   io.on("connection",async (socket:Socket)=>{
-    const userId = socket.data.userId;
-    console.log("The user is successfully connected", userId);
+    console.log("The user is successfully connected");
 
     // implement the register events
     testSocket(io,socket);
 
     // the disconnect
     socket.on("disconnect",()=>{
-        console.log("User is disconnected", userId);
+        console.log("User is disconnected");
     })
 
   })
