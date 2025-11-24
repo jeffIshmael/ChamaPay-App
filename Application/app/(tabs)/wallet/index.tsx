@@ -1,4 +1,3 @@
-
 import { useRouter } from "expo-router";
 import {
   ArrowDownRight,
@@ -12,7 +11,7 @@ import {
   History,
   QrCode,
   Send,
-  Upload
+  Upload,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
@@ -28,18 +27,27 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useActiveAccount, useActiveWallet } from "thirdweb/react";
 import { shortenAddress } from "thirdweb/utils";
 
-
 import { cUSDAddress, usdcAddress } from "@/constants/contractAddress";
-import { AllBalances, getAllBalances, getAllTransferFunctions } from "@/constants/thirdweb";
+import {
+  AllBalances,
+  getAllBalances,
+  getAllTransferFunctions,
+} from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
-import { approveSwap, executeSwap, ExecuteSwap, getSwapQuote, QuoteResponse } from "@/lib/mentoSdkServices";
+import {
+  approveSwap,
+  executeSwap,
+  ExecuteSwap,
+  getSwapQuote,
+  QuoteResponse,
+} from "@/lib/mentoSdkServices";
 import { getTheUserTx } from "@/lib/walletServices";
 
 interface Token {
@@ -53,7 +61,7 @@ interface Token {
 }
 
 interface Transaction {
-  id:number;
+  id: number;
   type: string;
   token: string;
   amount: string;
@@ -82,7 +90,11 @@ export default function CryptoWallet() {
   const [estimatedOutput, setEstimatedOutput] = useState("0.00");
   const [quoteData, setQuoteData] = useState<QuoteResponse | null>(null);
   const [swapping, setSwapping] = useState(false);
-  const [theTransaction, setTheTransaction] = useState<Transaction[] | null>(null);
+  const [theTransaction, setTheTransaction] = useState<Transaction[] | null>(
+    null
+  );
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [transactionError, setTransactionError] = useState<string | null>(null);
   const wallet = useActiveWallet();
   const activeAccount = useActiveAccount();
   const { user, token } = useAuth();
@@ -92,19 +104,38 @@ export default function CryptoWallet() {
   const fetchBalances = async () => {
     if (wallet && activeAccount) {
       const balances = await getAllBalances(activeAccount.address);
-      setUserBalance(balances);     
+      setUserBalance(balances);
     }
   };
 
-  useEffect(()=>{
-    const getTx = async () =>{
-      if(!token) return;
-     const theTxs =  await getTheUserTx(token);
-     setTheTransaction(theTxs);
-    }
-    getTx();
+  useEffect(() => {
+    const getTx = async () => {
+      if (!token) return;
 
-  },[token])
+      setLoadingTransactions(true);
+      setTransactionError(null);
+
+      try {
+        const theTxs = await getTheUserTx(token);
+
+        // Handle null response
+        if (theTxs === null) {
+          setTransactionError("Unable to load transaction history");
+          setTheTransaction([]);
+        } else {
+          setTheTransaction(theTxs);
+        }
+      } catch (error) {
+        console.error("Error fetching transactions:", error);
+        setTransactionError("Failed to load transactions");
+        setTheTransaction([]);
+      } finally {
+        setLoadingTransactions(false);
+      }
+    };
+
+    getTx();
+  }, [token]);
 
   useEffect(() => {
     fetchBalances();
@@ -125,6 +156,50 @@ export default function CryptoWallet() {
 
     return () => clearTimeout(timeoutId);
   }, [swapAmount, fromToken, toToken]);
+
+  const groupTransactionsByDate = (
+    transactions: Transaction[]
+  ): { [key: string]: Transaction[] } => {
+    if (!transactions || transactions.length === 0) return {};
+
+    return transactions.reduce(
+      (groups, tx) => {
+        const date = new Date(tx.date);
+        const dateKey = date.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+
+        if (!groups[dateKey]) {
+          groups[dateKey] = [];
+        }
+        groups[dateKey].push(tx);
+        return groups;
+      },
+      {} as { [key: string]: Transaction[] }
+    );
+  };
+
+  // 4. Helper function to format relative time
+  const getRelativeTime = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -169,25 +244,34 @@ export default function CryptoWallet() {
 
   const handleSwap = async () => {
     if (!swapAmount) {
-      Alert.alert("Missing Amount", "Please enter the amount you want to swap.");
+      Alert.alert(
+        "Missing Amount",
+        "Please enter the amount you want to swap."
+      );
       return;
     }
-  
+
     if (!quoteData) {
-      Alert.alert("Quote Not Ready", "Please wait for the latest quote to load before swapping.");
+      Alert.alert(
+        "Quote Not Ready",
+        "Please wait for the latest quote to load before swapping."
+      );
       return;
     }
-  
+
     if (!token) {
-      Alert.alert("Authentication Required", "Please log in or connect your wallet to continue.");
+      Alert.alert(
+        "Authentication Required",
+        "Please log in or connect your wallet to continue."
+      );
       return;
     }
-  
+
     setSwapping(true);
     try {
       const fromTokenAddress = fromToken === "cUSD" ? cUSDAddress : usdcAddress;
       const toTokenAddress = fromToken === "cUSD" ? usdcAddress : cUSDAddress;
-  
+
       // Approve swap
       const result = await approveSwap(
         fromTokenAddress,
@@ -195,9 +279,9 @@ export default function CryptoWallet() {
         token,
         activeAccount
       );
-  
+
       console.log("Approval result:", result);
-  
+
       if (!result?.success) {
         Alert.alert(
           "Approval Failed",
@@ -205,7 +289,7 @@ export default function CryptoWallet() {
         );
         return;
       }
-  
+
       const executeSwapArgs: ExecuteSwap = {
         fromTokenAddr: fromTokenAddress,
         toTokenAddr: toTokenAddress,
@@ -213,11 +297,15 @@ export default function CryptoWallet() {
         quoteWei: quoteData.quote.quoteWei,
         tradablePair: quoteData.quote.tradablePair,
       };
-  
+
       // Execute swap
-      const swapResult = await executeSwap(executeSwapArgs, token, activeAccount);
+      const swapResult = await executeSwap(
+        executeSwapArgs,
+        token,
+        activeAccount
+      );
       console.log("Swap result:", swapResult);
-  
+
       if (!swapResult?.success) {
         Alert.alert(
           "Swap Unsuccessful",
@@ -225,7 +313,7 @@ export default function CryptoWallet() {
         );
         return;
       }
-  
+
       // ✅ Success message
       Alert.alert(
         "Swap Successful 🎉",
@@ -239,25 +327,25 @@ export default function CryptoWallet() {
           { text: "Done", style: "cancel" },
         ]
       );
-  
+
       // Reset form
       setSwapAmount("");
       setEstimatedOutput("0.00");
       setQuoteData(null);
-  
+
       // Refresh balances
       await fetchBalances();
     } catch (error: any) {
       console.log("Swap error:", error);
       Alert.alert(
         "Swap Failed ❌",
-        error.message || "An unexpected error occurred while executing the swap. Please try again."
+        error.message ||
+          "An unexpected error occurred while executing the swap. Please try again."
       );
     } finally {
       setSwapping(false);
     }
   };
-  
 
   const handleReceive = () => {
     router.push("/wallet/receive-crypto");
@@ -498,57 +586,66 @@ export default function CryptoWallet() {
   );
 
   const TransactionCard = ({ tx }: { tx: Transaction }) => (
-    <View
-      className="bg-white p-5 rounded-2xl shadow-sm mb-4"
-      style={styles.card}
-    >
-      <View className="flex-row items-center justify-between mb-2">
-        <View className="flex-row items-center">
+    <View className="bg-white p-4 rounded-xl shadow-sm mb-3 border border-gray-100">
+      <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center flex-1">
+          {/* Icon Container */}
           <View
-            className="w-12 h-12 rounded-2xl items-center justify-center mr-4"
+            className="w-12 h-12 rounded-full items-center justify-center mr-4"
             style={{
-              backgroundColor: `${getTransactionIconColor(tx.type)}15`,
+              backgroundColor: `${getTransactionIconColor(tx.type)}20`,
             }}
           >
             {getTransactionIcon(tx.type)}
           </View>
-          <View>
-            <Text className="text-gray-900 font-semibold text-lg capitalize">
+
+          {/* Transaction Info */}
+          <View className="flex-1">
+            <Text className="text-gray-900 font-semibold text-base capitalize">
               {tx.type} {tx.token}
             </Text>
-            <Text className="text-sm text-gray-500">
+            <Text className="text-xs text-gray-500 mt-1">
               {tx.type === "send"
-                ? `To: ${tx.recipient}`
+                ? `To: ${tx.recipient || "Unknown"}`
                 : tx.type === "receive"
-                ? `From: ${tx.sender}`
-                : "Network: Ethereum"}
+                  ? `From: ${tx.sender || "Unknown"}`
+                  : "On-chain transaction"}
             </Text>
           </View>
         </View>
-        <View className="items-end">
+
+        {/* Amount and Time */}
+        <View className="items-end ml-2">
           <Text
-            className={`font-bold text-lg ${getTransactionTextColor(tx.type)}`}
+            className={`font-bold text-base ${getTransactionTextColor(tx.type)}`}
           >
             {tx.type === "send" ? "-" : "+"}
-            {tx.amount}{" "}
+            {parseFloat(tx.amount).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 4,
+            })}{" "}
             {tx.token}
+          </Text>
+          <Text className="text-xs text-gray-400 mt-1">
+            {getRelativeTime(tx.date)}
           </Text>
         </View>
       </View>
 
-      <View className="flex-row items-center justify-between mt-3 pt-3 border-t border-gray-100">
-        <Text className="text-xs text-gray-400 font-medium">
-          {formatDate(tx.date)}
-        </Text>
-        <TouchableOpacity
-          onPress={() => Alert.alert("Transaction Details", `Hash: ${tx.hash}`)}
-          className="px-3 py-1 bg-blue-50 rounded-full"
-        >
-          <Text className="text-xs text-blue-600 font-medium">
-            View Details
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* View Details Button */}
+      <TouchableOpacity
+        onPress={() => {
+          Alert.alert(
+            "Transaction Details",
+            `Hash: ${tx.hash}\nStatus: ${tx.status}\nDate: ${formatDate(
+              tx.date
+            )}`
+          );
+        }}
+        className="mt-3 pt-3 border-t border-gray-100"
+      >
+        <Text className="text-xs text-blue-600 font-medium">View Details</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -629,432 +726,495 @@ export default function CryptoWallet() {
   );
 
   return (
-   
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={insets.top + 64}
+    <KeyboardAvoidingView
+      className="flex-1"
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={insets.top + 64}
+    >
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        className="flex-1 bg-gray-50"
+        contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#059669"
+            colors={["#059669"]}
+          />
+        }
       >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          className="flex-1 bg-gray-50"
-          contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#059669"
-              colors={["#059669"]}
-            />
-          }
+        {/* Header */}
+        <View
+          className="bg-downy-800 px-6 pb-8 rounded-b-3xl shadow-md"
+          style={{ paddingTop: insets.top + 24 }}
         >
-          {/* Header */}
-          <View 
-            className="bg-downy-800 px-6 pb-8 rounded-b-3xl shadow-md"
-            style={{ paddingTop: insets.top + 24 }}
-          >
-              {/* Total Balance */}
-              <View className="items-center mb-6">
-                <Text className="text-lg text-emerald-100">Total Balance</Text>
+          {/* Total Balance */}
+          <View className="items-center mb-6">
+            <Text className="text-lg text-emerald-100">Total Balance</Text>
 
-                <View className="flex-row items-center justify-center mt-2 mb-3">
-                  <Text className="text-5xl text-white font-extrabold tracking-tight">
-                    {balanceVisible
-                      ? formatCurrency(walletData.totalUsdValue)
-                      : "••••••"}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setBalanceVisible(!balanceVisible)}
-                    className="ml-3 p-2 rounded-full bg-white/20"
-                    activeOpacity={0.7}
-                  >
-                    {balanceVisible ? (
-                      <Eye size={20} color="white" />
-                    ) : (
-                      <EyeOff size={20} color="white" />
-                    )}
-                  </TouchableOpacity>
-                </View>
-
-                {balanceVisible && (
-                  <Text className="text-emerald-100 text-lg font-semibold">
-                    ≈{" "}
-                    {Math.round(
-                      walletData.totalUsdValue * cUSDToKShsExchangeRate
-                    ).toLocaleString()}{" "}
-                    Kshs
-                  </Text>
+            <View className="flex-row items-center justify-center mt-2 mb-3">
+              <Text className="text-5xl text-white font-extrabold tracking-tight">
+                {balanceVisible
+                  ? formatCurrency(walletData.totalUsdValue)
+                  : "••••••"}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setBalanceVisible(!balanceVisible)}
+                className="ml-3 p-2 rounded-full bg-white/20"
+                activeOpacity={0.7}
+              >
+                {balanceVisible ? (
+                  <Eye size={20} color="white" />
+                ) : (
+                  <EyeOff size={20} color="white" />
                 )}
-              </View>
-
-              {/* Wallet Address Card */}
-              <View className="bg-white/10 backdrop-blur-md rounded-2xl p-4 mb-8 w-full border border-white/20 shadow-sm">
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-1">
-                    <Text className="text-emerald-100 text-xs mb-1">
-                      Wallet Address
-                    </Text>
-                    <Text
-                      className="text-white text-sm font-mono"
-                      numberOfLines={1}
-                      ellipsizeMode="middle"
-                    >
-                      {activeAccount?.address
-                        ? shortenAddress(activeAccount.address)
-                        : "0x0000000000000000000000"}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={copyAddress}
-                    className="p-2 rounded-full bg-emerald-500/80 shadow-md"
-                    activeOpacity={0.7}
-                  >
-                    <Copy size={16} color="white" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-          </View>
-
-          {/* Quick Actions */}
-          <View className="px-6 py-4 -mt-10">
-            <View
-              className="bg-white rounded-2xl p-5 shadow-md"
-              style={styles.card}
-            >
-              <View className="flex-row gap-4">
-                <ActionButton
-                  onPress={() => router.push("/wallet/send-crypto")}
-                  icon={<Send size={20} color="#059669" />}
-                  title="Send"
-                  bgColor="bg-emerald-50"
-                  textColor="text-emerald-700"
-                />
-                <ActionButton
-                  onPress={handleReceive}
-                  icon={<QrCode size={20} color="#2563eb" />}
-                  title="Receive"
-                  bgColor="bg-blue-50"
-                  textColor="text-blue-700"
-                />
-                <ActionButton
-                  onPress={handleDeposit}
-                  icon={<Download size={20} color="#15803d" />}
-                  title="Deposit"
-                  bgColor="bg-green-50"
-                  textColor="text-green-700"
-                />
-                <ActionButton
-                  onPress={() => router.push("/wallet/withdrawal-crypto")}
-                  icon={<Upload size={20} color="#c2410c" />}
-                  title="Withdraw"
-                  bgColor="bg-orange-50"
-                  textColor="text-orange-700"
-                />
-              </View>
-            </View>
-          </View>
-
-          {/* Tabs */}
-          <View className="px-6 pb-8">
-            {/* Tab Headers */}
-            <View
-              className="flex-row bg-white rounded-2xl p-1.5 mb-6 gap-1.5 shadow-sm"
-              style={styles.card}
-            >
-              <TabButton
-                tabKey="overview"
-                title="Assets"
-                isActive={activeTab === "overview"}
-              />
-              <TabButton
-                tabKey="swap"
-                title="Swap"
-                isActive={activeTab === "swap"}
-              />
-              <TabButton
-                tabKey="history"
-                title="History"
-                isActive={activeTab === "history"}
-              />
+              </TouchableOpacity>
             </View>
 
-            {/* Assets/Overview Tab */}
-            {activeTab === "overview" && (
-              <View>
-                <Text className="text-2xl font-bold text-gray-900 mb-6">
-                  My Assets
-                </Text>
-                {walletData.balances.map((token) => (
-                  <TokenCard key={token.symbol} token={token} />
-                ))}
-              </View>
+            {balanceVisible && (
+              <Text className="text-emerald-100 text-lg font-semibold">
+                ≈{" "}
+                {Math.round(
+                  walletData.totalUsdValue * cUSDToKShsExchangeRate
+                ).toLocaleString()}{" "}
+                Kshs
+              </Text>
             )}
+          </View>
 
-            {/* Swap Tab */}
-            {activeTab === "swap" && (
-              <View>
-                <Text className="text-2xl font-bold text-gray-900 mb-6">
-                  Swap Tokens
+          {/* Wallet Address Card */}
+          <View className="bg-white/10 backdrop-blur-md rounded-2xl p-4 mb-8 w-full border border-white/20 shadow-sm">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1">
+                <Text className="text-emerald-100 text-xs mb-1">
+                  Wallet Address
                 </Text>
-                <View
-                  className="bg-white p-6 rounded-2xl shadow-sm"
-                  style={styles.card}
+                <Text
+                  className="text-white text-sm font-mono"
+                  numberOfLines={1}
+                  ellipsizeMode="middle"
                 >
-                  {/* From Token */}
-                  <View className="mb-4">
-                    <Text className="text-sm text-gray-700 mb-3 font-semibold">
-                      From
-                    </Text>
-                    <View className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
-                      {/* Token Selection Row */}
-                      <View className="flex-row items-center justify-between mb-3">
-                        <TouchableOpacity
-                          className="flex-row items-center bg-white rounded-xl px-3 py-2 border border-gray-200"
-                          onPress={() => setFromModalVisible(true)}
-                        >
-                          <Image
-                            source={
-                              walletData.balances.find(
-                                (t) => t.symbol === fromToken
-                              )?.image || require("@/assets/images/cusd.jpg")
-                            }
-                            className="w-6 h-6 rounded-full mr-2"
-                            resizeMode="cover"
-                          />
-                          <Text className="text-gray-900 font-semibold mr-1">
-                            {fromToken}
-                          </Text>
-                          <Text className="text-gray-400">▼</Text>
-                        </TouchableOpacity>
+                  {activeAccount?.address
+                    ? shortenAddress(activeAccount.address)
+                    : "0x0000000000000000000000"}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={copyAddress}
+                className="p-2 rounded-full bg-emerald-500/80 shadow-md"
+                activeOpacity={0.7}
+              >
+                <Copy size={16} color="white" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
 
-                        <View className="flex-1 mx-4">
-                          <TextInput
-                            value={swapAmount}
-                            onChangeText={setSwapAmount}
-                            placeholder="0.00"
-                            placeholderTextColor="#9ca3af"
-                            keyboardType="numeric"
-                            className="text-right text-xl font-semibold text-gray-900 bg-transparent"
-                            style={{ minHeight: 40 }}
-                          />
-                        </View>
-                      </View>
+        {/* Quick Actions */}
+        <View className="px-6 py-4 -mt-10">
+          <View
+            className="bg-white rounded-2xl p-5 shadow-md"
+            style={styles.card}
+          >
+            <View className="flex-row gap-4">
+              <ActionButton
+                onPress={() =>
+                  router.push({
+                    pathname: "/wallet/send-crypto",
+                    params: {
+                      cUSDBalance: walletData.balances[0].amount,
+                      USDCBalance: walletData.balances[1].amount,
+                      totalBalance: walletData.totalUsdValue,
+                      address: activeAccount?.address,
+                    },
+                  })
+                }
+                icon={<Send size={20} color="#059669" />}
+                title="Send"
+                bgColor="bg-emerald-50"
+                textColor="text-emerald-700"
+              />
+              <ActionButton
+                onPress={handleReceive}
+                icon={<QrCode size={20} color="#2563eb" />}
+                title="Receive"
+                bgColor="bg-blue-50"
+                textColor="text-blue-700"
+              />
+              <ActionButton
+                onPress={handleDeposit}
+                icon={<Download size={20} color="#15803d" />}
+                title="Deposit"
+                bgColor="bg-green-50"
+                textColor="text-green-700"
+              />
+              <ActionButton
+                onPress={() =>
+                  router.push({
+                    pathname: "/wallet/withdrawal-crypto",
+                    params: {
+                      cUSDBalance: walletData.balances[0].amount,
+                      USDCBalance: walletData.balances[1].amount,
+                      totalBalance: walletData.totalUsdValue,
+                      address: activeAccount?.address,
+                    },
+                  })
+                }
+                icon={<Upload size={20} color="#c2410c" />}
+                title="Withdraw"
+                bgColor="bg-orange-50"
+                textColor="text-orange-700"
+              />
+            </View>
+          </View>
+        </View>
 
-                      {/* Balance and Token Info */}
-                      <View className="flex-row items-center justify-between">
-                        <Text className="text-sm text-gray-500">
-                          {
+        {/* Tabs */}
+        <View className="px-6 pb-8">
+          {/* Tab Headers */}
+          <View
+            className="flex-row bg-white rounded-2xl p-1.5 mb-6 gap-1.5 shadow-sm"
+            style={styles.card}
+          >
+            <TabButton
+              tabKey="overview"
+              title="Assets"
+              isActive={activeTab === "overview"}
+            />
+            <TabButton
+              tabKey="swap"
+              title="Swap"
+              isActive={activeTab === "swap"}
+            />
+            <TabButton
+              tabKey="history"
+              title="History"
+              isActive={activeTab === "history"}
+            />
+          </View>
+
+          {/* Assets/Overview Tab */}
+          {activeTab === "overview" && (
+            <View>
+              <Text className="text-2xl font-bold text-gray-900 mb-6">
+                My Assets
+              </Text>
+              {walletData.balances.map((token) => (
+                <TokenCard key={token.symbol} token={token} />
+              ))}
+            </View>
+          )}
+
+          {/* Swap Tab */}
+          {activeTab === "swap" && (
+            <View>
+              <Text className="text-2xl font-bold text-gray-900 mb-6">
+                Swap Tokens
+              </Text>
+              <View
+                className="bg-white p-6 rounded-2xl shadow-sm"
+                style={styles.card}
+              >
+                {/* From Token */}
+                <View className="mb-4">
+                  <Text className="text-sm text-gray-700 mb-3 font-semibold">
+                    From
+                  </Text>
+                  <View className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+                    {/* Token Selection Row */}
+                    <View className="flex-row items-center justify-between mb-3">
+                      <TouchableOpacity
+                        className="flex-row items-center bg-white rounded-xl px-3 py-2 border border-gray-200"
+                        onPress={() => setFromModalVisible(true)}
+                      >
+                        <Image
+                          source={
                             walletData.balances.find(
                               (t) => t.symbol === fromToken
-                            )?.name
+                            )?.image || require("@/assets/images/cusd.jpg")
                           }
+                          className="w-6 h-6 rounded-full mr-2"
+                          resizeMode="cover"
+                        />
+                        <Text className="text-gray-900 font-semibold mr-1">
+                          {fromToken}
                         </Text>
-                        <TouchableOpacity
-                          onPress={() => {
-                            const balance = walletData.balances.find(
-                              (t) => t.symbol === fromToken
-                            )?.amount;
-                            if (balance) setSwapAmount(balance.toString());
-                          }}
-                          className="bg-blue-50 px-2 py-1 rounded-md"
-                        >
-                          <Text className="text-sm text-blue-600 font-medium">
-                            Max:{" "}
-                            {walletData.balances
-                              .find((t) => t.symbol === fromToken)
-                              ?.amount?.toFixed(2) || 0}
-                          </Text>
-                        </TouchableOpacity>
+                        <Text className="text-gray-400">▼</Text>
+                      </TouchableOpacity>
+
+                      <View className="flex-1 mx-4">
+                        <TextInput
+                          value={swapAmount}
+                          onChangeText={setSwapAmount}
+                          placeholder="0.00"
+                          placeholderTextColor="#9ca3af"
+                          keyboardType="numeric"
+                          className="text-right text-xl font-semibold text-gray-900 bg-transparent"
+                          style={{ minHeight: 40 }}
+                        />
                       </View>
                     </View>
-                  </View>
 
-                  {/* Swap Button */}
-                  <View className="items-center mb-4 -mt-2 -mb-2 z-10">
-                    <TouchableOpacity
-                      onPress={switchTokens}
-                      className="w-12 h-12 border-4 border-white rounded-full items-center justify-center bg-emerald-600 shadow-lg"
-                      activeOpacity={0.7}
-                      style={styles.swapButton}
-                    >
-                      <ArrowUpDown size={20} color="white" />
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* To Token */}
-                  <View className="mb-6">
-                    <Text className="text-sm text-gray-700 mb-3 font-semibold">
-                      To
-                    </Text>
-                    <View className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
-                      {/* Token Selection Row */}
-                      <View className="flex-row items-center justify-between mb-3">
-                        <TouchableOpacity
-                          className="flex-row items-center bg-white rounded-xl px-3 py-2 border border-gray-200"
-                          onPress={() => setToModalVisible(true)}
-                        >
-                          <Image
-                            source={
-                              walletData.balances.find(
-                                (t) => t.symbol === toToken
-                              )?.image ||
-                              require("@/assets/images/usdclogo.png")
-                            }
-                            className="w-6 h-6 rounded-full mr-2"
-                            resizeMode="cover"
-                          />
-                          <Text className="text-gray-900 font-semibold mr-1">
-                            {toToken}
-                          </Text>
-                        </TouchableOpacity>
-
-                        <View className="flex-1 mx-4">
-                          <Text className="text-right text-xl font-semibold text-gray-600">
-                            {gettingQuote ? "Loading..." : getEstimatedOutput()}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Balance and Token Info */}
-                      <View className="flex-row items-center justify-between">
-                        <Text className="text-sm text-gray-500">
-                          {
-                            walletData.balances.find(
-                              (t) => t.symbol === toToken
-                            )?.name
-                          }
-                        </Text>
-                        <Text className="text-sm text-gray-500">
-                          Balance:{" "}
+                    {/* Balance and Token Info */}
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-sm text-gray-500">
+                        {
+                          walletData.balances.find(
+                            (t) => t.symbol === fromToken
+                          )?.name
+                        }
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => {
+                          const balance = walletData.balances.find(
+                            (t) => t.symbol === fromToken
+                          )?.amount;
+                          if (balance) setSwapAmount(balance.toString());
+                        }}
+                        className="bg-blue-50 px-2 py-1 rounded-md"
+                      >
+                        <Text className="text-sm text-blue-600 font-medium">
+                          Max:{" "}
                           {walletData.balances
-                            .find((t) => t.symbol === toToken)
+                            .find((t) => t.symbol === fromToken)
                             ?.amount?.toFixed(2) || 0}
                         </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Swap Button */}
+                <View className="items-center mb-4 -mt-2 -mb-2 z-10">
+                  <TouchableOpacity
+                    onPress={switchTokens}
+                    className="w-12 h-12 border-4 border-white rounded-full items-center justify-center bg-emerald-600 shadow-lg"
+                    activeOpacity={0.7}
+                    style={styles.swapButton}
+                  >
+                    <ArrowUpDown size={20} color="white" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* To Token */}
+                <View className="mb-6">
+                  <Text className="text-sm text-gray-700 mb-3 font-semibold">
+                    To
+                  </Text>
+                  <View className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+                    {/* Token Selection Row */}
+                    <View className="flex-row items-center justify-between mb-3">
+                      <TouchableOpacity
+                        className="flex-row items-center bg-white rounded-xl px-3 py-2 border border-gray-200"
+                        onPress={() => setToModalVisible(true)}
+                      >
+                        <Image
+                          source={
+                            walletData.balances.find(
+                              (t) => t.symbol === toToken
+                            )?.image || require("@/assets/images/usdclogo.png")
+                          }
+                          className="w-6 h-6 rounded-full mr-2"
+                          resizeMode="cover"
+                        />
+                        <Text className="text-gray-900 font-semibold mr-1">
+                          {toToken}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <View className="flex-1 mx-4">
+                        <Text className="text-right text-xl font-semibold text-gray-600">
+                          {gettingQuote ? "Loading..." : getEstimatedOutput()}
+                        </Text>
                       </View>
                     </View>
-                  </View>
 
-                  {/* Exchange Rate */}
-                  <View className="bg-emerald-50 rounded-2xl p-4 mb-4">
+                    {/* Balance and Token Info */}
                     <View className="flex-row items-center justify-between">
-                      <Text className="text-sm text-emerald-800 font-medium">
-                        {gettingQuote ? "Fetching rate..." : "Exchange Rate"}
+                      <Text className="text-sm text-gray-500">
+                        {
+                          walletData.balances.find((t) => t.symbol === toToken)
+                            ?.name
+                        }
                       </Text>
-                      <Text className="text-sm font-semibold text-emerald-900">
-                        {gettingQuote ? "..." : exchangeRate}
+                      <Text className="text-sm text-gray-500">
+                        Balance:{" "}
+                        {walletData.balances
+                          .find((t) => t.symbol === toToken)
+                          ?.amount?.toFixed(2) || 0}
                       </Text>
                     </View>
                   </View>
+                </View>
 
-                  {/* Swap Button */}
-                  <TouchableOpacity
-                    onPress={handleSwap}
-                    disabled={
+                {/* Exchange Rate */}
+                <View className="bg-emerald-50 rounded-2xl p-4 mb-4">
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-sm text-emerald-800 font-medium">
+                      {gettingQuote ? "Fetching rate..." : "Exchange Rate"}
+                    </Text>
+                    <Text className="text-sm font-semibold text-emerald-900">
+                      {gettingQuote ? "..." : exchangeRate}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Swap Button */}
+                <TouchableOpacity
+                  onPress={handleSwap}
+                  disabled={
+                    !swapAmount ||
+                    fromToken === toToken ||
+                    parseFloat(swapAmount) <= 0 ||
+                    gettingQuote ||
+                    !quoteData ||
+                    swapping
+                  }
+                  className={`w-full py-5 rounded-2xl ${
+                    !swapAmount ||
+                    fromToken === toToken ||
+                    parseFloat(swapAmount) <= 0 ||
+                    gettingQuote ||
+                    !quoteData ||
+                    swapping
+                      ? "bg-gray-300"
+                      : "bg-emerald-600"
+                  } shadow-md`}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    className={`text-center font-bold text-lg ${
                       !swapAmount ||
                       fromToken === toToken ||
                       parseFloat(swapAmount) <= 0 ||
                       gettingQuote ||
                       !quoteData ||
                       swapping
-                    }
-                    className={`w-full py-5 rounded-2xl ${
-                      !swapAmount ||
-                      fromToken === toToken ||
-                      parseFloat(swapAmount) <= 0 ||
-                      gettingQuote ||
-                      !quoteData ||
-                      swapping
-                        ? "bg-gray-300"
-                        : "bg-emerald-600"
-                    } shadow-md`}
-                    activeOpacity={0.8}
+                        ? "text-gray-500"
+                        : "text-white"
+                    }`}
                   >
-                    <Text
-                      className={`text-center font-bold text-lg ${
-                        !swapAmount ||
-                        fromToken === toToken ||
-                        parseFloat(swapAmount) <= 0 ||
-                        gettingQuote ||
-                        !quoteData ||
-                        swapping
-                          ? "text-gray-500"
-                          : "text-white"
-                      }`}
-                    >
-                      {swapping
-                        ? "Swapping..."
-                        : gettingQuote
+                    {swapping
+                      ? "Swapping..."
+                      : gettingQuote
                         ? "Getting Quote..."
                         : !swapAmount || parseFloat(swapAmount) <= 0
-                        ? "Enter Amount"
-                        : fromToken === toToken
-                        ? "Select Different Tokens"
-                        : !quoteData
-                        ? "Waiting for Quote..."
-                        : "Perform Swap"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                {/* Spacer to ensure bottom button clears the tab bar */}
-                <View style={{ height: insets.bottom + 24 }} />
-              </View>
-            )}
-
-            {/* Token selection modals */}
-            <TokenSelectionModal
-              visible={fromModalVisible}
-              onClose={() => setFromModalVisible(false)}
-              onSelect={handleFromTokenSelect}
-              tokens={walletData.balances}
-              selectedToken={fromToken}
-            />
-            <TokenSelectionModal
-              visible={toModalVisible}
-              onClose={() => setToModalVisible(false)}
-              onSelect={handleToTokenSelect}
-              tokens={walletData.balances}
-              selectedToken={toToken}
-            />
-
-            {/* Transaction History Tab */}
-            {activeTab === "history" && (
-              <View>
-                <View className="flex-row items-center justify-between mb-6">
-                  <Text className="text-2xl font-bold text-gray-900">
-                    Recent Transactions
+                          ? "Enter Amount"
+                          : fromToken === toToken
+                            ? "Select Different Tokens"
+                            : !quoteData
+                              ? "Waiting for Quote..."
+                              : "Perform Swap"}
                   </Text>
-                  <TouchableOpacity className="px-4 py-2 bg-blue-50 rounded-full">
-                    <Text className="text-sm text-blue-600 font-semibold">
-                      View All
+                </TouchableOpacity>
+              </View>
+              {/* Spacer to ensure bottom button clears the tab bar */}
+              <View style={{ height: insets.bottom + 24 }} />
+            </View>
+          )}
+
+          {/* Token selection modals */}
+          <TokenSelectionModal
+            visible={fromModalVisible}
+            onClose={() => setFromModalVisible(false)}
+            onSelect={handleFromTokenSelect}
+            tokens={walletData.balances}
+            selectedToken={fromToken}
+          />
+          <TokenSelectionModal
+            visible={toModalVisible}
+            onClose={() => setToModalVisible(false)}
+            onSelect={handleToTokenSelect}
+            tokens={walletData.balances}
+            selectedToken={toToken}
+          />
+
+          {/* Transaction History Tab */}
+          {activeTab === "history" && (
+            <View>
+              <View className="flex-row items-center justify-between mb-4">
+                <Text className="text-2xl font-bold text-gray-900">
+                  Recent Transactions
+                </Text>
+              </View>
+
+              {/* Loading State */}
+              {loadingTransactions && (
+                <View className="bg-white p-8 rounded-xl items-center justify-center shadow-sm">
+                  <Text className="text-gray-600 font-medium">
+                    Loading transactions...
+                  </Text>
+                </View>
+              )}
+
+              {/* Error State */}
+              {transactionError && !loadingTransactions && (
+                <View className="bg-red-50 p-4 rounded-xl border border-red-200 mb-4">
+                  <Text className="text-red-700 font-medium text-sm">
+                    {transactionError}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => onRefresh()}
+                    className="mt-2 bg-red-100 px-3 py-1 rounded-md self-start"
+                  >
+                    <Text className="text-red-700 font-semibold text-xs">
+                      Retry
                     </Text>
                   </TouchableOpacity>
                 </View>
+              )}
 
-                {walletData.recentTransactions.map((tx) => (
-                  <TransactionCard key={tx.id} tx={tx} />
-                ))}
-
-                {walletData.recentTransactions.length === 0 && (
-                  <View
-                    className="bg-white p-10 rounded-2xl items-center justify-center shadow-sm"
-                    style={styles.card}
-                  >
-                    <History size={64} color="#9ca3af" className="mb-6" />
-                    <Text className="text-gray-900 font-bold text-xl mb-3">
+              {/* Empty State */}
+              {!loadingTransactions &&
+                !transactionError &&
+                (!theTransaction || theTransaction.length === 0) && (
+                  <View className="bg-white p-10 rounded-xl items-center justify-center shadow-sm">
+                    <History size={48} color="#9ca3af" className="mb-4" />
+                    <Text className="text-gray-900 font-bold text-lg mb-2">
                       No Transactions Yet
                     </Text>
-                    <Text className="text-gray-500 text-base text-center leading-6">
+                    <Text className="text-gray-500 text-sm text-center leading-5">
                       Your transaction history will appear here when you make
                       your first transaction
                     </Text>
                   </View>
                 )}
-              </View>
-            )}
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
 
+              {/* Transactions List - Grouped by Date */}
+              {!loadingTransactions &&
+                !transactionError &&
+                theTransaction &&
+                theTransaction.length > 0 && (
+                  <View>
+                    {Object.entries(
+                      groupTransactionsByDate(theTransaction)
+                    ).map(([dateKey, dayTransactions]) => (
+                      <View key={dateKey} className="mb-6">
+                        {/* Date Header */}
+                        <Text className="text-sm font-semibold text-gray-600 mb-3 px-1">
+                          {dateKey}
+                        </Text>
+
+                        {/* Transactions for this date */}
+                        {dayTransactions.map((tx) => (
+                          <TransactionCard
+                            key={`${tx.id}-${tx.date}`}
+                            tx={tx}
+                          />
+                        ))}
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+              {/* Spacing at bottom */}
+              <View style={{ height: insets.bottom + 24 }} />
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
