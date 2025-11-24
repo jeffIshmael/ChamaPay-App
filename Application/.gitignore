@@ -8,3 +8,4 @@ expo-env.d.ts
 /ios
 /android
 .env
+google-services.json

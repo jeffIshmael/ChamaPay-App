@@ -2,7 +2,9 @@ import { chamapayContract, cUSDContract } from "@/constants/thirdweb";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import {
+  ArrowLeft,
   Calendar,
+  ChevronDown,
   Clock,
   Info,
   Plus,
@@ -16,7 +18,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  SafeAreaView,
   ScrollView,
   Switch,
   Text,
@@ -419,27 +420,29 @@ export default function CreateChama() {
   }) => (
     <View className="relative">
       <TouchableOpacity
-        className="bg-gray-50 border border-gray-300 rounded-lg p-3 flex-row justify-between items-center"
+        className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex-row justify-between items-center active:bg-gray-100"
         onPress={onToggle}
+        activeOpacity={0.7}
       >
-        <Text className={value ? "text-gray-900" : "text-gray-500"}>
+        <Text className={`font-medium ${value ? "text-gray-900" : "text-gray-500"}`}>
           {value || placeholder}
         </Text>
-        <Text className="text-gray-400">▼</Text>
+        <ChevronDown size={20} color="#6b7280" />
       </TouchableOpacity>
       {show && (
-        <View className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg mt-1 z-10 max-h-40">
-          <ScrollView>
+        <View className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-xl mt-2 z-10 max-h-48 shadow-lg">
+          <ScrollView showsVerticalScrollIndicator={false}>
             {options.map((option, index) => (
               <TouchableOpacity
                 key={index}
-                className="p-3 border-b border-gray-100"
+                className="px-4 py-3 border-b border-gray-100 active:bg-gray-50"
                 onPress={() => {
                   onSelect(typeof option === "object" ? option.value : option);
                   onToggle();
                 }}
+                activeOpacity={0.7}
               >
-                <Text className="text-gray-900">
+                <Text className="text-gray-900 font-medium">
                   {typeof option === "object"
                     ? option.label
                     : typeof option === "number"
@@ -455,17 +458,17 @@ export default function CreateChama() {
   );
 
   const renderStep1 = () => (
-    <View className="gap-4">
+    <View className="gap-6">
       {/* Basic Information Card */}
       <View className="mb-2">
-        <Text className="text-lg font-semibold text-gray-900">
+        <Text className="text-2xl font-bold text-gray-900 mb-2">
           Basic Information & Financial Settings
         </Text>
         <Text className="text-sm text-gray-600">
           Tell us about your chama and set up financial details
         </Text>
       </View>
-      <View className="bg-white rounded-xl border border-gray-200 p-6">
+      <View className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <Text className="text-lg font-semibold text-gray-900 mb-4">
           Basic Information
         </Text>
@@ -478,7 +481,7 @@ export default function CreateChama() {
               placeholder="e.g., Tech Professionals Savings Group"
               value={formData.name}
               onChangeText={(text) => updateFormData("name", text)}
-              className="bg-gray-50 border border-gray-300 rounded-lg p-3 text-gray-900"
+              className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900"
               placeholderTextColor="#9ca3af"
             />
           </View>
@@ -493,7 +496,7 @@ export default function CreateChama() {
               onChangeText={(text) => updateFormData("description", text)}
               multiline
               numberOfLines={4}
-              className="bg-gray-50 border border-gray-300 rounded-lg p-3 text-gray-900 h-24"
+              className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 h-24"
               placeholderTextColor="#9ca3af"
               textAlignVertical="top"
             />
@@ -502,7 +505,7 @@ export default function CreateChama() {
       </View>
 
       {/* Financial Settings Card */}
-      <View className="bg-white rounded-xl border border-gray-200 p-6">
+      <View className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <Text className="text-lg font-semibold text-gray-900 mb-4">
           Financial Settings
         </Text>
@@ -533,7 +536,7 @@ export default function CreateChama() {
                   updateFormData("frequency", parseInt(text) || 0)
                 }
                 keyboardType="numeric"
-                className="bg-gray-50 border border-gray-300 rounded-lg p-3 text-gray-900"
+                className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900"
                 placeholderTextColor="#9ca3af"
               />
             </View>
@@ -550,16 +553,17 @@ export default function CreateChama() {
                   setShowDatePicker(true);
                   setPickerMode("date");
                 }}
-                className={`bg-gray-50 border rounded-lg p-3 text-gray-900 flex-row items-center justify-between ${
+                className={`bg-gray-50 border rounded-xl px-4 py-3 flex-row items-center justify-between active:bg-gray-100 ${
                   !isStartDateTimeInFuture() && formData.startDate.trim() !== ""
                     ? "border-red-300 bg-red-50"
-                    : "border-gray-300"
+                    : "border-gray-200"
                 }`}
+                activeOpacity={0.7}
               >
-                <Text className="text-gray-900">
+                <Text className="text-gray-900 font-medium">
                   {formatDate(formData.startDate)}
                 </Text>
-                <Calendar size={20} className="text-gray-400" />
+                <Calendar size={20} color="#6b7280" />
               </TouchableOpacity>
               {!isStartDateTimeInFuture() &&
                 formData.startDate.trim() !== "" && (
@@ -582,16 +586,17 @@ export default function CreateChama() {
                   setShowTimePicker(true);
                   setPickerMode("time");
                 }}
-                className={`bg-gray-50 border rounded-lg p-3 text-gray-900 flex-row items-center justify-between ${
+                className={`bg-gray-50 border rounded-xl px-4 py-3 flex-row items-center justify-between active:bg-gray-100 ${
                   !isStartDateTimeInFuture() && formData.startTime.trim() !== ""
                     ? "border-red-300 bg-red-50"
-                    : "border-gray-300"
+                    : "border-gray-200"
                 }`}
+                activeOpacity={0.7}
               >
-                <Text className="text-gray-900">
+                <Text className="text-gray-900 font-medium">
                   {formatTime(formData.startTime)}
                 </Text>
-                <Clock size={20} className="text-gray-400" />
+                <Clock size={20} color="#6b7280" />
               </TouchableOpacity>
               {!isStartDateTimeInFuture() &&
                 formData.startTime.trim() !== "" && (
@@ -606,11 +611,11 @@ export default function CreateChama() {
             <Text className="text-sm font-medium text-gray-700 mb-2">
               Duration (days)
             </Text>
-            <View className="bg-gray-100 border border-gray-300 rounded-lg p-3">
-              <Text className="text-gray-900 font-medium">
+            <View className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+              <Text className="text-gray-900 font-semibold">
                 {formData.duration} days (calculated automatically)
               </Text>
-              <Text className="text-gray-600 text-sm">
+              <Text className="text-gray-600 text-sm mt-1">
                 Frequency ({formData.frequency} days) × Members (
                 {formData.maxMembers})
               </Text>
@@ -628,11 +633,11 @@ export default function CreateChama() {
                 updateFormData("contribution", parseFloat(text) || 0)
               }
               keyboardType="numeric"
-              className={`bg-gray-50 border rounded-lg p-3 text-gray-900 ${
+              className={`bg-gray-50 border rounded-xl px-4 py-3 text-gray-900 ${
                 formData.contribution <= 0 &&
                 formData.contribution.toString() !== ""
                   ? "border-red-300 bg-red-50"
-                  : "border-gray-300"
+                  : "border-gray-200"
               }`}
               placeholderTextColor="#9ca3af"
             />
@@ -644,11 +649,13 @@ export default function CreateChama() {
               )}
           </View>
 
-          <View className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <View className="bg-blue-50 border border-blue-200 rounded-xl p-5">
             <View className="flex-row items-start gap-3">
-              <Info size={20} className="text-blue-600 flex-shrink-0" />
+              <View className="w-8 h-8 rounded-full bg-blue-100 items-center justify-center flex-shrink-0">
+                <Info size={18} color="#2563eb" />
+              </View>
               <View className="flex-1">
-                <Text className="text-blue-900 font-medium mb-1">
+                <Text className="text-blue-900 font-semibold mb-2 text-base">
                   Financial Summary
                 </Text>
                 <Text className="text-blue-800 text-sm">
@@ -679,21 +686,24 @@ export default function CreateChama() {
   );
 
   const renderStep2 = () => (
-    <View className="gap-4 bg-white rounded-xl border border-gray-200 p-6">
-      <View>
-        <Text className="text-lg font-semibold text-gray-900">
+    <View className="gap-6">
+      <View className="mb-2">
+        <Text className="text-2xl font-bold text-gray-900 mb-2">
           Privacy & Review
         </Text>
         <Text className="text-sm text-gray-600">
           Choose privacy settings and review details
         </Text>
       </View>
-      <View className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg">
+      <View className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <View className={`flex-row items-center justify-between p-5  border border-downy-100 rounded-xl ${formData.isPublic ? "bg-emerald-50" : "bg-gray-50"}`}>
         <View className="flex-row items-center gap-3 flex-1">
-          <Users size={20} className="text-gray-600" />
+          <View className="w-10 h-10 rounded-full bg-white items-center justify-center border border-emerald-200">
+            <Users size={20} color="#059669" />
+          </View>
           <View className="flex-1">
-            <Text className="font-medium text-gray-900">Chama Type</Text>
-            <Text className="text-sm text-gray-600">
+            <Text className="font-semibold text-gray-900 text-base">Chama Type</Text>
+            <Text className="text-sm text-gray-600 mt-0.5">
               {formData.isPublic
                 ? "Public - Anyone can join"
                 : "Private - Invitation only"}
@@ -709,14 +719,16 @@ export default function CreateChama() {
       </View>
 
       {formData.isPublic && (
-        <View className="p-4 bg-gray-50 rounded-lg">
-          <View className="flex-row items-center gap-3 mb-3">
-            <Shield size={20} className="text-gray-600" />
+        <View className="p-5 bg-amber-50 border border-amber-200 rounded-xl mt-4">
+          <View className="flex-row items-center gap-3">
+            <View className="w-10 h-10 rounded-full bg-white items-center justify-center border border-amber-200">
+              <Shield size={20} color="#d97706" />
+            </View>
             <View className="flex-1">
-              <Text className="font-medium text-gray-900">
+              <Text className="font-semibold text-gray-900 text-base">
                 Collateral Required
               </Text>
-              <Text className="text-sm text-gray-600">
+              <Text className="text-sm text-gray-600 mt-0.5">
                 Members must provide collateral that caters for one cycle.
               </Text>
             </View>
@@ -725,7 +737,7 @@ export default function CreateChama() {
       )}
 
       <View>
-        <Text className="text-sm font-medium text-gray-700 mb-2">
+        <Text className="text-sm font-medium text-gray-700 mb-2 mt-4">
           Admin Requirements
         </Text>
         <Text className="text-sm text-gray-600 mb-2">
@@ -736,35 +748,40 @@ export default function CreateChama() {
             placeholder="e.g., Must be a tech professional"
             value={newTerm}
             onChangeText={setNewTerm}
-            className="flex-1 bg-gray-50 border border-gray-300 rounded-lg p-3 text-gray-900 min-h-[44px]"
+            className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 min-h-[44px]"
             placeholderTextColor="#9ca3af"
             multiline
             textAlignVertical="top"
           />
           <TouchableOpacity
             onPress={addTerm}
-            className="bg-emerald-600 p-3 rounded-lg self-start"
+            className="bg-emerald-600 w-12 h-12 rounded-xl items-center justify-center active:bg-emerald-700"
+            activeOpacity={0.7}
           >
             <Plus size={20} color={"#fff"} />
           </TouchableOpacity>
         </View>
         {formData.adminTerms.length > 0 && (
-          <View className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <Text className="text-sm font-medium text-gray-700 mb-2">
+          <View className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+            <Text className="text-sm font-semibold text-gray-900 mb-3">
               Requirements ({formData.adminTerms.length})
             </Text>
-            <View className="gap-2">
+            <View className="gap-3">
               {formData.adminTerms.map((term, index) => (
-                <View key={index} className="flex-row items-start gap-3">
-                  <View className="w-5 h-5  flex-shrink-0 items-center justify-center">
-                    <Text className="  text-emerald-600 text-xs font-medium">
-                      {index + 1}.
+                <View key={index} className="flex-row items-start gap-3 bg-white rounded-lg p-3 border border-gray-200">
+                  <View className="w-6 h-6 rounded-full bg-emerald-100 items-center justify-center flex-shrink-0">
+                    <Text className="text-emerald-700 text-xs font-bold">
+                      {index + 1}
                     </Text>
                   </View>
                   <View className="flex-1 flex-row items-center justify-between">
-                    <Text className="text-sm text-gray-600 flex-1">{term}</Text>
-                    <TouchableOpacity onPress={() => removeTerm(term)}>
-                      <X size={14} className="text-gray-400" />
+                    <Text className="text-sm text-gray-700 flex-1 font-medium">{term}</Text>
+                    <TouchableOpacity 
+                      onPress={() => removeTerm(term)}
+                      className="w-6 h-6 rounded-full bg-red-50 items-center justify-center active:bg-red-100"
+                      activeOpacity={0.7}
+                    >
+                      <X size={14} color="#dc2626" />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -774,50 +791,51 @@ export default function CreateChama() {
         )}
       </View>
 
-      <View className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-        <Text className="text-emerald-900 font-medium mb-2">Summary</Text>
-        <View className="space-y-1">
-          <Text className="text-emerald-800 text-sm">
-            • Name: {formData.name}
+      <View className="bg-emerald-50 border border-emerald-200 rounded-xl p-5">
+        <Text className="text-emerald-900 font-semibold mb-3 text-base">Summary</Text>
+        <View className="gap-2">
+          <Text className="text-emerald-800 text-sm font-medium">
+            • Name: <Text className="font-normal">{formData.name}</Text>
           </Text>
-          <Text className="text-emerald-800 text-sm">
-            • Members: {formData.maxMembers}
+          <Text className="text-emerald-800 text-sm font-medium">
+            • Members: <Text className="font-normal">{formData.maxMembers}</Text>
           </Text>
-          <Text className="text-emerald-800 text-sm">
-            • Contribution: cUSD {formData.contribution.toLocaleString()}
+          <Text className="text-emerald-800 text-sm font-medium">
+            • Contribution: <Text className="font-normal">cUSD {formData.contribution.toLocaleString()}</Text>
           </Text>
-          <Text className="text-emerald-800 text-sm">
-            • Frequency: {formData.frequency} days
+          <Text className="text-emerald-800 text-sm font-medium">
+            • Frequency: <Text className="font-normal">{formData.frequency} days</Text>
           </Text>
-          <Text className="text-emerald-800 text-sm">
-            • One Cycle Duration: {formData.duration} days
+          <Text className="text-emerald-800 text-sm font-medium">
+            • One Cycle Duration: <Text className="font-normal">{formData.duration} days</Text>
           </Text>
-          <Text className="text-emerald-800 text-sm">
-            • Start: {formatDate(formData.startDate)} at{" "}
-            {formatTime(formData.startTime)}
+          <Text className="text-emerald-800 text-sm font-medium">
+            • Start: <Text className="font-normal">{formatDate(formData.startDate)} at{" "}
+            {formatTime(formData.startTime)}</Text>
           </Text>
-          <Text className="text-emerald-800 text-sm">
-            • Type: {formData.isPublic ? "Public" : "Private"}
+          <Text className="text-emerald-800 text-sm font-medium">
+            • Type: <Text className="font-normal">{formData.isPublic ? "Public" : "Private"}</Text>
           </Text>
           {formData.isPublic && (
-            <Text className="text-emerald-800 text-sm">
-              • Collateral Required:{" "}
-              {formData.contribution * formData.maxMembers} cUSD
+            <Text className="text-emerald-800 text-sm font-medium">
+              • Collateral Required: <Text className="font-normal">
+              {formData.contribution * formData.maxMembers} cUSD</Text>
             </Text>
           )}
           {formData.adminTerms.length > 0 && (
             <>
-              <Text className="text-emerald-800 text-sm font-medium mt-2">
+              <Text className="text-emerald-800 text-sm font-semibold mt-2">
                 • Requirements:
               </Text>
               {formData.adminTerms.map((term, index) => (
-                <Text key={index} className="text-emerald-800 text-sm pl-4">
-                  {index + 1}. {term}
+                <Text key={index} className="text-emerald-800 text-sm pl-4 font-medium">
+                  {index + 1}. <Text className="font-normal">{term}</Text>
                 </Text>
               ))}
             </>
           )}
         </View>
+      </View>
       </View>
     </View>
   );
@@ -853,19 +871,24 @@ export default function CreateChama() {
   });
 
   return (
-    <SafeAreaView
-      className="flex-1 bg-gray-50"
-      style={{ paddingTop: insets.top }}
-    >
+    <View className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="bg-white border-b border-gray-200 p-4">
-        <View className="flex-row items-center gap-4 mb-4">
-          <View className="flex-1">
-            <Text className="text-xl font-semibold text-gray-900">
+      <View className="bg-downy-800 rounded-b-3xl" style={{ paddingTop: insets.top + 16, paddingBottom: 20, paddingHorizontal: 20 }}>
+        <View className="flex-row items-center justify-between mb-6">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="w-10 h-10 rounded-full bg-white/20 items-center justify-center active:bg-white/30"
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={20} color="white" />
+          </TouchableOpacity>
+          <View className="flex-1 items-center">
+            <Text className="text-2xl font-bold text-white">
               Create Chama
             </Text>
-            <Text className="text-sm text-gray-600">Step {step} of 2</Text>
+            <Text className="text-sm text-white/80 mt-1">Step {step} of 2</Text>
           </View>
+          <View className="w-10" />
         </View>
 
         {/* Progress */}
@@ -874,7 +897,7 @@ export default function CreateChama() {
             <View
               key={stepNumber}
               className={`flex-1 h-2 rounded-full ${
-                stepNumber <= step ? "bg-emerald-600" : "bg-gray-200"
+                stepNumber <= step ? "bg-white" : "bg-white/30"
               }`}
             />
           ))}
@@ -885,42 +908,54 @@ export default function CreateChama() {
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
         <ScrollView
           className="flex-1"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         >
-          <View className="p-4">
+          <View className="px-6 py-6">
             {step === 1 && renderStep1()}
             {step === 2 && renderStep2()}
-          </View>
 
-          {/* Navigation */}
-          <View className="bg-white border-t border-gray-200 p-4 mx-4 rounded-t-xl">
-            <View className="flex-row gap-3">
+            {/* Navigation */}
+            <View className="flex-row gap-3 mt-6 mb-4">
               <TouchableOpacity
                 onPress={handleBack}
-                className={`flex-1 p-4 border border-gray-300 rounded-lg items-center justify-center ${
-                  step === 1 ? "opacity-50" : "active:bg-gray-50"
+                className={`flex-1 py-4 border-2 rounded-xl items-center justify-center ${
+                  step === 1
+                    ? "border-gray-200 bg-gray-50 opacity-50"
+                    : "border-gray-300 bg-white active:bg-gray-50"
                 }`}
                 disabled={step === 1}
+                activeOpacity={0.7}
               >
-                <Text className="text-gray-700 font-medium">
+                <Text className={`font-semibold text-base ${
+                  step === 1 ? "text-gray-400" : "text-gray-700"
+                }`}>
                   {step === 1 ? "Cancel" : "Back"}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleNext}
-                className={`flex-1 p-4 rounded-lg items-center justify-center ${
-                  (step === 1 && !isStep1Valid) || loading
-                    ? "bg-gray-300"
-                    : "bg-emerald-600 active:bg-emerald-700"
-                }`}
+                className="flex-1 py-4 rounded-xl items-center justify-center overflow-hidden relative"
                 disabled={(step === 1 && !isStep1Valid) || loading}
+                activeOpacity={0.8}
               >
+                {/* Progress Background */}
+                {step === 1 && isStep1Valid ? (
+                  <>
+                    <View className="absolute left-0 top-0 bottom-0 w-1/2 bg-downy-600" />
+                    <View className="absolute right-0 top-0 bottom-0 w-1/2 bg-downy-600/50" />
+                  </>
+                ) : step === 2 ? (
+                  <View className="absolute left-0 top-0 bottom-0 right-0 bg-downy-600" />
+                ) : (
+                  <View className="absolute left-0 top-0 bottom-0 right-0 bg-gray-300" />
+                )}
                 <Text
-                  className={`font-medium ${
+                  className={`font-semibold text-base relative z-10 ${
                     (step === 1 && !isStep1Valid) || loading
                       ? "text-gray-500"
                       : "text-white"
@@ -966,17 +1001,19 @@ export default function CreateChama() {
           <View
             style={{
               backgroundColor: "white",
-              borderRadius: 12,
-              padding: 20,
+              borderRadius: 20,
+              padding: 24,
               margin: 20,
+              width: "90%",
             }}
           >
             <Text
               style={{
-                fontSize: 18,
-                fontWeight: "600",
+                fontSize: 20,
+                fontWeight: "700",
                 marginBottom: 20,
                 textAlign: "center",
+                color: "#111827",
               }}
             >
               Select Date
@@ -992,13 +1029,14 @@ export default function CreateChama() {
               onPress={() => setShowDatePicker(false)}
               style={{
                 backgroundColor: "#059669",
-                padding: 12,
-                borderRadius: 8,
+                padding: 14,
+                borderRadius: 12,
                 marginTop: 20,
                 alignItems: "center",
               }}
+              activeOpacity={0.8}
             >
-              <Text style={{ color: "white", fontWeight: "600" }}>Done</Text>
+              <Text style={{ color: "white", fontWeight: "600", fontSize: 16 }}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1031,17 +1069,19 @@ export default function CreateChama() {
           <View
             style={{
               backgroundColor: "white",
-              borderRadius: 12,
-              padding: 20,
+              borderRadius: 20,
+              padding: 24,
               margin: 20,
+              width: "90%",
             }}
           >
             <Text
               style={{
-                fontSize: 18,
-                fontWeight: "600",
+                fontSize: 20,
+                fontWeight: "700",
                 marginBottom: 20,
                 textAlign: "center",
+                color: "#111827",
               }}
             >
               Select Time
@@ -1057,13 +1097,14 @@ export default function CreateChama() {
               onPress={() => setShowTimePicker(false)}
               style={{
                 backgroundColor: "#059669",
-                padding: 12,
-                borderRadius: 8,
+                padding: 14,
+                borderRadius: 12,
                 marginTop: 20,
                 alignItems: "center",
               }}
+              activeOpacity={0.8}
             >
-              <Text style={{ color: "white", fontWeight: "600" }}>Done</Text>
+              <Text style={{ color: "white", fontWeight: "600", fontSize: 16 }}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1321,6 +1362,6 @@ export default function CreateChama() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }

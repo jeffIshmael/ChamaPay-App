@@ -5,6 +5,7 @@ import authRoutes from "./Routes/authRoutes";
 import userRoutes from "./Routes/userRoutes";
 import chamaRoutes from "./Routes/chamaRoutes";
 import mentoRoutes from "./Routes/mentoRoutes";
+import cronRoutes from "./Routes/cronRoutes";
 
 // Load environment variables
 dotenv.config();
@@ -21,6 +22,7 @@ app.use("/auth", authRoutes); // All auth-related routes (e.g., /auth/register, 
 app.use("/user", userRoutes); // All user-related routes
 app.use("/chama", chamaRoutes); // All chama-related routes
 app.use("/mento", mentoRoutes);
+app.use("/cron", cronRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {

@@ -130,7 +130,7 @@ export default function SendCryptoScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-emerald-700"
+      className="flex-1 bg-downy-800"
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ paddingTop: insets.top }}
     >
@@ -216,10 +216,15 @@ export default function SendCryptoScreen() {
               <View>
                 <View className="flex-row gap-3">
                   <TouchableOpacity
-                    onPress={() => setSendMode("chamapay")}
+                    onPress={() => {
+                      setSendMode("chamapay");
+                      setSelectedUser(null);
+                      setRecipient("");
+                      setAmount("");
+                    }}
                     className={`flex-1 py-4 px-4 rounded-2xl flex-row items-center justify-center gap-2 ${
                       sendMode === "chamapay"
-                        ? "bg-emerald-600 shadow-md"
+                        ? "bg-downy-600 shadow-md"
                         : "bg-white border-2 border-gray-200"
                     }`}
                     activeOpacity={0.7}
@@ -240,10 +245,15 @@ export default function SendCryptoScreen() {
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={() => setSendMode("external")}
+                    onPress={() => {
+                      setSendMode("external");
+                      setSelectedUser(null);
+                      setRecipient("");
+                      setAmount("");
+                    }}
                     className={`flex-1 py-4 px-4 rounded-xl flex-row items-center justify-center gap-2 ${
                       sendMode === "external"
-                        ? "bg-emerald-600"
+                        ? "bg-downy-600"
                         : "bg-white border-2 border-gray-200"
                     }`}
                     activeOpacity={0.7}
@@ -363,14 +373,15 @@ export default function SendCryptoScreen() {
                     />
                     <TouchableOpacity
                       onPress={scanQR}
-                      className="w-12 h-12 bg-emerald-600 rounded-xl items-center justify-center shadow-md"
+                      className="w-12 h-12  border-2 border-downy-600 rounded-md items-center justify-center shadow-md ml-2"
                       activeOpacity={0.7}
                     >
                       <Svg
                         width="24"
                         height="24"
                         viewBox="0 0 24 24"
-                        fill="white"
+                        fill="#1c8584"
+                        // className="text-downy-600 fill-downy-600"
                       >
                         <Path d="M4 4h5V2H2v7h2V4zM4 15H2v7h7v-2H4v-5zM15 2v2h5v5h2V2h-7zM20 20h-5v2h7v-7h-2v5zM2 11h20v2H2z" />
                       </Svg>
@@ -431,7 +442,7 @@ export default function SendCryptoScreen() {
                   !amount.trim() ||
                   (sendMode === "chamapay" && !selectedUser)
                     ? "bg-gray-300"
-                    : "bg-emerald-600"
+                    : "bg-downy-600"
                 }`}
                 activeOpacity={0.8}
               >

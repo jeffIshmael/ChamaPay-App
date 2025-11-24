@@ -116,7 +116,7 @@ model Message {
 
 model PayOut {
   id Int @id @default(autoincrement())
-  amount  BigInt
+  amount  String
   doneAt  DateTime @default(now())
   txHash  String?
   receiver String

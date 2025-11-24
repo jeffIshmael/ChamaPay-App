@@ -34,7 +34,7 @@ export default function ReceiveCryptoScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-emerald-700"
+      className="flex-1 bg-downy-800"
       style={{ paddingTop: insets.top }}
     >
       {/* Header */}
@@ -52,7 +52,7 @@ export default function ReceiveCryptoScreen() {
       {/* Content */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        className="flex-1 bg-white rounded-t-3xl px-6 pt-6"
+        className="flex-1 bg-downy-50 rounded-t-3xl px-6 pt-6"
       >
         {/* QR Code Section */}
         <View className="bg-white p-6 rounded-xl shadow border border-gray-200 items-center">
@@ -76,7 +76,7 @@ export default function ReceiveCryptoScreen() {
             </Text>
             <TouchableOpacity
               onPress={copyAddress}
-              className="flex-row items-center justify-center bg-emerald-600 py-2 rounded-lg"
+              className="flex-row items-center justify-center bg-downy-600 py-2 rounded-lg"
               activeOpacity={0.7}
             >
               <Copy size={16} color="white" />

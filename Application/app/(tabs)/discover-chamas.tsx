@@ -8,11 +8,10 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  SafeAreaView,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -179,9 +178,23 @@ export default function DiscoverChamas() {
         {/* Header */}
         <View className="flex-row items-start justify-between mb-3">
           <View className="flex-1 pr-3">
-            <Text className="text-lg font-bold text-gray-900 mb-1">
-              {chama.name}
-            </Text>
+            <View className="flex-row items-center gap-2 mb-1">
+              <Text className="text-lg font-bold text-gray-900">
+                {chama.name}
+              </Text>
+              <View className={`px-2 py-1 rounded-full flex-row items-center gap-1 ${
+                chama.type === "Public" ? "bg-emerald-100" : "bg-gray-100"
+              }`}>
+                <Text className="text-xs">
+                  {chama.type === "Public" ? "🌍" : "🔒"}
+                </Text>
+                <Text className={`text-xs font-semibold ${
+                  chama.type === "Public" ? "text-emerald-700" : "text-gray-700"
+                }`}>
+                  {chama.type}
+                </Text>
+              </View>
+            </View>
             <Text className="text-sm text-gray-500 leading-5" numberOfLines={2}>
               {chama.description}
             </Text>
@@ -253,13 +266,10 @@ export default function DiscoverChamas() {
   };
 
   return (
-    <SafeAreaView
-      className="flex-1 bg-gray-50"
-      style={{ paddingTop: insets.top }}
-    >
+    <View className="flex-1 bg-downy-50">
       {/* Clean Header */}
-      <View className="bg-white px-6 pt-4 pb-5">
-        <Text className="text-2xl font-bold text-gray-900 mb-4">
+      <View className="bg-downy-800 px-6 pb-5 rounded-b-2xl" style={{ paddingTop: insets.top + 16 }}>
+        <Text className="text-2xl font-bold text-white mb-4">
           Discover Chamas
         </Text>
 
@@ -267,19 +277,19 @@ export default function DiscoverChamas() {
         <View className="relative">
           <View className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
             {isProcessingLink ? (
-              <ActivityIndicator size="small" color="#10b981" />
+              <ActivityIndicator size="small" color="#ffffff" />
             ) : (
-              <Search size={18} color="#9ca3af" />
+              <Search size={18} color="#ffffff" />
             )}
           </View>
           <TextInput
             placeholder={isProcessingLink ? "Processing link..." : "Search chamas / paste link to join..."}
             value={searchTerm}
             onChangeText={handleSearchChange}
-            className={`bg-gray-100 rounded-full pl-11 pr-4 py-3 text-gray-900 text-sm ${
+            className={`bg-white/20 backdrop-blur-sm rounded-full pl-11 pr-4 py-3.5 text-white text-sm border border-white/30 ${
               isProcessingLink ? "opacity-70" : ""
             }`}
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor="rgba(255, 255, 255, 0.7)"
             editable={!isProcessingLink}
           />
         </View>
@@ -337,6 +347,6 @@ export default function DiscoverChamas() {
           </View>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }

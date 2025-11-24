@@ -137,7 +137,7 @@ export default function ProfileSettings() {
     <View className="flex-1 bg-gray-50">
       {/* Enhanced Header */}
       <View
-        className="bg-emerald-700 px-6 pb-8 pt-4"
+        className="bg-downy-800 px-6 pb-8 pt-4"
         style={{ paddingTop: insets.top + 16 }}
       >
         <View className="flex-row items-center justify-between mb-6">
@@ -149,7 +149,6 @@ export default function ProfileSettings() {
             <ArrowLeft size={20} color="white" />
           </TouchableOpacity>
           <View className="flex-row items-center gap-2">
-            <Settings size={20} color="white" />
             <Text className="text-xl font-bold text-white">
               Profile & Settings
             </Text>
