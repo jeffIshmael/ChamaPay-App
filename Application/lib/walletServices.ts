@@ -1,61 +1,147 @@
-// this file contains functions that help us display the history in the wallet section
-// we get the cUSD and USDC transfer tx from then combine them with the payout and payments txs
 import { serverUrl } from "@/constants/serverUrl";
 
-interface Transaction {
+/**
+ * Transaction interface with all required fields
+ */
+export interface Transaction {
   id: number;
-  type: string;
-  token: string;
+  type: "send" | "receive";
+  token: "cUSD" | "USDC";
   amount: string;
   recipient?: string;
   sender?: string;
   hash: string;
   date: string;
-  status: string;
+  status: "completed" | "pending" | "failed";
 }
 
-const transformData = async (
-  payoutsArray: [],
-  paymentsArray: []
-): Promise<Transaction[]> => {
-  let allArray = [];
-  // transform the paymentsArray
-  for (const payment of paymentsArray) {
-    const transformed = {
-      id: payment.id,
-      type: "send",
-      token: "cUSD",
-      amount: payment?.amount,
-      recipient: payment.chama.name,
-      sender: "you",
-      hash: payment.txHash,
-      date: payment.doneAt,
-      status: "completed",
-    };
+/**
+ * Raw payout data from API
+ */
+interface PayoutData {
+  id: number;
+  amount: string;
+  txHash: string;
+  doneAt: string;
+  chama: {
+    name: string;
+  };
+}
 
-    allArray.push(transformed);
-  }
-  // transform the payoutsArray
-  for (const payOut of payoutsArray) {
-    const transformedPayout = {
-        id: payOut.id,
-      type: "receive",
-      token: "cUSD",
-      amount: payOut?.amount,
-      recipient: "You",
-      sender: payOut.chama.name,
-      hash: payOut.txHash,
-      date: payOut.doneAt,
-      status: "completed",
-    };
-    allArray.push(transformedPayout);
-  }
-  return allArray;
+/**
+ * Raw payment data from API
+ */
+interface PaymentData {
+  id: number;
+  amount: string;
+  txHash: string;
+  doneAt: string;
+  chama: {
+    name: string;
+  };
+}
+
+/**
+ * User details response from API
+ */
+interface UserDetailsResponse {
+  user: {
+    payOuts: PayoutData[];
+    payments: PaymentData[];
+  };
+}
+
+/**
+ * Validates transaction data and fills missing fields with defaults
+ */
+const validateTransaction = (tx: Partial<Transaction>): Transaction => {
+  return {
+    id: tx.id ?? 0,
+    type: tx.type ?? "send",
+    token: tx.token ?? "cUSD",
+    amount: tx.amount ?? "0",
+    recipient: tx.recipient,
+    sender: tx.sender,
+    hash: tx.hash ?? "0x",
+    date: tx.date ?? new Date().toISOString(),
+    status: tx.status ?? "completed",
+  };
 };
 
+/**
+ * Transforms payment data from API to Transaction format
+ */
+const transformPayment = (payment: PaymentData): Transaction => {
+  return validateTransaction({
+    id: payment.id,
+    type: "send",
+    token: "cUSD",
+    amount: payment.amount,
+    recipient: payment.chama.name,
+    sender: "you",
+    hash: payment.txHash,
+    date: payment.doneAt,
+    status: "completed",
+  });
+};
+
+/**
+ * Transforms payout data from API to Transaction format
+ */
+const transformPayout = (payout: PayoutData): Transaction => {
+  return validateTransaction({
+    id: payout.id,
+    type: "receive",
+    token: "cUSD",
+    amount: payout.amount,
+    recipient: "You",
+    sender: payout.chama.name,
+    hash: payout.txHash,
+    date: payout.doneAt,
+    status: "completed",
+  });
+};
+
+/**
+ * Combines and sorts payouts and payments into a unified transaction array
+ * Newest transactions appear first
+ */
+const mergeAndSortTransactions = (
+  payouts: PayoutData[],
+  payments: PaymentData[]
+): Transaction[] => {
+  const transformed: Transaction[] = [];
+
+  // Transform payments (sends)
+  if (Array.isArray(payments) && payments.length > 0) {
+    transformed.push(...payments.map(transformPayment));
+  }
+
+  // Transform payouts (receives)
+  if (Array.isArray(payouts) && payouts.length > 0) {
+    transformed.push(...payouts.map(transformPayout));
+  }
+
+  // Sort by date (newest first)
+  return transformed.sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+};
+
+/**
+ * Fetches user transaction history from the server
+ * @param authToken - Bearer token for authentication
+ * @returns Array of transactions sorted by date (newest first), or null on error
+ */
 export const getTheUserTx = async (
   authToken: string
 ): Promise<Transaction[] | null> => {
+  // Validate input
+  if (!authToken || typeof authToken !== "string") {
+    console.error("Invalid auth token provided");
+    return null;
+  }
+
   try {
     const response = await fetch(`${serverUrl}/user/details`, {
       method: "GET",
@@ -64,24 +150,68 @@ export const getTheUserTx = async (
         "Content-Type": "application/json",
       },
     });
-    if (!response.ok){
-        throw new Error("An error happened.");       
+
+    // Check response status
+    if (!response.ok) {
+      console.error(`Failed to fetch transactions: ${response.status}`);
+      return null;
     }
 
-    const data = await response.json();
-    console.log(data);
-    const payoutsArray = data.user.payOuts;
-    const paymentsArray = data.user.payments;
-    console.log("this is which", payoutsArray);
-    // transform the payments data
-    const transformedPayments = await transformData(
-      payoutsArray,
-      paymentsArray
-    );
+    const data: UserDetailsResponse = await response.json();
 
-    return transformedPayments;
+    // Validate response structure
+    if (
+      !data ||
+      !data.user ||
+      !Array.isArray(data.user.payOuts) ||
+      !Array.isArray(data.user.payments)
+    ) {
+      console.error("Invalid response structure from server");
+      return null;
+    }
+
+    const { payOuts, payments } = data.user;
+    const transactions = mergeAndSortTransactions(payOuts, payments);
+
+    return transactions;
   } catch (error) {
-    console.log(error);
+    console.error("Error fetching transactions:", error);
     return null;
   }
+};
+
+/**
+ * Filters transactions by type
+ */
+export const filterTransactionsByType = (
+  transactions: Transaction[],
+  type: "send" | "receive"
+): Transaction[] => {
+  return transactions.filter((tx) => tx.type === type);
+};
+
+/**
+ * Calculates total transaction amount
+ */
+export const getTotalTransactionAmount = (
+  transactions: Transaction[]
+): number => {
+  return transactions.reduce((total, tx) => {
+    const amount = parseFloat(tx.amount) || 0;
+    return total + amount;
+  }, 0);
+};
+
+/**
+ * Gets transactions within a date range
+ */
+export const getTransactionsByDateRange = (
+  transactions: Transaction[],
+  startDate: Date,
+  endDate: Date
+): Transaction[] => {
+  return transactions.filter((tx) => {
+    const txDate = new Date(tx.date);
+    return txDate >= startDate && txDate <= endDate;
+  });
 };

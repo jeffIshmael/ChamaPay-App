@@ -13,21 +13,19 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useActiveAccount, useActiveWallet } from "thirdweb/react";
+
 
 export default function ReceiveCryptoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [selectedToken, setSelectedToken] = useState("USDC or cUSD");
-  const [amount, setAmount] = useState("");
+  const activeAccount = useActiveAccount();
 
-  const walletAddress = "0x742d35Cc6Cd3C9C4F6a8b1E2d9F7A5B3C8e4D1f6";
+  const walletAddress = activeAccount?.address;
 
-  const qrValue = amount
-    ? `ethereum:${walletAddress}?value=${amount}`
-    : walletAddress;
 
   const copyAddress = async () => {
-    await Clipboard.setStringAsync(walletAddress);
+    await Clipboard.setStringAsync(walletAddress!);
     Alert.alert("Copied", "Wallet address copied to clipboard");
   };
 
@@ -57,13 +55,10 @@ export default function ReceiveCryptoScreen() {
         {/* QR Code Section */}
         <View className="bg-white p-6 rounded-xl shadow border border-gray-200 items-center">
           <View className="w-48 h-48 items-center justify-center mb-4">
-            <QRCode value={qrValue} size={180} />
-            {amount.length > 0 && (
-              <Text className="text-xs text-gray-500 mt-2">{`Amount: ${amount}`}</Text>
-            )}
+            <QRCode value={walletAddress} size={180} />
           </View>
           <Text className="text-sm text-gray-600 text-center">
-            Scan to send <Text className="font-semibold">{selectedToken}</Text>
+            Scan to send <Text className="font-semibold">cUSD or USDC</Text>
           </Text>
         </View>
 

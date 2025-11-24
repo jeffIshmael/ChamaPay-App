@@ -21,6 +21,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useLocalSearchParams } from "expo-router";
 
 export default function WithdrawCryptoScreen() {
   const router = useRouter();
@@ -33,18 +34,19 @@ export default function WithdrawCryptoScreen() {
   const [bankAccount, setBankAccount] = useState("");
   const [walletAddress, setWalletAddress] = useState("");
   const [showTokenModal, setShowTokenModal] = useState(false);
+  const { cUSDBalance, USDCBalance, totalBalance, address } = useLocalSearchParams();
 
   const tokens = [
     { 
       symbol: "cUSD", 
       name: "Celo Dollar", 
-      balance: 1250.0, 
+      balance:cUSDBalance, 
       image: require("@/assets/images/cusd.jpg") 
     },
     { 
       symbol: "USDC", 
       name: "USD Coin", 
-      balance: 1250.0, 
+      balance: USDCBalance, 
       image: require("@/assets/images/usdclogo.png") 
     },
   ];

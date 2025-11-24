@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
+import { useLocalSearchParams } from "expo-router";
 
 export default function SendCryptoScreen() {
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
@@ -43,18 +44,19 @@ export default function SendCryptoScreen() {
   } | null>(null);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { cUSDBalance, USDCBalance, totalBalance, address } = useLocalSearchParams();
 
   const tokens = [
     {
       symbol: "cUSD",
       name: "Celo Dollar",
-      balance: 1250.0,
+      balance: cUSDBalance,
       image: require("@/assets/images/cusd.jpg"),
     },
     {
       symbol: "USDC",
       name: "USD Coin",
-      balance: 980.5,
+      balance: USDCBalance,
       image: require("@/assets/images/usdclogo.png"),
     },
   ];
