@@ -4,6 +4,7 @@ import React, { createContext, ReactNode, useContext, useEffect, useState } from
 import { useActiveWallet, useAutoConnect, useConnect } from 'thirdweb/react';
 import { inAppWallet } from 'thirdweb/wallets';
 import { storage } from '../Utils/storage';
+import { connectSocket, disconnectSocket } from '@/socket/socket';
 
 export interface User {
   id: number;
@@ -287,6 +288,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Store new token and user data
         await storage.setToken(newToken);
         await storage.setUser(userData);
+        await connectSocket(newToken);
         if (newRefreshToken) await storage.setRefreshToken?.(newRefreshToken);
         
         setToken(newToken);
@@ -323,6 +325,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await storage.removeToken();
       await storage.removeRefreshToken?.();
       await storage.removeUser();
+      await disconnectSocket();
       setToken(null);
       setRefreshToken(null);
       setUser(null);
@@ -367,9 +370,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   ) => {
     await storage.setToken(newToken);
     await storage.setUser(userData);
+    await connectSocket(newToken);
     if (newRefreshToken) await storage.setRefreshToken?.(newRefreshToken);
     setToken(newToken);
     setUser(userData);
+
     if (newRefreshToken) setRefreshToken(newRefreshToken);
     // Background refresh to ensure latest user details
     try { await fetchUserData(newToken); } catch {}

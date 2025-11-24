@@ -1,39 +1,43 @@
-import { Server } from "http";
+import { createServer } from "http";
+import { initialiseSocket } from "./Socket/socket";
 import app from "./app";
 
 const PORT: number = parseInt(process.env.PORT || "3000", 10);
+const server = createServer(app);
 
 async function startServer(): Promise<void> {
   try {
     // Start the server
-    const server: Server = app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
     });
 
+    // initialise the socket
+    initialiseSocket(server);
+
     // Handle graceful shutdown
-    process.on('SIGTERM', (): void => {
-      console.log('🛑 Shutting down gracefully...');
+    process.on("SIGTERM", (): void => {
+      console.log("🛑 Shutting down gracefully...");
       server.close((): void => {
-        console.log('💤 Server terminated');
+        console.log("💤 Server terminated");
         process.exit(0);
       });
     });
 
-    process.on('SIGINT', (): void => {
-      console.log('🛑 Received SIGINT, shutting down gracefully...');
+    process.on("SIGINT", (): void => {
+      console.log("🛑 Received SIGINT, shutting down gracefully...");
       server.close((): void => {
-        console.log('💤 Server terminated');
+        console.log("💤 Server terminated");
         process.exit(0);
       });
     });
-
   } catch (error: unknown) {
-    console.error('🔥 Failed to initialize:', error);
+    console.error("🔥 Failed to initialize:", error);
     process.exit(1); // Exit with error code
   }
 }
 
 startServer().catch((error: unknown) => {
-  console.error('🔥 Unhandled error during startup:', error);
+  console.error("🔥 Unhandled error during startup:", error);
   process.exit(1);
-}); 
+});
