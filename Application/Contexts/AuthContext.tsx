@@ -155,7 +155,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (response.ok) {
         const data = await response.json();
         const userData = data.user;
-        console.log("the userdata is", userData);
         setUser(userData);
         await storage.setUser(userData);
       } else {

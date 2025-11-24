@@ -35,11 +35,12 @@ import Svg, { Circle, Path } from "react-native-svg";
 import { useActiveAccount, useActiveWallet } from "thirdweb/react";
 import { shortenAddress } from "thirdweb/utils";
 
+
 import { cUSDAddress, usdcAddress } from "@/constants/contractAddress";
 import { AllBalances, getAllBalances, getAllTransferFunctions } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
 import { approveSwap, executeSwap, ExecuteSwap, getSwapQuote, QuoteResponse } from "@/lib/mentoSdkServices";
-
+import { getTheUserTx } from "@/lib/walletServices";
 
 interface Token {
   symbol: string;
@@ -52,11 +53,10 @@ interface Token {
 }
 
 interface Transaction {
-  id: number;
+  id:number;
   type: string;
   token: string;
-  amount: number;
-  usdValue: number;
+  amount: string;
   recipient?: string;
   sender?: string;
   hash: string;
@@ -82,6 +82,7 @@ export default function CryptoWallet() {
   const [estimatedOutput, setEstimatedOutput] = useState("0.00");
   const [quoteData, setQuoteData] = useState<QuoteResponse | null>(null);
   const [swapping, setSwapping] = useState(false);
+  const [theTransaction, setTheTransaction] = useState<Transaction[] | null>(null);
   const wallet = useActiveWallet();
   const activeAccount = useActiveAccount();
   const { user, token } = useAuth();
@@ -91,18 +92,19 @@ export default function CryptoWallet() {
   const fetchBalances = async () => {
     if (wallet && activeAccount) {
       const balances = await getAllBalances(activeAccount.address);
-      setUserBalance(balances);
-      await getAllTransferFunctions("0x4821ced48Fb4456055c86E42587f61c1F39c6315");
+      setUserBalance(balances);     
     }
   };
 
   useEffect(()=>{
     const getTx = async () =>{
-      await getAllTransferFunctions("0x4821ced48Fb4456055c86E42587f61c1F39c6315");
+      if(!token) return;
+     const theTxs =  await getTheUserTx(token);
+     setTheTransaction(theTxs);
     }
     getTx();
 
-  },[])
+  },[token])
 
   useEffect(() => {
     fetchBalances();
@@ -162,40 +164,7 @@ export default function CryptoWallet() {
     totalUsdValue:
       parseFloat(userBalance?.cUSD.displayValue || "0") +
       parseFloat(userBalance?.USDC.displayValue || "0"),
-    recentTransactions: [
-      {
-        id: 1,
-        type: "send",
-        token: "cUSD",
-        amount: 1250.0,
-        usdValue: 1250.0,
-        recipient: "0x1234...5678",
-        hash: "0xabcd1234",
-        date: "2024-07-25T10:30:00Z",
-        status: "completed",
-      },
-      {
-        id: 2,
-        type: "receive",
-        token: "cUSD",
-        amount: 500,
-        usdValue: 500.0,
-        sender: "0x9876...4321",
-        hash: "0xefgh5678",
-        date: "2024-07-24T15:45:00Z",
-        status: "completed",
-      },
-      {
-        id: 3,
-        type: "deposit",
-        token: "cUSD",
-        amount: 10000,
-        usdValue: 1250.0,
-        hash: "0xijkl9012",
-        date: "2024-07-24T09:15:00Z",
-        status: "pending",
-      },
-    ] as Transaction[],
+    recentTransactions: theTransaction as Transaction[],
   };
 
   const handleSwap = async () => {
@@ -561,10 +530,7 @@ export default function CryptoWallet() {
             className={`font-bold text-lg ${getTransactionTextColor(tx.type)}`}
           >
             {tx.type === "send" ? "-" : "+"}
-            {tx.amount.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 6,
-            })}{" "}
+            {tx.amount}{" "}
             {tx.token}
           </Text>
         </View>

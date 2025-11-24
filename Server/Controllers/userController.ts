@@ -71,10 +71,14 @@ export const getUser = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+     // all the details
+     const allDetails = user;
+
     // Remove sensitive fields from response
     const { ...userResponse } = user;
+   
     
-    res.status(200).json({ user: userResponse });
+    res.status(200).json({ user: userResponse, allUserDeatils: allDetails });
   } catch (error: unknown) {
     console.error("Get user error:", error);
     res.status(500).json({ error: "Internal server error" });

@@ -7,8 +7,6 @@ import {
 } from "@/lib/chamaService";
 import { decryptChamaSlug, parseChamaShareUrl } from "@/lib/encryption";
 import * as Clipboard from "expo-clipboard";
-import Constants from "expo-constants";
-import * as ExpoNotifications from "expo-notifications";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   ArrowRight,
@@ -52,13 +50,6 @@ export default function HomeScreen() {
     }
     try {
       setLoading(true);
-      const projectId =
-        Constants?.expoConfig?.extra?.eas?.projectId ??
-        Constants?.easConfig?.projectId;
-      const pushTokenString = (
-        await ExpoNotifications.getExpoPushTokenAsync({ projectId: projectId! })
-      ).data;
-      console.log("the push token", pushTokenString);
       const response = await getUserChamas(token);
       if (response.success && response.chamas) {
         const transformed = response.chamas.map((member: any) =>
