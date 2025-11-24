@@ -7,6 +7,7 @@ import {
     getUserById,
     searchUsers,
     updateUserProfile,
+    getUserDetails
 } from "../Controllers/userController";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -19,6 +20,7 @@ router.get("/search", searchUsers);
 
 // Authenticated functions
 router.get("/", authenticate, getUser);
+router.get("/details", authenticate, getUserDetails);
 router.put("/profile", authenticate, updateUserProfile);
 router.get("/:userId", authenticate, getUserById);
 
