@@ -33,7 +33,7 @@ export default function JoinedChamaDetails() {
   const router = useRouter();
   const { user, token } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
-  const [newMessage, setNewMessage] = useState("");
+
   const [paymentAmount, setPaymentAmount] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
   const [chama, setChama] = useState<JoinedChama | null>(null);
@@ -138,12 +138,6 @@ export default function JoinedChamaDetails() {
     fetchChama();
   }, [id, token]);
 
-  const sendMessage = () => {
-    if (newMessage.trim()) {
-      Alert.alert("Success", "Message sent");
-      setNewMessage("");
-    }
-  };
 
   const makePayment = () => {
     if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
@@ -287,10 +281,8 @@ export default function JoinedChamaDetails() {
 
   const renderChatTab = () => (
     <ChatTab
-      messages={chama.messages}
-      newMessage={newMessage}
-      setNewMessage={setNewMessage}
-      sendMessage={sendMessage}
+      prevMessages={chama.messages}
+      chamaId={chama.id}
     />
   );
 

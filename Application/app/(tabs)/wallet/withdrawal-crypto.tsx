@@ -103,7 +103,7 @@ export default function WithdrawCryptoScreen() {
       <View className="bg-downy-800 rounded-b-3xl" style={{ paddingTop: insets.top + 16, paddingBottom: 20, paddingHorizontal: 20 }}>
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => router.push("/wallet")}
             className="w-10 h-10 rounded-full bg-white/20 items-center justify-center active:bg-white/30"
             activeOpacity={0.7}
           >

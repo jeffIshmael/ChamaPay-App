@@ -367,6 +367,23 @@ export const addMemberToChama = async (chamaId: number, isPublic: boolean, membe
   }
 };
 
+// function to save a chama's message
+export const saveMessageToDb = async (token:string, userId:number, message: string, chamaId:number) =>{
+  try {
+    const response = await fetch(`${serverUrl}/chama/send-message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ chamaId, userId, message}),
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error adding member to chama:', error);
+    return { success: false, error: 'Failed to add member to chama' };
+  }
+
+}
+
 
 
 
