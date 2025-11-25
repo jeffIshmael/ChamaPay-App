@@ -1,25 +1,32 @@
 import { Message } from "@/constants/mockData";
 import { Send } from "lucide-react-native";
 import React, { FC, useEffect, useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { Card } from "./ui/Card";
+import { useChat } from "@/hooks/useChat";
+import { useAuth } from "@/Contexts/AuthContext";
 
 type Props = {
-  messages: Message[];
-  newMessage: string;
-  setNewMessage: (val: string) => void;
-  sendMessage: () => void;
+  prevMessages: Message[];
+  chamaId: number;
 };
 
-const ChatTab: FC<Props> = ({
-  messages,
-  newMessage,
-  setNewMessage,
-  sendMessage,
-}) => {
-  const [localMessages, setLocalMessages] = useState<Message[]>(messages);
+const ChatTab: FC<Props> = ({ prevMessages, chamaId }) => {
+  const [localMessages, setLocalMessages] = useState<Message[]>(prevMessages);
   const scrollViewRef = useRef<ScrollView>(null);
-  
+  const [newMessage, setNewMessage] = useState("");
+
+  const { messages, sendMessage } = useChat(chamaId);
+  const { user, token } = useAuth();
+
   // Check if sender contains "You" to identify user messages
   const isUserMessage = (sender: string) => sender.includes("You");
 
@@ -37,19 +44,32 @@ const ChatTab: FC<Props> = ({
     }
   }, [localMessages]);
 
-  const handleSendMessage = () => {
+  const handleSend = async () => {
     if (newMessage.trim()) {
+      if (!token || !user) {
+        throw new Error("Please rfresh page.");
+      }
+
       const newMsg: Message = {
         id: Date.now(),
         sender: "You (Sarah)",
         message: newMessage.trim(),
         time: "Just now",
       };
-      
-      setLocalMessages(prev => [...prev, newMsg]);
+
+      const messageObj = {
+        chamaId,
+        senderName: user?.userName!,
+        senderId: user?.id,
+        text: newMessage.trim(),
+        timestamp: Date.now(),
+      };
+
+      await sendMessage(messageObj, token);
+
+      setLocalMessages((prev) => [...prev, newMsg]);
       setNewMessage("");
-      sendMessage();
-      
+
       // Force scroll to bottom after adding message
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -58,8 +78,8 @@ const ChatTab: FC<Props> = ({
   };
 
   return (
-    <KeyboardAvoidingView 
-      className="flex-1" 
+    <KeyboardAvoidingView
+      className="flex-1"
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
     >
@@ -68,31 +88,36 @@ const ChatTab: FC<Props> = ({
         <Card className="pb-6 mb-6 pt-2 px-2">
           <View className="flex-row items-center border-b border-gray-200 rounded-lg p-2 bg-gray-50 justify-between mb-4">
             <View>
-              <Text className="text-lg font-semibold text-gray-900">Group Chat</Text>
+              <Text className="text-lg font-semibold text-gray-900">
+                Group Chat
+              </Text>
               <Text className="text-sm text-gray-600 mt-0.5">
-                {localMessages.length} message{localMessages.length !== 1 ? 's' : ''}
+                {localMessages.length} message
+                {localMessages.length !== 1 ? "s" : ""}
               </Text>
             </View>
           </View>
 
-           {/* Messages Area */}
-           <View className="min-h-[400px] max-h-[500px]">
-             <ScrollView 
-               ref={scrollViewRef}
-               showsVerticalScrollIndicator={false}
-               contentContainerStyle={{ paddingBottom: 8, flexGrow: 1 }}
-               onContentSizeChange={() => {
-                 setTimeout(() => {
-                   scrollViewRef.current?.scrollToEnd({ animated: true });
-                 }, 100);
-               }}
-             >
+          {/* Messages Area */}
+          <View className="min-h-[400px] max-h-[500px]">
+            <ScrollView
+              ref={scrollViewRef}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 8, flexGrow: 1 }}
+              onContentSizeChange={() => {
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollToEnd({ animated: true });
+                }, 100);
+              }}
+            >
               {localMessages.length === 0 ? (
                 <View className="items-center justify-center py-16">
                   <View className="w-16 h-16 bg-emerald-50 rounded-full items-center justify-center mb-4">
                     <Send size={24} color="#10b981" />
                   </View>
-                  <Text className="text-gray-900 font-semibold text-base mb-1">No messages yet</Text>
+                  <Text className="text-gray-900 font-semibold text-base mb-1">
+                    No messages yet
+                  </Text>
                   <Text className="text-gray-500 text-sm text-center">
                     Start the conversation with your chama members
                   </Text>
@@ -101,9 +126,11 @@ const ChatTab: FC<Props> = ({
                 <View className="gap-3">
                   {localMessages.map((message, index) => {
                     const isMyMessage = isUserMessage(message.sender);
-                    const prevMessage = index > 0 ? localMessages[index - 1] : null;
-                    const showAvatar = !prevMessage || prevMessage.sender !== message.sender;
-                    
+                    const prevMessage =
+                      index > 0 ? localMessages[index - 1] : null;
+                    const showAvatar =
+                      !prevMessage || prevMessage.sender !== message.sender;
+
                     return (
                       <View
                         key={message.id}
@@ -111,35 +138,45 @@ const ChatTab: FC<Props> = ({
                           showAvatar ? "mt-1" : ""
                         }`}
                       >
-                        <View className={`flex-row items-end gap-2 ${isMyMessage ? "justify-end" : "justify-start"}`}>
+                        <View
+                          className={`flex-row items-end gap-2 ${isMyMessage ? "justify-end" : "justify-start"}`}
+                        >
                           {/* Avatar */}
                           {!isMyMessage && (
-                            <View className={`w-8 h-8 rounded-full items-center justify-center ${
-                              message.isAdmin ? "bg-emerald-500" : "bg-gray-400"
-                            } ${showAvatar ? "" : "opacity-0"}`}>
+                            <View
+                              className={`w-8 h-8 rounded-full items-center justify-center ${
+                                message.isAdmin
+                                  ? "bg-emerald-500"
+                                  : "bg-gray-400"
+                              } ${showAvatar ? "" : "opacity-0"}`}
+                            >
                               <Text className="text-xs font-semibold text-white">
                                 {message.sender.charAt(0).toUpperCase()}
                               </Text>
                             </View>
                           )}
-                          
+
                           {/* Message Content */}
-                          <View style={{ maxWidth: '75%' }}>
+                          <View style={{ maxWidth: "75%" }}>
                             {!isMyMessage && showAvatar && (
-                              <Text className={`text-xs font-medium mb-1 px-1 ${
-                                message.isAdmin ? "text-emerald-700" : "text-gray-700"
-                              }`}>
+                              <Text
+                                className={`text-xs font-medium mb-1 px-1 ${
+                                  message.isAdmin
+                                    ? "text-emerald-700"
+                                    : "text-gray-700"
+                                }`}
+                              >
                                 {message.sender}
                               </Text>
                             )}
-                            
+
                             <View
                               className={`px-4 py-2.5 rounded-2xl ${
                                 isMyMessage
                                   ? "bg-emerald-600 rounded-br-sm"
                                   : message.isAdmin
-                                  ? "bg-emerald-50 border border-emerald-100 rounded-bl-sm"
-                                  : "bg-gray-100 rounded-bl-sm"
+                                    ? "bg-emerald-50 border border-emerald-100 rounded-bl-sm"
+                                    : "bg-gray-100 rounded-bl-sm"
                               }`}
                             >
                               <Text
@@ -147,30 +184,38 @@ const ChatTab: FC<Props> = ({
                                   isMyMessage
                                     ? "text-white"
                                     : message.isAdmin
-                                    ? "text-emerald-900"
-                                    : "text-gray-900"
+                                      ? "text-emerald-900"
+                                      : "text-gray-900"
                                 }`}
                               >
                                 {message.message}
                               </Text>
-                              
+
                               {/* Time inside the bubble */}
-                              <Text className={`text-xs mt-1 ${
-                                isMyMessage
-                                  ? "text-emerald-100"
-                                  : message.isAdmin
-                                  ? "text-emerald-600"
-                                  : "text-gray-500"
-                              }`}>
+                              <Text
+                                className={`text-xs mt-1 ${
+                                  isMyMessage
+                                    ? "text-emerald-100"
+                                    : message.isAdmin
+                                      ? "text-emerald-600"
+                                      : "text-gray-500"
+                                }`}
+                              >
                                 {message.time}
                               </Text>
                             </View>
-                            
+
                             {/* Sender name outside the bubble */}
-                            <View className={`mt-1 ${isMyMessage ? "items-end" : "items-start"}`}>
-                              <Text className={`text-xs font-medium ${
-                                message.isAdmin ? "text-emerald-700" : "text-gray-600"
-                              }`}>
+                            <View
+                              className={`mt-1 ${isMyMessage ? "items-end" : "items-start"}`}
+                            >
+                              <Text
+                                className={`text-xs font-medium ${
+                                  message.isAdmin
+                                    ? "text-emerald-700"
+                                    : "text-gray-600"
+                                }`}
+                              >
                                 {message.sender}
                               </Text>
                             </View>
@@ -197,17 +242,15 @@ const ChatTab: FC<Props> = ({
                 multiline={false}
                 placeholderTextColor="#9ca3af"
                 returnKeyType="send"
-                onSubmitEditing={handleSendMessage}
+                onSubmitEditing={handleSend}
               />
             </View>
-            
+
             <TouchableOpacity
-              onPress={handleSendMessage}
+              onPress={handleSend}
               disabled={!newMessage.trim()}
               className={`w-12 h-12 rounded-full items-center justify-center shadow-sm ${
-                newMessage.trim() 
-                  ? "bg-emerald-600" 
-                  : "bg-gray-300"
+                newMessage.trim() ? "bg-emerald-600" : "bg-gray-300"
               }`}
               activeOpacity={0.7}
             >

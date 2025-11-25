@@ -352,3 +352,38 @@ export const addMemberToChama = async (req: Request, res: Response) => {
     });
   }
 };
+
+
+// send message
+export const sendChamaMessage = async (req: Request, res: Response) => {
+  try {
+    const { chamaId, message } = req.body;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+    if (!chamaId ) {
+      return res
+        .status(400)
+        .json({ success: false, error: "All fields are required" });
+    }
+
+    const messages = await prisma.message.create({
+      data:{
+        chamaId: chamaId,
+        text: message,
+        senderId: userId    
+      }
+    })
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Message successfully sent." });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to add member to chama",
+    });
+  }
+};
