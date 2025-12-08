@@ -36,7 +36,7 @@
     "Routes/**/*.ts",
     "Middlewares/**/*.ts",
     "Blockchain/**/*.ts",
-    "Utils/**/*.ts",
+    "Lib/**/*.ts",
     "types/**/*.d.ts",
     "types/**/*.ts"
   ],

@@ -3,8 +3,8 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import emailService from "../Utils/EmailService";
-import { sendWhatsAppOTP } from "../Utils/WhatsAppService";
+import emailService from "../Lib/EmailService";
+import { sendWhatsAppOTP } from "../Lib/WhatsAppService";
 
 const prisma = new PrismaClient();
 

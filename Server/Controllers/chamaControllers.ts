@@ -1,7 +1,7 @@
 // This file has all chama related functions
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-import { generateUniqueSlug } from "../Utils/HelperFunctions";
+import { generateUniqueSlug } from "../Lib/HelperFunctions";
 
 const prisma = new PrismaClient();
 
