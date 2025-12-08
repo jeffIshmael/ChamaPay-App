@@ -11,11 +11,11 @@ import { parseUnits } from "ethers/lib/utils";
 import { Request, Response } from "express";
 import { cUSDAddress, USDCAddress } from "../Blockchain/Constants";
 import {
-  calcExchangeRate,
-  invertExchangeRate,
-  parseInputExchangeAmount,
-} from "../Utils/SwapUtils";
-import { fromWei } from "../Utils/amount";
+    calcExchangeRate,
+    invertExchangeRate,
+    parseInputExchangeAmount,
+} from "../Lib/SwapUtils";
+import { fromWei } from "../Lib/amount";
 
 interface ExecuteSwapRequestBody {
   fromTokenAddr: string;
