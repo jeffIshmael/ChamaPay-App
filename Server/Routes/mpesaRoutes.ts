@@ -11,9 +11,9 @@ const router: Router = express.Router();
 router.post("/",authenticate, mpesaTransaction);
 
 // M-Pesa callback (public - no auth needed)
-router.post("/mpesa/callback", mpesaCallback);
+router.post("/callback", mpesaCallback);
 
 // Check payment status (protected route)
-router.get("/mpesa/status/:checkoutRequestID", authenticate, checkPaymentStatus);
+router.get("/status/:checkoutRequestID", authenticate, checkPaymentStatus);
 
 export default router; 
