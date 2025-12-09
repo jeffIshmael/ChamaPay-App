@@ -22,10 +22,11 @@ export const mpesaTransaction = async (req: Request, res: Response) => {
     if (!result) {
       res.status(500).json({ success: false, error: "Unable to push stk." });
     }
-    if (result?.ResponseCode !== 0) {
-      // this means the user has cancelled the transaction
-      res.status(500).json({ success: false, error: result?.CustomerMessage });
-    }
+    console.log("The result from the push STK", result);
+    // if (result?.ResponseCode !== 0) {
+    //   // this means the user has cancelled the transaction
+    //   res.status(500).json({ success: false, error: result?.CustomerMessage });
+    // }
 
     // lets query the response once more
     const statusResult = await checkPushStatus(result?.CheckoutRequestID!);
