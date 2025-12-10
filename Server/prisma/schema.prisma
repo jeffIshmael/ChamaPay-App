@@ -15,15 +15,15 @@ model User {
   phoneNo           Int?
   address           String?
   smartAddress      String              @unique
-  profileImageUrl   String?             // URL for user's profile image
+  profileImageUrl   String?
   createdChamas     Chama[]             @relation("AdminChamas")
   chamas            ChamaMember[]
   joinRequests      ChamaRequest[]
   notifications     Notification[]
   payments          Payment[]
-  messages          Message[]           // Added relation to Message
+  messages          Message[]
   payOuts           PayOut[]
-  mpesaTransactions MpesaTransaction[]  // New relation
+  mpesaTransactions MpesaTransaction[]
 }
 
 model Chama {
@@ -31,29 +31,29 @@ model Chama {
   name          String
   slug          String           @unique
   description   String?
-  adminTerms    String?          // JSON string of admin requirements
+  adminTerms    String?
   type          String
   startDate     DateTime
   payDate       DateTime
   cycleTime     Int
   started       Boolean          @default(false)
   amount        String
-  round         Int              @default(1) //  payout
-  cycle         Int              @default(1) // after every member has received a payout
+  round         Int              @default(1)
+  cycle         Int              @default(1)
   maxNo         Int              @default(15)
   rating        Int              @default(0)
   raterCount    Int              @default(0)
   blockchainId  String
   adminId       Int
   canJoin       Boolean          @default(true)
-  payOutOrder   String?          // Json string of payout order array.
+  payOutOrder   String?
   createdAt     DateTime         @default(now())
   admin         User             @relation("AdminChamas", fields: [adminId], references: [id])
   members       ChamaMember[]
   requests      ChamaRequest[]
   notifications Notification[]
   payments      Payment[]
-  messages      Message[]        // Added relation to Message
+  messages      Message[]
   payOuts       PayOut[]
   roundOutcome  roundOutcome[]
 }
@@ -64,7 +64,7 @@ model ChamaMember {
   chamaId Int
   chama   Chama    @relation(fields: [chamaId], references: [id])
   user    User     @relation(fields: [userId], references: [id])
-  payDate DateTime // To track the payment rotation date
+  payDate DateTime
 }
 
 model Payment {
@@ -130,13 +130,13 @@ model roundOutcome {
   chamaCycle   Int
   chamaRound   Int
   amountPaid   String
-  shownMembers String?  // Json string of people who have been shown an outcome modal.
+  shownMembers String?
   createdAt    DateTime @default(now())
   chamaId      Int
   chama        Chama    @relation(fields: [chamaId], references: [id])
 }
 
-// New M-Pesa Transaction Model
+// Unified M-Pesa Transaction Model (supports both payments and onramp)
 model MpesaTransaction {
   id                  Int      @id @default(autoincrement())
   userId              Int
@@ -144,6 +144,7 @@ model MpesaTransaction {
   checkoutRequestID   String   @unique
   phoneNumber         String
   amount              Decimal  @db.Decimal(10, 2)
+  type                String   @default("payment") // "payment" or "onramp"
   status              String   @default("pending") // pending, completed, failed, cancelled, timeout
   mpesaReceiptNumber  String?
   transactionDate     String?
@@ -151,7 +152,14 @@ model MpesaTransaction {
   resultDesc          String?
   accountReference    String?
   transactionDesc     String?
-  chamaId             Int?     // Optional: if payment is for a specific chama
+  chamaId             Int?     // For chama payments
+  
+  // Onramp-specific fields
+  cusdAmount          Decimal? @db.Decimal(18, 6)  // cUSD amount for onramp
+  exchangeRate        Decimal? @db.Decimal(10, 2)  // Exchange rate used
+  walletAddress       String?  // Destination wallet for onramp
+  blockchainTxHash    String?  // Blockchain transaction hash
+  
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
   user                User     @relation(fields: [userId], references: [id])
@@ -159,5 +167,6 @@ model MpesaTransaction {
   @@index([userId])
   @@index([checkoutRequestID])
   @@index([status])
+  @@index([type])
   @@index([createdAt])
 }

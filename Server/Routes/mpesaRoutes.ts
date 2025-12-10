@@ -5,6 +5,7 @@ import {
   mpesaCallback,
   checkPaymentStatus,
   getUserTransactions,
+  initiateOnramp
 } from "../Controllers/mpesaControllers";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -15,6 +16,8 @@ router.post("/", authenticate, mpesaTransaction);
 
 // M-Pesa callback (public - no auth needed)
 router.post("/callback", mpesaCallback);
+// M-Pesa callback (public - no auth needed)
+router.post("/onramp",authenticate, initiateOnramp);
 // Get user transaction history (protected)
 router.get("/transactions", authenticate, getUserTransactions);
 
