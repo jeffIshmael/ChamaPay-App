@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Image,
   Text,
@@ -7,19 +7,61 @@ import {
   View,
   ActivityIndicator,
   Alert,
+  Animated,
 } from "react-native";
-import { sendMpesaStkPush, pollPaymentStatus } from "@/lib/mpesaService";
+import { initiateOnramp, pollOnrampStatus } from "@/lib/onrampService";
 import { useAuth } from "@/Contexts/AuthContext";
 
-const MPesaPay = () => {
+const EXCHANGE_RATE = 132; // 132 KES = 1 cUSD
+
+const OnrampComponent = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [amount, setAmount] = useState("");
+  const [kesAmount, setKesAmount] = useState("");
+  const [cusdAmount, setCusdAmount] = useState("0.00");
   const [loading, setLoading] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState<string>("");
-  const [statusMessage, setStatusMessage] = useState<string>("");
+  const [currentStep, setCurrentStep] = useState<
+    "input" | "payment_sent" | "payment_received" | "sending_cusd" | "completed"
+  >("input");
+  const [statusMessage, setStatusMessage] = useState("");
+  const [receiptNumber, setReceiptNumber] = useState("");
+  const [txHash, setTxHash] = useState("");
   const { token } = useAuth();
 
-  const handlePay = async () => {
+  // Animation values
+  const [fadeAnim] = useState(new Animated.Value(1));
+  const [pulseAnim] = useState(new Animated.Value(1));
+
+  // Calculate cUSD amount when KES changes
+  useEffect(() => {
+    if (kesAmount && parseFloat(kesAmount) > 0) {
+      const cusd = parseFloat(kesAmount) / EXCHANGE_RATE;
+      setCusdAmount(cusd.toFixed(6));
+    } else {
+      setCusdAmount("0.00");
+    }
+  }, [kesAmount]);
+
+  // Pulse animation for loading states
+  useEffect(() => {
+    if (loading) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.2,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }
+  }, [loading]);
+
+  const handleOnramp = async () => {
     // Validation
     if (!phoneNumber || phoneNumber.length < 9) {
       Alert.alert(
@@ -29,84 +71,99 @@ const MPesaPay = () => {
       return;
     }
 
-    if (!amount || parseFloat(amount) <= 0) {
+    if (!kesAmount || parseFloat(kesAmount) <= 0) {
       Alert.alert("Invalid Amount", "Please enter a valid amount");
       return;
     }
 
     if (!token) {
-      Alert.alert("No token set.");
+      Alert.alert("Error", "Authentication required");
       return;
     }
 
     setLoading(true);
-    setPaymentStatus("initiating");
-    setStatusMessage("Initiating payment...");
+    setCurrentStep("payment_sent");
+    setStatusMessage("Initiating payment request...");
 
     try {
       const fullPhoneNumber = `254${phoneNumber}`;
 
-      // Step 1: Initiate STK push
-      const result = await sendMpesaStkPush(
+      // Step 1: Initiate onramp
+      const result = await initiateOnramp(
         Number(fullPhoneNumber),
-        amount,
+        kesAmount,
         token
       );
 
       if (!result.success) {
-        throw new Error(result.error || "Failed to initiate payment");
+        throw new Error(result.error || "Failed to initiate onramp");
       }
 
-      // Step 2: Show prompt sent message
-      setPaymentStatus("pending");
+      // Step 2: Show M-Pesa prompt message
       setStatusMessage("Check your phone for M-Pesa prompt...");
 
-      // Step 3: Start polling for payment status
+      // Step 3: Start polling for status
       try {
-        const paymentResult = await pollPaymentStatus(
+        const onrampResult = await pollOnrampStatus(
           result.checkoutRequestID,
           token,
           (status, data) => {
-            // Update UI as status changes
+            console.log("Status update:", status, data);
+
             switch (status) {
               case "pending":
+                setCurrentStep("payment_sent");
                 setStatusMessage("Waiting for payment confirmation...");
                 break;
-              case "processing":
-                setStatusMessage("Processing payment...");
+              case "pending_transfer":
+                setCurrentStep("payment_received");
+                setStatusMessage("Payment received! 🎉");
+                setTimeout(() => {
+                  setCurrentStep("sending_cusd");
+                  setStatusMessage(`Sending ${data.cusdAmount} cUSD to your wallet...`);
+                }, 1500);
                 break;
-              default:
-                setStatusMessage(`Status: ${status}`);
+              case "completed":
+                setCurrentStep("completed");
+                setStatusMessage("cUSD successfully sent! ✅");
+                setReceiptNumber(data.mpesaReceiptNumber || "");
+                setTxHash(data.blockchainTxHash || "");
+                break;
             }
           }
         );
 
-        // Payment successful
-        setPaymentStatus("completed");
+        // Onramp completed successfully
         setLoading(false);
+        setCurrentStep("completed");
 
-        Alert.alert(
-          "Payment Successful! ✅",
-          `Your payment of KES ${amount} has been received.\nReceipt: ${paymentResult.mpesaReceiptNumber || "N/A"}`,
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                // Reset form
-                setPhoneNumber("");
-                setAmount("");
-                setPaymentStatus("");
-                setStatusMessage("");
+        setTimeout(() => {
+          Alert.alert(
+            "Onramp Successful! 🎉",
+            `You paid KES ${kesAmount}\nReceived: ${cusdAmount} cUSD\n\nM-Pesa Receipt: ${onrampResult.mpesaReceiptNumber || "N/A"}\nBlockchain TX: ${onrampResult.blockchainTxHash?.substring(0, 10)}...`,
+            [
+              {
+                text: "Done",
+                onPress: () => {
+                  // Reset form
+                  setPhoneNumber("");
+                  setKesAmount("");
+                  setCusdAmount("0.00");
+                  setCurrentStep("input");
+                  setStatusMessage("");
+                  setReceiptNumber("");
+                  setTxHash("");
+                },
               },
-            },
-          ]
-        );
+            ]
+          );
+        }, 2000);
       } catch (pollError: any) {
-        // Handle payment failure/cancellation
         setLoading(false);
+        setCurrentStep("input");
 
-        let errorTitle = "Payment Failed";
-        let errorMessage = "The payment could not be completed.";
+        let errorTitle = "Onramp Failed";
+        let errorMessage = "The onramp could not be completed.";
 
         if (pollError.status === "cancelled") {
           errorTitle = "Payment Cancelled";
@@ -118,13 +175,10 @@ const MPesaPay = () => {
           errorMessage = pollError.resultDesc;
         }
 
-        setPaymentStatus("failed");
-
         Alert.alert(errorTitle, errorMessage, [
           {
             text: "OK",
             onPress: () => {
-              setPaymentStatus("");
               setStatusMessage("");
             },
           },
@@ -132,7 +186,7 @@ const MPesaPay = () => {
       }
     } catch (error: any) {
       setLoading(false);
-      setPaymentStatus("failed");
+      setCurrentStep("input");
 
       Alert.alert(
         "Error",
@@ -142,7 +196,156 @@ const MPesaPay = () => {
   };
 
   const isFormValid =
-    phoneNumber.length >= 9 && amount && parseFloat(amount) > 0;
+    phoneNumber.length >= 9 && kesAmount && parseFloat(kesAmount) > 0;
+
+  const renderStatusIndicator = () => {
+    if (currentStep === "input") return null;
+
+    return (
+      <View className="mb-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-2xl p-6 border-2 border-green-200">
+        {/* Progress Steps */}
+        <View className="flex-row justify-between mb-6">
+          {/* Step 1: Payment Sent */}
+          <View className="items-center flex-1">
+            <Animated.View
+              style={{
+                transform: [
+                  {
+                    scale:
+                      currentStep === "payment_sent" ? pulseAnim : 1,
+                  },
+                ],
+              }}
+              className={`w-12 h-12 rounded-full items-center justify-center ${
+                currentStep === "payment_sent"
+                  ? "bg-blue-500"
+                  : currentStep === "sending_cusd"
+                  ? "bg-gray-300"
+                  : "bg-green-500"
+              }`}
+            >
+              <Text className="text-white text-lg font-bold">1</Text>
+            </Animated.View>
+            <Text className="text-xs text-gray-600 mt-2 text-center">
+              M-Pesa
+            </Text>
+          </View>
+
+          {/* Connecting Line */}
+          <View className="flex-1 justify-center">
+            <View
+              className={`h-1 ${
+                ["payment_received", "sending_cusd", "completed"].includes(
+                  currentStep
+                )
+                  ? "bg-green-500"
+                  : "bg-gray-300"
+              }`}
+            />
+          </View>
+
+          {/* Step 2: Payment Received */}
+          <View className="items-center flex-1">
+            <Animated.View
+              style={{
+                transform: [
+                  {
+                    scale:
+                      currentStep === "payment_received" ? pulseAnim : 1,
+                  },
+                ],
+              }}
+              className={`w-12 h-12 rounded-full items-center justify-center ${
+                ["payment_received", "sending_cusd", "completed"].includes(
+                  currentStep
+                )
+                  ? currentStep === "payment_received"
+                    ? "bg-blue-500"
+                    : "bg-green-500"
+                  : "bg-gray-300"
+              }`}
+            >
+              <Text className="text-white text-lg font-bold">2</Text>
+            </Animated.View>
+            <Text className="text-xs text-gray-600 mt-2 text-center">
+              Received
+            </Text>
+          </View>
+
+          {/* Connecting Line */}
+          <View className="flex-1 justify-center">
+            <View
+              className={`h-1 ${
+                ["sending_cusd", "completed"].includes(currentStep)
+                  ? "bg-green-500"
+                  : "bg-gray-300"
+              }`}
+            />
+          </View>
+
+          {/* Step 3: cUSD Sent */}
+          <View className="items-center flex-1">
+            <Animated.View
+              style={{
+                transform: [
+                  {
+                    scale:
+                      currentStep === "sending_cusd" ? pulseAnim : 1,
+                  },
+                ],
+              }}
+              className={`w-12 h-12 rounded-full items-center justify-center ${
+                currentStep === "completed"
+                  ? "bg-green-500"
+                  : currentStep === "sending_cusd"
+                  ? "bg-blue-500"
+                  : "bg-gray-300"
+              }`}
+            >
+              <Text className="text-white text-lg font-bold">3</Text>
+            </Animated.View>
+            <Text className="text-xs text-gray-600 mt-2 text-center">
+              cUSD Sent
+            </Text>
+          </View>
+        </View>
+
+        {/* Status Message */}
+        <View className="items-center">
+          {loading && currentStep !== "completed" && (
+            <ActivityIndicator size="large" color="#10b981" className="mb-3" />
+          )}
+          <Text className="text-lg font-semibold text-gray-800 text-center">
+            {statusMessage}
+          </Text>
+          {currentStep === "payment_sent" && (
+            <Text className="text-sm text-gray-600 mt-2 text-center">
+              Enter your M-Pesa PIN on your phone
+            </Text>
+          )}
+          {currentStep === "sending_cusd" && (
+            <Text className="text-sm text-gray-600 mt-2 text-center">
+              This may take a few seconds...
+            </Text>
+          )}
+          {currentStep === "completed" && (
+            <View className="mt-4 bg-white rounded-xl p-4 w-full">
+              <Text className="text-2xl text-center mb-2">🎉</Text>
+              <Text className="text-sm text-gray-600 text-center">
+                You received{" "}
+                <Text className="font-bold text-green-600">{cusdAmount} cUSD</Text>
+              </Text>
+              {txHash && (
+                <Text className="text-xs text-gray-500 mt-2 text-center">
+                  TX: {txHash.substring(0, 20)}...
+                </Text>
+              )}
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View className="bg-white rounded-t-3xl shadow-2xl w-full px-6 py-8">
@@ -154,111 +357,110 @@ const MPesaPay = () => {
             className="w-16 h-12 mr-3"
             resizeMode="contain"
           />
-          <Text className="text-2xl font-bold text-gray-800">
-            M-Pesa Payment
-          </Text>
-        </View>
-      </View>
-
-      {/* Form */}
-      <View className="w-full">
-        {/* Phone Number Input */}
-        <View className="mb-5">
-          <Text className="text-sm font-medium text-gray-700 mb-2">
-            Phone Number
-          </Text>
-          <View className="flex-row items-center border-2 border-gray-200 rounded-xl overflow-hidden bg-gray-50">
-            <View className="bg-green-600 px-4 py-3.5 border-r border-gray-300">
-              <Text className="text-white font-semibold text-base">+254</Text>
-            </View>
-            <TextInput
-              className="flex-1 px-4 py-3 text-base text-gray-800"
-              placeholder="712345678"
-              keyboardType="phone-pad"
-              maxLength={9}
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              editable={!loading}
-            />
-          </View>
-          <Text className="text-xs text-gray-500 mt-1.5">
-            Enter your M-Pesa registered number
-          </Text>
-        </View>
-
-        {/* Amount Input */}
-        <View className="mb-6">
-          <Text className="text-sm font-medium text-gray-700 mb-2">
-            Amount (KES)
-          </Text>
-          <View className="flex-row items-center border-2 border-gray-200 rounded-xl overflow-hidden bg-gray-50">
-            <View className="px-4 py-3.5">
-              <Text className="text-gray-600 font-semibold text-base">KES</Text>
-            </View>
-            <TextInput
-              className="flex-1 px-4 py-3 text-base text-gray-800"
-              placeholder="0.00"
-              keyboardType="decimal-pad"
-              value={amount}
-              onChangeText={setAmount}
-              editable={!loading}
-            />
-          </View>
-          <Text className="text-xs text-gray-500 mt-1.5">
-            Minimum amount: KES 1
-          </Text>
-        </View>
-
-        {/* Status Message */}
-        {loading && statusMessage && (
-          <View className="mb-4 bg-blue-50 rounded-lg p-4">
-            <View className="flex-row items-center">
-              <ActivityIndicator size="small" color="#2563eb" />
-              <Text className="text-sm text-blue-800 ml-3 flex-1">
-                {statusMessage}
-              </Text>
-            </View>
-            {paymentStatus === "pending" && (
-              <Text className="text-xs text-blue-600 mt-2">
-                This may take up to 60 seconds...
-              </Text>
-            )}
-          </View>
-        )}
-
-        {/* Pay Button */}
-        <TouchableOpacity
-          className={`py-4 rounded-xl items-center justify-center ${
-            isFormValid && !loading ? "bg-green-600" : "bg-gray-300"
-          }`}
-          disabled={!isFormValid || loading}
-          onPress={handlePay}
-          activeOpacity={0.8}
-        >
-          {loading ? (
-            <View className="flex-row items-center">
-              <ActivityIndicator color="white" size="small" />
-              <Text className="text-white font-bold text-base ml-2">
-                Processing...
-              </Text>
-            </View>
-          ) : (
-            <Text className="text-white font-bold text-base">
-              {isFormValid ? "Pay Now" : "Enter Details"}
+          <View>
+            <Text className="text-2xl font-bold text-gray-800">
+              Buy cUSD
             </Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Info Text */}
-        <View className="mt-4 bg-blue-50 rounded-lg p-3">
-          <Text className="text-xs text-blue-800 text-center">
-            You will receive an M-Pesa prompt on your phone. Enter your PIN to
-            complete the payment.
-          </Text>
+            <Text className="text-sm text-gray-500">
+              1 cUSD = {EXCHANGE_RATE} KES
+            </Text>
+          </View>
         </View>
       </View>
+
+      {/* Status Indicator */}
+      {renderStatusIndicator()}
+
+      {/* Form - Only show when in input state */}
+      {currentStep === "input" && (
+        <View className="w-full">
+          {/* Phone Number Input */}
+          <View className="mb-5">
+            <Text className="text-sm font-medium text-gray-700 mb-2">
+              Phone Number
+            </Text>
+            <View className="flex-row items-center border-2 border-gray-200 rounded-xl overflow-hidden bg-gray-50">
+              <View className="bg-green-600 px-4 py-3.5 border-r border-gray-300">
+                <Text className="text-white font-semibold text-base">+254</Text>
+              </View>
+              <TextInput
+                className="flex-1 px-4 py-3 text-base text-gray-800"
+                placeholder="712345678"
+                keyboardType="phone-pad"
+                maxLength={9}
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                editable={!loading}
+              />
+            </View>
+            <Text className="text-xs text-gray-500 mt-1.5">
+              Enter your M-Pesa registered number
+            </Text>
+          </View>
+
+          {/* Amount Input */}
+          <View className="mb-4">
+            <Text className="text-sm font-medium text-gray-700 mb-2">
+              Amount (KES)
+            </Text>
+            <View className="flex-row items-center border-2 border-gray-200 rounded-xl overflow-hidden bg-gray-50">
+              <View className="px-4 py-3.5">
+                <Text className="text-gray-600 font-semibold text-base">KES</Text>
+              </View>
+              <TextInput
+                className="flex-1 px-4 py-3 text-base text-gray-800"
+                placeholder="0.00"
+                keyboardType="decimal-pad"
+                value={kesAmount}
+                onChangeText={setKesAmount}
+                editable={!loading}
+              />
+            </View>
+            <Text className="text-xs text-gray-500 mt-1.5">
+              Minimum: KES 100
+            </Text>
+          </View>
+
+          {/* cUSD Preview */}
+          {parseFloat(cusdAmount) > 0 && (
+            <View className="mb-6 bg-green-50 rounded-xl p-4 border-2 border-green-200">
+              <Text className="text-sm text-gray-600 text-center mb-1">
+                You will receive
+              </Text>
+              <Text className="text-3xl font-bold text-green-600 text-center">
+                {cusdAmount} cUSD
+              </Text>
+              <Text className="text-xs text-gray-500 text-center mt-1">
+                ≈ ${(parseFloat(cusdAmount) * 1).toFixed(2)} USD
+              </Text>
+            </View>
+          )}
+
+          {/* Buy Button */}
+          <TouchableOpacity
+            className={`py-4 rounded-xl items-center justify-center ${
+              isFormValid && !loading ? "bg-green-600" : "bg-gray-300"
+            }`}
+            disabled={!isFormValid || loading}
+            onPress={handleOnramp}
+            activeOpacity={0.8}
+          >
+            <Text className="text-white font-bold text-base">
+              {isFormValid ? "Buy cUSD" : "Enter Details"}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Info Text */}
+          <View className="mt-4 bg-blue-50 rounded-lg p-3">
+            <Text className="text-xs text-blue-800 text-center">
+              💡 You'll receive an M-Pesa prompt. Enter your PIN to buy cUSD
+              instantly.
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
 
-export default MPesaPay;
+export default OnrampComponent;
