@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,77 +7,76 @@ datasource db {
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
-        
-
 
 model User {
-  id            Int            @id @default(autoincrement())
-  email         String         @unique
-  userName      String         @unique
-  phoneNo       Int?
-  address       String?
-  smartAddress  String         @unique
-  profileImageUrl String?      // URL for user's profile image
-  createdChamas Chama[]        @relation("AdminChamas")
-  chamas        ChamaMember[]
-  joinRequests  ChamaRequest[]
-  notifications Notification[]
-  payments      Payment[]
-  messages      Message[] // Added relation to Message
-  payOuts       PayOut[]
+  id                Int                 @id @default(autoincrement())
+  email             String              @unique
+  userName          String              @unique
+  phoneNo           Int?
+  address           String?
+  smartAddress      String              @unique
+  profileImageUrl   String?             // URL for user's profile image
+  createdChamas     Chama[]             @relation("AdminChamas")
+  chamas            ChamaMember[]
+  joinRequests      ChamaRequest[]
+  notifications     Notification[]
+  payments          Payment[]
+  messages          Message[]           // Added relation to Message
+  payOuts           PayOut[]
+  mpesaTransactions MpesaTransaction[]  // New relation
 }
 
 model Chama {
-  id            Int           @id @default(autoincrement())
-  name          String       
-  slug          String        @unique
+  id            Int              @id @default(autoincrement())
+  name          String
+  slug          String           @unique
   description   String?
-  adminTerms    String?       // JSON string of admin requirements
+  adminTerms    String?          // JSON string of admin requirements
   type          String
   startDate     DateTime
   payDate       DateTime
   cycleTime     Int
-  started       Boolean       @default(false)
+  started       Boolean          @default(false)
   amount        String
-  round         Int          @default(1) //  payout
-  cycle         Int          @default(1) // after every member has received a payout
-  maxNo         Int           @default(15)
-  rating        Int           @default(0)
-  raterCount    Int           @default(0)
+  round         Int              @default(1) //  payout
+  cycle         Int              @default(1) // after every member has received a payout
+  maxNo         Int              @default(15)
+  rating        Int              @default(0)
+  raterCount    Int              @default(0)
   blockchainId  String
   adminId       Int
-  canJoin       Boolean  @default(true)
-  payOutOrder   String?  // Json string of payout order array.
-  createdAt     DateTime      @default(now())
-  admin         User          @relation("AdminChamas", fields: [adminId], references: [id])
+  canJoin       Boolean          @default(true)
+  payOutOrder   String?          // Json string of payout order array.
+  createdAt     DateTime         @default(now())
+  admin         User             @relation("AdminChamas", fields: [adminId], references: [id])
   members       ChamaMember[]
   requests      ChamaRequest[]
   notifications Notification[]
   payments      Payment[]
-  messages      Message[]     // Added relation to Message
+  messages      Message[]        // Added relation to Message
   payOuts       PayOut[]
   roundOutcome  roundOutcome[]
 }
 
 model ChamaMember {
-  id      Int   @id @default(autoincrement())
-  userId  Int
-  chamaId Int
-  chama   Chama @relation(fields: [chamaId], references: [id])
-  user    User  @relation(fields: [userId], references: [id])
-  payDate         DateTime // To track the payment rotation date
-}
-
-model Payment {
   id      Int      @id @default(autoincrement())
-  amount  String
-  description String?
-  doneAt  DateTime @default(now())
-  txHash  String
   userId  Int
   chamaId Int
   chama   Chama    @relation(fields: [chamaId], references: [id])
   user    User     @relation(fields: [userId], references: [id])
+  payDate DateTime // To track the payment rotation date
+}
+
+model Payment {
+  id          Int      @id @default(autoincrement())
+  amount      String
+  description String?
+  doneAt      DateTime @default(now())
+  txHash      String
+  userId      Int
+  chamaId     Int
+  chama       Chama    @relation(fields: [chamaId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
 }
 
 model Notification {
@@ -115,25 +113,51 @@ model Message {
 }
 
 model PayOut {
-  id Int @id @default(autoincrement())
-  amount  String
-  doneAt  DateTime @default(now())
-  txHash  String?
+  id       Int      @id @default(autoincrement())
+  amount   String
+  doneAt   DateTime @default(now())
+  txHash   String?
   receiver String
-  userId  Int
-  chamaId Int
-  chama   Chama    @relation(fields: [chamaId], references: [id])
-  user    User     @relation(fields: [userId], references: [id])
+  userId   Int
+  chamaId  Int
+  chama    Chama    @relation(fields: [chamaId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
 }
 
 model roundOutcome {
-  id  Int @id @default(autoincrement())
-  disburse Boolean
-  chamaCycle Int
-  chamaRound Int
-  amountPaid String 
+  id           Int      @id @default(autoincrement())
+  disburse     Boolean
+  chamaCycle   Int
+  chamaRound   Int
+  amountPaid   String
   shownMembers String?  // Json string of people who have been shown an outcome modal.
-  createdAt DateTime @default(now())
-  chamaId Int
-  chama   Chama    @relation(fields: [chamaId], references: [id])
+  createdAt    DateTime @default(now())
+  chamaId      Int
+  chama        Chama    @relation(fields: [chamaId], references: [id])
+}
+
+// New M-Pesa Transaction Model
+model MpesaTransaction {
+  id                  Int      @id @default(autoincrement())
+  userId              Int
+  merchantRequestID   String   @unique
+  checkoutRequestID   String   @unique
+  phoneNumber         String
+  amount              Decimal  @db.Decimal(10, 2)
+  status              String   @default("pending") // pending, completed, failed, cancelled, timeout
+  mpesaReceiptNumber  String?
+  transactionDate     String?
+  resultCode          Int?
+  resultDesc          String?
+  accountReference    String?
+  transactionDesc     String?
+  chamaId             Int?     // Optional: if payment is for a specific chama
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  user                User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([checkoutRequestID])
+  @@index([status])
+  @@index([createdAt])
 }
