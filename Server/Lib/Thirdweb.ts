@@ -241,13 +241,16 @@ export const checkPayoutResult = async (
 };
 
 // onramping fnct i.e sending cUSD to the user's wallet
-export const onrampcUSD = async (userAddress: `0x${string}`, amount: string): Promise<string|null> => {
+export const onrampcUSD = async (
+  userAddress: `0x${string}`,
+  amount: string
+): Promise<string | null> => {
   try {
     const amountInWei = toWei(amount);
     const transaction = prepareContractCall({
-      contract,
-      method: "function transfer(address to, uint256 amount)",
-      params: [userAddress, amountInWei] ,
+      contract: cUSDContract,
+      method: "transfer",
+      params: [userAddress, amountInWei],
     });
     const activeAccount = await getAgentSmartWallet();
     const { transactionHash } = await sendTransaction({
