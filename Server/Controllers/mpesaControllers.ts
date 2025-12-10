@@ -1,11 +1,15 @@
-// mpesaControllers.ts - Complete implementation with Prisma
+// mpesaControllers.ts - Unified controller for payments and onramp
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { tillPushStk, checkPushStatus } from "../Lib/MpesaFunctions";
+import { onrampcUSD } from "../Lib/Thirdweb";
 
 const prisma = new PrismaClient();
+const EXCHANGE_RATE = 132; // 132 KES = 1 cUSD
 
-// Initiate M-Pesa payment
+/**
+ * Initiate M-Pesa payment (for chama payments)
+ */
 export const mpesaTransaction = async (req: Request, res: Response) => {
   const { amount, phoneNo, chamaId, accountReference } = req.body;
   const userId = req.user?.userId;
@@ -20,7 +24,6 @@ export const mpesaTransaction = async (req: Request, res: Response) => {
       });
     }
 
-    // Validate inputs
     if (!amount || !phoneNo) {
       return res.status(400).json({
         success: false,
@@ -28,7 +31,6 @@ export const mpesaTransaction = async (req: Request, res: Response) => {
       });
     }
 
-    // Validate amount
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       return res.status(400).json({
@@ -44,31 +46,22 @@ export const mpesaTransaction = async (req: Request, res: Response) => {
       accountReference || `USER-${userId}`
     );
 
-    if (!result) {
-      return res.status(500).json({
-        success: false,
-        error: "Unable to initiate payment. Please try again.",
-      });
-    }
-
-    console.log("STK Push Result:", result);
-
-    // Check if STK push was initiated successfully
-    if (result.ResponseCode !== "0") {
+    if (!result || result.ResponseCode !== "0") {
       return res.status(400).json({
         success: false,
-        error: result.ResponseDescription || result.CustomerMessage,
+        error: result?.ResponseDescription || "Failed to initiate payment",
       });
     }
 
     // Save transaction to database
-    const transaction = await prisma.mpesaTransaction.create({
+    await prisma.mpesaTransaction.create({
       data: {
         userId,
         merchantRequestID: result.MerchantRequestID,
         checkoutRequestID: result.CheckoutRequestID,
         phoneNumber: phoneNo.toString(),
         amount: parsedAmount,
+        type: "payment",
         status: "pending",
         accountReference: accountReference || `USER-${userId}`,
         transactionDesc: `Payment of KES ${amount}`,
@@ -76,9 +69,6 @@ export const mpesaTransaction = async (req: Request, res: Response) => {
       },
     });
 
-    console.log(`Transaction saved to database: ${transaction.checkoutRequestID}`);
-
-    // Return success immediately - user should check their phone
     return res.status(200).json({
       success: true,
       message: result.CustomerMessage,
@@ -94,12 +84,14 @@ export const mpesaTransaction = async (req: Request, res: Response) => {
   }
 };
 
-// Check payment status (for polling from frontend)
-export const checkPaymentStatus = async (req: Request, res: Response) => {
-  const { checkoutRequestID } = req.params;
+/**
+ * Initiate onramp transaction (buy cUSD)
+ */
+export const initiateOnramp = async (req: Request, res: Response) => {
+  const { amount, phoneNo } = req.body;
   const userId = req.user?.userId;
 
-  console.log(`Checking payment status: ${checkoutRequestID}`);
+  console.log("Initiating onramp:", { amount, phoneNo, userId });
 
   try {
     if (!userId) {
@@ -109,11 +101,100 @@ export const checkPaymentStatus = async (req: Request, res: Response) => {
       });
     }
 
-    // STEP 1: Check database first (fastest)
-    const transaction = await prisma.mpesaTransaction.findUnique({
-      where: {
-        checkoutRequestID,
+    // Get user's wallet address
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { smartAddress: true },
+    });
+
+    if (!user || !user.smartAddress) {
+      return res.status(400).json({
+        success: false,
+        error: "User wallet address not found",
+      });
+    }
+
+    if (!amount || !phoneNo) {
+      return res.status(400).json({
+        success: false,
+        error: "Amount and phone number are required",
+      });
+    }
+
+    const kesAmount = parseFloat(amount);
+    if (isNaN(kesAmount) || kesAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid amount",
+      });
+    }
+
+    // Calculate cUSD amount
+    const cusdAmount = kesAmount / EXCHANGE_RATE;
+
+    // Initiate STK push
+    const result = await tillPushStk(amount, phoneNo, `ONRAMP-${userId}`);
+
+    if (!result || result.ResponseCode !== "0") {
+      return res.status(400).json({
+        success: false,
+        error: result?.ResponseDescription || "Failed to initiate payment",
+      });
+    }
+
+    // Save onramp transaction to database
+    await prisma.mpesaTransaction.create({
+      data: {
+        userId,
+        merchantRequestID: result.MerchantRequestID,
+        checkoutRequestID: result.CheckoutRequestID,
+        phoneNumber: phoneNo.toString(),
+        amount: kesAmount,
+        type: "onramp",
+        status: "pending",
+        accountReference: `ONRAMP-${userId}`,
+        transactionDesc: `Buy ${cusdAmount.toFixed(6)} cUSD`,
+        cusdAmount,
+        exchangeRate: EXCHANGE_RATE,
+        walletAddress: user.smartAddress,
       },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: result.CustomerMessage,
+      checkoutRequestID: result.CheckoutRequestID,
+      kesAmount,
+      cusdAmount: cusdAmount.toFixed(6),
+      exchangeRate: EXCHANGE_RATE,
+    });
+  } catch (error) {
+    console.error("Error initiating onramp:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to initiate onramp",
+    });
+  }
+};
+
+/**
+ * Check transaction status (works for both payments and onramp)
+ */
+export const checkPaymentStatus = async (req: Request, res: Response) => {
+  const { checkoutRequestID } = req.params;
+  const userId = req.user?.userId;
+
+  try {
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+    }
+
+    // Check database first
+    const transaction = await prisma.mpesaTransaction.findUnique({
+      where: { checkoutRequestID },
     });
 
     if (!transaction) {
@@ -123,19 +204,16 @@ export const checkPaymentStatus = async (req: Request, res: Response) => {
       });
     }
 
-    // Verify the transaction belongs to this user
     if (transaction.userId !== userId) {
       return res.status(403).json({
         success: false,
-        error: "Unauthorized access to transaction",
+        error: "Unauthorized access",
       });
     }
 
-    // STEP 2: If already completed/failed, return cached status
-    // (Callback has already updated the database)
+    // If already completed/failed, return cached status
     if (transaction.status !== "pending") {
-      console.log(`Returning cached status: ${transaction.status}`);
-      return res.status(200).json({
+      const response: any = {
         success: true,
         status: transaction.status,
         resultCode: transaction.resultCode,
@@ -143,35 +221,44 @@ export const checkPaymentStatus = async (req: Request, res: Response) => {
         mpesaReceiptNumber: transaction.mpesaReceiptNumber,
         transactionDate: transaction.transactionDate,
         amount: transaction.amount.toString(),
-      });
+        type: transaction.type,
+      };
+
+      // Add onramp-specific fields
+      if (transaction.type === "onramp") {
+        response.cusdAmount = transaction.cusdAmount?.toString();
+        response.blockchainTxHash = transaction.blockchainTxHash;
+        response.exchangeRate = transaction.exchangeRate?.toString();
+      }
+
+      return res.status(200).json(response);
     }
 
-    // STEP 3: Still pending - query M-Pesa API as fallback
-    // (Only if callback hasn't arrived yet)
-    console.log("Status still pending, querying M-Pesa API...");
+    // Still pending - query M-Pesa API
     const statusResult = await checkPushStatus(checkoutRequestID);
 
     if (!statusResult) {
       return res.status(200).json({
         success: true,
         status: "pending",
-        message: "Payment still processing. Please wait...",
+        message: transaction.type === "onramp" 
+          ? "Waiting for payment confirmation..." 
+          : "Payment still processing...",
+        type: transaction.type,
+        cusdAmount: transaction.cusdAmount?.toString(),
       });
     }
 
-    // Parse result code
     const resultCode = parseInt(statusResult.ResultCode);
     let status = "pending";
 
-    // Map result codes to status
     if (resultCode === 0) {
       status = "completed";
     } else if (resultCode === 1032) {
       status = "cancelled";
     } else if (resultCode === 1037) {
       status = "timeout";
-    } else if (statusResult.ResultDesc && !statusResult.ResultDesc.includes("processing")) {
-      // Only mark as failed if we got a definitive failure
+    } else if (!statusResult.ResultDesc?.includes("processing")) {
       status = "failed";
     }
 
@@ -185,7 +272,6 @@ export const checkPaymentStatus = async (req: Request, res: Response) => {
           resultDesc: statusResult.ResultDesc,
         },
       });
-      console.log(`Transaction status updated via API query: ${status}`);
     }
 
     return res.status(200).json({
@@ -193,6 +279,8 @@ export const checkPaymentStatus = async (req: Request, res: Response) => {
       status,
       resultCode,
       resultDesc: statusResult.ResultDesc,
+      type: transaction.type,
+      cusdAmount: transaction.cusdAmount?.toString(),
     });
   } catch (error) {
     console.error("Error checking payment status:", error);
@@ -203,12 +291,14 @@ export const checkPaymentStatus = async (req: Request, res: Response) => {
   }
 };
 
-// M-Pesa callback handler
+/**
+ * Unified M-Pesa callback handler (handles both payments and onramp)
+ */
 export const mpesaCallback = async (req: Request, res: Response) => {
   console.log("=== M-Pesa Callback Received ===");
   console.log(JSON.stringify(req.body, null, 2));
 
-  // CRITICAL: Acknowledge receipt immediately (within 30 seconds!)
+  // Acknowledge immediately
   res.status(200).json({
     ResultCode: 0,
     ResultDesc: "Accepted",
@@ -219,119 +309,166 @@ export const mpesaCallback = async (req: Request, res: Response) => {
     const { stkCallback } = Body || {};
 
     if (!stkCallback) {
-      console.error("Invalid callback data - missing stkCallback");
+      console.error("Invalid callback data");
       return;
     }
 
     const {
-      MerchantRequestID,
       CheckoutRequestID,
       ResultCode,
       ResultDesc,
       CallbackMetadata,
     } = stkCallback;
 
-    console.log(`Processing callback for: ${CheckoutRequestID}, ResultCode: ${ResultCode}`);
-
-    // Find transaction in database
+    // Find transaction
     const transaction = await prisma.mpesaTransaction.findUnique({
-      where: {
-        checkoutRequestID: CheckoutRequestID,
-      },
+      where: { checkoutRequestID: CheckoutRequestID },
     });
 
     if (!transaction) {
-      console.error("Transaction not found in database:", CheckoutRequestID);
+      console.error("Transaction not found:", CheckoutRequestID);
       return;
     }
 
-    // Determine status based on result code
-    let status = "failed";
-    let updateData: any = {
-      resultCode: ResultCode,
-      resultDesc: ResultDesc,
-    };
+    // Handle failed/cancelled payments
+    if (ResultCode !== 0) {
+      let status = "failed";
+      if (ResultCode === 1032) status = "cancelled";
+      else if (ResultCode === 1037) status = "timeout";
 
-    if (ResultCode === 0) {
-      // Payment successful
-      status = "completed";
-
-      // Extract callback metadata
-      const metadata = CallbackMetadata?.Item || [];
-      console.log("The whole metadata", metadata);
-      const amount = metadata.find((item: any) => item.Name === "Amount")?.Value;
-      const mpesaReceiptNumber = metadata.find(
-        (item: any) => item.Name === "MpesaReceiptNumber"
-      )?.Value;
-      const transactionDate = metadata.find(
-        (item: any) => item.Name === "TransactionDate"
-      )?.Value;
-      const phoneNumber = metadata.find(
-        (item: any) => item.Name === "PhoneNumber"
-      )?.Value;
-
-      updateData = {
-        ...updateData,
-        status,
-        mpesaReceiptNumber,
-        transactionDate: transactionDate?.toString(),
-      };
-
-      console.log("✅ Payment successful:", {
-        checkoutRequestID: CheckoutRequestID,
-        amount,
-        receipt: mpesaReceiptNumber,
-        transactionDate,
-        phoneNumber,
+      await prisma.mpesaTransaction.update({
+        where: { checkoutRequestID: CheckoutRequestID },
+        data: {
+          status,
+          resultCode: ResultCode,
+          resultDesc: ResultDesc,
+        },
       });
-    } else if (ResultCode === 1032) {
-      status = "cancelled";
-      updateData.status = status;
-      console.log("❌ Payment cancelled by user");
-    } else if (ResultCode === 1037) {
-      status = "timeout";
-      updateData.status = status;
-      console.log("⏱️ Payment timed out - user didn't enter PIN");
-    } else {
-      status = "failed";
-      updateData.status = status;
-      console.log(`❌ Payment failed with code ${ResultCode}: ${ResultDesc}`);
+
+      console.log(`❌ ${transaction.type} ${status}:`, ResultDesc);
+      return;
     }
 
-    // Update transaction in database
-    await prisma.mpesaTransaction.update({
-      where: { checkoutRequestID: CheckoutRequestID },
-      data: updateData,
-    });
+    // Payment successful - extract metadata
+    const metadata = CallbackMetadata?.Item || [];
+    const mpesaReceiptNumber = metadata.find(
+      (item: any) => item.Name === "MpesaReceiptNumber"
+    )?.Value;
+    const transactionDate = metadata.find(
+      (item: any) => item.Name === "TransactionDate"
+    )?.Value;
 
-    console.log(`Transaction updated in database: ${CheckoutRequestID} -> ${status}`);
+    console.log(`✅ ${transaction.type} successful - Receipt: ${mpesaReceiptNumber}`);
 
-    // Optional: If this is for a chama, create Payment record
-    if (transaction.chamaId && status === "completed") {
-      try {
-        await prisma.payment.create({
-          data: {
-            amount: transaction.amount.toString(),
-            description: `M-Pesa payment - ${updateData.mpesaReceiptNumber}`,
-            txHash: updateData.mpesaReceiptNumber || CheckoutRequestID,
-            userId: transaction.userId,
-            chamaId: transaction.chamaId,
-          },
-        });
-        console.log("✅ Payment record created for chama");
-      } catch (paymentError) {
-        console.error("Error creating payment record:", paymentError);
-      }
+    // Handle based on transaction type
+    if (transaction.type === "onramp") {
+      await handleOnrampCallback(transaction, mpesaReceiptNumber, transactionDate);
+    } else {
+      await handlePaymentCallback(transaction, mpesaReceiptNumber, transactionDate);
     }
   } catch (error) {
-    console.error("Error processing M-Pesa callback:", error);
+    console.error("Error processing callback:", error);
   }
 };
 
-// Get user's transaction history
+/**
+ * Handle onramp callback - send cUSD to user
+ */
+async function handleOnrampCallback(
+  transaction: any,
+  mpesaReceiptNumber: string,
+  transactionDate: string
+) {
+  try {
+    console.log(`🚀 Sending ${transaction.cusdAmount} cUSD to ${transaction.walletAddress}`);
+
+    // Send cUSD to user's wallet
+    const txHash = await onrampcUSD(transaction.smartAddress as `0x${string}`,transaction.cusdAmount);
+    if (!txHash) {
+      console.error("Failed to send cUSD:");
+
+      // Update as failed
+      await prisma.mpesaTransaction.update({
+        where: { checkoutRequestID: transaction.checkoutRequestID },
+        data: {
+          status: "failed",
+          resultCode: 0,
+          resultDesc: `M-Pesa OK but cUSD transfer failed`,
+          mpesaReceiptNumber,
+          transactionDate: transactionDate?.toString(),
+        },
+      });
+      return;
+    }
+
+    console.log(`✅ cUSD sent successfully - TxHash: ${txHash}`);
+
+    // Update as completed with blockchain details
+    await prisma.mpesaTransaction.update({
+      where: { checkoutRequestID: transaction.checkoutRequestID },
+      data: {
+        status: "completed",
+        resultCode: 0,
+        resultDesc: "Transaction successful",
+        mpesaReceiptNumber,
+        transactionDate: transactionDate?.toString(),
+        blockchainTxHash: txHash,
+      },
+    });
+
+    console.log(`✅ Onramp completed for user ${transaction.userId}`);
+  } catch (error) {
+    console.error("Error handling onramp callback:", error);
+  }
+}
+
+/**
+ * Handle regular payment callback
+ */
+async function handlePaymentCallback(
+  transaction: any,
+  mpesaReceiptNumber: string,
+  transactionDate: string
+) {
+  try {
+    // Update transaction as completed
+    await prisma.mpesaTransaction.update({
+      where: { checkoutRequestID: transaction.checkoutRequestID },
+      data: {
+        status: "completed",
+        resultCode: 0,
+        resultDesc: "Transaction successful",
+        mpesaReceiptNumber,
+        transactionDate: transactionDate?.toString(),
+      },
+    });
+
+    // If for a chama, create Payment record
+    if (transaction.chamaId) {
+      await prisma.payment.create({
+        data: {
+          amount: transaction.amount.toString(),
+          description: `M-Pesa payment - ${mpesaReceiptNumber}`,
+          txHash: mpesaReceiptNumber || transaction.checkoutRequestID,
+          userId: transaction.userId,
+          chamaId: transaction.chamaId,
+        },
+      });
+      console.log("✅ Payment record created for chama");
+    }
+
+    console.log(`✅ Payment completed for user ${transaction.userId}`);
+  } catch (error) {
+    console.error("Error handling payment callback:", error);
+  }
+}
+
+/**
+ * Get user's transaction history
+ */
 export const getUserTransactions = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
-  const { status, limit = 20, offset = 0 } = req.query;
+  const { type, status, limit = 20, offset = 0 } = req.query;
 
   try {
     if (!userId) {
@@ -342,27 +479,14 @@ export const getUserTransactions = async (req: Request, res: Response) => {
     }
 
     const whereClause: any = { userId };
-    if (status) {
-      whereClause.status = status;
-    }
+    if (type) whereClause.type = type;
+    if (status) whereClause.status = status;
 
     const transactions = await prisma.mpesaTransaction.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
       take: parseInt(limit as string),
       skip: parseInt(offset as string),
-      select: {
-        id: true,
-        checkoutRequestID: true,
-        phoneNumber: true,
-        amount: true,
-        status: true,
-        mpesaReceiptNumber: true,
-        transactionDate: true,
-        resultDesc: true,
-        accountReference: true,
-        createdAt: true,
-      },
     });
 
     const total = await prisma.mpesaTransaction.count({
@@ -373,8 +497,6 @@ export const getUserTransactions = async (req: Request, res: Response) => {
       success: true,
       transactions,
       total,
-      limit: parseInt(limit as string),
-      offset: parseInt(offset as string),
     });
   } catch (error) {
     console.error("Error fetching transactions:", error);
