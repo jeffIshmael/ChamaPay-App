@@ -258,6 +258,7 @@ export const mpesaCallback = async (req: Request, res: Response) => {
 
       // Extract callback metadata
       const metadata = CallbackMetadata?.Item || [];
+      console.log("The whole metadata", metadata);
       const amount = metadata.find((item: any) => item.Name === "Amount")?.Value;
       const mpesaReceiptNumber = metadata.find(
         (item: any) => item.Name === "MpesaReceiptNumber"
