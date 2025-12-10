@@ -1,4 +1,4 @@
-// this file has the agent functions i.e set payout order, trigger check paydate fnctn
+// this file has the agent functions i.e set payout order, trigger check paydate fnctn, onramping, depositing to a chama
 
 import { configDotenv } from "dotenv";
 import {
@@ -8,12 +8,18 @@ import {
   prepareContractCall,
   prepareEvent,
   sendTransaction,
+  toWei,
   waitForReceipt,
 } from "thirdweb";
 import { celo } from "thirdweb/chains";
 import { Abi } from "thirdweb/utils";
 import { privateKeyToAccount, smartWallet } from "thirdweb/wallets";
-import { contractABI, contractAddress } from "../Blockchain/Constants";
+import {
+  contractABI,
+  contractAddress,
+  cUSDAddress,
+} from "../Blockchain/Constants";
+import { erc20Abi } from "viem";
 
 configDotenv();
 
@@ -33,6 +39,13 @@ const contract = getContract({
   chain: celo,
   address: contractAddress,
   abi: contractABI as Abi,
+});
+
+const cUSDContract = getContract({
+  client,
+  chain: celo,
+  address: cUSDAddress,
+  abi: erc20Abi,
 });
 
 const smartWalletClient = smartWallet({
@@ -123,66 +136,67 @@ export const checkPayoutResult = async (
 ) => {
   try {
     const blockNumber = receipt.blockNumber;
-    
+
     // Prepare events to query - using event signature strings
     const fundsDisbursedEvent = prepareEvent({
-      signature: "event FundsDisbursed(uint indexed chamaId, address indexed recipient, uint amount)",
+      signature:
+        "event FundsDisbursed(uint indexed chamaId, address indexed recipient, uint amount)",
     });
-    
+
     const refundIssuedEvent = prepareEvent({
-      signature: "event RefundIssued(uint indexed chamaId, address indexed member, uint amount)",
+      signature:
+        "event RefundIssued(uint indexed chamaId, address indexed member, uint amount)",
     });
-    
+
     const refundUpdatedEvent = prepareEvent({
       signature: "event RefundUpdated(uint indexed chamaId)",
     });
 
     // Query events from the transaction block
-    const [disbursedEvents, refundIssuedEvents, refundUpdatedEvents] = await Promise.all([
-      getContractEvents({
-        contract,
-        fromBlock: blockNumber,
-        toBlock: blockNumber,
-        events: [fundsDisbursedEvent],
-      }),
-      getContractEvents({
-        contract,
-        fromBlock: blockNumber,
-        toBlock: blockNumber,
-        events: [refundIssuedEvent],
-      }),
-      getContractEvents({
-        contract,
-        fromBlock: blockNumber,
-        toBlock: blockNumber,
-        events: [refundUpdatedEvent],
-      }),
-    ]);
+    const [disbursedEvents, refundIssuedEvents, refundUpdatedEvents] =
+      await Promise.all([
+        getContractEvents({
+          contract,
+          fromBlock: blockNumber,
+          toBlock: blockNumber,
+          events: [fundsDisbursedEvent],
+        }),
+        getContractEvents({
+          contract,
+          fromBlock: blockNumber,
+          toBlock: blockNumber,
+          events: [refundIssuedEvent],
+        }),
+        getContractEvents({
+          contract,
+          fromBlock: blockNumber,
+          toBlock: blockNumber,
+          events: [refundUpdatedEvent],
+        }),
+      ]);
 
     // Filter events for this specific chama
     const chamaIdBigInt = BigInt(chamaBlockchainId);
-    
-    const disbursedEvent = disbursedEvents.find(
-      (event: any) => {
-        const args = event.args as Record<string, unknown>;
-        return args && (args.chamaId as bigint) === chamaIdBigInt;
-      }
-    );
-    
-    const refundIssued = refundIssuedEvents.find(
-      (event: any) => {
-        const args = event.args as Record<string, unknown>;
-        return args && (args.chamaId as bigint) === chamaIdBigInt;
-      }
-    );
-    
-    const refundUpdated = refundUpdatedEvents.find(
-      (event: any) => {
-        const args = event.args as Record<string, unknown>;
-        // RefundUpdated uses _chamaId with underscore
-        return args && ((args._chamaId as bigint) === chamaIdBigInt || (args.chamaId as bigint) === chamaIdBigInt);
-      }
-    );
+
+    const disbursedEvent = disbursedEvents.find((event: any) => {
+      const args = event.args as Record<string, unknown>;
+      return args && (args.chamaId as bigint) === chamaIdBigInt;
+    });
+
+    const refundIssued = refundIssuedEvents.find((event: any) => {
+      const args = event.args as Record<string, unknown>;
+      return args && (args.chamaId as bigint) === chamaIdBigInt;
+    });
+
+    const refundUpdated = refundUpdatedEvents.find((event: any) => {
+      const args = event.args as Record<string, unknown>;
+      // RefundUpdated uses _chamaId with underscore
+      return (
+        args &&
+        ((args._chamaId as bigint) === chamaIdBigInt ||
+          (args.chamaId as bigint) === chamaIdBigInt)
+      );
+    });
 
     // Get timestamp from block (we'll need to fetch block or use current time)
     const timestamp = Date.now(); // You can fetch block timestamp if needed
@@ -201,7 +215,9 @@ export const checkPayoutResult = async (
 
     // Check if it was a refund
     if (refundIssued || refundUpdated) {
-      const refundArgs = refundIssued?.args as Record<string, unknown> | undefined;
+      const refundArgs = refundIssued?.args as
+        | Record<string, unknown>
+        | undefined;
       return {
         type: "refund" as const,
         timestamp: timestamp,
@@ -221,5 +237,34 @@ export const checkPayoutResult = async (
   } catch (error) {
     console.error("Error checking payout result:", error);
     throw error;
+  }
+};
+
+// onramping fnct i.e sending cUSD to the user's wallet
+export const onrampcUSD = async (userAddress: `0x${string}`, amount: string): Promise<string|null> => {
+  try {
+    const amountInWei = toWei(amount);
+    const transaction = prepareContractCall({
+      contract,
+      method: "function transfer(address to, uint256 amount)",
+      params: [userAddress, amountInWei] ,
+    });
+    const activeAccount = await getAgentSmartWallet();
+    const { transactionHash } = await sendTransaction({
+      account: activeAccount,
+      transaction: transaction,
+    });
+    const receipt = await waitForReceipt({
+      client,
+      chain: celo,
+      transactionHash: transactionHash,
+    });
+    if (!receipt) {
+      throw new Error("Failed to set payout order. No receipt found");
+    }
+    return receipt.transactionHash;
+  } catch (error) {
+    console.error("Unable to send to the user.", error);
+    return null;
   }
 };
