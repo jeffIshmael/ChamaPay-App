@@ -1,33 +1,41 @@
-import { serverUrl } from '@/constants/serverUrl';
+import { serverUrl } from "@/constants/serverUrl";
+import { formatTimeRemaining } from "@/Utils/helperFunctions";
 
 // User service functions
-export const checkUsernameAvailability = async (username: string): Promise<{
+export const checkUsernameAvailability = async (
+  username: string
+): Promise<{
   success: boolean;
   available?: boolean;
   message?: string;
   error?: string;
 }> => {
   try {
-    const response = await fetch(`${serverUrl}/user/checkUsernameAvailability`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ username }),
-    });
+    const response = await fetch(
+      `${serverUrl}/user/checkUsernameAvailability`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username }),
+      }
+    );
 
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error checking username availability:', error);
+    console.error("Error checking username availability:", error);
     return {
       success: false,
-      error: 'Failed to check username availability',
+      error: "Failed to check username availability",
     };
   }
 };
 
-export const searchUsers = async (query: string): Promise<{
+export const searchUsers = async (
+  query: string
+): Promise<{
   success: boolean;
   users?: Array<{
     id: number;
@@ -39,20 +47,23 @@ export const searchUsers = async (query: string): Promise<{
   error?: string;
 }> => {
   try {
-    const response = await fetch(`${serverUrl}/user/search?query=${encodeURIComponent(query)}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await fetch(
+      `${serverUrl}/user/search?query=${encodeURIComponent(query)}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error searching users:', error);
+    console.error("Error searching users:", error);
     return {
       success: false,
-      error: 'Failed to search users',
+      error: "Failed to search users",
     };
   }
 };
@@ -66,7 +77,6 @@ export interface UserDetailsResponse {
     profileImageUrl?: string;
     address?: string;
   };
-
 }
 
 export interface ChamaMember {
@@ -149,34 +159,46 @@ export interface UserDetails {
 }
 
 // get user details
-export const checkUserDetails = async (email: string): Promise<UserDetailsResponse> => {
+export const checkUserDetails = async (
+  email: string
+): Promise<UserDetailsResponse> => {
   try {
     const response = await fetch(`${serverUrl}/user/checkUserExists`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error fetching user details:', error);
-    return { success: false, user: { id: 0, name: '', email: '', profileImageUrl: '', address: '' } };
+    console.error("Error fetching user details:", error);
+    return {
+      success: false,
+      user: { id: 0, name: "", email: "", profileImageUrl: "", address: "" },
+    };
   }
 };
 
 // register user
-export const registerUser = async (email: string, name: string, profileImageUrl: string): Promise<UserDetailsResponse> => {
+export const registerUser = async (
+  email: string,
+  name: string,
+  profileImageUrl: string
+): Promise<UserDetailsResponse> => {
   try {
     const response = await fetch(`${serverUrl}/user/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, name, profileImageUrl }),
     });
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error registering user:', error);
-    return { success: false, user: { id: 0, name: '', email: '', profileImageUrl: '', address: '' } };
+    console.error("Error registering user:", error);
+    return {
+      success: false,
+      user: { id: 0, name: "", email: "", profileImageUrl: "", address: "" },
+    };
   }
 };
 
@@ -184,10 +206,10 @@ export const registerUser = async (email: string, name: string, profileImageUrl:
 export const getUserChamas = async (token: string): Promise<ChamaResponse> => {
   try {
     const response = await fetch(`${serverUrl}/chama/my-chamas`, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
     });
 
@@ -200,19 +222,22 @@ export const getUserChamas = async (token: string): Promise<ChamaResponse> => {
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error fetching user chamas:', error);
-    return { success: false, error: 'Failed to fetch chamas' };
+    console.error("Error fetching user chamas:", error);
+    return { success: false, error: "Failed to fetch chamas" };
   }
 };
 
 // Get chama by slug
-export const getChamaBySlug = async (slug: string, token: string): Promise<ChamaResponse> => {
+export const getChamaBySlug = async (
+  slug: string,
+  token: string
+): Promise<ChamaResponse> => {
   try {
     const response = await fetch(`${serverUrl}/chama/${slug}`, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
     });
 
@@ -223,19 +248,21 @@ export const getChamaBySlug = async (slug: string, token: string): Promise<Chama
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error fetching chama:', error);
-    return { success: false, error: 'Failed to fetch chama' };
+    console.error("Error fetching chama:", error);
+    return { success: false, error: "Failed to fetch chama" };
   }
 };
 
 // Get public chamas user is not a member of
-export const getPublicChamas = async (token: string): Promise<ChamaResponse> => {
+export const getPublicChamas = async (
+  token: string
+): Promise<ChamaResponse> => {
   try {
     const response = await fetch(`${serverUrl}/chama/public-chamas`, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
     });
 
@@ -246,30 +273,44 @@ export const getPublicChamas = async (token: string): Promise<ChamaResponse> => 
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error fetching public chamas:', error);
-    return { success: false, error: 'Failed to fetch public chamas' };
+    console.error("Error fetching public chamas:", error);
+    return { success: false, error: "Failed to fetch public chamas" };
   }
 };
 
 // function to get user from userID
-export const getUserFromUserId = async (userId: number, token: string): Promise<UserDetailsResponse> => {
+export const getUserFromUserId = async (
+  userId: number,
+  token: string
+): Promise<UserDetailsResponse> => {
   try {
     const response = await fetch(`${serverUrl}/user/${userId}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
     });
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error fetching user from userId:', error);
-    return { success: false, user: { id: 0, name: '', email: '', profileImageUrl: '', address: '' } };
+    console.error("Error fetching user from userId:", error);
+    return {
+      success: false,
+      user: { id: 0, name: "", email: "", profileImageUrl: "", address: "" },
+    };
   }
 };
 
 // Transform backend chama data to frontend format
 export const transformChamaData = (backendChama: BackendChama) => {
-  const memberCount = backendChama._count?.members || backendChama.members?.length || 0;
-  
+  const memberCount =
+    backendChama._count?.members || backendChama.members?.length || 0;
+  // Calculate the next payout date properly
+  const nextPayoutDate = backendChama.payDate
+    ? new Date(backendChama.payDate).toISOString()
+    : new Date().toISOString();
+
   return {
     id: backendChama.id, // Use id as ID for routing
     slug: backendChama.slug, // Include slug for navigation
@@ -281,11 +322,18 @@ export const transformChamaData = (backendChama: BackendChama) => {
     contribution: parseFloat(backendChama.amount),
     totalContributions: parseFloat(backendChama.amount) * memberCount,
     myContributions: parseFloat(backendChama.amount), // Assuming user has made at least one contribution
-    nextPayoutDate: backendChama.payDate ? new Date(backendChama.payDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-    nextPayoutAmount: parseFloat(backendChama.amount) * memberCount,
-    currentTurnMember: backendChama.members?.[0]?.user?.name || backendChama.members?.[0]?.user?.userName || "Not assigned",
-    myTurnDate: backendChama.payDate ? new Date(backendChama.payDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-    contributionDueDate: backendChama.startDate ? new Date(backendChama.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+    nextPayoutDate:formatTimeRemaining(nextPayoutDate),
+    nextPayoutAmount:parseFloat(backendChama.amount) * memberCount,
+    currentTurnMember:
+      backendChama.members?.[0]?.user?.name ||
+      backendChama.members?.[0]?.user?.userName ||
+      "Not assigned",
+    myTurnDate: backendChama.payDate
+      ? new Date(backendChama.payDate).toISOString().split("T")[0]
+      : new Date().toISOString().split("T")[0],
+    contributionDueDate: backendChama.startDate
+      ? new Date(backendChama.startDate).toISOString().split("T")[0]
+      : new Date().toISOString().split("T")[0],
     hasOutstandingPayment: false, // Would need to check payment status
     frequency: `${backendChama.cycleTime} days`, // Convert cycle time to frequency string
     duration: `${backendChama.cycleTime} days`, // Convert cycle time to duration
@@ -293,97 +341,129 @@ export const transformChamaData = (backendChama: BackendChama) => {
     raterCount: backendChama.raterCount || 0, // Default rater count
     category: backendChama.type,
     location: "Nairobi", // Default location
-    adminTerms: backendChama.adminTerms ? (typeof backendChama.adminTerms === 'string' ? JSON.parse(backendChama.adminTerms) : backendChama.adminTerms) : [],
+    adminTerms: backendChama.adminTerms
+      ? typeof backendChama.adminTerms === "string"
+        ? JSON.parse(backendChama.adminTerms)
+        : backendChama.adminTerms
+      : [],
     collateralAmount: parseFloat(backendChama.amount) * memberCount,
-    nextPayout: backendChama.payDate ? new Date(backendChama.payDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+    nextPayout: backendChama.payDate
+      ? new Date(backendChama.payDate).toISOString().split("T")[0]
+      : new Date().toISOString().split("T")[0],
     myTurn: false, // Would need to calculate based on current position
     myPosition: 1, // Default position
-    nextTurnMember: backendChama.members?.[1]?.user?.name || backendChama.members?.[1]?.user?.userName || "Not assigned",
+    nextTurnMember:
+      backendChama.members?.[1]?.user?.name ||
+      backendChama.members?.[1]?.user?.userName ||
+      "Not assigned",
     status: backendChama.started ? "active" : "not started", // Default status
     unreadMessages: 0, // Would need to implement message tracking
     isPublic: backendChama.type === "Public",
     blockchainId: backendChama.blockchainId,
     messages: [], // Empty for now
-    payoutSchedule: JSON.stringify(backendChama.payOutOrder) ? JSON.parse(backendChama.payOutOrder) : [], // Would need to generate based on cycle
-    members: backendChama.members?.map(member => ({
-      id: member.user.id,
-      name: member.user.name || member.user.userName || "Unknown Member",
-      phone: "", // Not available in backend
-      email: member.user.email,
-      role: member.user.id === backendChama.admin.id ? "Admin" : "Member",
-      contributions: parseFloat(backendChama.amount), // Default contribution
-      address: member.user.address || "", // Add wallet address
-    })) || [],
-    recentTransactions: backendChama.payments?.map(payment => ({
-      id: payment.id,
-      amount: payment.amount,
-      type: payment.description ? "contribution" : "payment",
-      date: payment.doneAt,
-      status: "completed", // Add missing status property
-      description: payment.description || "Contribution",
-      txHash: payment.txHash,
-      userId: payment.userId,
-      user: {
-        id: payment.user.id,
-        name: payment.user.userName,
-        email: payment.user.email,
-        profileImageUrl: payment.user.profileImageUrl,
-        address: payment.user.address,
-      },
-    })) || [],
+    payoutSchedule: JSON.stringify(backendChama.payOutOrder)
+      ? JSON.parse(backendChama.payOutOrder)
+      : [], // Would need to generate based on cycle
+    members:
+      backendChama.members?.map((member) => ({
+        id: member.user.id,
+        name: member.user.name || member.user.userName || "Unknown Member",
+        phone: "", // Not available in backend
+        email: member.user.email,
+        role: member.user.id === backendChama.admin.id ? "Admin" : "Member",
+        contributions: parseFloat(backendChama.amount), // Default contribution
+        address: member.user.address || "", // Add wallet address
+      })) || [],
+    recentTransactions:
+      backendChama.payments?.map((payment) => ({
+        id: payment.id,
+        amount: payment.amount,
+        type: payment.description ? "contribution" : "payment",
+        date: payment.doneAt,
+        status: "completed", // Add missing status property
+        description: payment.description || "Contribution",
+        txHash: payment.txHash,
+        userId: payment.userId,
+        user: {
+          id: payment.user.id,
+          name: payment.user.userName,
+          email: payment.user.email,
+          profileImageUrl: payment.user.profileImageUrl,
+          address: payment.user.address,
+        },
+      })) || [],
   };
-}; 
+};
 
 // register chama to the database
-export const registerChamaToDatabase = async (chamaData: RegisterChamaRequestBody, token: string): Promise<ChamaResponse> => {
+export const registerChamaToDatabase = async (
+  chamaData: RegisterChamaRequestBody,
+  token: string
+): Promise<ChamaResponse> => {
   try {
     const response = await fetch(`${serverUrl}/chama/create`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify(chamaData),
     });
     const data = await response.json();
     console.log(data);
     return data;
   } catch (error) {
-    console.error('Error registering chama to database:', error);
-    return { success: false, error: 'Failed to register chama to database' };
+    console.error("Error registering chama to database:", error);
+    return { success: false, error: "Failed to register chama to database" };
   }
 };
 
 // add a member to a chama
-export const addMemberToChama = async (chamaId: number, isPublic: boolean, memberId: number, amount: string, txHash: string, token: string): Promise<ChamaResponse> => {
+export const addMemberToChama = async (
+  chamaId: number,
+  isPublic: boolean,
+  memberId: number,
+  amount: string,
+  txHash: string,
+  token: string
+): Promise<ChamaResponse> => {
   try {
     const response = await fetch(`${serverUrl}/chama/add-member`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ chamaId, isPublic, memberId, amount, txHash }),
     });
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error adding member to chama:', error);
-    return { success: false, error: 'Failed to add member to chama' };
+    console.error("Error adding member to chama:", error);
+    return { success: false, error: "Failed to add member to chama" };
   }
 };
 
 // function to save a chama's message
-export const saveMessageToDb = async (token:string, userId:number, message: string, chamaId:number) =>{
+export const saveMessageToDb = async (
+  token: string,
+  userId: number,
+  message: string,
+  chamaId: number
+) => {
   try {
     const response = await fetch(`${serverUrl}/chama/send-message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ chamaId, userId, message}),
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ chamaId, userId, message }),
     });
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error adding member to chama:', error);
-    return { success: false, error: 'Failed to add member to chama' };
+    console.error("Error adding member to chama:", error);
+    return { success: false, error: "Failed to add member to chama" };
   }
-
-}
-
-
-
-
+};

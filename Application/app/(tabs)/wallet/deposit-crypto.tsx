@@ -1,240 +1,619 @@
-import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
+import { ArrowLeft, Smartphone, Info } from "lucide-react-native";
+import React, { useEffect, useState } from "react";
 import {
-    ArrowDownRight,
-    ArrowLeft,
-    Check,
-    Copy,
-    DollarSign,
-    Info
-} from "lucide-react-native";
-import React, { useState } from "react";
-import {
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  ActivityIndicator,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Path } from "react-native-svg";
+import { useAuth } from "@/Contexts/AuthContext";
+import { initiateOnramp, pollOnrampStatus } from "@/lib/onrampService";
 
 export default function DepositCryptoScreen() {
-  const [selectedMethod, setSelectedMethod] = useState<
-    "bank" | "card" | "crypto"
-  >("bank");
+  const [selectedToken, setSelectedToken] = useState<string | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] =
+    useState<string>("mpesa");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [amount, setAmount] = useState("");
-  const [selectedCurrency, setSelectedCurrency] = useState("cKES");
-  const router = useRouter();
+  const [isTokenModalVisible, setIsTokenModalVisible] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState<
+    | "idle"
+    | "initiating"
+    | "waiting_for_pin"
+    | "processing"
+    | "completed"
+    | "failed"
+  >("idle");
+  const { token, user } = useAuth();
 
-  const depositMethods = [
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+
+  // Exchange rates (KES to crypto)
+  const exchangeRates = {
+    cUSD: 0.0076, // 1 KES = 0.0076 cUSD (approx 131 KES per cUSD)
+    USDC: 0.0076, // 1 KES = 0.0076 USDC
+  };
+
+  const MINIMUM_DEPOSIT = 10;
+
+  const tokens = [
     {
-      id: "bank",
-      title: "Bank Transfer",
-      subtitle: "Free • 1-2 business days",
-      icon: <DollarSign size={20} color="#059669" />,
-      bgColor: "bg-green-50",
-      borderColor: "border-green-200",
+      symbol: "cUSD",
+      name: "Celo Dollar",
+      image: require("@/assets/images/cusd.jpg"),
     },
     {
-      id: "card",
-      title: "Debit/Credit Card",
-      subtitle: "2.9% fee • Instant",
-      icon: <Copy size={20} color="#2563eb" />,
-      bgColor: "bg-blue-50",
-      borderColor: "border-blue-200",
-    },
-    {
-      id: "crypto",
-      title: "Crypto Transfer",
-      subtitle: "Network fees apply • 10-30 minutes",
-      icon: <ArrowDownRight size={20} color="#7c3aed" />,
-      bgColor: "bg-purple-50",
-      borderColor: "border-purple-200",
+      symbol: "USDC",
+      name: "USD Coin",
+      image: require("@/assets/images/usdclogo.png"),
     },
   ];
 
-  const currencies = ["cKES", "USD", "EUR"];
+  const paymentMethods = [
+    {
+      id: "mpesa",
+      name: "M-Pesa",
+      icon: require("@/assets/images/mpesa.png"), // Add M-Pesa logo
+      description: "Mobile Money (Kenya)",
+    },
+  ];
 
-  const handleDeposit = () => {
-    if (!amount.trim()) {
-      Alert.alert("Error", "Please enter an amount");
-      return;
+  // Calculate amounts
+  const calculateAmounts = () => {
+    const depositAmount = parseFloat(amount) || 0;
+
+    if (depositAmount < MINIMUM_DEPOSIT) {
+      return {
+        depositAmount: 0,
+        cryptoAmount: 0,
+      };
     }
-    // TODO
-    // onNavigate("payment", {
-    //   type: "crypto-deposit",
-    //   method: selectedMethod,
-    //   amount: parseFloat(amount),
-    //   currency: selectedCurrency,
-    // });
+
+    const rate = selectedToken
+      ? exchangeRates[selectedToken as keyof typeof exchangeRates]
+      : 0;
+    const cryptoAmount = depositAmount * rate;
+
+    return {
+      depositAmount,
+      cryptoAmount: cryptoAmount.toFixed(4),
+    };
   };
 
+  const { depositAmount, cryptoAmount } = calculateAmounts();
+
+  // the function to deposit crpto from fiat(more like an onramp)
+  const handleDeposit = async (selectedToken: string) => {
+    if (!phoneNumber.trim() || !amount.trim() || !selectedToken) {
+      Alert.alert("Error", "Please fill in all required fields");
+      return;
+    }
+
+    if (phoneNumber.length !== 9) {
+      Alert.alert("Error", "Please enter a valid phone number (9 digits)");
+      return;
+    }
+
+    if (parseFloat(amount) < MINIMUM_DEPOSIT) {
+      Alert.alert("Error", `Minimum deposit is KES ${MINIMUM_DEPOSIT}`);
+      return;
+    }
+    if (!token) {
+      Alert.alert("Error", "Authentication required");
+      return;
+    }
+
+    const rate = selectedToken
+      ? exchangeRates[selectedToken as keyof typeof exchangeRates]
+      : 0;
+
+    // Start processing
+    setIsProcessing(true);
+    setProcessingStep("initiating");
+    try {
+      const fullPhoneNumber = `254${phoneNumber}`;
+
+      // Step 1: Initiate onramp
+      const result = await initiateOnramp(
+        Number(fullPhoneNumber),
+        amount,
+        `${user?.userName} wallet`,
+        false,
+        rate,
+        token
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to initiate onramp");
+      }
+      setProcessingStep("waiting_for_pin");
+      try {
+        const onrampResult = await pollOnrampStatus(
+          result.checkoutRequestID,
+          token,
+          (status, data) => {
+            console.log("Status update:", status, data);
+
+            switch (status) {
+              case "pending":
+                setProcessingStep("waiting_for_pin");
+                break;
+              case "pending_transfer":
+                setProcessingStep("processing");
+                setTimeout(() => {
+                  setProcessingStep("processing");
+                }, 1500);
+                break;
+              case "completed":
+                setProcessingStep("completed");
+                break;
+            }
+          }
+        );
+
+        // Simulate completion
+        // onramp completed
+        setTimeout(() => {
+          setProcessingStep("completed");
+          setTimeout(() => {
+            setIsProcessing(false);
+            setProcessingStep("idle");
+            Alert.alert(
+              "Success!",
+              `Successfully deposited ${cryptoAmount} ${selectedToken}`,
+              [
+                {
+                  text: "OK",
+                  onPress: () => router.push("/wallet"),
+                },
+              ]
+            );
+          }, 2000);
+        }, 8000);
+      } catch (pollError: any) {
+        setIsProcessing(false);
+
+        let errorTitle = "Onramp Failed";
+        let errorMessage = "The onramp could not be completed.";
+
+        if (pollError.status === "cancelled") {
+          errorTitle = "Payment Cancelled";
+          errorMessage = "You cancelled the payment request.";
+        } else if (pollError.status === "timeout") {
+          errorTitle = "Payment Timeout";
+          errorMessage = "The payment request timed out. Please try again.";
+        } else if (pollError.resultDesc) {
+          errorMessage = pollError.resultDesc;
+        }
+
+        Alert.alert(errorTitle, errorMessage, [
+          {
+            text: "OK",
+            onPress: () => {
+              setProcessingStep("idle");
+            },
+          },
+        ]);
+      }
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error?.message || "An unexpected error occurred. Please try again."
+      );
+    }
+  };
+
+  const selectedTokenData = tokens.find((t) => t.symbol === selectedToken);
+  const selectedPaymentMethodData = paymentMethods.find(
+    (p) => p.id === selectedPaymentMethod
+  );
+
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-        {/* Header */}
-        <View className="bg-green-600 px-6 pt-4 pb-6">
-          <View className="flex-row items-center justify-between mb-4">
+    <KeyboardAvoidingView
+      className="flex-1 bg-downy-800"
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{ paddingTop: insets.top }}
+    >
+      {/* Header */}
+      <View className="px-6 pt-4 pb-6">
+        <View className="flex-row items-center justify-between mb-2">
+          <TouchableOpacity
+            onPress={() => router.push("/wallet")}
+            className="p-2 -ml-2"
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={24} color="white" />
+          </TouchableOpacity>
+          <Text className="text-xl font-bold text-white">Deposit Crypto</Text>
+          <View className="w-8" />
+        </View>
+        <Text className="text-emerald-100 text-sm text-center mt-1">
+          Convert mobile money to crypto instantly
+        </Text>
+      </View>
+
+      {/* Main Content */}
+      <ScrollView
+        className="flex-1 bg-gray-50 rounded-t-3xl"
+        keyboardShouldPersistTaps="handled"
+      >
+        <View className="px-6 py-8 gap-5">
+          {/* Payment Method Selection */}
+          <View className="bg-white px-5 py-6 rounded-2xl shadow-sm">
+            <Text className="text-base font-bold text-gray-900 mb-3">
+              Payment Method
+            </Text>
+
+            {paymentMethods.map((method) => (
+              <TouchableOpacity
+                key={method.id}
+                onPress={() => setSelectedPaymentMethod(method.id)}
+                className={`flex-row items-center justify-between p-4 rounded-xl border-2 ${
+                  selectedPaymentMethod === method.id
+                    ? "bg-emerald-50 border-emerald-600"
+                    : "bg-gray-50 border-gray-200"
+                }`}
+                activeOpacity={0.7}
+              >
+                <View className="flex-row items-center">
+                  <View className="w-12 h-12 bg-white rounded-full items-center justify-center mr-3 border border-gray-200">
+                    <Smartphone size={24} color="#10b981" />
+                  </View>
+                  <View>
+                    <Image source={method.icon} className="w-16 h-10" />
+                    <Text className="text-xs text-gray-500">
+                      {method.description}
+                    </Text>
+                  </View>
+                </View>
+                {selectedPaymentMethod === method.id && (
+                  <View className="w-6 h-6 bg-emerald-600 rounded-full items-center justify-center">
+                    <Text className="text-white text-xs font-bold">✓</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Select Token */}
+          <View className="bg-white px-5 py-6 rounded-2xl shadow-sm">
+            <Text className="text-base font-bold text-gray-900 mb-3">
+              Select Cryptocurrency
+            </Text>
+
             <TouchableOpacity
-              onPress={() => router.back()}
-              className="p-2 rounded-full"
+              onPress={() => setIsTokenModalVisible(true)}
+              className="flex-row items-center justify-between p-4 bg-gray-50 rounded-xl border-2 border-gray-200"
               activeOpacity={0.7}
             >
-              <ArrowLeft size={20} color="white" />
-            </TouchableOpacity>
-            <Text className="text-lg text-white font-medium">
-              Deposit Funds
-            </Text>
-            <View className="w-10" />
-          </View>
-        </View>
-
-        <View className="px-6 py-6 gap-6">
-          {/* Amount */}
-          <View className="bg-white p-4 rounded-lg border border-gray-200">
-            <Text className="text-gray-900 font-medium mb-3">
-              Amount to Deposit
-            </Text>
-            <View className="flex-row items-center gap-3">
-              <View className="flex-1">
-                <TextInput
-                  value={amount}
-                  onChangeText={setAmount}
-                  placeholder="0.00"
-                  keyboardType="numeric"
-                  className="border border-gray-300 rounded-lg px-3 py-3 text-lg font-medium text-center flex-1"
-                />
-              </View>
-              <View className="w-20">
-                <Picker
-                  selectedValue={selectedCurrency}
-                  onValueChange={setSelectedCurrency}
-                  style={{ height: 50 }}
-                >
-                  {currencies.map((currency) => (
-                    <Picker.Item
-                      key={currency}
-                      label={currency}
-                      value={currency}
+              <View className="flex-row items-center space-x-3">
+                {selectedToken ? (
+                  <>
+                    <Image
+                      source={selectedTokenData?.image || tokens[0].image}
+                      className="w-10 h-10 rounded-full mr-2"
                     />
-                  ))}
-                </Picker>
-              </View>
-            </View>
-          </View>
-
-          {/* Deposit Methods */}
-          <View className="bg-white p-4 rounded-lg border border-gray-200">
-            <Text className="text-gray-900 font-medium mb-3">
-              Select Deposit Method
-            </Text>
-            <View className="gap-3">
-              {depositMethods.map((method) => (
-                <TouchableOpacity
-                  key={method.id}
-                  onPress={() => setSelectedMethod(method.id as any)}
-                  className={`flex-row items-center justify-between p-4 rounded-lg border ${
-                    selectedMethod === method.id
-                      ? "border-emerald-500 bg-emerald-50"
-                      : `${method.borderColor} ${method.bgColor}`
-                  }`}
-                  activeOpacity={0.7}
-                >
-                  <View className="flex-row items-center">
-                    <View className="w-10 h-10 rounded-full bg-white items-center justify-center mr-3 border border-gray-200">
-                      {method.icon}
-                    </View>
                     <View>
-                      <Text className="text-gray-900 font-medium">
-                        {method.title}
+                      <Text className="text-base text-gray-900 font-semibold">
+                        {selectedToken}
                       </Text>
-                      <Text className="text-sm text-gray-600">
-                        {method.subtitle}
+                      <Text className="text-xs text-gray-500">
+                        {selectedTokenData?.name}
                       </Text>
                     </View>
-                  </View>
-                  {selectedMethod === method.id && (
-                    <Check size={16} color="#059669" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
+                  </>
+                ) : (
+                  <>
+                    <View className="w-10 h-10 rounded-full bg-gray-200 items-center justify-center">
+                      <Text className="text-gray-400 font-bold">?</Text>
+                    </View>
+                    <Text className="text-base text-gray-500 font-medium">
+                      Choose a token
+                    </Text>
+                  </>
+                )}
+              </View>
+
+              <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M6 9l6 6 6-6"
+                  stroke="#6B7280"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </TouchableOpacity>
           </View>
 
-          {/* Method-specific Information */}
-          {selectedMethod === "bank" && (
-            <View className="bg-green-50 border border-green-200 p-4 rounded-lg">
-              <View className="flex-row items-start">
-                <Info size={16} color="#059669" />
-                <View className="ml-3 flex-1">
-                  <Text className="text-sm font-medium text-green-800 mb-1">
-                    Bank Transfer
+          {/* Show rest only after token selected */}
+          {selectedToken && (
+            <>
+              {/* Phone Number Input */}
+              <View className="bg-white px-5 py-6 rounded-2xl shadow-sm">
+                <Text className="text-base font-bold text-gray-900 mb-2">
+                  M-Pesa Phone Number
+                </Text>
+                <Text className="text-sm text-gray-500 mb-3">
+                  Enter your M-Pesa registered number
+                </Text>
+
+                <View className="flex-row items-center bg-gray-50 rounded-xl border-2 border-gray-200 px-4 py-3">
+                  <Text className="text-base font-semibold text-gray-700 mr-2">
+                    +254
                   </Text>
-                  <Text className="text-xs text-green-700">
-                    • Free bank transfers from supported banks{"\n"}• Processing
-                    time: 1-2 business days{"\n"}• Minimum deposit: 100{" "}
-                    {selectedCurrency}
+                  <TextInput
+                    value={phoneNumber}
+                    onChangeText={(text) => {
+                      // Only allow numbers and limit to 9 digits
+                      const cleaned = text.replace(/[^0-9]/g, "").slice(0, 9);
+                      setPhoneNumber(cleaned);
+                    }}
+                    placeholder="712345678"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="phone-pad"
+                    maxLength={9}
+                    style={{ fontSize: 16, padding: 0, margin: 0 }}
+                    className="flex-1"
+                  />
+                </View>
+                <Text className="text-xs text-gray-400 mt-2 ml-1">
+                  Format: 7XXXXXXXX or 1XXXXXXXX
+                </Text>
+              </View>
+
+              {/* Amount Input */}
+              <View className="bg-white p-5 rounded-2xl shadow-sm">
+                <Text className="text-base font-bold text-gray-900 mb-3">
+                  Amount (KES)
+                </Text>
+                <View className="bg-gray-50 p-4 rounded-xl border-2 border-gray-200">
+                  <TextInput
+                    value={amount}
+                    onChangeText={setAmount}
+                    placeholder="0.00"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="decimal-pad"
+                    className="text-center text-3xl font-bold text-gray-900"
+                  />
+                  <Text className="text-center text-sm text-gray-500 mt-2">
+                    KES (Kenyan Shillings)
                   </Text>
                 </View>
-              </View>
-            </View>
-          )}
 
-          {selectedMethod === "card" && (
-            <View className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-              <View className="flex-row items-start">
-                <Info size={16} color="#2563eb" />
-                <View className="ml-3 flex-1">
-                  <Text className="text-sm font-medium text-blue-800 mb-1">
-                    Card Payment
+                <View className="flex-row items-center justify-between mt-3 px-1">
+                  <Text className="text-sm text-gray-600">
+                    Minimum:{" "}
+                    <Text className="font-semibold">KES {MINIMUM_DEPOSIT}</Text>
                   </Text>
-                  <Text className="text-xs text-blue-700">
-                    • Instant deposit with 2.9% processing fee{"\n"}• Visa and
-                    Mastercard accepted{"\n"}• Minimum deposit: 10{" "}
-                    {selectedCurrency}
+                  <View className="flex-row gap-2">
+                    {[50, 100, 500].map((preset) => (
+                      <TouchableOpacity
+                        key={preset}
+                        onPress={() => setAmount(preset.toString())}
+                        className="px-3 py-1.5 bg-emerald-100 rounded-full"
+                        activeOpacity={0.7}
+                      >
+                        <Text className="text-emerald-700 text-xs font-bold">
+                          {preset}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <View className="h-px bg-gray-200 my-4" />
+
+                <View className="flex-row justify-between items-center ">
+                  <Text className="text-sm font-bold text-gray-600">
+                    Exchange Rate
+                  </Text>
+                  <Text className="text-sm font-bold text-gray-500">
+                    1 {selectedToken} ={" "}
+                    {(
+                      1 /
+                      exchangeRates[selectedToken as keyof typeof exchangeRates]
+                    ).toFixed(2)}{" "}
+                    KES
                   </Text>
                 </View>
+                {parseFloat(amount) >= MINIMUM_DEPOSIT && (
+                  <View className="flex-row justify-between items-center bg-blue-50 p-3 rounded-xl mt-4">
+                    <Text className="text-base font-bold text-blue-700">
+                      You'll Receive
+                    </Text>
+                    <Text className="text-lg font-bold text-blue-700">
+                      {cryptoAmount} {selectedToken}
+                    </Text>
+                  </View>
+                )}
               </View>
-            </View>
-          )}
 
-          {selectedMethod === "crypto" && (
-            <View className="bg-purple-50 border border-purple-200 p-4 rounded-lg">
-              <View className="flex-row items-start">
-                <Info size={16} color="#7c3aed" />
-                <View className="ml-3 flex-1">
-                  <Text className="text-sm font-medium text-purple-800 mb-1">
-                    Crypto Transfer
-                  </Text>
-                  <Text className="text-xs text-purple-700">
-                    • Transfer from external wallet{"\n"}• Network fees apply
-                    (varies by blockchain){"\n"}• Processing time: 10-30 minutes
-                  </Text>
-                </View>
+              {/* Submit Button */}
+              <TouchableOpacity
+                onPress={() => handleDeposit(selectedToken)}
+                disabled={
+                  !phoneNumber.trim() ||
+                  !amount.trim() ||
+                  parseFloat(amount) < MINIMUM_DEPOSIT ||
+                  phoneNumber.length !== 9
+                }
+                className={`w-full py-4 rounded-2xl shadow-lg ${
+                  !phoneNumber.trim() ||
+                  !amount.trim() ||
+                  parseFloat(amount) < MINIMUM_DEPOSIT ||
+                  phoneNumber.length !== 9
+                    ? "bg-gray-300"
+                    : "bg-downy-600"
+                }`}
+                activeOpacity={0.8}
+              >
+                <Text
+                  className={`text-center text-lg font-bold ${
+                    !phoneNumber.trim() ||
+                    !amount.trim() ||
+                    parseFloat(amount) < MINIMUM_DEPOSIT ||
+                    phoneNumber.length !== 9
+                      ? "text-gray-500"
+                      : "text-white"
+                  }`}
+                >
+                  Deposit via M-Pesa
+                </Text>
+              </TouchableOpacity>
+
+              {/* Info Note */}
+              <View className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                <Text className="text-xs text-blue-800 text-center">
+                  💡 You'll receive an M-Pesa prompt on your phone. Enter your
+                  PIN to complete the transaction.
+                </Text>
               </View>
-            </View>
+            </>
           )}
-
-          {/* Deposit Button */}
-          <TouchableOpacity
-            onPress={handleDeposit}
-            disabled={!amount.trim()}
-            className={`w-full py-4 rounded-lg ${
-              !amount.trim() ? "bg-gray-300" : "bg-green-600"
-            }`}
-            activeOpacity={0.8}
-          >
-            <Text
-              className={`text-center font-medium text-lg ${
-                !amount.trim() ? "text-gray-500" : "text-white"
-              }`}
-            >
-              Continue Deposit
-            </Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
+
+      {/* Token Modal */}
+      <Modal
+        visible={isTokenModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsTokenModalVisible(false)}
+      >
+        <View className="flex-1 bg-black/50 items-center justify-center px-6">
+          <View className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl">
+            <Text className="text-xl font-bold mb-5 text-center text-gray-900">
+              Choose Token
+            </Text>
+            {tokens.map((token, index) => (
+              <TouchableOpacity
+                key={token.symbol}
+                onPress={() => {
+                  setSelectedToken(token.symbol);
+                  setIsTokenModalVisible(false);
+                }}
+                className={`flex-row items-center justify-between p-4 rounded-xl ${
+                  index < tokens.length - 1 ? "mb-3" : ""
+                } ${
+                  selectedToken === token.symbol
+                    ? "bg-emerald-100 border-2 border-emerald-600"
+                    : "bg-gray-50 border-2 border-gray-200"
+                }`}
+                activeOpacity={0.7}
+              >
+                <View className="flex-row items-center space-x-3">
+                  <Image
+                    source={token.image}
+                    className="w-12 h-12 rounded-full mr-2"
+                  />
+                  <View>
+                    <Text className="text-base font-bold text-gray-900">
+                      {token.symbol}
+                    </Text>
+                    <Text className="text-sm text-gray-500">{token.name}</Text>
+                  </View>
+                </View>
+                <Text className="text-sm text-gray-500">
+                  ~
+                  {(
+                    1 /
+                    exchangeRates[token.symbol as keyof typeof exchangeRates]
+                  ).toFixed(0)}{" "}
+                  KES
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity
+              onPress={() => setIsTokenModalVisible(false)}
+              className="mt-4 bg-gray-200 py-3 rounded-xl"
+              activeOpacity={0.7}
+            >
+              <Text className="text-center text-gray-700 font-bold">
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Processing Modal */}
+      <Modal visible={isProcessing} transparent={true} animationType="fade">
+        <View className="flex-1 bg-black/70 items-center justify-center px-6">
+          <View className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
+            {processingStep === "initiating" && (
+              <>
+                <ActivityIndicator size="large" color="#059669" />
+                <Text className="text-xl font-bold text-center mt-4 text-gray-900">
+                  Initiating Payment
+                </Text>
+                <Text className="text-sm text-gray-600 text-center mt-2">
+                  Connecting to M-Pesa...
+                </Text>
+              </>
+            )}
+
+            {processingStep === "waiting_for_pin" && (
+              <>
+                <View className="w-20 h-20 bg-emerald-100 rounded-full items-center justify-center mx-auto">
+                  <Smartphone size={40} color="#059669" />
+                </View>
+                <Text className="text-xl font-bold text-center mt-4 text-gray-900">
+                  Check Your Phone
+                </Text>
+                <Text className="text-sm text-gray-600 text-center mt-2">
+                  Enter your M-Pesa PIN on the prompt sent to{"\n"}
+                  <Text className="font-bold">+254{phoneNumber}</Text>
+                </Text>
+                <View className="mt-4 bg-blue-50 p-3 rounded-xl">
+                  <Text className="text-xs text-blue-800 text-center">
+                    ⏱️ Waiting for PIN entry...
+                  </Text>
+                </View>
+              </>
+            )}
+
+            {processingStep === "processing" && (
+              <>
+                <ActivityIndicator size="large" color="#059669" />
+                <Text className="text-xl font-bold text-center mt-4 text-gray-900">
+                  Processing Payment
+                </Text>
+                <Text className="text-sm text-gray-600 text-center mt-2">
+                  Converting KES {depositAmount} to {cryptoAmount}{" "}
+                  {selectedToken}
+                </Text>
+              </>
+            )}
+
+            {processingStep === "completed" && (
+              <>
+                <View className="w-20 h-20 bg-emerald-100 rounded-full items-center justify-center mx-auto">
+                  <Text className="text-4xl">✓</Text>
+                </View>
+                <Text className="text-xl font-bold text-center mt-4 text-emerald-600">
+                  Success!
+                </Text>
+                <Text className="text-sm text-gray-600 text-center mt-2">
+                  Your crypto has been deposited
+                </Text>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </KeyboardAvoidingView>
   );
 }

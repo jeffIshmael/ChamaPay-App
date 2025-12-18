@@ -14,7 +14,7 @@ import { useAuth } from "@/Contexts/AuthContext";
 
 const EXCHANGE_RATE = 132; // 132 KES = 1 cUSD
 
-const OnrampComponent = () => {
+const MPesaPay = ({chamaName, chamaId}: {chamaName:string, chamaId:number}) => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [kesAmount, setKesAmount] = useState("");
   const [cusdAmount, setCusdAmount] = useState("0.00");
@@ -92,6 +92,9 @@ const OnrampComponent = () => {
       const result = await initiateOnramp(
         Number(fullPhoneNumber),
         kesAmount,
+        `${chamaName} Payment`,
+        true,
+        EXCHANGE_RATE,
         token
       );
 
@@ -359,7 +362,7 @@ const OnrampComponent = () => {
           />
           <View>
             <Text className="text-2xl font-bold text-gray-800">
-              Buy cUSD
+              Pay to {chamaName}
             </Text>
             <Text className="text-sm text-gray-500">
               1 cUSD = {EXCHANGE_RATE} KES
@@ -423,11 +426,11 @@ const OnrampComponent = () => {
 
           {/* cUSD Preview */}
           {parseFloat(cusdAmount) > 0 && (
-            <View className="mb-6 bg-green-50 rounded-xl p-4 border-2 border-green-200">
+            <View className="mb-6 bg-green-50 rounded-xl p-2 border-2 border-green-200">
               <Text className="text-sm text-gray-600 text-center mb-1">
-                You will receive
+                Payment amount
               </Text>
-              <Text className="text-3xl font-bold text-green-600 text-center">
+              <Text className="text-xl font-bold text-green-600 text-center">
                 {cusdAmount} cUSD
               </Text>
               <Text className="text-xs text-gray-500 text-center mt-1">
@@ -446,7 +449,7 @@ const OnrampComponent = () => {
             activeOpacity={0.8}
           >
             <Text className="text-white font-bold text-base">
-              {isFormValid ? "Buy cUSD" : "Enter Details"}
+              {isFormValid ? "Make Payment" : "Enter Details"}
             </Text>
           </TouchableOpacity>
 
@@ -463,4 +466,4 @@ const OnrampComponent = () => {
   );
 };
 
-export default OnrampComponent;
+export default MPesaPay;

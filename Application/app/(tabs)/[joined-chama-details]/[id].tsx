@@ -7,7 +7,11 @@ import { TabButton } from "@/components/ui/TabButton";
 import { JoinedChama } from "@/constants/mockData";
 import { chamapayContract } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
-import { getChamaBySlug, searchUsers, transformChamaData } from "@/lib/chamaService";
+import {
+  getChamaBySlug,
+  searchUsers,
+  transformChamaData,
+} from "@/lib/chamaService";
 import { generateChamaShareUrl } from "@/lib/encryption";
 import { formatToK } from "@/lib/formatNumbers";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -22,11 +26,36 @@ import {
   SafeAreaView,
   Text,
   TextInput,
+  ActivityIndicator,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useReadContract } from "thirdweb/react";
 import { toEther } from "thirdweb/utils";
+import {
+  ChamaDetailsLoadingState,
+  ChamaDetailsErrorState,
+} from "@/components/LoadingStates";
+
+// Loading Skeleton Component
+const SkeletonBox = ({
+  width = "100%",
+  height = 20,
+  rounded = "rounded-lg",
+}: {
+  width?: string | number;
+  height?: number;
+  rounded?: string;
+}) => (
+  <View
+    className={`bg-gray-200 ${rounded} animate-pulse`}
+    style={{
+      width: typeof width === "string" ? undefined : width,
+      height,
+      ...(typeof width === "string" ? {} : {}),
+    }}
+  />
+);
 
 export default function JoinedChamaDetails() {
   const { id } = useLocalSearchParams();
@@ -40,13 +69,15 @@ export default function JoinedChamaDetails() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareUsername, setShareUsername] = useState("");
-  const [shareSearchResults, setShareSearchResults] = useState<Array<{
-    id: number;
-    userName: string;
-    email: string;
-    address: string;
-    profileImageUrl: string | null;
-  }>>([]);
+  const [shareSearchResults, setShareSearchResults] = useState<
+    Array<{
+      id: number;
+      userName: string;
+      email: string;
+      address: string;
+      profileImageUrl: string | null;
+    }>
+  >([]);
   const [isShareSearching, setIsShareSearching] = useState(false);
   const [showShareSearchResults, setShowShareSearchResults] = useState(false);
   const [selectedShareUser, setSelectedShareUser] = useState<{
@@ -79,25 +110,23 @@ export default function JoinedChamaDetails() {
       user?.address as `0x${string}`,
     ],
   });
-    const {
-      data: eachMemberBalances,
+  const {
+    data: eachMemberBalances,
     isLoading: isEachMemberBalancesLoading,
     error: eachMemberBalancesError,
   } = useReadContract({
     contract: chamapayContract,
     method:
       "function getEachMemberBalance(uint256 _chamaId) view returns (address[] memory, uint256[][] memory)",
-    params: [
-      BigInt(Number(chama?.blockchainId) || 0) as bigint,
-    ],
+    params: [BigInt(Number(chama?.blockchainId) || 0) as bigint],
   });
   const [myBalance, setMyBalance] = useState<bigint[] | undefined>();
 
   useEffect(() => {
     // Handle individualBalance which comes as an array of BigInt values
     if (individualBalance) {
-      const balanceArray = Array.isArray(individualBalance) 
-        ? individualBalance 
+      const balanceArray = Array.isArray(individualBalance)
+        ? individualBalance
         : [individualBalance];
       setMyBalance(balanceArray as bigint[]);
       console.log("the individual balance", balanceArray);
@@ -117,8 +146,11 @@ export default function JoinedChamaDetails() {
       setChama(transformedChama);
 
       // get my chama balance - use individualBalance directly if myBalance is not set yet
-      const balanceToUse = myBalance || (individualBalance as unknown as bigint[]);
-      const firstBalance = Array.isArray(balanceToUse) ? balanceToUse[0] : balanceToUse;
+      const balanceToUse =
+        myBalance || (individualBalance as unknown as bigint[]);
+      const firstBalance = Array.isArray(balanceToUse)
+        ? balanceToUse[0]
+        : balanceToUse;
       const myChamaBalance = toEther(firstBalance || BigInt(0)) || 0;
       console.log("the my chama balance", myChamaBalance);
       // Set payment amount for the payment modal
@@ -137,7 +169,6 @@ export default function JoinedChamaDetails() {
   useEffect(() => {
     fetchChama();
   }, [id, token]);
-
 
   const makePayment = () => {
     if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
@@ -237,24 +268,24 @@ export default function JoinedChamaDetails() {
   };
 
   if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Text className="text-gray-600">Fetching chama details...</Text>
-      </View>
-    );
+    return <ChamaDetailsLoadingState />;
   }
   if (!chama) {
     return (
-      <View className="flex-1 items-center justify-center">
-        <Text className="text-gray-600">Chama not found</Text>
-      </View>
+      <ChamaDetailsErrorState
+        message="Chama not found or you don't have access"
+        onRetry={fetchChama}
+        onClose={() => router.push("/(tabs)")}
+      />
     );
   }
 
   const contribution = chama.contribution || 0;
   // Handle balance - use individualBalance directly if myBalance is not set yet
   const balanceToUse = myBalance || (individualBalance as unknown as bigint[]);
-  const firstBalance = Array.isArray(balanceToUse) ? balanceToUse[0] : balanceToUse;
+  const firstBalance = Array.isArray(balanceToUse)
+    ? balanceToUse[0]
+    : balanceToUse;
   const myContributions = Number(toEther(firstBalance || BigInt(0)) || 0);
   const remainingAmount = Number(contribution) - Number(myContributions);
   const nextPayoutAmount = chama.nextPayoutAmount || 0;
@@ -280,22 +311,23 @@ export default function JoinedChamaDetails() {
   );
 
   const renderChatTab = () => (
-    <ChatTab
-      prevMessages={chama.messages}
-      chamaId={chama.id}
-    />
+    <ChatTab prevMessages={chama.messages} chamaId={chama.id} />
   );
 
   const renderScheduleTab = () => (
     <ScheduleTab
       payoutSchedule={chama.payoutSchedule}
-      chamaStatus={chama.status === "not started" ? "pending" : chama.status as "active" | "pending" | "completed"}
+      chamaStatus={
+        chama.status === "not started"
+          ? "pending"
+          : (chama.status as "active" | "pending" | "completed")
+      }
     />
   );
 
   const renderMembersTab = () => (
-    <MembersTab 
-      members={chama.members} 
+    <MembersTab
+      members={chama.members}
       eachMemberBalances={eachMemberBalances}
       isPublic={chama.isPublic}
     />
@@ -330,13 +362,15 @@ export default function JoinedChamaDetails() {
               <ArrowLeft size={20} color="white" />
             </TouchableOpacity>
             <View className="flex-1 items-center">
-              <Text className="text-lg text-white font-medium">{chama.name}</Text>
-              <View className={`mt-1 px-2 py-0.5 rounded-full flex-row items-center gap-1 ${
-                chama.isPublic ? "bg-emerald-500/30" : "bg-gray-500/30"
-              }`}>
-                <Text className="text-xs">
-                  {chama.isPublic ? "🌍" : "🔒"}
-                </Text>
+              <Text className="text-lg text-white font-medium">
+                {chama.name}
+              </Text>
+              <View
+                className={`mt-1 px-2 py-0.5 rounded-full flex-row items-center gap-1 ${
+                  chama.isPublic ? "bg-emerald-500/30" : "bg-gray-500/30"
+                }`}
+              >
+                <Text className="text-xs">{chama.isPublic ? "🌍" : "🔒"}</Text>
                 <Text className="text-xs text-white font-semibold">
                   {chama.isPublic ? "Public" : "Private"}
                 </Text>
@@ -503,7 +537,9 @@ export default function JoinedChamaDetails() {
                 {/* Input Field */}
                 <View className="mb-3 relative">
                   <View className="flex-row items-center bg-white border border-emerald-300 rounded-xl px-4 py-3.5">
-                    <Text className="text-lg font-semibold text-emerald-600 mr-2">@</Text>
+                    <Text className="text-lg font-semibold text-emerald-600 mr-2">
+                      @
+                    </Text>
                     <TextInput
                       value={shareUsername}
                       onChangeText={(text) => {
@@ -523,7 +559,7 @@ export default function JoinedChamaDetails() {
                       <View className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
                     )}
                   </View>
-                  
+
                   {/* Search Results Dropdown */}
                   {showShareSearchResults && shareSearchResults.length > 0 && (
                     <View className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-emerald-200 shadow-lg z-50 max-h-48">
@@ -552,7 +588,8 @@ export default function JoinedChamaDetails() {
                               {user.email}
                             </Text>
                             <Text className="text-xs text-gray-400 font-mono">
-                              {user.address.slice(0, 6)}...{user.address.slice(-4)}
+                              {user.address.slice(0, 6)}...
+                              {user.address.slice(-4)}
                             </Text>
                           </View>
                         </TouchableOpacity>
@@ -561,13 +598,15 @@ export default function JoinedChamaDetails() {
                   )}
 
                   {/* User Not Found Message */}
-                  {shareUsername.trim().length >= 2 && !isShareSearching && shareSearchResults.length === 0 && (
-                    <View className="absolute top-full left-0 right-0 mt-1 bg-red-50 border border-red-200 rounded-xl p-3 z-50">
-                      <Text className="text-red-600 text-sm font-medium text-center">
-                        User not found
-                      </Text>
-                    </View>
-                  )}
+                  {shareUsername.trim().length >= 2 &&
+                    !isShareSearching &&
+                    shareSearchResults.length === 0 && (
+                      <View className="absolute top-full left-0 right-0 mt-1 bg-red-50 border border-red-200 rounded-xl p-3 z-50">
+                        <Text className="text-red-600 text-sm font-medium text-center">
+                          User not found
+                        </Text>
+                      </View>
+                    )}
                 </View>
 
                 {/* Send Button */}
@@ -579,9 +618,11 @@ export default function JoinedChamaDetails() {
                     selectedShareUser ? "bg-emerald-600" : "bg-gray-300"
                   }`}
                 >
-                  <Text className={`font-bold text-base ${
-                    selectedShareUser ? "text-white" : "text-gray-500"
-                  }`}>
+                  <Text
+                    className={`font-bold text-base ${
+                      selectedShareUser ? "text-white" : "text-gray-500"
+                    }`}
+                  >
                     Send Invite
                   </Text>
                 </TouchableOpacity>

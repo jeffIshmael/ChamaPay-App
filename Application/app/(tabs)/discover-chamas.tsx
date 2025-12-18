@@ -222,7 +222,7 @@ export default function DiscoverChamas() {
 
         {/* Amount Highlight */}
         <View className=" rounded-xl p-3 mb-3">
-          <Text className="text-xs text-emerald-600 font-medium mb-1">Monthly Contribution</Text>
+          <Text className="text-xs text-emerald-600 font-medium mb-1">Contribution</Text>
           <Text className="text-2xl font-bold text-emerald-700">
             {parseFloat(chama.amount).toLocaleString()} <Text className="text-base">cUSD</Text>
           </Text>
