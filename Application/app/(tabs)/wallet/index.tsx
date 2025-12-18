@@ -352,7 +352,7 @@ export default function CryptoWallet() {
   };
 
   const handleDeposit = () => {
-    Alert.alert("Deposit crypto", "Onramp functionality here...");
+    router.push("/wallet/deposit-crypto");
   };
 
   const switchTokens = () => {

@@ -16,6 +16,7 @@ import {
   Settings,
   Users,
   Wallet,
+  HandCoins
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -342,10 +343,10 @@ export default function HomeScreen() {
                       </Text>
                     </View>
                     <View className="flex-row items-center bg-blue-50 px-3 py-1.5 rounded-lg">
-                      <Wallet color="#3b82f6" size={16} />
+                      <HandCoins color="#3b82f6" size={16} />
                       <Text className="text-sm font-semibold text-blue-700 ml-1.5">
-                        {chama.currency}{" "}
-                        {chama.contribution?.toLocaleString() || "0"}
+                        {chama.contribution?.toLocaleString() || "0"}{" "}
+                        {chama.currency}{" "}/{chama.duration}
                       </Text>
                     </View>
                   </View>
@@ -366,7 +367,7 @@ export default function HomeScreen() {
                 <View className="flex-row items-center flex-1">
                   <Calendar color="#6b7280" size={16} />
                   <Text className="text-sm font-medium text-gray-700 ml-2">
-                    Next: {chama.nextTurnMember}
+                    Next: {chama.nextTurnMember} {`(${chama.nextPayoutDate})`}
                   </Text>
                 </View>
                 {chama.myTurn && (

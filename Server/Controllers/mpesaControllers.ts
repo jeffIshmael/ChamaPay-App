@@ -5,90 +5,12 @@ import { tillPushStk, checkPushStatus } from "../Lib/MpesaFunctions";
 import { onrampcUSD } from "../Lib/Thirdweb";
 
 const prisma = new PrismaClient();
-const EXCHANGE_RATE = 132; // 132 KES = 1 cUSD
-
-/**
- * Initiate M-Pesa payment (for chama payments)
- */
-export const mpesaTransaction = async (req: Request, res: Response) => {
-  const { amount, phoneNo, chamaId, accountReference } = req.body;
-  const userId = req.user?.userId;
-
-  console.log("Initiating M-Pesa payment:", { amount, phoneNo, userId });
-
-  try {
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: "Authentication required",
-      });
-    }
-
-    if (!amount || !phoneNo) {
-      return res.status(400).json({
-        success: false,
-        error: "Amount and phone number are required",
-      });
-    }
-
-    const parsedAmount = parseFloat(amount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid amount",
-      });
-    }
-
-    // Initiate STK push
-    const result = await tillPushStk(
-      amount,
-      phoneNo,
-      accountReference || `USER-${userId}`
-    );
-
-    if (!result || result.ResponseCode !== "0") {
-      return res.status(400).json({
-        success: false,
-        error: result?.ResponseDescription || "Failed to initiate payment",
-      });
-    }
-
-    // Save transaction to database
-    await prisma.mpesaTransaction.create({
-      data: {
-        userId,
-        merchantRequestID: result.MerchantRequestID,
-        checkoutRequestID: result.CheckoutRequestID,
-        phoneNumber: phoneNo.toString(),
-        amount: parsedAmount,
-        type: "payment",
-        status: "pending",
-        accountReference: accountReference || `USER-${userId}`,
-        transactionDesc: `Payment of KES ${amount}`,
-        chamaId: chamaId ? parseInt(chamaId) : null,
-      },
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: result.CustomerMessage,
-      checkoutRequestID: result.CheckoutRequestID,
-      merchantRequestID: result.MerchantRequestID,
-    });
-  } catch (error) {
-    console.error("Error in mpesaTransaction:", error);
-    return res.status(500).json({
-      success: false,
-      error: "Failed to process payment request",
-    });
-  }
-};
 
 /**
  * Initiate onramp transaction (buy cUSD)
  */
 export const initiateOnramp = async (req: Request, res: Response) => {
-  const { amount, phoneNo } = req.body;
+  const { amount, phoneNo, description, isPayment, exchangeRate } = req.body;
   const userId = req.user?.userId;
 
   console.log("Initiating onramp:", { amount, phoneNo, userId });
@@ -130,10 +52,14 @@ export const initiateOnramp = async (req: Request, res: Response) => {
     }
 
     // Calculate cUSD amount
-    const cusdAmount = kesAmount / EXCHANGE_RATE;
+    const cusdAmount = kesAmount / exchangeRate;
 
     // Initiate STK push
-    const result = await tillPushStk(amount, phoneNo, `ONRAMP-${userId}`);
+    const result = await tillPushStk(
+      amount,
+      phoneNo,
+      description
+    );
 
     if (!result || result.ResponseCode !== "0") {
       return res.status(400).json({
@@ -150,12 +76,12 @@ export const initiateOnramp = async (req: Request, res: Response) => {
         checkoutRequestID: result.CheckoutRequestID,
         phoneNumber: phoneNo.toString(),
         amount: kesAmount,
-        type: "onramp",
+        type: isPayment ? "payment" : "onramp",
         status: "pending",
-        accountReference: `ONRAMP-${userId}`,
-        transactionDesc: `Buy ${cusdAmount.toFixed(6)} cUSD`,
+        accountReference: description,
+        transactionDesc: `${isPayment ? "Pay" : "Buy"} ${cusdAmount.toFixed(6)} cUSD`,
         cusdAmount,
-        exchangeRate: EXCHANGE_RATE,
+        exchangeRate: exchangeRate,
         walletAddress: user.smartAddress,
       },
     });
@@ -166,7 +92,7 @@ export const initiateOnramp = async (req: Request, res: Response) => {
       checkoutRequestID: result.CheckoutRequestID,
       kesAmount,
       cusdAmount: cusdAmount.toFixed(6),
-      exchangeRate: EXCHANGE_RATE,
+      exchangeRate: exchangeRate,
     });
   } catch (error) {
     console.error("Error initiating onramp:", error);
@@ -241,9 +167,10 @@ export const checkPaymentStatus = async (req: Request, res: Response) => {
       return res.status(200).json({
         success: true,
         status: "pending",
-        message: transaction.type === "onramp" 
-          ? "Waiting for payment confirmation..." 
-          : "Payment still processing...",
+        message:
+          transaction.type === "onramp"
+            ? "Waiting for payment confirmation..."
+            : "Payment still processing...",
         type: transaction.type,
         cusdAmount: transaction.cusdAmount?.toString(),
       });
@@ -313,12 +240,8 @@ export const mpesaCallback = async (req: Request, res: Response) => {
       return;
     }
 
-    const {
-      CheckoutRequestID,
-      ResultCode,
-      ResultDesc,
-      CallbackMetadata,
-    } = stkCallback;
+    const { CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } =
+      stkCallback;
 
     // Find transaction
     const transaction = await prisma.mpesaTransaction.findUnique({
@@ -358,13 +281,23 @@ export const mpesaCallback = async (req: Request, res: Response) => {
       (item: any) => item.Name === "TransactionDate"
     )?.Value;
 
-    console.log(`✅ ${transaction.type} successful - Receipt: ${mpesaReceiptNumber}`);
+    console.log(
+      `✅ ${transaction.type} successful - Receipt: ${mpesaReceiptNumber}`
+    );
 
     // Handle based on transaction type
     if (transaction.type === "onramp") {
-      await handleOnrampCallback(transaction, mpesaReceiptNumber, transactionDate);
+      await handleOnrampCallback(
+        transaction,
+        mpesaReceiptNumber,
+        transactionDate
+      );
     } else {
-      await handlePaymentCallback(transaction, mpesaReceiptNumber, transactionDate);
+      await handlePaymentCallback(
+        transaction,
+        mpesaReceiptNumber,
+        transactionDate
+      );
     }
   } catch (error) {
     console.error("Error processing callback:", error);
@@ -380,10 +313,15 @@ async function handleOnrampCallback(
   transactionDate: string
 ) {
   try {
-    console.log(`🚀 Sending ${transaction.cusdAmount} cUSD to ${transaction.walletAddress}`);
+    console.log(
+      `🚀 Sending ${transaction.cusdAmount} cUSD to ${transaction.walletAddress}`
+    );
 
     // Send cUSD to user's wallet
-    const txHash = await onrampcUSD(transaction.smartAddress as `0x${string}`,transaction.cusdAmount);
+    const txHash = await onrampcUSD(
+      transaction.smartAddress as `0x${string}`,
+      transaction.cusdAmount
+    );
     if (!txHash) {
       console.error("Failed to send cUSD:");
 

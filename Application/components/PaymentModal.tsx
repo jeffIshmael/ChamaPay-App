@@ -112,7 +112,7 @@ const PaymentModal = ({
               </View>
             </>
           ) : paymentMethod === "mpesa" ? (
-            <MPesaPay /> // MPesaPay component
+            <MPesaPay  chamaName={chamaName} chamaId={chamaId} /> // MPesaPay component
           ) : (
             <CUSDPay
               visible={showCUSDPay}

@@ -4,6 +4,9 @@ import { serverUrl } from "@/constants/serverUrl";
 export const initiateOnramp = async (
   phoneNo: number,
   amount: string,
+  description:string,
+  isPayment:boolean,
+  exchangeRate: any,
   token: string
 ) => {
   try {
@@ -13,7 +16,7 @@ export const initiateOnramp = async (
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ amount, phoneNo }),
+      body: JSON.stringify({ amount, phoneNo, description, isPayment, exchangeRate }),
     });
     const data = await response.json();
     return data;
