@@ -43,3 +43,4 @@ prisma/dev.db
 # Server specific files
 Server/.env
 Server/prisma/dev.db
+Server/Test.ts

@@ -1,5 +1,5 @@
-
 import moment from "moment";
+import { generateOriginatorConversationID } from "./HelperFunctions";
 
 interface TokenResponse {
   access_token: string;
@@ -26,10 +26,13 @@ interface PushStatusResponse {
 const consumerKey = process.env.MPESA_CUSTOMER_KEY;
 const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
 const chamapayTillNumber = process.env.CHAMAPAY_TILL;
-const passkey = process.env.MPESA_PASSKEY || "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919";
-const callbackUrl = process.env.MPESA_CALLBACK_URL; 
+const passkey =
+  process.env.MPESA_PASSKEY ||
+  "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919";
+const callbackUrl = process.env.MPESA_CALLBACK_URL;
+const SecurityCredential = process.env.SECURITY_CREDENTIAL;
 
-if (!consumerKey || !consumerSecret || !chamapayTillNumber) {
+if (!consumerKey || !consumerSecret || !chamapayTillNumber || !SecurityCredential) {
   throw new Error("M-Pesa environment variables are not set.");
 }
 
@@ -45,7 +48,7 @@ async function getAccessToken(): Promise<TokenResponse | null> {
 
   const headers = new Headers();
   headers.append("Authorization", `Basic ${credentials}`);
-  
+
   try {
     const response = await fetch(
       "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
@@ -63,7 +66,7 @@ async function getAccessToken(): Promise<TokenResponse | null> {
 export async function tillPushStk(
   amount: string,
   userPhoneNo: number,
-  accountReference: string = "Payment"
+  accountReference: string
 ): Promise<PushResponse | null> {
   const businessShortCode = Number(chamapayTillNumber);
   const timestamp = moment().format("YYYYMMDDHHmmss");
@@ -92,7 +95,7 @@ export async function tillPushStk(
       PartyA: userPhoneNo,
       PartyB: chamapayTillNumber,
       PhoneNumber: userPhoneNo,
-      CallBackURL: `https://chamapay-app.onrender.com/mpesa/callback`, 
+      CallBackURL: `https://chamapay-app.onrender.com/mpesa/callback`,
       AccountReference: accountReference.substring(0, 12), // Max 12 characters
       TransactionDesc: `Payment of KES ${amount}`.substring(0, 13), // Max 13 characters
     };
@@ -160,6 +163,64 @@ export async function checkPushStatus(
     return result as unknown as PushStatusResponse;
   } catch (error) {
     console.error("Error querying push status:", error);
+    return null;
+  }
+}
+
+// initiate a b2c transaction(from business to phone number)
+export async function B2CMpesaTx(
+  amount: string,
+  userPhoneNo: number,
+  remarks: string
+): Promise<PushResponse | null> {
+
+  try {
+    const tokenResponse = await getAccessToken();
+    if (!tokenResponse) {
+      console.error("Failed to get access token");
+      return null;
+    }
+
+    const accessToken = tokenResponse.access_token;
+    // Generate unique OriginatorConversationID
+    const originatorConversationID = generateOriginatorConversationID("600997");
+    const headers = new Headers();
+    headers.append("Authorization", `Bearer ${accessToken}`);
+    headers.append("Content-Type", "application/json");
+
+    const requestBody = {
+      OriginatorConversationID:originatorConversationID,
+      InitiatorName: "testapi",
+      SecurityCredential: SecurityCredential,
+      CommandID: "BusinessPayment",
+      Amount: amount,
+      PartyA: chamapayTillNumber,
+      PartyB: userPhoneNo,
+      Remarks: remarks,
+      QueueTimeOutURL: "https://mydomain.com/path", // incase of a timeout
+      ResultURL: "https://mydomain.com/path", // callback
+      Occassion: "Withdrawal",
+    };
+
+    console.log(" STK B2C Push Request:", {
+      ...requestBody,
+      Password: "***HIDDEN***",
+    });
+
+    const response = await fetch(
+      "https://sandbox.safaricom.co.ke/mpesa/b2c/v3/paymentrequest",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(requestBody),
+      }
+    );
+
+    const result = await response.json();
+    console.log("STK B2C Push Response:", result);
+    return result as unknown as PushResponse;
+  } catch (error) {
+    console.error("STK Push Error:", error);
     return null;
   }
 }

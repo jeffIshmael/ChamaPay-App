@@ -104,6 +104,7 @@ export default function CryptoWallet() {
   const fetchBalances = async () => {
     if (wallet && activeAccount) {
       const balances = await getAllBalances(activeAccount.address);
+      console.log("the balances", balances);
       setUserBalance(balances);
     }
   };

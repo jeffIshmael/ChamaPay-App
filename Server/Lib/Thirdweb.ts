@@ -263,7 +263,7 @@ export const onrampcUSD = async (
       transactionHash: transactionHash,
     });
     if (!receipt) {
-      throw new Error("Failed to set payout order. No receipt found");
+      throw new Error("Failed to send cUSD. No receipt found");
     }
     return receipt.transactionHash;
   } catch (error) {

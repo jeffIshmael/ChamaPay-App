@@ -46,7 +46,7 @@ export default function DepositCryptoScreen() {
     USDC: 0.0076, // 1 KES = 0.0076 USDC
   };
 
-  const MINIMUM_DEPOSIT = 10;
+  const MINIMUM_DEPOSIT = 1;
 
   const tokens = [
     {
@@ -208,10 +208,13 @@ export default function DepositCryptoScreen() {
         ]);
       }
     } catch (error: any) {
+      setProcessingStep("idle");
       Alert.alert(
         "Error",
         error?.message || "An unexpected error occurred. Please try again."
       );
+    } finally {
+      setProcessingStep("idle");
     }
   };
 
@@ -385,7 +388,7 @@ export default function DepositCryptoScreen() {
                     onChangeText={setAmount}
                     placeholder="0.00"
                     placeholderTextColor="#9CA3AF"
-                    keyboardType="decimal-pad"
+                    keyboardType="numeric"
                     className="text-center text-3xl font-bold text-gray-900"
                   />
                   <Text className="text-center text-sm text-gray-500 mt-2">
