@@ -14,6 +14,25 @@ interface ValidatedNumber {
   public_name: string;
   mobile_network: string;
 }
+interface OnrampResult {
+  code: number;
+  message: string;
+  data: {
+    status: string;
+    transaction_code: string;
+    message: string;
+  };
+}
+
+interface OfframpResult {
+    code: number;
+    message: string;
+    data: {
+      status: string;
+      transaction_code: string;
+      message: string;
+    };
+  }
 
 const pretiumApiKey = process.env.PRETIUM_API_KEY;
 const settlementAddress = process.env.SETTLEMENT_ADDRESS;
@@ -60,7 +79,7 @@ export async function pretiumOnramp(
   amount: number,
   additionalFee: number,
   userAddress: string
-): Promise<Quote | null> {
+): Promise<OnrampResult | null> {
   try {
     const response = await axios.post(
       "https://api.xwift.africa/v1/onramp/KES",
@@ -101,9 +120,9 @@ export async function pretiumOnramp(
 export async function pretiumOfframp(
   phoneNumber: string,
   amount: number,
-  additionalFee: number,
+  additionalFee: number = 0,
   transactionHash: string
-): Promise<Quote | null> {
+): Promise<OfframpResult | null> {
   try {
     const response = await axios.post(
       "https://api.xwift.africa/v1/pay/KES",
