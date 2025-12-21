@@ -77,7 +77,6 @@ export async function getQuote(currencyCode: string): Promise<Quote | null> {
 export async function pretiumOnramp(
   phoneNumber: string,
   amount: number,
-  additionalFee: number,
   userAddress: string
 ): Promise<OnrampResult | null> {
   try {
@@ -88,7 +87,6 @@ export async function pretiumOnramp(
         amount: amount,
         mobile_network: "Safaricom",
         chain: "CELO",
-        fee: additionalFee,
         asset: "USDC",
         address: userAddress,
         callback_url: `${serverUrl}/pretium/callback`,
