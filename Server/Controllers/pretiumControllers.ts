@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 
 import {
+  checkPretiumTxStatus,
   getQuote,
   pretiumOfframp,
   pretiumOnramp,
@@ -30,7 +31,7 @@ export async function getExchangeRate(req: Request, res: Response) {
 }
 
 export async function initiatePretiumOnramp(req: Request, res: Response) {
-  const { amount, phoneNo } = req.body;
+  const { amount, phoneNo, exchangeRate, cusdAmount } = req.body;
   const userId = req.user?.userId;
   try {
     if (!userId) {
@@ -60,19 +61,40 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
         error: "Amount and phone number are required",
       });
     }
-    // according to pretium docs: if you plan on adding a 1% fees, let the additional fee be included in the amount
-    // for chamapay, we only charge 0.5% fee- the amount coming will be plus the fee
-    const additionalFee = (Number(amount) * 100) / 100.5;
+    // No additional fee while depositing
 
-    const onRamp = await pretiumOnramp(
-      phoneNo,
-      amount,
-      additionalFee,
-      user.smartAddress
-    );
+    const result = await pretiumOnramp(phoneNo, amount, 0, user.smartAddress);
+    if (!result || result.code !== 200) {
+      return res.status(400).json({
+        success: false,
+        error: result?.message || "Failed to initiate pretium onramp.",
+      });
+    }
+
+    // Save onramp transaction to database
+    await prisma.mpesaTransaction.create({
+      data: {
+        userId,
+        merchantRequestID: result.data.transaction_code,
+        checkoutRequestID: result.data.transaction_code,
+        phoneNumber: phoneNo.toString(),
+        amount: amount,
+        type: "Pretium",
+        status: result.data.status,
+        accountReference: "A pretium onramp tx",
+        transactionDesc: `get ${cusdAmount.toFixed(6)} cUSD`,
+        cusdAmount,
+        exchangeRate: exchangeRate,
+        walletAddress: user.smartAddress,
+      },
+    });
+
     return res.status(200).json({
       success: true,
-      result: onRamp,
+      message: result.message,
+      status: result.data.status,
+      transactionCode: result.data.transaction_code,
+      transactionMessage: result.data.message,
     });
   } catch (error) {
     console.log("error in the onramping pretium", error);
@@ -116,8 +138,14 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
     }
     // according to pretium docs: if you plan on adding a 1% fees, let the additional fee be included in the amount
     // for chamapay, we only charge 0.5% fee- the amount coming will be plus the fee
+    const additionalFee = (Number(amount) * 100) / 100.5;
 
-    const offRamp = await pretiumOfframp(phoneNo, amount, 0, txHash);
+    const offRamp = await pretiumOfframp(
+      phoneNo,
+      amount,
+      additionalFee,
+      txHash
+    );
     return res.status(200).json({
       success: true,
       result: offRamp,
@@ -157,7 +185,7 @@ export async function pretiumVerifyNumber(req: Request, res: Response) {
   }
 }
 // route to handle the pretium callback
-export const pretiumCallback = async (req: Request, res: Response) => {
+export async function pretiumCallback(req: Request, res: Response) {
   console.log("=== Pretium Callback Received ===");
   console.log(JSON.stringify(req.body, null, 2));
 
@@ -173,7 +201,87 @@ export const pretiumCallback = async (req: Request, res: Response) => {
 
     console.log("The pretium callback result is", Body);
     console.log("the stkCallback", stkCallback);
+    if (!stkCallback) {
+      console.error("Invalid callback data");
+      return;
+    }
+
+    const { status, transaction_code, receipt_number, public_name, message } =
+      stkCallback;
+
+    // Find transaction
+    const transaction = await prisma.mpesaTransaction.findUnique({
+      where: { checkoutRequestID: transaction_code },
+    });
+
+    if (!transaction) {
+      console.error("Transaction not found:", transaction_code);
+      return;
+    }
+
+    // Handle failed/cancelled payments
+    if (status === "FAILED") {
+      await prisma.mpesaTransaction.update({
+        where: { checkoutRequestID: transaction_code },
+        data: {
+          status,
+          resultCode: 500,
+          resultDesc: message,
+        },
+      });
+
+      console.log(`❌ ${transaction.type} ${status}:`, message);
+      return;
+    }
+
+    // Payment successful - update the tx in  the db
+    await prisma.mpesaTransaction.update({
+      where: { checkoutRequestID: transaction_code },
+      data: {
+        status,
+        resultCode: 200,
+        resultDesc: message,
+      },
+    });
+
+    console.log(
+      `✅ ${transaction.type} successful - Receipt: ${receipt_number}`
+    );
   } catch (error) {
     console.error("Error processing callback:", error);
   }
-};
+}
+
+// checks the status of a tx
+export async function pretiumCheckTransaction(req: Request, res: Response) {
+  const { transactionCode } = req.body;
+  console.log("the transaction code", transactionCode);
+  const userId = req.user?.userId;
+  try {
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+    }
+
+    const statusResult = await checkPretiumTxStatus(transactionCode);
+    if (!statusResult) {
+      return res.status(400).json({
+        success: false,
+        details: `Cannot get the status of ${transactionCode}`,
+      });
+    }
+    console.log("The transaction status", statusResult);
+    return res.status(200).json({
+      success: true,
+      details: statusResult,
+    });
+  } catch (error) {
+    console.log("error in checking phone number", error);
+    return res.status(500).json({
+      success: false,
+      error: error,
+    });
+  }
+}
