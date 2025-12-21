@@ -171,7 +171,6 @@ export default function CryptoWallet() {
     const fetchRate = async () => {
       const rate = await getExchangeRate("KES");
       setTheExchangeQuote(rate);
-      console.log("the rate", rate);
     };
     fetchRate();
   }, [theExhangeQuote]);

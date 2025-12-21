@@ -7,6 +7,8 @@ export type CurrencyCode = "KES" | "UGX" | "CDF" | "MWK" | "ETB" | "GHS";
 export async function pretiumOnramp(
   phoneNo: string,
   amount: number,
+  exchangeRate: number,
+  cusdAmount: number,
   token: string
 ) {
   try {
@@ -19,6 +21,8 @@ export async function pretiumOnramp(
       body: JSON.stringify({
         amount,
         phoneNo,
+        exchangeRate,
+        cusdAmount,
       }),
     });
     const data = await response.json();
@@ -93,14 +97,18 @@ export const pollPretiumPaymentStatus = async (
         onStatusUpdate(result.status, result);
 
         // Check if payment is complete
-        if ((result.status).toLowerCase() === "completed") {
+        if (result.status.toLowerCase() === "completed") {
           clearInterval(pollInterval);
           resolve(result);
           return;
         }
 
         // Check if payment failed/cancelled
-        if (["failed", "cancelled", "timeout"].includes(result.status.toLowerCase())) {
+        if (
+          ["failed", "cancelled", "timeout"].includes(
+            result.status.toLowerCase()
+          )
+        ) {
           clearInterval(pollInterval);
           reject(result);
           return;

@@ -115,12 +115,17 @@ export default function DepositCryptoScreen() {
     try {
       const fullPhoneNumber = `0${phoneNumber}`;
 
+      console.log("calling the onramp now..");
+
       // Step 1: Initiate onramp
       const result = await pretiumOnramp(
         fullPhoneNumber,
         Number(amount),
+        Number(onramp),
+        Number(cryptoAmount),
         token
       );
+      console.log("the onramp result", result);
 
       if (!result.success) {
         throw new Error(result.error || "Failed to initiate onramp");
