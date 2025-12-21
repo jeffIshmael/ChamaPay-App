@@ -86,6 +86,7 @@ export const pollPretiumPaymentStatus = async (
 
       try {
         const result = await checkPretiumPaymentStatus(transactionCode, token);
+        console.log("the checking status pretium result", result);
 
         if (result.status !== "COMPLETE") {
           clearInterval(pollInterval);

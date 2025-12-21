@@ -278,7 +278,7 @@ export async function pretiumCheckTransaction(req: Request, res: Response) {
       details: statusResult,
     });
   } catch (error) {
-    console.log("error in checking phone number", error);
+    console.log("error in checking transaction status", error);
     return res.status(500).json({
       success: false,
       error: error,

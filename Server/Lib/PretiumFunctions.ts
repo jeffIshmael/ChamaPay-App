@@ -191,10 +191,10 @@ export async function verifyPhoneNo(
 // function to check status of a transaction
 export async function checkPretiumTxStatus(
   transactionCode: string
-): Promise<ValidatedNumber | null> {
+) {
   try {
     const response = await axios.post(
-      "https://api.xwift.africa/v1/status//KES",
+      "https://api.xwift.africa/v1/status/KES",
       {
         transaction_code: transactionCode,
       },
