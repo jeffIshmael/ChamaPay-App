@@ -16,8 +16,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
+import { useLocalSearchParams } from "expo-router";
+
 import { useAuth } from "@/Contexts/AuthContext";
-import { initiateOnramp, pollOnrampStatus } from "@/lib/onrampService";
+import { pretiumOnramp } from "@/lib/pretiumService";
 
 export default function DepositCryptoScreen() {
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
@@ -36,15 +38,10 @@ export default function DepositCryptoScreen() {
     | "failed"
   >("idle");
   const { token, user } = useAuth();
+  const { currencyCode, onramp } = useLocalSearchParams();
 
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
-  // Exchange rates (KES to crypto)
-  const exchangeRates = {
-    cUSD: 0.0076, // 1 KES = 0.0076 cUSD (approx 131 KES per cUSD)
-    USDC: 0.0076, // 1 KES = 0.0076 USDC
-  };
 
   const MINIMUM_DEPOSIT = 1;
 
@@ -81,10 +78,7 @@ export default function DepositCryptoScreen() {
       };
     }
 
-    const rate = selectedToken
-      ? exchangeRates[selectedToken as keyof typeof exchangeRates]
-      : 0;
-    const cryptoAmount = depositAmount * rate;
+    const cryptoAmount = depositAmount / Number(onramp);
 
     return {
       depositAmount,
@@ -115,23 +109,16 @@ export default function DepositCryptoScreen() {
       return;
     }
 
-    const rate = selectedToken
-      ? exchangeRates[selectedToken as keyof typeof exchangeRates]
-      : 0;
-
     // Start processing
     setIsProcessing(true);
     setProcessingStep("initiating");
     try {
-      const fullPhoneNumber = `254${phoneNumber}`;
+      const fullPhoneNumber = `0${phoneNumber}`;
 
       // Step 1: Initiate onramp
-      const result = await initiateOnramp(
-        Number(fullPhoneNumber),
-        amount,
-        `${user?.userName} wallet`,
-        false,
-        rate,
+      const result = await pretiumOnramp(
+        fullPhoneNumber,
+        Number(amount),
         token
       );
 
@@ -140,28 +127,28 @@ export default function DepositCryptoScreen() {
       }
       setProcessingStep("waiting_for_pin");
       try {
-        const onrampResult = await pollOnrampStatus(
-          result.checkoutRequestID,
-          token,
-          (status, data) => {
-            console.log("Status update:", status, data);
+        // const onrampResult = await pollOnrampStatus(
+        //   result.checkoutRequestID,
+        //   token,
+        //   (status, data) => {
+        //     console.log("Status update:", status, data);
 
-            switch (status) {
-              case "pending":
-                setProcessingStep("waiting_for_pin");
-                break;
-              case "pending_transfer":
-                setProcessingStep("processing");
-                setTimeout(() => {
-                  setProcessingStep("processing");
-                }, 1500);
-                break;
-              case "completed":
-                setProcessingStep("completed");
-                break;
-            }
-          }
-        );
+        //     switch (status) {
+        //       case "pending":
+        //         setProcessingStep("waiting_for_pin");
+        //         break;
+        //       case "pending_transfer":
+        //         setProcessingStep("processing");
+        //         setTimeout(() => {
+        //           setProcessingStep("processing");
+        //         }, 1500);
+        //         break;
+        //       case "completed":
+        //         setProcessingStep("completed");
+        //         break;
+        //     }
+        //   }
+        // );
 
         // Simulate completion
         // onramp completed
@@ -256,7 +243,7 @@ export default function DepositCryptoScreen() {
           {/* Payment Method Selection */}
           <View className="bg-white px-5 py-6 rounded-2xl shadow-sm">
             <Text className="text-base font-bold text-gray-900 mb-3">
-              Payment Method
+              Deposit via
             </Text>
 
             {paymentMethods.map((method) => (
@@ -423,12 +410,7 @@ export default function DepositCryptoScreen() {
                     Exchange Rate
                   </Text>
                   <Text className="text-sm font-bold text-gray-500">
-                    1 {selectedToken} ={" "}
-                    {(
-                      1 /
-                      exchangeRates[selectedToken as keyof typeof exchangeRates]
-                    ).toFixed(2)}{" "}
-                    KES
+                    1 {selectedToken} = {onramp} {currencyCode}
                   </Text>
                 </View>
                 {parseFloat(amount) >= MINIMUM_DEPOSIT && (
@@ -529,11 +511,7 @@ export default function DepositCryptoScreen() {
                   </View>
                 </View>
                 <Text className="text-sm text-gray-500">
-                  ~
-                  {(
-                    1 /
-                    exchangeRates[token.symbol as keyof typeof exchangeRates]
-                  ).toFixed(0)}{" "}
+                  ~{onramp}
                   KES
                 </Text>
               </TouchableOpacity>

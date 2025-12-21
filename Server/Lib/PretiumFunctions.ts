@@ -25,14 +25,14 @@ interface OnrampResult {
 }
 
 interface OfframpResult {
-    code: number;
+  code: number;
+  message: string;
+  data: {
+    status: string;
+    transaction_code: string;
     message: string;
-    data: {
-      status: string;
-      transaction_code: string;
-      message: string;
-    };
-  }
+  };
+}
 
 const pretiumApiKey = process.env.PRETIUM_API_KEY;
 const settlementAddress = process.env.SETTLEMENT_ADDRESS;
@@ -180,6 +180,39 @@ export async function verifyPhoneNo(
     );
     if (response.statusText !== "OK") {
       throw new Error("The request to validate number did not succeed.");
+    }
+    return response.data.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error("API Error:", error.response?.data);
+      console.error("Status:", error.response?.status);
+      return null;
+    } else {
+      console.error("Error:", error);
+      return null;
+    }
+  }
+}
+
+// function to check status of a transaction
+export async function checkPretiumTxStatus(
+  transactionCode: string
+): Promise<ValidatedNumber | null> {
+  try {
+    const response = await axios.post(
+      "https://api.xwift.africa/v1/status//KES",
+      {
+        transaction_code: transactionCode,
+      },
+      {
+        headers: {
+          "x-api-key": pretiumApiKey,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    if (response.statusText !== "OK" || response.data.code !== 200) {
+      throw new Error("The request to check tx status did not succeed.");
     }
     return response.data.data;
   } catch (error) {

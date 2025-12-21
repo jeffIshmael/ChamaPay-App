@@ -6,6 +6,7 @@ import {
   getExchangeRate,
   pretiumVerifyNumber,
   pretiumCallback,
+  pretiumCheckTransaction
 } from "../Controllers/pretiumControllers";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -17,6 +18,8 @@ router.post("/callback", pretiumCallback);
 router.post("/onramp", authenticate, initiatePretiumOnramp);
 // Get user transaction history (protected)
 router.post("/offramp", authenticate, initiatePretiumOfframp);
+// check trnsaction status
+router.post("/transactionStatus",authenticate, pretiumCheckTransaction);
 
 // validate phoneno
 router.get("/verify", pretiumVerifyNumber);

@@ -49,6 +49,8 @@ import {
   QuoteResponse,
 } from "@/lib/mentoSdkServices";
 import { getTheUserTx } from "@/lib/walletServices";
+import { getExchangeRate } from "@/lib/pretiumService";
+import { CurrencyCode } from "@/lib/pretiumService";
 
 interface Token {
   symbol: string;
@@ -70,6 +72,11 @@ interface Transaction {
   hash: string;
   date: string;
   status: string;
+}
+interface Quote {
+  currencyCode: CurrencyCode;
+  exchangeRate: { buying_rate: number; selling_rate: number };
+  success: boolean;
 }
 
 export default function CryptoWallet() {
@@ -93,6 +100,7 @@ export default function CryptoWallet() {
   const [theTransaction, setTheTransaction] = useState<Transaction[] | null>(
     null
   );
+  const [theExhangeQuote, setTheExchangeQuote] = useState<Quote |null>(null);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [transactionError, setTransactionError] = useState<string | null>(null);
   const wallet = useActiveWallet();
@@ -157,6 +165,16 @@ export default function CryptoWallet() {
 
     return () => clearTimeout(timeoutId);
   }, [swapAmount, fromToken, toToken]);
+
+  // useeffect to get the quote
+  useEffect(() => {
+    const fetchRate = async () => {
+      const rate = await getExchangeRate("KES");
+      setTheExchangeQuote(rate);
+      console.log("the rate", rate);
+    };
+    fetchRate();
+  }, [theExhangeQuote]);
 
   const groupTransactionsByDate = (
     transactions: Transaction[]
@@ -844,7 +862,15 @@ export default function CryptoWallet() {
                 textColor="text-blue-700"
               />
               <ActionButton
-                onPress={handleDeposit}
+                onPress={() =>
+                  router.push({
+                    pathname: "/wallet/deposit-crypto",
+                    params: {
+                      currencyCode: theExhangeQuote?.currencyCode,
+                      onramp:theExhangeQuote?.exchangeRate.selling_rate,
+                    },
+                  })
+                }
                 icon={<Download size={20} color="#15803d" />}
                 title="Deposit"
                 bgColor="bg-green-50"
