@@ -75,12 +75,12 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
     await prisma.mpesaTransaction.create({
       data: {
         userId,
-        merchantRequestID: result.data.transaction_code,
-        checkoutRequestID: result.data.transaction_code,
+        merchantRequestID: result.transaction_code,
+        checkoutRequestID: result.transaction_code,
         phoneNumber: phoneNo.toString(),
         amount: amount,
         type: "Pretium",
-        status: result.data.status,
+        status: result.status,
         accountReference: "A pretium onramp tx",
         transactionDesc: `get ${cusdAmount.toFixed(6)} cUSD`,
         cusdAmount,
@@ -92,9 +92,9 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
     return res.status(200).json({
       success: true,
       message: result.message,
-      status: result.data.status,
-      transactionCode: result.data.transaction_code,
-      transactionMessage: result.data.message,
+      status: result.status,
+      transactionCode: result.transaction_code,
+      transactionMessage: result.message,
     });
   } catch (error) {
     console.log("error in the onramping pretium", error);
