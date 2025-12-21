@@ -12,8 +12,9 @@ const router: Router = express.Router();
 
 
 
-// M-Pesa callback (public - no auth needed)
+// M-Pesa callback
 router.post("/callback", mpesaCallback);
+// onramping route
 router.post("/onramp",authenticate, initiateOnramp);
 // Get user transaction history (protected)
 router.get("/transactions", authenticate, getUserTransactions);

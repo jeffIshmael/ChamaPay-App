@@ -7,6 +7,7 @@ import chamaRoutes from "./Routes/chamaRoutes";
 import mentoRoutes from "./Routes/mentoRoutes";
 import cronRoutes from "./Routes/cronRoutes";
 import mpesaRoutes from "./Routes/mpesaRoutes";
+import pretiumRoutes from "./Routes/pretiumRoutes";
 
 // Load environment variables
 dotenv.config();
@@ -25,22 +26,23 @@ app.use("/chama", chamaRoutes); // All chama-related routes
 app.use("/mpesa", mpesaRoutes);
 app.use("/mento", mentoRoutes);
 app.use("/cron", cronRoutes);
+app.use("/pretium", pretiumRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
-  res.status(200).json({ 
-    status: "OK", 
+  res.status(200).json({
+    status: "OK",
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
   });
 });
 
 // 404 handler
 app.use("*", (req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     error: "Route not found",
-    path: req.originalUrl
+    path: req.originalUrl,
   });
 });
 
-export default app; 
+export default app;

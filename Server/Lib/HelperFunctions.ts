@@ -2,6 +2,7 @@
 import { PrismaClient } from "@prisma/client";
 import encryptionService from "./Encryption";
 import dotenv from "dotenv";
+import { randomBytes } from "crypto";
 
 dotenv.config();
 
@@ -97,4 +98,11 @@ export function shuffleArray(array: any[]) {
     array[j] = temp;
   }
   return array;
+}
+
+// Generates a unique OriginatorConversationID for M-Pesa B2C transactions
+export function generateOriginatorConversationID(shortcode: string): string {
+  const timestamp = Date.now();
+  const randomString = randomBytes(8).toString("hex");
+  return `${shortcode}_${timestamp}_${randomString}`;
 }

@@ -7,7 +7,7 @@ import { onrampcUSD } from "../Lib/Thirdweb";
 const prisma = new PrismaClient();
 
 /**
- * Initiate onramp transaction (buy cUSD)
+ * Initiate onramp transaction for both onramp and payments (buy cUSD)
  */
 export const initiateOnramp = async (req: Request, res: Response) => {
   const { amount, phoneNo, description, isPayment, exchangeRate } = req.body;
@@ -44,6 +44,7 @@ export const initiateOnramp = async (req: Request, res: Response) => {
     }
 
     const kesAmount = parseFloat(amount);
+    const rateNumber = parseFloat(exchangeRate);
     if (isNaN(kesAmount) || kesAmount <= 0) {
       return res.status(400).json({
         success: false,
@@ -52,7 +53,7 @@ export const initiateOnramp = async (req: Request, res: Response) => {
     }
 
     // Calculate cUSD amount
-    const cusdAmount = kesAmount / exchangeRate;
+    const cusdAmount = kesAmount / rateNumber;
 
     // Initiate STK push
     const result = await tillPushStk(
