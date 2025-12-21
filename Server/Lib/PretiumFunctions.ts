@@ -15,13 +15,9 @@ interface ValidatedNumber {
   mobile_network: string;
 }
 interface OnrampResult {
-  code: number;
+  status: string;
+  transaction_code: string;
   message: string;
-  data: {
-    status: string;
-    transaction_code: string;
-    message: string;
-  };
 }
 
 interface OfframpResult {
@@ -144,7 +140,7 @@ export async function pretiumOfframp(
     if (response.statusText !== "OK") {
       throw new Error("The request to offramp did not succeed.");
     }
-    return response.data.data;
+    return response.data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.error("API Error:", error.response?.data);
