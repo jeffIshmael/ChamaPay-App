@@ -19,7 +19,7 @@ import Svg, { Path } from "react-native-svg";
 import { useLocalSearchParams } from "expo-router";
 
 import { useAuth } from "@/Contexts/AuthContext";
-import { pretiumOnramp } from "@/lib/pretiumService";
+import { pretiumOnramp, pollPretiumPaymentStatus } from "@/lib/pretiumService";
 
 export default function DepositCryptoScreen() {
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
@@ -127,28 +127,29 @@ export default function DepositCryptoScreen() {
       }
       setProcessingStep("waiting_for_pin");
       try {
-        // const onrampResult = await pollOnrampStatus(
-        //   result.checkoutRequestID,
-        //   token,
-        //   (status, data) => {
-        //     console.log("Status update:", status, data);
+        console.log("the result from the pretium onramp", result);
+        const onrampResult = await pollPretiumPaymentStatus(
+          result.transactionCode,
+          token,
+          (status, data) => {
+            console.log("Status update:", status, data);
 
-        //     switch (status) {
-        //       case "pending":
-        //         setProcessingStep("waiting_for_pin");
-        //         break;
-        //       case "pending_transfer":
-        //         setProcessingStep("processing");
-        //         setTimeout(() => {
-        //           setProcessingStep("processing");
-        //         }, 1500);
-        //         break;
-        //       case "completed":
-        //         setProcessingStep("completed");
-        //         break;
-        //     }
-        //   }
-        // );
+            switch (status) {
+              case "pending":
+                setProcessingStep("waiting_for_pin");
+                break;
+              case "pending_transfer":
+                setProcessingStep("processing");
+                setTimeout(() => {
+                  setProcessingStep("processing");
+                }, 1500);
+                break;
+              case "completed":
+                setProcessingStep("completed");
+                break;
+            }
+          }
+        );
 
         // Simulate completion
         // onramp completed

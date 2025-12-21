@@ -62,8 +62,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
       });
     }
     // No additional fee while depositing
-
-    const result = await pretiumOnramp(phoneNo, amount, 0, user.smartAddress);
+    const result = await pretiumOnramp(phoneNo, amount, user.smartAddress);
     if (!result || result.code !== 200) {
       return res.status(400).json({
         success: false,
