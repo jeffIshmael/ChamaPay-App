@@ -21,13 +21,9 @@ interface OnrampResult {
 }
 
 interface OfframpResult {
-  code: number;
+  status: string;
+  transaction_code: string;
   message: string;
-  data: {
-    status: string;
-    transaction_code: string;
-    message: string;
-  };
 }
 
 const pretiumApiKey = process.env.PRETIUM_API_KEY;
@@ -114,7 +110,6 @@ export async function pretiumOnramp(
 export async function pretiumOfframp(
   phoneNumber: string,
   amount: number,
-  additionalFee: number = 0,
   transactionHash: string
 ): Promise<OfframpResult | null> {
   try {
@@ -124,7 +119,6 @@ export async function pretiumOfframp(
         type: "MOBILE",
         shortcode: phoneNumber,
         amount: amount,
-        fee: additionalFee,
         mobile_network: "Safaricom",
         chain: "CELO",
         transaction_hash: transactionHash,
@@ -140,7 +134,7 @@ export async function pretiumOfframp(
     if (response.statusText !== "OK") {
       throw new Error("The request to offramp did not succeed.");
     }
-    return response.data;
+    return response.data.data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.error("API Error:", error.response?.data);
@@ -189,9 +183,7 @@ export async function verifyPhoneNo(
 }
 
 // function to check status of a transaction
-export async function checkPretiumTxStatus(
-  transactionCode: string
-) {
+export async function checkPretiumTxStatus(transactionCode: string) {
   try {
     const response = await axios.post(
       "https://api.xwift.africa/v1/status/KES",
