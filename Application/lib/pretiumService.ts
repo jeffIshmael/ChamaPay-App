@@ -33,6 +33,37 @@ export async function pretiumOnramp(
   }
 }
 
+export async function pretiumOfframp(
+  phoneNo: string,
+  amount: number, // the kes
+  exchangeRate: number,
+  cusdAmount: string,
+  txHash: string,
+  token: string
+) {
+  try {
+    const response = await fetch(`${serverUrl}/pretium/offramp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        amount,
+        phoneNo,
+        cusdAmount,
+        exchangeRate,
+        txHash,
+      }),
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error initiating offramp:", error);
+    return { success: false, error: "Failed to initiate offramp" };
+  }
+}
+
 // function to get the quote
 export async function getExchangeRate(currencyCode: CurrencyCode) {
   try {
@@ -42,8 +73,8 @@ export async function getExchangeRate(currencyCode: CurrencyCode) {
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error("Error initiating onramp:", error);
-    return { success: false, error: "Failed to initiate onramp" };
+    console.log("Error getting exchange rate:", error);
+    return { success: false, error: "Failed to get the exchange rate" };
   }
 }
 
@@ -88,17 +119,24 @@ export const pollPretiumPaymentStatus = async (
         const result = await checkPretiumPaymentStatus(transactionCode, token);
         console.log("the checking status pretium result", result);
 
-        if (result.status !== "COMPLETE") {
+        // Check if the API call itself failed
+        if (!result.success) {
           clearInterval(pollInterval);
           reject(result);
           return;
         }
 
+        // Get the actual transaction status from the details object
+        const transactionStatus = result.details?.status?.toLowerCase() || "";
+
         // Update caller with current status
-        onStatusUpdate(result.status, result);
+        onStatusUpdate(transactionStatus, result);
 
         // Check if payment is complete
-        if (result.status.toLowerCase() === "completed") {
+        if (
+          transactionStatus === "completed" ||
+          transactionStatus === "complete"
+        ) {
           clearInterval(pollInterval);
           resolve(result);
           return;
@@ -106,12 +144,26 @@ export const pollPretiumPaymentStatus = async (
 
         // Check if payment failed/cancelled
         if (
-          ["failed", "cancelled", "timeout"].includes(
-            result.status.toLowerCase()
+          ["failed", "cancelled", "timeout", "expired"].includes(
+            transactionStatus
           )
         ) {
           clearInterval(pollInterval);
           reject(result);
+          return;
+        }
+
+        // Continue polling for pending status
+        if (transactionStatus === "pending") {
+          // Just continue polling, don't reject
+          if (attempts >= maxAttempts) {
+            clearInterval(pollInterval);
+            reject({
+              success: false,
+              status: "timeout",
+              error: "Payment verification timed out",
+            });
+          }
           return;
         }
 
@@ -131,3 +183,20 @@ export const pollPretiumPaymentStatus = async (
     }, interval);
   });
 };
+
+// function to validate the phone number
+export async function verifyPhoneNumber(phoneNumber: string) {
+  try {
+    const response = await fetch(
+      `${serverUrl}/pretium/verify?phoneNo=${phoneNumber}`,
+      {
+        method: "GET",
+      }
+    );
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.log("Error getting exchange rate:", error);
+    return { success: false, error: "Failed to get the exchange rate" };
+  }
+}

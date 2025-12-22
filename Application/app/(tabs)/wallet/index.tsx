@@ -884,6 +884,8 @@ export default function CryptoWallet() {
                       USDCBalance: walletData.balances[1].amount,
                       totalBalance: walletData.totalUsdValue,
                       address: activeAccount?.address,
+                      currencyCode: theExhangeQuote?.currencyCode,
+                      offramp:theExhangeQuote?.exchangeRate.buying_rate,
                     },
                   })
                 }

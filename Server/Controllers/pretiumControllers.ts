@@ -106,7 +106,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
 }
 
 export async function initiatePretiumOfframp(req: Request, res: Response) {
-  const { amount, phoneNo, txHash } = req.body;
+  const { amount, phoneNo, cusdAmount, exchangeRate, txHash } = req.body;
   const userId = req.user?.userId;
   try {
     if (!userId) {
@@ -136,19 +136,35 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
         error: "Amount and phone number are required",
       });
     }
-    // according to pretium docs: if you plan on adding a 1% fees, let the additional fee be included in the amount
-    // for chamapay, we only charge 0.5% fee- the amount coming will be plus the fee
-    const additionalFee = (Number(amount) * 100) / 100.5;
-
-    const offRamp = await pretiumOfframp(
-      phoneNo,
-      amount,
-      additionalFee,
-      txHash
-    );
+    // for the offramp, the fee will be charged from the crypto
+    const result = await pretiumOfframp(phoneNo, amount, txHash);
+    console.log("the offramp pretium result", result);
+    if (!result) {
+      return res.status(400).json({
+        success: false,
+        error: result || "Failed to initiate pretium onramp.",
+      });
+    }
+    // Save onramp transaction to database
+    await prisma.mpesaTransaction.create({
+      data: {
+        userId,
+        merchantRequestID: result.transaction_code,
+        checkoutRequestID: result.transaction_code,
+        phoneNumber: phoneNo.toString(),
+        amount: amount,
+        type: "Pretium",
+        status: result.status,
+        accountReference: `A pretium offramp tx ${txHash}`,
+        transactionDesc: `get ${amount} KES`,
+        cusdAmount,
+        exchangeRate: exchangeRate,
+        walletAddress: user.smartAddress,
+      },
+    });
     return res.status(200).json({
       success: true,
-      result: offRamp,
+      result: result,
     });
   } catch (error) {
     console.log("error in the offramping pretium", error);
