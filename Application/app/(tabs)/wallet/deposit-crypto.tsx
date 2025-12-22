@@ -178,8 +178,8 @@ export default function DepositCryptoScreen() {
       } catch (pollError: any) {
         setIsProcessing(false);
 
-        let errorTitle = "Onramp Failed";
-        let errorMessage = "The onramp could not be completed.";
+        let errorTitle = "Deposit Failed";
+        let errorMessage = "The prompt was cancelled. try again.";
 
         if (pollError.status === "cancelled") {
           errorTitle = "Payment Cancelled";
@@ -207,6 +207,7 @@ export default function DepositCryptoScreen() {
         error?.message || "An unexpected error occurred. Please try again."
       );
     } finally {
+      setIsProcessing(false);
       setProcessingStep("idle");
     }
   };

@@ -72,62 +72,76 @@ export const checkPretiumPaymentStatus = async (
 
 // Poll payment status until completion or timeout
 export const pollPretiumPaymentStatus = async (
-  transactionCode: string,
-  token: string,
-  onStatusUpdate: (status: string, result?: any) => void,
-  maxAttempts: number = 30, // 30 attempts = ~60 seconds
-  interval: number = 2000 // Check every 2 seconds
-): Promise<any> => {
-  let attempts = 0;
-
-  return new Promise((resolve, reject) => {
-    const pollInterval = setInterval(async () => {
-      attempts++;
-
-      try {
-        const result = await checkPretiumPaymentStatus(transactionCode, token);
-        console.log("the checking status pretium result", result);
-
-        if (result.status !== "COMPLETE") {
+    transactionCode: string,
+    token: string,
+    onStatusUpdate: (status: string, result?: any) => void,
+    maxAttempts: number = 30, // 30 attempts = ~60 seconds
+    interval: number = 2000 // Check every 2 seconds
+  ): Promise<any> => {
+    let attempts = 0;
+  
+    return new Promise((resolve, reject) => {
+      const pollInterval = setInterval(async () => {
+        attempts++;
+  
+        try {
+          const result = await checkPretiumPaymentStatus(transactionCode, token);
+          console.log("the checking status pretium result", result);
+  
+          // Check if the API call itself failed
+          if (!result.success) {
+            clearInterval(pollInterval);
+            reject(result);
+            return;
+          }
+  
+          // Get the actual transaction status from the details object
+          const transactionStatus = result.details?.status?.toLowerCase() || '';
+  
+          // Update caller with current status
+          onStatusUpdate(transactionStatus, result);
+  
+          // Check if payment is complete
+          if (transactionStatus === "completed" || transactionStatus === "complete") {
+            clearInterval(pollInterval);
+            resolve(result);
+            return;
+          }
+  
+          // Check if payment failed/cancelled
+          if (["failed", "cancelled", "timeout", "expired"].includes(transactionStatus)) {
+            clearInterval(pollInterval);
+            reject(result);
+            return;
+          }
+  
+          // Continue polling for pending status
+          if (transactionStatus === "pending") {
+            // Just continue polling, don't reject
+            if (attempts >= maxAttempts) {
+              clearInterval(pollInterval);
+              reject({
+                success: false,
+                status: "timeout",
+                error: "Payment verification timed out",
+              });
+            }
+            return;
+          }
+  
+          // Timeout after max attempts
+          if (attempts >= maxAttempts) {
+            clearInterval(pollInterval);
+            reject({
+              success: false,
+              status: "timeout",
+              error: "Payment verification timed out",
+            });
+          }
+        } catch (error) {
           clearInterval(pollInterval);
-          reject(result);
-          return;
+          reject(error);
         }
-
-        // Update caller with current status
-        onStatusUpdate(result.status, result);
-
-        // Check if payment is complete
-        if (result.status.toLowerCase() === "completed") {
-          clearInterval(pollInterval);
-          resolve(result);
-          return;
-        }
-
-        // Check if payment failed/cancelled
-        if (
-          ["failed", "cancelled", "timeout"].includes(
-            result.status.toLowerCase()
-          )
-        ) {
-          clearInterval(pollInterval);
-          reject(result);
-          return;
-        }
-
-        // Timeout after max attempts
-        if (attempts >= maxAttempts) {
-          clearInterval(pollInterval);
-          reject({
-            success: false,
-            status: "timeout",
-            error: "Payment verification timed out",
-          });
-        }
-      } catch (error) {
-        clearInterval(pollInterval);
-        reject(error);
-      }
-    }, interval);
-  });
-};
+      }, interval);
+    });
+  };
