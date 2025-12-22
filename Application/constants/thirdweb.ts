@@ -1,5 +1,5 @@
 import { createThirdwebClient, getContract, Insight } from "thirdweb";
-import { base, baseSepolia, celo } from "thirdweb/chains";
+import { celo } from "thirdweb/chains";
 import { Abi, decodeFunctionData } from "thirdweb/utils";
 import { getWalletBalance } from "thirdweb/wallets";
 import { chamapayContractAddress, cUSDAddress, usdcAddress } from "./contractAddress";
@@ -45,16 +45,10 @@ export const client = createThirdwebClient({
 // Set your primary chain (Celo)
 export const chain = celo;
 
-// Example contracts
-export const contract = getContract({
-  client,
-  address: "0x82e50a6BF13A70366eDFC871f8FB8a428C43Dc03",
-  chain: baseSepolia,
-});
 
 export const usdcContract = getContract({
-  address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-  chain: base,
+  address: usdcAddress,
+  chain: celo,
   client,
 });
 

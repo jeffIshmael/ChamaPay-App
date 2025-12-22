@@ -23,10 +23,23 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
-import { verifyPhoneNumber, pretiumOfframp } from "@/lib/pretiumService"; // Update path
+import { useSendTransaction } from "thirdweb/react";
+import { prepareContractCall, toUnits, toWei, waitForReceipt } from "thirdweb";
 
-// Add your wallet address constant
-const YOUR_WALLET_ADDRESS = "0xYourWalletAddressHere"; // Replace with your actual wallet address
+import { verifyPhoneNumber, pretiumOfframp } from "@/lib/pretiumService";
+import { chain, client, usdcContract } from "@/constants/thirdweb";
+import { settlementAddress } from "@/constants/contractAddress";
+import { useAuth } from "@/Contexts/AuthContext";
+
+interface Verification {
+  success: boolean;
+  details: {
+    mobile_network: string;
+    public_name: string;
+    shortcode: string;
+    status: string; // COMPLETE
+  };
+}
 
 export default function WithdrawCryptoScreen() {
   const router = useRouter();
@@ -43,13 +56,14 @@ export default function WithdrawCryptoScreen() {
   const [processingStep, setProcessingStep] = useState<
     "idle" | "processing" | "completed" | "failed"
   >("idle");
-  
+
   // New states for verification modal
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [verifiedPhoneData, setVerifiedPhoneData] = useState<any>(null);
+  const [verifiedPhoneData, setVerifiedPhoneData] =
+    useState<Verification | null>(null);
   const [verificationError, setVerificationError] = useState("");
-
+  const { mutate: sendTx, data: transactionResult } = useSendTransaction();
   const {
     cUSDBalance,
     USDCBalance,
@@ -58,6 +72,7 @@ export default function WithdrawCryptoScreen() {
     currencyCode,
     offramp,
   } = useLocalSearchParams();
+  const {token, user} = useAuth();
 
   const tokens = [
     {
@@ -113,11 +128,12 @@ export default function WithdrawCryptoScreen() {
   const handleVerifyPhoneNumber = async () => {
     setIsVerifying(true);
     setVerificationError("");
-    
+
     try {
-      const fullPhoneNumber = `254${phoneNumber}`;
+      const fullPhoneNumber = `0${phoneNumber}`;
       const result = await verifyPhoneNumber(fullPhoneNumber);
-      
+      console.log("verification result", result);
+
       if (result.success) {
         setVerifiedPhoneData(result);
         setVerificationError("");
@@ -130,6 +146,30 @@ export default function WithdrawCryptoScreen() {
       setVerifiedPhoneData(null);
     } finally {
       setIsVerifying(false);
+    }
+  };
+
+  // function to send USDC to the offramp address
+  const transferUSDC = async (amount: string, receivingAddress: string) => {
+    const amountInWei = toUnits(amount, 6);
+    try {
+      const transaction = prepareContractCall({
+        contract: usdcContract,
+        method: "function transfer(address to, uint256 value)",
+        params: [receivingAddress, amountInWei],
+      });
+      sendTx(transaction);
+
+      const transactionReceipt = await waitForReceipt({
+        client: client,
+        chain: chain,
+        transactionHash: transactionResult?.transactionHash!,
+      });
+
+      return transactionReceipt.transactionHash;
+    } catch (error) {
+      console.log("error in the sending token", error);
+      return null;
     }
   };
 
@@ -167,57 +207,60 @@ export default function WithdrawCryptoScreen() {
     setIsProcessing(true);
     setProcessingStep("processing");
 
-    // TODO: Implement actual crypto transfer
-    // This should call your contract/wallet function to send tokens
-    
-    setTimeout(() => {
+    try {
+      const txHash = await transferUSDC(amount, walletAddress);
+      if (!txHash) {
+        throw new Error("Unable to send the usdc.");
+      }
       setProcessingStep("completed");
       setTimeout(() => {
         setIsProcessing(false);
         setProcessingStep("idle");
-        Alert.alert(
-          "Success!",
-          `${amount} ${selectedToken} sent to wallet`,
-          [
-            {
-              text: "OK",
-              onPress: () => router.push("/wallet"),
-            },
-          ]
-        );
+        Alert.alert("Success!", `${amount} ${selectedToken} sent to wallet`, [
+          {
+            text: "OK",
+            onPress: () => router.push("/wallet"),
+          },
+        ]);
       }, 2000);
-    }, 3000);
+    } catch (error) {
+      console.log("the error on transfer", error);
+      setIsProcessing(false);
+      setProcessingStep("idle");
+    } finally {
+      setIsProcessing(false);
+      setProcessingStep("idle");
+    }
   };
 
   // Handle confirmed M-Pesa withdrawal
   const handleConfirmedMPesaWithdraw = async () => {
+    if(!token){
+      throw new Error("No token, please refresh page.");
+    }
     setShowVerificationModal(false);
     setIsProcessing(true);
     setProcessingStep("processing");
 
     try {
       // Step 1: Send cUSD to your wallet
-      // TODO: Implement the actual token transfer function
-      // Example: const txHash = await transferTokens(YOUR_WALLET_ADDRESS, calculateTotalDeduction(), selectedToken);
-      
-      // For now, simulating with a mock transaction
-      const mockTxHash = "0x" + Math.random().toString(16).substring(2);
-      
-      // Simulate transfer delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      const txHash = await transferUSDC(amount, walletAddress);
+      if (!txHash) {
+        throw new Error("Unable to send the usdc.");
+      }
+
       // Step 2: Call pretium offramp with the transaction hash
-      const fullPhoneNumber = `254${phoneNumber}`;
+      const fullPhoneNumber = `0${phoneNumber}`;
       const kesAmount = parseFloat(calculateKESAmount());
       const cusdAmountStr = amount; // The amount user wants to receive in KES (before fee)
-      
+
       const offrampResult = await pretiumOfframp(
         fullPhoneNumber,
         kesAmount,
         Number(offramp),
         cusdAmountStr,
-        mockTxHash, // Replace with actual txHash
-        "YOUR_AUTH_TOKEN" // TODO: Get actual auth token
+        txHash, 
+        token 
       );
 
       if (offrampResult.success) {
@@ -388,7 +431,7 @@ export default function WithdrawCryptoScreen() {
                 ))}
               </View>
             </View>
-            
+
             {/* Destination Details */}
             {selectedMethod === "mpesa" && (
               <View className="bg-white p-6 rounded-2xl shadow-sm">
@@ -498,7 +541,7 @@ export default function WithdrawCryptoScreen() {
                         Exchange Rate
                       </Text>
                       <Text className="text-sm font-bold text-emerald-700">
-                        1 {selectedToken} = {offramp} KES
+                        1 {selectedToken} = {offramp} {currencyCode}
                       </Text>
                     </View>
                   </View>
@@ -508,7 +551,7 @@ export default function WithdrawCryptoScreen() {
                       YOU'LL RECEIVE
                     </Text>
                     <Text className="text-3xl font-bold text-blue-600 text-center">
-                      KES {kesAmount}
+                      {currencyCode} {kesAmount}
                     </Text>
                   </View>
                 </>
@@ -548,8 +591,8 @@ export default function WithdrawCryptoScreen() {
               disabled={
                 !amount.trim() ||
                 parseFloat(amount) <= 0 ||
-                parseFloat(totalDeduction) >
-                  parseFloat(currentToken.balance.toString()) ||
+                // parseFloat(totalDeduction) >
+                //   parseFloat(currentToken.balance.toString()) ||
                 (selectedMethod === "mpesa" && phoneNumber.length !== 9) ||
                 (selectedMethod === "crypto" && !walletAddress.trim())
               }
@@ -710,20 +753,16 @@ export default function WithdrawCryptoScreen() {
             ) : verifiedPhoneData ? (
               <View className="py-4">
                 <View className="bg-emerald-50 p-4 rounded-xl border border-emerald-200 mb-4">
-                  <View className="flex-row items-center justify-center mb-3">
-                    <View className="w-12 h-12 bg-emerald-100 rounded-full items-center justify-center">
-                      <Check size={24} color="#059669" strokeWidth={3} />
-                    </View>
-                  </View>
+                  <View className="flex-row items-center justify-center mb-3"></View>
                   <Text className="text-sm font-semibold text-gray-900 text-center mb-1">
                     Verified Phone Number
                   </Text>
                   <Text className="text-lg font-bold text-emerald-700 text-center mb-3">
-                    +254{phoneNumber}
+                    {verifiedPhoneData.details.shortcode}
                   </Text>
-                  {verifiedPhoneData.name && (
+                  {verifiedPhoneData.details.public_name && (
                     <Text className="text-sm text-gray-600 text-center">
-                      {verifiedPhoneData.name}
+                      {verifiedPhoneData.details.public_name}
                     </Text>
                   )}
                 </View>
@@ -758,7 +797,7 @@ export default function WithdrawCryptoScreen() {
                     <View className="h-px bg-gray-300 my-1" />
                     <View className="flex-row justify-between">
                       <Text className="text-sm font-bold text-emerald-700">
-                        You'll Receive
+                        To Receive
                       </Text>
                       <Text className="text-sm font-bold text-emerald-700">
                         KES {kesAmount}
