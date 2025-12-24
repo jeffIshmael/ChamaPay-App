@@ -110,6 +110,7 @@ export async function pretiumOnramp(
 export async function pretiumOfframp(
   phoneNumber: string,
   amount: number,
+  kesFee: number,
   transactionHash: string
 ): Promise<OfframpResult | null> {
   try {
@@ -119,6 +120,7 @@ export async function pretiumOfframp(
         type: "MOBILE",
         shortcode: phoneNumber,
         amount: amount,
+        fee: kesFee,
         mobile_network: "Safaricom",
         chain: "CELO",
         transaction_hash: transactionHash,

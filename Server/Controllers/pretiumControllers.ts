@@ -106,7 +106,8 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
 }
 
 export async function initiatePretiumOfframp(req: Request, res: Response) {
-  const { amount, phoneNo, cusdAmount, exchangeRate, txHash } = req.body;
+  const { amount, phoneNo, kesFee, cusdAmount, exchangeRate, txHash } =
+    req.body;
   const userId = req.user?.userId;
   try {
     if (!userId) {
@@ -137,7 +138,7 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
       });
     }
     // for the offramp, the fee will be charged from the crypto
-    const result = await pretiumOfframp(phoneNo, amount, txHash);
+    const result = await pretiumOfframp(phoneNo, amount,kesFee, txHash);
     console.log("the offramp pretium result", result);
     if (!result) {
       return res.status(400).json({
