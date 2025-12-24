@@ -39,6 +39,7 @@ export async function pretiumOfframp(
   exchangeRate: number,
   cusdAmount: string,
   txHash: string,
+  kesFee: number,
   token: string
 ) {
   try {
@@ -51,6 +52,7 @@ export async function pretiumOfframp(
       body: JSON.stringify({
         amount,
         phoneNo,
+        kesFee,
         cusdAmount,
         exchangeRate,
         txHash,
