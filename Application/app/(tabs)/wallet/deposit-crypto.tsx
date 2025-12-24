@@ -15,19 +15,15 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Path } from "react-native-svg";
 import { useLocalSearchParams } from "expo-router";
 
 import { useAuth } from "@/Contexts/AuthContext";
 import { pretiumOnramp, pollPretiumPaymentStatus } from "@/lib/pretiumService";
 
 export default function DepositCryptoScreen() {
-  const [selectedToken, setSelectedToken] = useState<string | null>(null);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] =
-    useState<string>("mpesa");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("mpesa");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [amount, setAmount] = useState("");
-  const [isTokenModalVisible, setIsTokenModalVisible] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState<
     | "idle"
@@ -38,31 +34,19 @@ export default function DepositCryptoScreen() {
     | "failed"
   >("idle");
   const { token, user } = useAuth();
-  const { currencyCode, onramp } = useLocalSearchParams();
+  const { currencyCode, onramp, USDCBalance } = useLocalSearchParams();
 
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const MINIMUM_DEPOSIT = 1;
-
-  const tokens = [
-    {
-      symbol: "cUSD",
-      name: "Celo Dollar",
-      image: require("@/assets/images/cusd.jpg"),
-    },
-    {
-      symbol: "USDC",
-      name: "USD Coin",
-      image: require("@/assets/images/usdclogo.png"),
-    },
-  ];
+  const selectedToken = "USDC"; // Fixed to USDC only
 
   const paymentMethods = [
     {
       id: "mpesa",
       name: "M-Pesa",
-      icon: require("@/assets/images/mpesa.png"), // Add M-Pesa logo
+      icon: require("@/assets/images/mpesa.png"),
       description: "Mobile Money (Kenya)",
     },
   ];
@@ -88,9 +72,9 @@ export default function DepositCryptoScreen() {
 
   const { depositAmount, cryptoAmount } = calculateAmounts();
 
-  // the function to deposit crpto from fiat(more like an onramp)
-  const handleDeposit = async (selectedToken: string) => {
-    if (!phoneNumber.trim() || !amount.trim() || !selectedToken) {
+  // the function to deposit crypto from fiat (onramp)
+  const handleDeposit = async () => {
+    if (!phoneNumber.trim() || !amount.trim()) {
       Alert.alert("Error", "Please fill in all required fields");
       return;
     }
@@ -165,7 +149,7 @@ export default function DepositCryptoScreen() {
             setProcessingStep("idle");
             Alert.alert(
               "Success!",
-              `Successfully deposited ${cryptoAmount} ${selectedToken}`,
+              `Successfully deposited ${cryptoAmount} USDC`,
               [
                 {
                   text: "OK",
@@ -212,7 +196,6 @@ export default function DepositCryptoScreen() {
     }
   };
 
-  const selectedTokenData = tokens.find((t) => t.symbol === selectedToken);
   const selectedPaymentMethodData = paymentMethods.find(
     (p) => p.id === selectedPaymentMethod
   );
@@ -233,11 +216,11 @@ export default function DepositCryptoScreen() {
           >
             <ArrowLeft size={24} color="white" />
           </TouchableOpacity>
-          <Text className="text-xl font-bold text-white">Deposit Crypto</Text>
+          <Text className="text-xl font-bold text-white">Deposit USDC</Text>
           <View className="w-8" />
         </View>
         <Text className="text-emerald-100 text-sm text-center mt-1">
-          Convert mobile money to crypto instantly
+          Convert mobile money to USDC instantly
         </Text>
       </View>
 
@@ -284,258 +267,141 @@ export default function DepositCryptoScreen() {
             ))}
           </View>
 
-          {/* Select Token */}
+          {/* Phone Number Input */}
           <View className="bg-white px-5 py-6 rounded-2xl shadow-sm">
-            <Text className="text-base font-bold text-gray-900 mb-3">
-              Select Cryptocurrency
+            <Text className="text-base font-bold text-gray-900 mb-2">
+              M-Pesa Phone Number
+            </Text>
+            <Text className="text-sm text-gray-500 mb-3">
+              Enter your M-Pesa registered number
             </Text>
 
-            <TouchableOpacity
-              onPress={() => setIsTokenModalVisible(true)}
-              className="flex-row items-center justify-between p-4 bg-gray-50 rounded-xl border-2 border-gray-200"
-              activeOpacity={0.7}
-            >
-              <View className="flex-row items-center space-x-3">
-                {selectedToken ? (
-                  <>
-                    <Image
-                      source={selectedTokenData?.image || tokens[0].image}
-                      className="w-10 h-10 rounded-full mr-2"
-                    />
-                    <View>
-                      <Text className="text-base text-gray-900 font-semibold">
-                        {selectedToken}
-                      </Text>
-                      <Text className="text-xs text-gray-500">
-                        {selectedTokenData?.name}
-                      </Text>
-                    </View>
-                  </>
-                ) : (
-                  <>
-                    <View className="w-10 h-10 rounded-full bg-gray-200 items-center justify-center">
-                      <Text className="text-gray-400 font-bold">?</Text>
-                    </View>
-                    <Text className="text-base text-gray-500 font-medium">
-                      Choose a token
-                    </Text>
-                  </>
-                )}
-              </View>
-
-              <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M6 9l6 6 6-6"
-                  stroke="#6B7280"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </TouchableOpacity>
+            <View className="flex-row items-center bg-gray-50 rounded-xl border-2 border-gray-200 px-4 py-3">
+              <Text className="text-base font-semibold text-gray-700 mr-2">
+                +254
+              </Text>
+              <TextInput
+                value={phoneNumber}
+                onChangeText={(text) => {
+                  const cleaned = text.replace(/[^0-9]/g, "").slice(0, 9);
+                  setPhoneNumber(cleaned);
+                }}
+                placeholder="712345678"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="phone-pad"
+                maxLength={9}
+                style={{ fontSize: 16, padding: 0, margin: 0 }}
+                className="flex-1"
+              />
+            </View>
+            <Text className="text-xs text-gray-400 mt-2 ml-1">
+              Format: 7XXXXXXXX or 1XXXXXXXX
+            </Text>
           </View>
 
-          {/* Show rest only after token selected */}
-          {selectedToken && (
-            <>
-              {/* Phone Number Input */}
-              <View className="bg-white px-5 py-6 rounded-2xl shadow-sm">
-                <Text className="text-base font-bold text-gray-900 mb-2">
-                  M-Pesa Phone Number
-                </Text>
-                <Text className="text-sm text-gray-500 mb-3">
-                  Enter your M-Pesa registered number
-                </Text>
+          {/* Amount Input */}
+          <View className="bg-white p-5 rounded-2xl shadow-sm">
+            <Text className="text-base font-bold text-gray-900 mb-3">
+              Amount (KES)
+            </Text>
+            <View className="bg-gray-50 p-4 rounded-xl border-2 border-gray-200">
+              <TextInput
+                value={amount}
+                onChangeText={setAmount}
+                placeholder="0.00"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="numeric"
+                className="text-center text-3xl font-bold text-gray-900"
+              />
+              <Text className="text-center text-sm text-gray-500 mt-2">
+                KES (Kenyan Shillings)
+              </Text>
+            </View>
 
-                <View className="flex-row items-center bg-gray-50 rounded-xl border-2 border-gray-200 px-4 py-3">
-                  <Text className="text-base font-semibold text-gray-700 mr-2">
-                    +254
-                  </Text>
-                  <TextInput
-                    value={phoneNumber}
-                    onChangeText={(text) => {
-                      // Only allow numbers and limit to 9 digits
-                      const cleaned = text.replace(/[^0-9]/g, "").slice(0, 9);
-                      setPhoneNumber(cleaned);
-                    }}
-                    placeholder="712345678"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="phone-pad"
-                    maxLength={9}
-                    style={{ fontSize: 16, padding: 0, margin: 0 }}
-                    className="flex-1"
-                  />
-                </View>
-                <Text className="text-xs text-gray-400 mt-2 ml-1">
-                  Format: 7XXXXXXXX or 1XXXXXXXX
-                </Text>
-              </View>
-
-              {/* Amount Input */}
-              <View className="bg-white p-5 rounded-2xl shadow-sm">
-                <Text className="text-base font-bold text-gray-900 mb-3">
-                  Amount (KES)
-                </Text>
-                <View className="bg-gray-50 p-4 rounded-xl border-2 border-gray-200">
-                  <TextInput
-                    value={amount}
-                    onChangeText={setAmount}
-                    placeholder="0.00"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="numeric"
-                    className="text-center text-3xl font-bold text-gray-900"
-                  />
-                  <Text className="text-center text-sm text-gray-500 mt-2">
-                    KES (Kenyan Shillings)
-                  </Text>
-                </View>
-
-                <View className="flex-row items-center justify-between mt-3 px-1">
-                  <Text className="text-sm text-gray-600">
-                    Minimum:{" "}
-                    <Text className="font-semibold">KES {MINIMUM_DEPOSIT}</Text>
-                  </Text>
-                  <View className="flex-row gap-2">
-                    {[50, 100, 500].map((preset) => (
-                      <TouchableOpacity
-                        key={preset}
-                        onPress={() => setAmount(preset.toString())}
-                        className="px-3 py-1.5 bg-emerald-100 rounded-full"
-                        activeOpacity={0.7}
-                      >
-                        <Text className="text-emerald-700 text-xs font-bold">
-                          {preset}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-                <View className="h-px bg-gray-200 my-4" />
-
-                <View className="flex-row justify-between items-center ">
-                  <Text className="text-sm font-bold text-gray-600">
-                    Exchange Rate
-                  </Text>
-                  <Text className="text-sm font-bold text-gray-500">
-                    1 {selectedToken} = {onramp} {currencyCode}
-                  </Text>
-                </View>
-                {parseFloat(amount) >= MINIMUM_DEPOSIT && (
-                  <View className="flex-row justify-between items-center bg-blue-50 p-3 rounded-xl mt-4">
-                    <Text className="text-base font-bold text-blue-700">
-                      You'll Receive
+            <View className="flex-row items-center justify-between mt-3 px-1">
+              <Text className="text-sm text-gray-600">
+                Minimum:{" "}
+                <Text className="font-semibold">KES {MINIMUM_DEPOSIT}</Text>
+              </Text>
+              <View className="flex-row gap-2">
+                {[50, 100, 500].map((preset) => (
+                  <TouchableOpacity
+                    key={preset}
+                    onPress={() => setAmount(preset.toString())}
+                    className="px-3 py-1.5 bg-emerald-100 rounded-full"
+                    activeOpacity={0.7}
+                  >
+                    <Text className="text-emerald-700 text-xs font-bold">
+                      {preset}
                     </Text>
-                    <Text className="text-lg font-bold text-blue-700">
-                      {cryptoAmount} {selectedToken}
-                    </Text>
-                  </View>
-                )}
+                  </TouchableOpacity>
+                ))}
               </View>
+            </View>
+            <View className="h-px bg-gray-200 my-4" />
 
-              {/* Submit Button */}
-              <TouchableOpacity
-                onPress={() => handleDeposit(selectedToken)}
-                disabled={
-                  !phoneNumber.trim() ||
-                  !amount.trim() ||
-                  parseFloat(amount) < MINIMUM_DEPOSIT ||
-                  phoneNumber.length !== 9
-                }
-                className={`w-full py-4 rounded-2xl shadow-lg ${
-                  !phoneNumber.trim() ||
-                  !amount.trim() ||
-                  parseFloat(amount) < MINIMUM_DEPOSIT ||
-                  phoneNumber.length !== 9
-                    ? "bg-gray-300"
-                    : "bg-downy-600"
-                }`}
-                activeOpacity={0.8}
-              >
-                <Text
-                  className={`text-center text-lg font-bold ${
-                    !phoneNumber.trim() ||
-                    !amount.trim() ||
-                    parseFloat(amount) < MINIMUM_DEPOSIT ||
-                    phoneNumber.length !== 9
-                      ? "text-gray-500"
-                      : "text-white"
-                  }`}
-                >
-                  Deposit via M-Pesa
+            <View className="flex-row justify-between items-center">
+              <Text className="text-sm font-bold text-gray-600">
+                Exchange Rate
+              </Text>
+              <Text className="text-sm font-bold text-gray-500">
+                1 USDC = {onramp} {currencyCode}
+              </Text>
+            </View>
+            {parseFloat(amount) >= MINIMUM_DEPOSIT && (
+              <View className="flex-row justify-between items-center bg-blue-50 p-3 rounded-xl mt-4">
+                <Text className="text-base font-bold text-blue-700">
+                  You'll Receive
                 </Text>
-              </TouchableOpacity>
-
-              {/* Info Note */}
-              <View className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-                <Text className="text-xs text-blue-800 text-center">
-                  💡 You'll receive an M-Pesa prompt on your phone. Enter your
-                  PIN to complete the transaction.
+                <Text className="text-lg font-bold text-blue-700">
+                  {cryptoAmount} USDC
                 </Text>
               </View>
-            </>
-          )}
+            )}
+          </View>
+
+          {/* Submit Button */}
+          <TouchableOpacity
+            onPress={handleDeposit}
+            disabled={
+              !phoneNumber.trim() ||
+              !amount.trim() ||
+              parseFloat(amount) < MINIMUM_DEPOSIT ||
+              phoneNumber.length !== 9
+            }
+            className={`w-full py-4 rounded-2xl shadow-lg ${
+              !phoneNumber.trim() ||
+              !amount.trim() ||
+              parseFloat(amount) < MINIMUM_DEPOSIT ||
+              phoneNumber.length !== 9
+                ? "bg-gray-300"
+                : "bg-downy-600"
+            }`}
+            activeOpacity={0.8}
+          >
+            <Text
+              className={`text-center text-lg font-bold ${
+                !phoneNumber.trim() ||
+                !amount.trim() ||
+                parseFloat(amount) < MINIMUM_DEPOSIT ||
+                phoneNumber.length !== 9
+                  ? "text-gray-500"
+                  : "text-white"
+              }`}
+            >
+              Deposit via M-Pesa
+            </Text>
+          </TouchableOpacity>
+
+          {/* Info Note */}
+          <View className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+            <Text className="text-xs text-blue-800 text-center">
+              💡 You'll receive an M-Pesa prompt on your phone. Enter your PIN
+              to complete the transaction.
+            </Text>
+          </View>
         </View>
       </ScrollView>
-
-      {/* Token Modal */}
-      <Modal
-        visible={isTokenModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setIsTokenModalVisible(false)}
-      >
-        <View className="flex-1 bg-black/50 items-center justify-center px-6">
-          <View className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl">
-            <Text className="text-xl font-bold mb-5 text-center text-gray-900">
-              Choose Token
-            </Text>
-            {tokens.map((token, index) => (
-              <TouchableOpacity
-                key={token.symbol}
-                onPress={() => {
-                  setSelectedToken(token.symbol);
-                  setIsTokenModalVisible(false);
-                }}
-                className={`flex-row items-center justify-between p-4 rounded-xl ${
-                  index < tokens.length - 1 ? "mb-3" : ""
-                } ${
-                  selectedToken === token.symbol
-                    ? "bg-emerald-100 border-2 border-emerald-600"
-                    : "bg-gray-50 border-2 border-gray-200"
-                }`}
-                activeOpacity={0.7}
-              >
-                <View className="flex-row items-center space-x-3">
-                  <Image
-                    source={token.image}
-                    className="w-12 h-12 rounded-full mr-2"
-                  />
-                  <View>
-                    <Text className="text-base font-bold text-gray-900">
-                      {token.symbol}
-                    </Text>
-                    <Text className="text-sm text-gray-500">{token.name}</Text>
-                  </View>
-                </View>
-                <Text className="text-sm text-gray-500">
-                  ~{onramp}
-                  KES
-                </Text>
-              </TouchableOpacity>
-            ))}
-
-            <TouchableOpacity
-              onPress={() => setIsTokenModalVisible(false)}
-              className="mt-4 bg-gray-200 py-3 rounded-xl"
-              activeOpacity={0.7}
-            >
-              <Text className="text-center text-gray-700 font-bold">
-                Cancel
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* Processing Modal */}
       <Modal visible={isProcessing} transparent={true} animationType="fade">
@@ -580,8 +446,7 @@ export default function DepositCryptoScreen() {
                   Processing Payment
                 </Text>
                 <Text className="text-sm text-gray-600 text-center mt-2">
-                  Converting KES {depositAmount} to {cryptoAmount}{" "}
-                  {selectedToken}
+                  Converting KES {depositAmount} to {cryptoAmount} USDC
                 </Text>
               </>
             )}
@@ -595,7 +460,7 @@ export default function DepositCryptoScreen() {
                   Success!
                 </Text>
                 <Text className="text-sm text-gray-600 text-center mt-2">
-                  Your crypto has been deposited
+                  Your USDC has been deposited
                 </Text>
               </>
             )}

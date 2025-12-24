@@ -15,14 +15,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useActiveAccount, useActiveWallet } from "thirdweb/react";
 
-
 export default function ReceiveCryptoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const activeAccount = useActiveAccount();
 
   const walletAddress = activeAccount?.address;
-
 
   const copyAddress = async () => {
     await Clipboard.setStringAsync(walletAddress!);
@@ -36,15 +34,21 @@ export default function ReceiveCryptoScreen() {
       style={{ paddingTop: insets.top }}
     >
       {/* Header */}
-      <View className="px-6 py-4 flex-row items-center justify-between">
-        <TouchableOpacity
-          onPress={() => router.push("/wallet")}
-          className="p-2 rounded-full bg-white/10"
-        >
-          <ArrowLeft size={20} color="white" />
-        </TouchableOpacity>
-        <Text className="text-white text-lg font-semibold">Receive Crypto</Text>
-        <View className="w-8" />
+      <View className="px-6 pt-4 pb-6">
+        <View className="flex-row items-center justify-between mb-2">
+          <TouchableOpacity
+            onPress={() => router.push("/wallet")}
+            className="w-10 h-10 rounded-full bg-white/20 items-center justify-center"
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={20} color="white" />
+          </TouchableOpacity>
+          <Text className="text-2xl font-bold text-white">Receive USDC</Text>
+          <View className="w-10" />
+        </View>
+        <Text className="text-emerald-100 text-sm text-center mt-1">
+          Share your address or scan QR code to receive funds
+        </Text>
       </View>
 
       {/* Content */}
@@ -58,7 +62,7 @@ export default function ReceiveCryptoScreen() {
             <QRCode value={walletAddress} size={180} />
           </View>
           <Text className="text-sm text-gray-600 text-center">
-            Scan to send <Text className="font-semibold">cUSD or USDC</Text>
+            Scan to send <Text className="font-semibold">USDC</Text>
           </Text>
         </View>
 
@@ -88,9 +92,9 @@ export default function ReceiveCryptoScreen() {
                 Important Notes
               </Text>
               <Text className="text-xs text-yellow-700 leading-relaxed">
-                • Only send supported tokens like USDC or cUSD on the Celo network{"\n"}
-                • Sending unsupported tokens may result in loss{"\n"}
-                • Always double-check the address before sending
+                • Only send USDC on the Celo network{"\n"}• Sending unsupported
+                tokens may result in loss{"\n"}• Always double-check the address
+                before sending
               </Text>
             </View>
           </View>

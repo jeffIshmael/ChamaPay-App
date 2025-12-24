@@ -2,10 +2,8 @@ import { useRouter } from "expo-router";
 import {
   ArrowLeft,
   Check,
-  ChevronDown,
   Smartphone,
   Wallet,
-  Info,
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -47,11 +45,9 @@ export default function WithdrawCryptoScreen() {
   const [selectedMethod, setSelectedMethod] = useState<"mpesa" | "crypto">(
     "mpesa"
   );
-  const [selectedToken, setSelectedToken] = useState("cUSD");
   const [amount, setAmount] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [walletAddress, setWalletAddress] = useState("");
-  const [showTokenModal, setShowTokenModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState<
     "idle" | "processing" | "completed" | "failed"
@@ -64,7 +60,6 @@ export default function WithdrawCryptoScreen() {
   const [verificationError, setVerificationError] = useState("");
   const { mutate: sendTx, data: transactionResult } = useSendTransaction();
   const {
-    cUSDBalance,
     USDCBalance,
     totalBalance,
     address,
@@ -73,20 +68,14 @@ export default function WithdrawCryptoScreen() {
   } = useLocalSearchParams();
   const { token, user } = useAuth();
 
-  const tokens = [
-    {
-      symbol: "cUSD",
-      name: "Celo Dollar",
-      balance: cUSDBalance,
-      image: require("@/assets/images/cusd.jpg"),
-    },
-    {
-      symbol: "USDC",
-      name: "USD Coin",
-      balance: USDCBalance,
-      image: require("@/assets/images/usdclogo.png"),
-    },
-  ];
+  const selectedToken = "USDC"; // Fixed to USDC only
+
+  const tokens = [{
+    symbol: "USDC",
+    name: "USD Coin",
+    balance: USDCBalance,
+    image: require("@/assets/images/usdclogo.png"),
+  }]
 
   const withdrawMethods = [
     {
@@ -104,7 +93,15 @@ export default function WithdrawCryptoScreen() {
     },
   ];
 
-  // Calculate KES amount before fee (total KES value)
+  // Helper function to format numbers with commas
+  const formatNumberWithCommas = (value: string | number) => {
+    const num = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(num)) return '0.00';
+    return num.toLocaleString('en-US', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    });
+  };
   const calculateTotalKESAmount = () => {
     const cryptoAmount = parseFloat(amount) || 0;
     return cryptoAmount * Number(offramp);
@@ -215,7 +212,7 @@ export default function WithdrawCryptoScreen() {
       setTimeout(() => {
         setIsProcessing(false);
         setProcessingStep("idle");
-        Alert.alert("Success!", `${amount} ${selectedToken} sent to wallet`, [
+        Alert.alert("Success!", `${amount} USDC sent to wallet`, [
           {
             text: "OK",
             onPress: () => router.push("/wallet"),
@@ -261,6 +258,7 @@ export default function WithdrawCryptoScreen() {
         txHash,
         kesFee, // Fee in KES that we're taking
         token,
+       
       );
 
       if (offrampResult.success) {
@@ -343,34 +341,6 @@ export default function WithdrawCryptoScreen() {
           className="flex-1"
         >
           <View className="px-6 py-6 gap-5">
-            {/* Select Token */}
-            <View className="bg-white p-6 rounded-2xl shadow-sm">
-              <Text className="text-base font-bold text-gray-900 mb-4">
-                Select Token
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowTokenModal(true)}
-                className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-4 flex-row items-center justify-between"
-                activeOpacity={0.7}
-              >
-                <View className="flex-row items-center flex-1">
-                  <Image
-                    source={currentToken.image}
-                    className="w-12 h-12 rounded-full mr-3"
-                  />
-                  <View className="flex-1">
-                    <Text className="text-lg font-bold text-gray-900">
-                      {currentToken.balance} {currentToken.symbol}
-                    </Text>
-                    <Text className="text-sm text-gray-600">
-                      {currentToken.name}
-                    </Text>
-                  </View>
-                </View>
-                <ChevronDown size={20} color="#059669" />
-              </TouchableOpacity>
-            </View>
-
             {/* Withdrawal Method */}
             <View className="bg-white p-6 rounded-2xl shadow-sm">
               <Text className="text-base font-bold text-gray-900 mb-4">
@@ -491,7 +461,7 @@ export default function WithdrawCryptoScreen() {
                 <Text className="text-sm text-gray-600">
                   Available:{" "}
                   <Text className="font-semibold">
-                    {currentToken.balance} {currentToken.symbol}
+                    {currentToken.balance} USDC
                   </Text>
                 </Text>
                 <TouchableOpacity
@@ -526,10 +496,10 @@ export default function WithdrawCryptoScreen() {
                   <View className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-4">
                     <View className="flex-row justify-between items-center mb-2">
                       <Text className="text-sm text-gray-600">
-                        {amount} {selectedToken} converts to
+                        {amount} USDC converts to
                       </Text>
                       <Text className="text-sm font-semibold text-gray-900">
-                        {currencyCode} {totalKESAmount}
+                        {currencyCode} {formatNumberWithCommas(totalKESAmount)}
                       </Text>
                     </View>
                     <View className="flex-row justify-between items-center mb-2">
@@ -537,7 +507,7 @@ export default function WithdrawCryptoScreen() {
                         Service Fee (0.5%)
                       </Text>
                       <Text className="text-sm font-semibold text-amber-600">
-                        - {currencyCode} {kesFee}
+                        - {currencyCode} {formatNumberWithCommas(kesFee)}
                       </Text>
                     </View>
                     <View className="h-px bg-gray-200 my-2" />
@@ -546,7 +516,7 @@ export default function WithdrawCryptoScreen() {
                         You Send
                       </Text>
                       <Text className="text-sm font-bold text-gray-900">
-                        {amount} {selectedToken}
+                        {formatNumberWithCommas(amount)} USDC
                       </Text>
                     </View>
                   </View>
@@ -557,7 +527,7 @@ export default function WithdrawCryptoScreen() {
                       YOU'LL RECEIVE
                     </Text>
                     <Text className="text-3xl font-bold text-blue-600 text-center">
-                      {currencyCode} {finalKESAmount}
+                      {currencyCode} {formatNumberWithCommas(finalKESAmount)}
                     </Text>
                   </View>
                 </>
@@ -570,7 +540,7 @@ export default function WithdrawCryptoScreen() {
                   Destination Wallet
                 </Text>
                 <Text className="text-sm text-gray-500 mb-3">
-                  Enter the wallet address to receive {selectedToken}
+                  Enter the wallet address to receive USDC
                 </Text>
 
                 <TextInput
@@ -640,72 +610,6 @@ export default function WithdrawCryptoScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      {/* Token Selection Modal */}
-      <Modal
-        visible={showTokenModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowTokenModal(false)}
-      >
-        <View className="flex-1 bg-black/50 items-center justify-end">
-          <View className="bg-white w-full rounded-t-3xl p-6 max-h-[60%]">
-            <View className="flex-row items-center justify-between mb-6">
-              <Text className="text-xl font-bold text-gray-900">
-                Select Token
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowTokenModal(false)}
-                className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center"
-                activeOpacity={0.7}
-              >
-                <Text className="text-gray-600 text-xl">×</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {tokens.map((token) => (
-                <TouchableOpacity
-                  key={token.symbol}
-                  onPress={() => {
-                    setSelectedToken(token.symbol);
-                    setShowTokenModal(false);
-                  }}
-                  className={`flex-row items-center p-4 rounded-xl mb-3 ${
-                    selectedToken === token.symbol
-                      ? "bg-emerald-50 border-2 border-emerald-500"
-                      : "bg-gray-50 border-2 border-gray-200"
-                  }`}
-                  activeOpacity={0.7}
-                >
-                  <Image
-                    source={token.image}
-                    className="w-12 h-12 rounded-full mr-4"
-                  />
-                  <View className="flex-1">
-                    <Text className="text-lg font-bold text-gray-900">
-                      {token.symbol}
-                    </Text>
-                    <Text className="text-sm text-gray-600">{token.name}</Text>
-                  </View>
-                  <View className="items-end">
-                    <Text className="text-base font-semibold text-gray-900">
-                      {token.balance}
-                    </Text>
-                    <Text className="text-xs text-gray-500">
-                      {token.symbol}
-                    </Text>
-                  </View>
-                  {selectedToken === token.symbol && (
-                    <View className="ml-3 w-6 h-6 rounded-full bg-emerald-600 items-center justify-center">
-                      <Check size={14} color="white" strokeWidth={3} />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
 
       {/* Phone Verification Modal */}
       <Modal
@@ -779,19 +683,19 @@ export default function WithdrawCryptoScreen() {
                     <View className="flex-row justify-between">
                       <Text className="text-sm text-gray-600">You Send</Text>
                       <Text className="text-sm font-semibold text-gray-900">
-                        {amount} {selectedToken}
+                        {formatNumberWithCommas(amount)} USDC
                       </Text>
                     </View>
                     <View className="flex-row justify-between">
                       <Text className="text-sm text-gray-600">Converts To</Text>
                       <Text className="text-sm font-semibold text-gray-900">
-                        {currencyCode} {totalKESAmount}
+                        {currencyCode} {formatNumberWithCommas(totalKESAmount)}
                       </Text>
                     </View>
                     <View className="flex-row justify-between">
                       <Text className="text-sm text-gray-600">Service Fee (0.5%)</Text>
                       <Text className="text-sm font-semibold text-amber-600">
-                        - {currencyCode} {kesFee}
+                        - {currencyCode} {formatNumberWithCommas(kesFee)}
                       </Text>
                     </View>
                     <View className="h-px bg-gray-300 my-1" />
@@ -800,7 +704,7 @@ export default function WithdrawCryptoScreen() {
                         You'll Receive
                       </Text>
                       <Text className="text-sm font-bold text-emerald-700">
-                        {currencyCode} {finalKESAmount}
+                        {currencyCode} {formatNumberWithCommas(finalKESAmount)}
                       </Text>
                     </View>
                   </View>
@@ -843,7 +747,7 @@ export default function WithdrawCryptoScreen() {
                 <Text className="text-sm text-gray-600 text-center mt-2">
                   {selectedMethod === "mpesa"
                     ? `Sending ${currencyCode} ${finalKESAmount} to +254${phoneNumber}`
-                    : `Sending ${amount} ${selectedToken} to wallet`}
+                    : `Sending ${amount} USDC to wallet`}
                 </Text>
               </>
             )}

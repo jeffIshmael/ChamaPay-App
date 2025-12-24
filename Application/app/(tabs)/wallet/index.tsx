@@ -236,15 +236,6 @@ export default function CryptoWallet() {
     address: activeAccount?.address,
     balances: [
       {
-        symbol: userBalance?.cUSD.symbol || "cUSD",
-        name: userBalance?.cUSD.name || "Celo Dollar",
-        amount: parseFloat(userBalance?.cUSD.displayValue || "0"),
-        usdValue: parseFloat(userBalance?.cUSD.displayValue || "0"),
-        change24h: 0.01,
-        icon: "💎",
-        image: require("@/assets/images/cusd.jpg"),
-      },
-      {
         symbol: userBalance?.USDC.symbol || "USDC",
         name: userBalance?.USDC.name || "USD Coin",
         amount: parseFloat(userBalance?.USDC.displayValue || "0"),
@@ -841,8 +832,7 @@ export default function CryptoWallet() {
                   router.push({
                     pathname: "/wallet/send-crypto",
                     params: {
-                      cUSDBalance: walletData.balances[0].amount,
-                      USDCBalance: walletData.balances[1].amount,
+                      USDCBalance: walletData.balances[0].amount,
                       totalBalance: walletData.totalUsdValue,
                       address: activeAccount?.address,
                     },
@@ -867,6 +857,7 @@ export default function CryptoWallet() {
                     params: {
                       currencyCode: theExhangeQuote?.currencyCode,
                       onramp:theExhangeQuote?.exchangeRate.selling_rate,
+                      USDCBalance: walletData.balances[0].amount,
                     },
                   })
                 }
@@ -880,8 +871,7 @@ export default function CryptoWallet() {
                   router.push({
                     pathname: "/wallet/withdrawal-crypto",
                     params: {
-                      cUSDBalance: walletData.balances[0].amount,
-                      USDCBalance: walletData.balances[1].amount,
+                      USDCBalance: walletData.balances[0].amount,
                       totalBalance: walletData.totalUsdValue,
                       address: activeAccount?.address,
                       currencyCode: theExhangeQuote?.currencyCode,
