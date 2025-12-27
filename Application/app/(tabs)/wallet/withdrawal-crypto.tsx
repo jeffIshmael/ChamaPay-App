@@ -26,7 +26,7 @@ import { prepareContractCall, toUnits, toWei, waitForReceipt } from "thirdweb";
 
 import { verifyPhoneNumber, pretiumOfframp } from "@/lib/pretiumService";
 import { chain, client, usdcContract } from "@/constants/thirdweb";
-import { settlementAddress } from "@/constants/contractAddress";
+import { pretiumSettlementAddress } from "@/constants/contractAddress";
 import { useAuth } from "@/Contexts/AuthContext";
 
 interface Verification {
@@ -240,7 +240,7 @@ export default function WithdrawCryptoScreen() {
 
     try {
       // Step 1: Send exact USDC amount to settlement address
-      const txHash = await transferUSDC(amount, settlementAddress);
+      const txHash = await transferUSDC(amount, pretiumSettlementAddress);
       if (!txHash) {
         throw new Error("Unable to send the usdc.");
       }
