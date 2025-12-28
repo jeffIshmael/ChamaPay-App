@@ -108,6 +108,7 @@ export default function DepositCryptoScreen() {
         Number(amount),
         Number(onramp),
         Number(cryptoAmount),
+        true,
         token
       );
 
@@ -153,7 +154,7 @@ export default function DepositCryptoScreen() {
             onPress: () => {
               setIsProcessing(false);
               setProcessingStep("idle");
-              router.push("/(tabs)/wallet")
+              router.push("/(tabs)/wallet");
             },
           },
         ]);

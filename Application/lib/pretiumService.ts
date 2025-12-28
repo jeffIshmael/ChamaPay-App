@@ -9,6 +9,7 @@ export async function pretiumOnramp(
   amount: number,
   exchangeRate: number,
   cusdAmount: number,
+  isDeposit: boolean,
   token: string
 ) {
   try {
@@ -23,6 +24,7 @@ export async function pretiumOnramp(
         phoneNo,
         exchangeRate,
         cusdAmount,
+        isDeposit
       }),
     });
     const data = await response.json();
