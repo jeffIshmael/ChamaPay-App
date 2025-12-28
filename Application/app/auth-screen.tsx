@@ -19,6 +19,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
+import { celo } from "thirdweb/chains";
 import { useActiveAccount, useConnect } from "thirdweb/react";
 import {
   getProfiles,
@@ -69,21 +70,20 @@ export default function AuthScreen() {
   const { connect, isConnecting } = useConnect();
   const account = useActiveAccount();
 
-
-
   // thirdweb google auth
   const handleThirdwebAuth = async (type: "google" | "apple") => {
     setErrorText("");
     try {
       const wallet = inAppWallet({
-        smartAccount: {
-          chain,
-          sponsorGas: true,
+        executionMode: {
+          mode: "EIP7702",
+          sponsorGas: false,
         },
       });
 
       const account = await wallet.connect({
         client,
+        chain: celo,
         strategy: type,
       });
       // Register wallet with connection manager so it persists across app
@@ -96,7 +96,7 @@ export default function AuthScreen() {
           timestamp: Date.now(),
         };
         await storage.setWalletConnection(walletData);
-        console.log('Wallet connection stored during auth:', walletData);
+        console.log("Wallet connection stored during auth:", walletData);
       } catch (error) {
         console.log("connecting error", error);
       }
@@ -127,16 +127,15 @@ export default function AuthScreen() {
       // Check backend for existing user
       const userDetails = await checkUserDetails(email);
       if (userDetails.success) {
-
-            const resp = await fetch(`${serverUrl}/auth/authenticate`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email }),
-          });
-          const data = await resp.json();
-          if (resp.ok && data?.token && data?.user) {
-            await setAuth(data.token, data.user, data.refreshToken || null);
-          }
+        const resp = await fetch(`${serverUrl}/auth/authenticate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const data = await resp.json();
+        if (resp.ok && data?.token && data?.user) {
+          await setAuth(data.token, data.user, data.refreshToken || null);
+        }
 
         router.replace("/(tabs)");
       } else {
@@ -156,10 +155,6 @@ export default function AuthScreen() {
       console.log("thirdweb auth error:", error);
       setErrorText("Failed to sign in. Please try again.");
     }
-  };
-
-  const handleAppleSignIn = () => {
-    setErrorText("Apple Sign-In is under development.");
   };
 
   return (

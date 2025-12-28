@@ -316,11 +316,12 @@ export const transformChamaData = (backendChama: BackendChama) => {
     slug: backendChama.slug, // Include slug for navigation
     name: backendChama.name,
     description: backendChama.description,
-    currency: "cUSD", // Default currency
+    currency: "USDC", // Default currency
     totalMembers: memberCount,
     maxMembers: backendChama.maxNo,
     contribution: parseFloat(backendChama.amount),
     totalContributions: parseFloat(backendChama.amount) * memberCount,
+    startDate: backendChama.startDate,
     myContributions: parseFloat(backendChama.amount), // Assuming user has made at least one contribution
     nextPayoutDate:formatTimeRemaining(nextPayoutDate),
     nextPayoutAmount:parseFloat(backendChama.amount) * memberCount,
