@@ -9,46 +9,46 @@ datasource db {
 }
 
 model User {
-  id                Int                 @id @default(autoincrement())
-  email             String              @unique
-  userName          String              @unique
-  phoneNo           Int?
-  address           String?
-  smartAddress      String              @unique
-  profileImageUrl   String?
-  createdChamas     Chama[]             @relation("AdminChamas")
-  chamas            ChamaMember[]
-  joinRequests      ChamaRequest[]
-  notifications     Notification[]
-  payments          Payment[]
-  messages          Message[]
-  payOuts           PayOut[]
-  mpesaTransactions MpesaTransaction[]
+  id                  Int                  @id @default(autoincrement())
+  email               String               @unique
+  userName            String               @unique
+  phoneNo             Int?
+  address             String?
+  smartAddress        String               @unique
+  profileImageUrl     String?
+  createdChamas       Chama[]              @relation("AdminChamas")
+  chamas              ChamaMember[]
+  joinRequests        ChamaRequest[]
+  notifications       Notification[]
+  payments            Payment[]
+  messages            Message[]
+  payOuts             PayOut[]
+  pretiumTransactions PretiumTransaction[]
 }
 
 model Chama {
-  id            Int              @id @default(autoincrement())
+  id            Int            @id @default(autoincrement())
   name          String
-  slug          String           @unique
+  slug          String         @unique
   description   String?
   adminTerms    String?
   type          String
   startDate     DateTime
   payDate       DateTime
   cycleTime     Int
-  started       Boolean          @default(false)
+  started       Boolean        @default(false)
   amount        String
-  round         Int              @default(1)
-  cycle         Int              @default(1)
-  maxNo         Int              @default(15)
-  rating        Int              @default(0)
-  raterCount    Int              @default(0)
+  round         Int            @default(1)
+  cycle         Int            @default(1)
+  maxNo         Int            @default(15)
+  rating        Int            @default(0)
+  raterCount    Int            @default(0)
   blockchainId  String
   adminId       Int
-  canJoin       Boolean          @default(true)
+  canJoin       Boolean        @default(true)
   payOutOrder   String?
-  createdAt     DateTime         @default(now())
-  admin         User             @relation("AdminChamas", fields: [adminId], references: [id])
+  createdAt     DateTime       @default(now())
+  admin         User           @relation("AdminChamas", fields: [adminId], references: [id])
   members       ChamaMember[]
   requests      ChamaRequest[]
   notifications Notification[]
@@ -136,36 +136,36 @@ model roundOutcome {
   chama        Chama    @relation(fields: [chamaId], references: [id])
 }
 
-// Unified M-Pesa Transaction Model (supports both payments and onramp)
-model MpesaTransaction {
-  id                  Int      @id @default(autoincrement())
-  userId              Int
-  merchantRequestID   String   @unique
-  checkoutRequestID   String   @unique
-  phoneNumber         String
-  amount              Decimal  @db.Decimal(10, 2)
-  type                String   @default("payment") // "payment" or "onramp"
-  status              String   @default("pending") // pending, completed, failed, cancelled, timeout
-  mpesaReceiptNumber  String?
-  transactionDate     String?
-  resultCode          Int?
-  resultDesc          String?
-  accountReference    String?
-  transactionDesc     String?
-  chamaId             Int?     // For chama payments
-  
+// Unified pretium Transaction Model (supports both offramp and onramp)
+model PretiumTransaction {
+  id              Int     @id @default(autoincrement())
+  userId          Int
+  transactionCode String  @unique
+  isOnramp        Boolean
+  pretiumType     String?
+  shortcode       String?
+  account_number  String?
+  amount          Decimal @db.Decimal(10, 2)
+  type            String  @default("payment") // "payment" or "deposit"
+  status          String  @default("pending") // pending, completed, failed, cancelled, timeout
+  receiptNumber   String?
+  transactionDate String?
+  isRealesed      Boolean
+  message         String?
+  chamaId         Int? // For chama payments
+
   // Onramp-specific fields
-  cusdAmount          Decimal? @db.Decimal(18, 6)  // cUSD amount for onramp
-  exchangeRate        Decimal? @db.Decimal(10, 2)  // Exchange rate used
-  walletAddress       String?  // Destination wallet for onramp
-  blockchainTxHash    String?  // Blockchain transaction hash
-  
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  user                User     @relation(fields: [userId], references: [id])
+  cusdAmount       Decimal? @db.Decimal(18, 6) // cUSD amount for onramp
+  exchangeRate     Decimal? @db.Decimal(10, 2) // Exchange rate used
+  walletAddress    String? // Destination wallet for onramp
+  blockchainTxHash String? // Blockchain transaction hash
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
-  @@index([checkoutRequestID])
+  @@index([transactionCode])
   @@index([status])
   @@index([type])
   @@index([createdAt])
