@@ -228,6 +228,7 @@ export async function pretiumCallback(req: Request, res: Response) {
         where: { transactionCode: body.transaction_code },
         data: {
           blockchainTxHash: body.transaction_hash,
+          isRealesed: body.is_released,
         },
       });
 
