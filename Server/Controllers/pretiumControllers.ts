@@ -213,6 +213,9 @@ export async function pretiumCallback(req: Request, res: Response) {
   });
 
   try {
+    const trialBody = req.body;
+    console.log("The normal body", trialBody);
+    console.log("As a json file", JSON.stringify(trialBody));
     const { Body } = req.body;
     const { stkCallback } = Body || {};
 

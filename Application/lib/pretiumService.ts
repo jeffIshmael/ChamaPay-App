@@ -130,6 +130,7 @@ export const pollPretiumPaymentStatus = async (
 
         // Get the actual transaction status from the details object
         const transactionStatus = result.details?.status?.toLowerCase() || "";
+        const isReleased = result.details.is_released;
 
         // Update caller with current status
         onStatusUpdate(transactionStatus, result);

@@ -21,7 +21,8 @@ import { useAuth } from "@/Contexts/AuthContext";
 import { pretiumOnramp, pollPretiumPaymentStatus } from "@/lib/pretiumService";
 
 export default function DepositCryptoScreen() {
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("mpesa");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] =
+    useState<string>("mpesa");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -39,8 +40,7 @@ export default function DepositCryptoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const MINIMUM_DEPOSIT = 1;
-  const selectedToken = "USDC"; // Fixed to USDC only
+  const MINIMUM_DEPOSIT = 10;
 
   const paymentMethods = [
     {
@@ -88,14 +88,15 @@ export default function DepositCryptoScreen() {
       Alert.alert("Error", `Minimum deposit is KES ${MINIMUM_DEPOSIT}`);
       return;
     }
+
     if (!token) {
       Alert.alert("Error", "Authentication required");
       return;
     }
 
-    // Start processing
     setIsProcessing(true);
     setProcessingStep("initiating");
+
     try {
       const fullPhoneNumber = `0${phoneNumber}`;
 
@@ -109,14 +110,18 @@ export default function DepositCryptoScreen() {
         Number(cryptoAmount),
         token
       );
+
       console.log("the onramp result", result);
 
       if (!result.success) {
         throw new Error(result.error || "Failed to initiate onramp");
       }
+
       setProcessingStep("waiting_for_pin");
+
       try {
         console.log("the result from the pretium onramp", result);
+
         const onrampResult = await pollPretiumPaymentStatus(
           result.transactionCode,
           token,
@@ -128,42 +133,32 @@ export default function DepositCryptoScreen() {
                 setProcessingStep("waiting_for_pin");
                 break;
               case "pending_transfer":
+              case "processing":
                 setProcessingStep("processing");
-                setTimeout(() => {
-                  setProcessingStep("processing");
-                }, 1500);
                 break;
               case "completed":
+              case "complete":
                 setProcessingStep("completed");
                 break;
             }
           }
         );
 
-        // Simulate completion
-        // onramp completed
-        setTimeout(() => {
-          setProcessingStep("completed");
-          setTimeout(() => {
-            setIsProcessing(false);
-            setProcessingStep("idle");
-            Alert.alert(
-              "Success!",
-              `Successfully deposited ${cryptoAmount} USDC`,
-              [
-                {
-                  text: "OK",
-                  onPress: () => router.push("/wallet"),
-                },
-              ]
-            );
-          }, 2000);
-        }, 8000);
+        // Payment completed successfully
+        setProcessingStep("completed");
+
+        Alert.alert("Success!", `Successfully deposited ${cryptoAmount} USDC`, [
+          {
+            text: "OK",
+            onPress: () => setProcessingStep("idle"),
+          },
+        ]);
       } catch (pollError: any) {
         setIsProcessing(false);
+        setProcessingStep("idle");
 
         let errorTitle = "Deposit Failed";
-        let errorMessage = "The prompt was cancelled. try again.";
+        let errorMessage = "The payment was not completed. Please try again.";
 
         if (pollError.status === "cancelled") {
           errorTitle = "Payment Cancelled";
@@ -171,28 +166,25 @@ export default function DepositCryptoScreen() {
         } else if (pollError.status === "timeout") {
           errorTitle = "Payment Timeout";
           errorMessage = "The payment request timed out. Please try again.";
-        } else if (pollError.resultDesc) {
-          errorMessage = pollError.resultDesc;
+        } else if (pollError.details?.message) {
+          errorMessage = pollError.details.message;
+        } else if (pollError.error) {
+          errorMessage = pollError.error;
         }
 
         Alert.alert(errorTitle, errorMessage, [
           {
             text: "OK",
-            onPress: () => {
-              setProcessingStep("idle");
-            },
           },
         ]);
       }
     } catch (error: any) {
+      setIsProcessing(false);
       setProcessingStep("idle");
       Alert.alert(
         "Error",
         error?.message || "An unexpected error occurred. Please try again."
       );
-    } finally {
-      setIsProcessing(false);
-      setProcessingStep("idle");
     }
   };
 
