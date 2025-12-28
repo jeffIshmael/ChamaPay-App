@@ -5,7 +5,6 @@ import authRoutes from "./Routes/authRoutes";
 import userRoutes from "./Routes/userRoutes";
 import chamaRoutes from "./Routes/chamaRoutes";
 import cronRoutes from "./Routes/cronRoutes";
-import mpesaRoutes from "./Routes/mpesaRoutes";
 import pretiumRoutes from "./Routes/pretiumRoutes";
 
 // Load environment variables
@@ -22,7 +21,6 @@ app.use(cors());
 app.use("/auth", authRoutes); // All auth-related routes (e.g., /auth/register, /auth/login)
 app.use("/user", userRoutes); // All user-related routes
 app.use("/chama", chamaRoutes); // All chama-related routes
-app.use("/mpesa", mpesaRoutes);
 app.use("/cron", cronRoutes);
 app.use("/pretium", pretiumRoutes);
 

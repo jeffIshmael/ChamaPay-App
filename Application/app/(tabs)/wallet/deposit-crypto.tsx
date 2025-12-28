@@ -150,7 +150,11 @@ export default function DepositCryptoScreen() {
         Alert.alert("Success!", `Successfully deposited ${cryptoAmount} USDC`, [
           {
             text: "OK",
-            onPress: () => setProcessingStep("idle"),
+            onPress: () => {
+              setIsProcessing(false);
+              setProcessingStep("idle");
+              router.push("/(tabs)/wallet")
+            },
           },
         ]);
       } catch (pollError: any) {
@@ -162,7 +166,7 @@ export default function DepositCryptoScreen() {
 
         if (pollError.status === "cancelled") {
           errorTitle = "Payment Cancelled";
-          errorMessage = "You cancelled the payment request.";
+          errorMessage = "The payment request was cancelled.";
         } else if (pollError.status === "timeout") {
           errorTitle = "Payment Timeout";
           errorMessage = "The payment request timed out. Please try again.";

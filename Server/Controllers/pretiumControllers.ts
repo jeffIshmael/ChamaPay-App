@@ -31,7 +31,7 @@ export async function getExchangeRate(req: Request, res: Response) {
 }
 
 export async function initiatePretiumOnramp(req: Request, res: Response) {
-  const { amount, phoneNo, exchangeRate, cusdAmount } = req.body;
+  const { amount, phoneNo, exchangeRate, cusdAmount, isDeposit } = req.body;
   const userId = req.user?.userId;
   try {
     if (!userId) {
@@ -72,17 +72,16 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
     }
 
     // Save onramp transaction to database
-    await prisma.mpesaTransaction.create({
+    await prisma.pretiumTransaction.create({
       data: {
         userId,
-        merchantRequestID: result.transaction_code,
-        checkoutRequestID: result.transaction_code,
-        phoneNumber: phoneNo.toString(),
+        transactionCode: result.transaction_code,
+        isOnramp: true,
+        shortcode: phoneNo.toString(),
         amount: amount,
-        type: "Pretium",
+        type: isDeposit ? "deposit" : "payment",
         status: result.status,
-        accountReference: "A pretium onramp tx",
-        transactionDesc: `get ${cusdAmount.toFixed(6)} cUSD`,
+        isRealesed: false,
         cusdAmount,
         exchangeRate: exchangeRate,
         walletAddress: user.smartAddress,
@@ -138,7 +137,7 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
       });
     }
     // for the offramp, the fee will be charged from the crypto
-    const result = await pretiumOfframp(phoneNo, amount,kesFee, txHash);
+    const result = await pretiumOfframp(phoneNo, amount, kesFee, txHash);
     console.log("the offramp pretium result", result);
     if (!result) {
       return res.status(400).json({
@@ -147,17 +146,15 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
       });
     }
     // Save onramp transaction to database
-    await prisma.mpesaTransaction.create({
+    await prisma.pretiumTransaction.create({
       data: {
         userId,
-        merchantRequestID: result.transaction_code,
-        checkoutRequestID: result.transaction_code,
-        phoneNumber: phoneNo.toString(),
+        transactionCode: result.transaction_code,
+        isOnramp: false,
+        shortcode: phoneNo.toString(),
         amount: amount,
-        type: "Pretium",
         status: result.status,
-        accountReference: `A pretium offramp tx ${txHash}`,
-        transactionDesc: `get ${amount} KES`,
+        isRealesed: false,
         cusdAmount,
         exchangeRate: exchangeRate,
         walletAddress: user.smartAddress,
@@ -213,59 +210,57 @@ export async function pretiumCallback(req: Request, res: Response) {
   });
 
   try {
-    const trialBody = req.body;
-    console.log("The normal body", trialBody);
-    console.log("As a json file", JSON.stringify(trialBody));
-    const { Body } = req.body;
-    const { stkCallback } = Body || {};
-
-    console.log("The pretium callback result is", Body);
-    console.log("the stkCallback", stkCallback);
-    if (!stkCallback) {
-      console.error("Invalid callback data");
-      return;
-    }
-
-    const { status, transaction_code, receipt_number, public_name, message } =
-      stkCallback;
+    const body = req.body;
+    console.log("The normal body", body);
 
     // Find transaction
-    const transaction = await prisma.mpesaTransaction.findUnique({
-      where: { checkoutRequestID: transaction_code },
+    const transaction = await prisma.pretiumTransaction.findUnique({
+      where: { transactionCode: body.transaction_code },
     });
 
     if (!transaction) {
-      console.error("Transaction not found:", transaction_code);
+      console.error("Transaction not found:", body.transaction_code);
+      return;
+    }
+
+    if (body.is_released) {
+      await prisma.pretiumTransaction.update({
+        where: { transactionCode: body.transaction_code },
+        data: {
+          blockchainTxHash: body.transaction_hash,
+        },
+      });
+
+      console.log(`❌ ${transaction.type} ${body.status}:`, body.message);
       return;
     }
 
     // Handle failed/cancelled payments
-    if (status === "FAILED") {
-      await prisma.mpesaTransaction.update({
-        where: { checkoutRequestID: transaction_code },
+    if (body.status === "FAILED") {
+      await prisma.pretiumTransaction.update({
+        where: { transactionCode: body.transaction_code },
         data: {
-          status,
-          resultCode: 500,
-          resultDesc: message,
+          status: body.status,
+          message: body.message,
         },
       });
 
-      console.log(`❌ ${transaction.type} ${status}:`, message);
+      console.log(`❌ ${transaction.type} ${body.status}:`, body.message);
       return;
     }
 
     // Payment successful - update the tx in  the db
-    await prisma.mpesaTransaction.update({
-      where: { checkoutRequestID: transaction_code },
+    await prisma.pretiumTransaction.update({
+      where: { transactionCode: body.transaction_code },
       data: {
-        status,
-        resultCode: 200,
-        resultDesc: message,
+        status: body.status,
+        receiptNumber: body.receipt_number,
+        message: body.message,
       },
     });
 
     console.log(
-      `✅ ${transaction.type} successful - Receipt: ${receipt_number}`
+      `✅ ${transaction.type} successful - Receipt: ${body.receipt_number}`
     );
   } catch (error) {
     console.error("Error processing callback:", error);
