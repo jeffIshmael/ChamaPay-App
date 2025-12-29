@@ -16,6 +16,7 @@ import {
   pimlicoSetPayoutOrder,
 } from "./pimlicoAgent";
 import { notifyAllChamaMembers, notifyUser } from "./prismaFunctions";
+import { formatUnits } from "viem";
 
 const prisma = new PrismaClient();
 
@@ -103,6 +104,9 @@ export const checkPaydate = async () => {
           `Chama ${chama.id}: Disbursed ${payoutResult.amount} to ${payoutResult.recipient}`
         );
 
+        // format the amount
+        const displayableAmount = formatUnits(payoutResult.amount, 6);
+
         // get the user
         const user = await prisma.user.findUnique({
           where: {
@@ -113,15 +117,15 @@ export const checkPaydate = async () => {
           throw new Error("User not found");
         }
 
-        const userMessage = `You’ve received ${payoutResult.amount} USDC as the payout for round ${chama.round} of the ${chama.name} chama.`;
-        const othersMessage = `${chama.name} chama – round ${chama.round} payout is complete! 🎉 ${user.userName} received ${payoutResult.amount} USDC.`;
+        const userMessage = `You’ve received ${displayableAmount} USDC as the payout for round ${chama.round} of the ${chama.name} chama.`;
+        const othersMessage = `${chama.name} chama – round ${chama.round} payout is complete! 🎉 ${user.userName} received ${displayableAmount} USDC.`;
 
         // update a payout record in the database
         await prisma.payOut.create({
           data: {
             chamaId: chama.id,
             receiver: payoutResult.recipient,
-            amount: toEther(payoutResult.amount),
+            amount: displayableAmount,
             userId: user.id,
           },
         });
@@ -135,7 +139,7 @@ export const checkPaydate = async () => {
             return {
               ...order,
               paid: true,
-              amount: toEther(payoutResult.amount),
+              amount: displayableAmount,
             };
           }
           return order;
