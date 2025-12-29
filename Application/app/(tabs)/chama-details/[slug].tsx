@@ -85,13 +85,19 @@ export default function ChamaDetails() {
   const { token, user } = useAuth();
   const activeAccount = useActiveAccount();
 
-  if (!token) {
-    Alert.alert("Error", "Please login to continue");
-    return;
-  }
+  useEffect(() => {
+    // Check auth on mount
+    if (!token) {
+      Alert.alert("Error", "Please login to continue");
+      router.replace("/(auth)/login");
+      return;
+    }
+  }, [token]);
 
   useEffect(() => {
     const fetchChama = async () => {
+      if (!token) return;
+      
       setIsLoading(true);
       try {
         const response = await getChamaBySlug(slug as string, token);
@@ -102,11 +108,17 @@ export default function ChamaDetails() {
           setProgressPercentage(
             (transformedChama.totalMembers / transformedChama.maxMembers) * 100
           );
+        } else {
+          // Handle case where chama is not found
+          setChama(undefined);
         }
       } catch (error) {
         console.error("Error fetching chama:", error);
+        Alert.alert("Error", "Failed to load chama details. Please try again.");
+        setChama(undefined);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
     fetchChama();
   }, [slug, token]);
@@ -130,26 +142,7 @@ export default function ChamaDetails() {
       return;
     }
     if (!chama.isPublic) {
-      try {
-        setIsJoining(true);
-        // send a notification to the admin to approve the join request
-        // const response = await sendNotificationToAdmin(chama.id, user.id);
-        // if (!response.success) {
-        //   Alert.alert("Error", "Failed to send notification to admin.");
-        //   return;
-        // }
-        Alert.alert(
-          "Success",
-          "Notification sent to admin. Please wait for approval."
-        );
-        return;
-      } catch (error) {
-        console.log(error);
-        Alert.alert("Error", "Failed to join chama. Please try again.");
-        return;
-      } finally {
-        setIsJoining(false);
-      }
+      handleRequestToJoinChama();
     } else {
       setShowCollateralModal(true);
     }
@@ -219,6 +212,8 @@ export default function ChamaDetails() {
   };
 
   const handleProceedJoin = async () => {
+    if (isJoining) return; // Prevent double-clicks
+    
     try {
       if (!token) {
         Alert.alert("Error", "Please login to continue");
@@ -230,9 +225,10 @@ export default function ChamaDetails() {
       }
 
       if (!activeAccount) {
-        Alert.alert("Error", "Opps!!You are not connected to a wallet.");
+        Alert.alert("Error", "Oops!! You are not connected to a wallet.");
         return;
       }
+      
       setIsJoining(true);
 
       // collateral amount in wei
@@ -241,6 +237,7 @@ export default function ChamaDetails() {
         6
       );
       const blockchainId = BigInt(Number(chama.blockchainId));
+      
       // Approve transaction since we will use a function that will transferFrom the user's wallet to the chama's wallet
       const approveTransaction = prepareContractCall({
         contract: usdcContract,
@@ -264,6 +261,7 @@ export default function ChamaDetails() {
           "Error",
           "Failed to approve transaction. Please try again."
         );
+        setIsJoining(false);
         return;
       }
 
@@ -305,6 +303,7 @@ export default function ChamaDetails() {
 
       if (!joinChamaTransactionReceipt) {
         Alert.alert("Error", "Failed to join chama. Please try again.");
+        setIsJoining(false);
         return;
       }
 
@@ -320,21 +319,24 @@ export default function ChamaDetails() {
 
       if (!response.success) {
         Alert.alert("Error", response.error);
+        setIsJoining(false);
         return;
       }
 
       Alert.alert("Success", `You are now a member of ${chama.name}`);
+      setShowCollateralModal(false);
       router.replace(`/(tabs)/[joined-chama-details]/${chama.slug}`);
     } catch (error) {
       console.log(error);
       Alert.alert("Error", "Failed to join chama. Please try again.");
-      return;
     } finally {
       setIsJoining(false);
     }
   };
 
   const handleRequestToJoinChama = async () => {
+    if (isJoining) return; // Prevent double-clicks
+    
     try {
       if (!token) {
         Alert.alert("Error", "Please login to continue");
@@ -346,32 +348,34 @@ export default function ChamaDetails() {
         return;
       }
       if (!activeAccount) {
-        Alert.alert("Error", "Opps!!You are not connected to a wallet.");
+        Alert.alert("Error", "Oops!! You are not connected to a wallet.");
         return;
       }
+      
       setIsJoining(true);
+      
       // send a notification to the admin to approve the join request
       // const response = await sendNotificationToAdmin(chama.id, user.id);
       // if (!response.success) {
       //   Alert.alert("Error", "Failed to send notification to admin.");
       //   return;
       // }
+      
       Alert.alert(
         "Success",
         "Request sent to admin. Please wait for approval."
       );
-      return;
     } catch (error) {
       console.log(error);
       Alert.alert(
         "Error",
         "Failed to request to join chama. Please try again."
       );
-      return;
     } finally {
       setIsJoining(false);
     }
   };
+
   const TabButton = ({
     id,
     title,
@@ -436,7 +440,7 @@ export default function ChamaDetails() {
         {chama && (
           <View className="gap-5">
             {[
-              !chama.isPublic
+              chama.isPublic
                 ? {
                     step: "1",
                     title: "Join & Lock Collateral",
@@ -478,9 +482,6 @@ export default function ChamaDetails() {
               >
                 <View className="w-14 h-14 bg-white rounded-2xl items-center justify-center shadow-sm flex-shrink-0">
                   <Text className="text-2xl">{item.icon}</Text>
-                  {/* <View className="absolute -top-2 -right-2 w-6 h-6 bg-emerald-600 rounded-full items-center justify-center">
-                    <Text className="text-white text-xs font-bold">{item.step}</Text>
-                  </View> */}
                 </View>
                 <View className="flex-1 pt-1">
                   <Text className="font-bold text-gray-900 mb-1.5 text-base">
@@ -641,6 +642,11 @@ export default function ChamaDetails() {
     </View>
   );
 
+  // Early return if no token
+  if (!token) {
+    return null;
+  }
+
   return (
     <View className="flex-1 bg-gray-50">
       {isLoading ? (
@@ -660,9 +666,16 @@ export default function ChamaDetails() {
           <Text className="text-xl font-bold text-gray-900 mb-2">
             Chama Not Found
           </Text>
-          <Text className="text-gray-600 text-center">
+          <Text className="text-gray-600 text-center mb-6">
             The chama you're looking for doesn't exist
           </Text>
+          <TouchableOpacity
+            onPress={() => router.push("/(tabs)/discover-chamas")}
+            className="bg-emerald-600 py-3 px-6 rounded-xl"
+            activeOpacity={0.8}
+          >
+            <Text className="text-white font-bold">Back to Discover</Text>
+          </TouchableOpacity>
         </SafeAreaView>
       ) : (
         <View className="h-full">
@@ -792,7 +805,7 @@ export default function ChamaDetails() {
                     </Text>
                   </View>
                   <Text className="font-bold text-gray-900 text-lg">
-                    {chama.collateralAmount} {chama.currency}
+                    {chama.isPublic ? `${chama.collateralAmount} ${chama.currency}` : "N/A"}
                   </Text>
                 </View>
               </View>
@@ -821,9 +834,7 @@ export default function ChamaDetails() {
               {/* Inline Join Button (not fixed) */}
               <View className="mt-6">
                 <TouchableOpacity
-                  onPress={
-                    chama.isPublic ? handleJoinChama : handleRequestToJoinChama
-                  }
+                  onPress={handleJoinChama}
                   disabled={isJoining}
                   className={`w-full py-4 rounded-2xl items-center justify-center flex-row gap-3 shadow-md ${
                     isJoining ? "bg-gray-400" : "bg-emerald-600"
@@ -835,12 +846,10 @@ export default function ChamaDetails() {
                   )}
                   <Text className="text-white font-bold text-lg">
                     {isJoining
-                      ? "Joining..."
+                      ? chama.isPublic ? "Joining..." : "Sending Request..."
                       : chama.isPublic
                         ? "Join Chama"
-                        : isJoining
-                          ? "Sending Request..."
-                          : "Request to Join Chama"}
+                        : "Request to Join Chama"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -854,7 +863,7 @@ export default function ChamaDetails() {
         visible={showCollateralModal}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => setShowCollateralModal(false)}
+        onRequestClose={() => !isJoining && setShowCollateralModal(false)}
       >
         <View className="flex-1 items-center justify-center bg-black/70 px-6">
           <View className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
@@ -912,20 +921,31 @@ export default function ChamaDetails() {
             <View className="gap-3 flex-row">
               <TouchableOpacity
                 onPress={() => setShowCollateralModal(false)}
-                className="flex-1 bg-gray-100 py-4 rounded-xl"
+                disabled={isJoining}
+                className={`flex-1 py-4 rounded-xl ${
+                  isJoining ? "bg-gray-200" : "bg-gray-100"
+                }`}
                 activeOpacity={0.8}
               >
-                <Text className="text-gray-700 font-bold text-center text-base">
+                <Text className={`font-bold text-center text-base ${
+                  isJoining ? "text-gray-400" : "text-gray-700"
+                }`}>
                   Cancel
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleProceedJoin}
-                className="flex-1 bg-emerald-600 py-4 rounded-xl shadow-lg"
+                disabled={isJoining}
+                className={`flex-1 py-4 rounded-xl shadow-lg flex-row items-center justify-center gap-2 ${
+                  isJoining ? "bg-emerald-400" : "bg-emerald-600"
+                }`}
                 activeOpacity={0.8}
               >
+                {isJoining && (
+                  <ActivityIndicator size="small" color="white" />
+                )}
                 <Text className="text-white font-bold text-center text-base">
-                  Continue
+                  {isJoining ? "Processing..." : "Continue"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1024,41 +1044,43 @@ export default function ChamaDetails() {
                       }}
                     />
                     {isShareSearching && (
-                      <View className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                      <ActivityIndicator size="small" color="#10b981" />
                     )}
                   </View>
 
                   {/* Search Results Dropdown */}
                   {showShareSearchResults && shareSearchResults.length > 0 && (
                     <View className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-emerald-200 shadow-lg z-50 max-h-48">
-                      {shareSearchResults.map((user) => (
-                        <TouchableOpacity
-                          key={user.id}
-                          onPress={() => handleShareUserSelect(user)}
-                          className="flex-row items-center p-3 border-b border-gray-100 last:border-b-0"
-                          activeOpacity={0.7}
-                        >
-                          <View className="w-10 h-10 bg-emerald-100 rounded-full items-center justify-center mr-3">
-                            {user.profileImageUrl ? (
-                              <Image
-                                source={{ uri: user.profileImageUrl }}
-                                className="w-10 h-10 rounded-full"
-                              />
-                            ) : (
-                              <User size={20} color="#10b981" />
-                            )}
-                          </View>
-                          <View className="flex-1">
-                            <Text className="font-semibold text-gray-900">
-                              @{user.userName}
-                            </Text>
-                            <Text className="text-xs text-gray-400 font-mono">
-                              {user.address.slice(0, 6)}...
-                              {user.address.slice(-4)}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-                      ))}
+                      <ScrollView>
+                        {shareSearchResults.map((user) => (
+                          <TouchableOpacity
+                            key={user.id}
+                            onPress={() => handleShareUserSelect(user)}
+                            className="flex-row items-center p-3 border-b border-gray-100 last:border-b-0"
+                            activeOpacity={0.7}
+                          >
+                            <View className="w-10 h-10 bg-emerald-100 rounded-full items-center justify-center mr-3">
+                              {user.profileImageUrl ? (
+                                <Image
+                                  source={{ uri: user.profileImageUrl }}
+                                  className="w-10 h-10 rounded-full"
+                                />
+                              ) : (
+                                <User size={20} color="#10b981" />
+                              )}
+                            </View>
+                            <View className="flex-1">
+                              <Text className="font-semibold text-gray-900">
+                                @{user.userName}
+                              </Text>
+                              <Text className="text-xs text-gray-400 font-mono">
+                                {user.address.slice(0, 6)}...
+                                {user.address.slice(-4)}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
                     </View>
                   )}
 

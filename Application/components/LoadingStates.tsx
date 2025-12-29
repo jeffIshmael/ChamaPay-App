@@ -97,18 +97,6 @@ export const ChamaDetailsLoadingState = () => {
         </View>
       </View>
 
-      {/* Loading Indicator Overlay */}
-      {/* <View className="absolute inset-0 items-center justify-center bg-white/30 backdrop-blur-sm">
-          <View className="bg-white rounded-3xl p-8 shadow-2xl items-center">
-            <ActivityIndicator size="large" color="#059669" />
-            <Text className="text-lg font-semibold text-gray-900 mt-4">
-              Loading Chama Details
-            </Text>
-            <Text className="text-sm text-gray-500 mt-2">
-              Please wait...
-            </Text>
-          </View>
-        </View> */}
     </View>
   );
 };
