@@ -31,11 +31,13 @@ export const checkStartDate = async () => {
   try {
     const nonStartedChamas = await getNonStartedChamas();
     console.log("non started chamas", nonStartedChamas);
+   
     if (nonStartedChamas.length < 0) {
       return;
     }
     for (const chama of nonStartedChamas) {
       const members = chama.members;
+      console.log("nostarted chama members", members);
       // shuffle the members to get the payout order
       const shuffledPayoutOrder = shuffleArray(
         members.map((member: any) => member.address)
