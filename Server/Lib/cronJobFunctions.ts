@@ -39,6 +39,7 @@ export const checkStartDate = async () => {
       const shuffledPayoutOrder = shuffleArray(
         members.map((member: any) => member.address)
       );
+      console.log("the shuffled payout order", shuffledPayoutOrder);
       // set the payout order on the blockchain
       const txHash = await pimlicoSetPayoutOrder(chama.id, shuffledPayoutOrder);
       if (!txHash) {

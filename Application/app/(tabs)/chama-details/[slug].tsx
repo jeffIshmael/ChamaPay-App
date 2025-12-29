@@ -3,7 +3,7 @@ import {
   chain,
   chamapayContract,
   client,
-  cUSDContract,
+  usdcContract,
 } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
 import {
@@ -44,6 +44,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   prepareContractCall,
   sendTransaction,
+  toUnits,
   toWei,
   waitForReceipt,
 } from "thirdweb";
@@ -235,11 +236,14 @@ export default function ChamaDetails() {
       setIsJoining(true);
 
       // collateral amount in wei
-      const collateralAmountInWei = toWei(chama.collateralAmount.toString());
-
+      const collateralAmountInWei = toUnits(
+        chama.collateralAmount.toString(),
+        6
+      );
+      const blockchainId = BigInt(Number(chama.blockchainId));
       // Approve transaction since we will use a function that will transferFrom the user's wallet to the chama's wallet
       const approveTransaction = prepareContractCall({
-        contract: cUSDContract,
+        contract: usdcContract,
         method: "function approve(address spender, uint256 amount)",
         params: [chamapayContract.address, collateralAmountInWei],
       });
@@ -263,11 +267,30 @@ export default function ChamaDetails() {
         return;
       }
 
+      console.log("now running the function");
+
       // join chama transaction
       const joinChamaTransaction = prepareContractCall({
         contract: chamapayContract,
-        method: "function addPublicMember(uint _chamaId, uint _amount)",
-        params: [BigInt(chama.blockchainId), collateralAmountInWei],
+        method: {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "_chamaId",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "_amount",
+              type: "uint256",
+            },
+          ],
+          name: "addPublicMember",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        params: [blockchainId, collateralAmountInWei],
       });
       const { transactionHash: joinChamaTransactionHash } =
         await sendTransaction({
@@ -520,7 +543,7 @@ export default function ChamaDetails() {
                 Monthly Contribution
               </Text>
               <Text className="font-semibold text-gray-900">
-                {chama.contribution} cUSD
+                {chama.contribution} {chama.currency}
               </Text>
             </View>
 
@@ -529,12 +552,12 @@ export default function ChamaDetails() {
                 Total Pool (when full)
               </Text>
               <Text className="font-semibold text-gray-900">
-                {chama.totalContributions} cUSD
+                {chama.totalContributions} {chama.currency}
               </Text>
             </View>
 
             <View className="flex-row justify-between items-center py-3 border-b border-gray-100">
-              <Text className="text-gray-600 text-sm">Duration</Text>
+              <Text className="text-gray-600 text-sm">Frequency</Text>
               <Text className="font-semibold text-gray-900">
                 {chama?.frequency}
               </Text>
@@ -543,7 +566,7 @@ export default function ChamaDetails() {
             <View className="flex-row justify-between items-center py-3">
               <Text className="text-gray-600 text-sm">Collateral Required</Text>
               <Text className="font-semibold text-gray-900">
-                { !chama.isPublic ? "N/A" : `${chama.collateralAmount} cUSD`}
+                {!chama.isPublic ? "N/A" : `${chama.collateralAmount} cUSD`}
               </Text>
             </View>
           </View>
@@ -672,9 +695,11 @@ export default function ChamaDetails() {
                 <Text className="text-3xl font-bold text-white flex-1">
                   {chama.name}
                 </Text>
-                <View className={`px-3 py-1.5 rounded-full flex-row items-center gap-1.5 ${
-                  chama.isPublic ? "bg-emerald-500/30" : "bg-gray-500/30"
-                }`}>
+                <View
+                  className={`px-3 py-1.5 rounded-full flex-row items-center gap-1.5 ${
+                    chama.isPublic ? "bg-emerald-500/30" : "bg-gray-500/30"
+                  }`}
+                >
                   <Text className="text-base">
                     {chama.isPublic ? "🌍" : "🔒"}
                   </Text>
@@ -692,7 +717,7 @@ export default function ChamaDetails() {
                 <View className="flex-row items-center gap-2 bg-white/30 rounded-full px-4 py-2">
                   <Clock size={16} color="white" />
                   <Text className="text-sm text-white font-semibold">
-                    {chama?.frequency} days
+                    {chama?.frequency}
                   </Text>
                 </View>
                 <View className="flex-row items-center gap-2 bg-white/30 rounded-full px-4 py-2">
@@ -756,7 +781,7 @@ export default function ChamaDetails() {
                     </Text>
                   </View>
                   <Text className="font-bold text-gray-900 text-lg">
-                    {chama.contribution} cUSD
+                    {chama.contribution} {chama.currency}
                   </Text>
                 </View>
                 <View className="flex-1 bg-white rounded-2xl p-4 shadow-md">
@@ -767,7 +792,7 @@ export default function ChamaDetails() {
                     </Text>
                   </View>
                   <Text className="font-bold text-gray-900 text-lg">
-                    {chama.collateralAmount} cUSD
+                    {chama.collateralAmount} {chama.currency}
                   </Text>
                 </View>
               </View>
@@ -796,7 +821,9 @@ export default function ChamaDetails() {
               {/* Inline Join Button (not fixed) */}
               <View className="mt-6">
                 <TouchableOpacity
-                  onPress={chama.isPublic ? handleJoinChama : handleRequestToJoinChama}
+                  onPress={
+                    chama.isPublic ? handleJoinChama : handleRequestToJoinChama
+                  }
                   disabled={isJoining}
                   className={`w-full py-4 rounded-2xl items-center justify-center flex-row gap-3 shadow-md ${
                     isJoining ? "bg-gray-400" : "bg-emerald-600"
@@ -810,10 +837,10 @@ export default function ChamaDetails() {
                     {isJoining
                       ? "Joining..."
                       : chama.isPublic
-                      ? "Join Chama"
-                      : isJoining
-                      ? "Sending Request..."
-                      : "Request to Join Chama"}
+                        ? "Join Chama"
+                        : isJoining
+                          ? "Sending Request..."
+                          : "Request to Join Chama"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -839,7 +866,7 @@ export default function ChamaDetails() {
                 Lock Collateral
               </Text>
               <Text className="text-gray-600 text-center text-base leading-6">
-                Lock {chama?.collateralAmount} cUSD as collateral to cater for
+                Lock {chama?.collateralAmount} {chama?.currency} as collateral to cater for
                 default.
               </Text>
             </View>
@@ -849,7 +876,7 @@ export default function ChamaDetails() {
                 Amount Required
               </Text>
               <Text className="text-3xl font-bold text-emerald-900">
-                {chama ? chama.collateralAmount : "0"} cUSD
+                {chama ? chama.collateralAmount : "0"} {chama?.currency}
               </Text>
             </View>
 

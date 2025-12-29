@@ -347,7 +347,7 @@ export const transformChamaData = (backendChama: BackendChama) => {
         ? JSON.parse(backendChama.adminTerms)
         : backendChama.adminTerms
       : [],
-    collateralAmount: parseFloat(backendChama.amount) * memberCount,
+    collateralAmount: parseFloat(backendChama.amount) * backendChama.maxNo,
     nextPayout: backendChama.payDate
       ? new Date(backendChama.payDate).toISOString().split("T")[0]
       : new Date().toISOString().split("T")[0],
