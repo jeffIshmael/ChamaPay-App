@@ -17,7 +17,6 @@ export const pimlicoSetPayoutOrder = async (
 ) => {
   try {
     const agentSmartAccountClient = await getAgentSmartWallet();
-    console.log("agent smart client",agentSmartAccountClient);
     // we need to map the string array to make it 0x..
     const bcAddresses = memberAddresses.map((addr) => addr as `0x${string}`);
     console.log("The blockchain addresses", bcAddresses);
@@ -25,7 +24,7 @@ export const pimlicoSetPayoutOrder = async (
       address: contractAddress,
       abi: contractABI,
       functionName: "setPayoutOrder",
-      args: [chamaBlockchainId, bcAddresses],
+      args: [BigInt(chamaBlockchainId), bcAddresses],
     });
     // we need to make sure that the tx has been added to the bockchain
     const transaction = await publicClient.waitForTransactionReceipt({
