@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -12,7 +12,7 @@ import {
   Send,
   Upload,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Alert,
   Image,
@@ -84,43 +84,55 @@ export default function CryptoWallet() {
     }
   };
 
-  useEffect(() => {
-    const getTx = async () => {
-      if (!token) return;
+  const getTx = async () => {
+    if (!token) return;
 
-      setLoadingTransactions(true);
-      setTransactionError(null);
+    setLoadingTransactions(true);
+    setTransactionError(null);
 
-      try {
-        const theTxs = await getTheUserTx(token);
+    try {
+      const theTxs = await getTheUserTx(token);
 
-        if (theTxs === null) {
-          setTransactionError("Unable to load transaction history");
-          setTheTransaction([]);
-        } else {
-          setTheTransaction(theTxs);
-        }
-      } catch (error) {
-        console.error("Error fetching transactions:", error);
-        setTransactionError("Failed to load transactions");
+      if (theTxs === null) {
+        setTransactionError("Unable to load transaction history");
         setTheTransaction([]);
-      } finally {
-        setLoadingTransactions(false);
+      } else {
+        setTheTransaction(theTxs);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+      setTransactionError("Failed to load transactions");
+      setTheTransaction([]);
+    } finally {
+      setLoadingTransactions(false);
+    }
+  };
 
-    getTx();
-  }, [token]);
+  const fetchRate = async () => {
+    const rate = await getExchangeRate("KES");
+    setTheExchangeQuote(rate);
+  };
 
+  // Refresh all data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log("Screen focused - refreshing data");
+      fetchBalances();
+      getTx();
+      fetchRate();
+    }, [wallet, activeAccount, token])
+  );
+
+  // Initial load
   useEffect(() => {
     fetchBalances();
   }, [wallet, activeAccount]);
 
   useEffect(() => {
-    const fetchRate = async () => {
-      const rate = await getExchangeRate("KES");
-      setTheExchangeQuote(rate);
-    };
+    getTx();
+  }, [token]);
+
+  useEffect(() => {
     fetchRate();
   }, []);
 
@@ -169,7 +181,7 @@ export default function CryptoWallet() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchBalances();
+    await Promise.all([fetchBalances(), getTx(), fetchRate()]);
     setRefreshing(false);
   };
 

@@ -70,6 +70,11 @@ export default function DepositCryptoScreen() {
     };
   };
 
+  const emptyInputs = () => {
+    setAmount("");
+    setPhoneNumber("");
+  };
+
   const { depositAmount, cryptoAmount } = calculateAmounts();
 
   // the function to deposit crypto from fiat (onramp)
@@ -152,6 +157,7 @@ export default function DepositCryptoScreen() {
           {
             text: "OK",
             onPress: () => {
+              emptyInputs();
               setIsProcessing(false);
               setProcessingStep("idle");
               router.push("/(tabs)/wallet");
@@ -193,10 +199,6 @@ export default function DepositCryptoScreen() {
     }
   };
 
-  const selectedPaymentMethodData = paymentMethods.find(
-    (p) => p.id === selectedPaymentMethod
-  );
-
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-downy-800"
@@ -207,7 +209,10 @@ export default function DepositCryptoScreen() {
       <View className="px-6 pt-4 pb-6">
         <View className="flex-row items-center justify-between mb-2">
           <TouchableOpacity
-            onPress={() => router.push("/wallet")}
+            onPress={() => {
+              emptyInputs();
+              router.push("/wallet");
+            }}
             className="p-2 -ml-2"
             activeOpacity={0.7}
           >

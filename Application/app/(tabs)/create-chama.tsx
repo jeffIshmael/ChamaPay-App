@@ -1,4 +1,4 @@
-import { chamapayContract, cUSDContract } from "@/constants/thirdweb";
+import { chamapayContract, usdcContract } from "@/constants/thirdweb";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import {
@@ -27,7 +27,12 @@ import {
 } from "react-native";
 // Custom checkbox component to avoid dependency conflicts
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { prepareContractCall, sendTransaction, waitForReceipt } from "thirdweb";
+import {
+  prepareContractCall,
+  sendTransaction,
+  toUnits,
+  waitForReceipt,
+} from "thirdweb";
 import {
   useActiveAccount,
   useActiveWallet,
@@ -39,12 +44,16 @@ import { useAuth } from "../../Contexts/AuthContext";
 import { registerChamaToDatabase } from "@/lib/chamaService";
 import { chain, client } from "../../constants/thirdweb";
 
+// Exchange rate constant (KES per 1 USDC)
+const USDC_TO_KES_RATE = 129.5; // Update this with current rate
+const MINIMUM_CONTRIBUTION = 0.01; // Minimum contribution in USDC
+
 interface FormData {
   name: string;
   description: string;
   isPublic: boolean;
   maxMembers: number;
-  contribution: number;
+  contribution: string; // Changed to string to handle decimal input properly
   frequency: number; // in days
   duration: number; // calculated automatically
   startDate: string; // date in YYYY-MM-DD format
@@ -98,7 +107,7 @@ export default function CreateChama() {
     description: "",
     isPublic: false,
     maxMembers: 5,
-    contribution: 5, // Default to 5 cUSD
+    contribution: "5", // Default to 5 USDC as string
     frequency: 7, // default to weekly
     duration: 35, // calculated automatically
     startDate: new Date(Date.now() + 24 * 60 * 60 * 1000)
@@ -126,6 +135,19 @@ export default function CreateChama() {
   const [agreedToCollateral, setAgreedToCollateral] = useState(false);
   const wallet = useActiveWallet();
   const activeAccount = useActiveAccount();
+
+  // Helper function to convert USDC to KES
+  const convertToKES = (usdcAmount: string): string => {
+    const amount = parseFloat(usdcAmount);
+    if (isNaN(amount)) return "0.00";
+    return (amount * USDC_TO_KES_RATE).toFixed(2);
+  };
+
+  // Helper function to get numeric contribution value
+  const getContributionValue = (): number => {
+    const value = parseFloat(formData.contribution);
+    return isNaN(value) ? 0 : value;
+  };
 
   // Calculate duration automatically when frequency or maxMembers changes
   useEffect(() => {
@@ -197,6 +219,17 @@ export default function CreateChama() {
     });
   };
 
+  const handleContributionChange = (text: string) => {
+    // Allow empty string, numbers, and decimal point
+    if (text === "" || /^\d*\.?\d*$/.test(text)) {
+      // Prevent multiple decimal points
+      const decimalCount = (text.match(/\./g) || []).length;
+      if (decimalCount <= 1) {
+        updateFormData("contribution", text);
+      }
+    }
+  };
+
   const createChama = async () => {
     if (!user || !token) {
       Alert.alert("Error", "Please log in to create a chama");
@@ -204,6 +237,15 @@ export default function CreateChama() {
     }
     if (!activeAccount) {
       Alert.alert("Error", "No active account.");
+      return;
+    }
+
+    const contributionValue = getContributionValue();
+    if (contributionValue < MINIMUM_CONTRIBUTION) {
+      Alert.alert(
+        "Error",
+        `Minimum contribution is ${MINIMUM_CONTRIBUTION} USDC`
+      );
       return;
     }
 
@@ -228,14 +270,14 @@ export default function CreateChama() {
       );
 
       // convert contribution to wei
-      const contributionInWei = toWei(formData.contribution.toString());
+      const contributionInWei = toUnits(contributionValue.toString(), 6);
 
-      // user should lock amount to cater for thw whole cycle
-      const totalCollateralRequired =
-        formData.contribution * formData.maxMembers;
+      // user should lock amount to cater for the whole cycle
+      const totalCollateralRequired = contributionValue * formData.maxMembers;
       // convert contribution to wei
-      const totalCollateralRequiredInWei = toWei(
-        totalCollateralRequired.toString()
+      const totalCollateralRequiredInWei = toUnits(
+        totalCollateralRequired.toString(),
+        6
       );
 
       const blockchainId = Number(totalChamas).toString();
@@ -246,7 +288,7 @@ export default function CreateChama() {
         setLoadingState("Checking payment...");
 
         const approveTransaction = prepareContractCall({
-          contract: cUSDContract,
+          contract: usdcContract,
           method: "function approve(address spender, uint256 amount)",
           params: [chamapayContract.address, totalCollateralRequiredInWei],
         });
@@ -269,7 +311,7 @@ export default function CreateChama() {
           setLoadingState("");
           Alert.alert(
             "Error",
-            `Failed. ensure you have ${totalCollateralRequired} cUSD in your wallet.`
+            `Failed. ensure you have ${totalCollateralRequired} USDC in your wallet.`
           );
           return;
         }
@@ -285,8 +327,39 @@ export default function CreateChama() {
       // registering chama to the blockchain
       const createChamaTransaction = prepareContractCall({
         contract: chamapayContract,
-        method:
-          "function registerChama(uint _amount, uint _duration, uint _startDate, uint _maxMembers, bool _isPublic )",
+        method: {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "_amount",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "_duration",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "_startDate",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "_maxMembers",
+              type: "uint256",
+            },
+            {
+              internalType: "bool",
+              name: "_isPublic",
+              type: "bool",
+            },
+          ],
+          name: "registerChama",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
         params: [
           contributionInWei,
           durationTimestamp,
@@ -329,7 +402,7 @@ export default function CreateChama() {
           description: formData.description,
           type: formData.isPublic ? "Public" : "Private",
           adminTerms: JSON.stringify(formData.adminTerms),
-          amount: formData.contribution.toString(),
+          amount: contributionValue.toString(),
           cycleTime: formData.frequency,
           maxNo: formData.maxMembers,
           startDate: startDateTime,
@@ -357,7 +430,7 @@ export default function CreateChama() {
         description: "",
         isPublic: false,
         maxMembers: 5,
-        contribution: 5,
+        contribution: "5",
         frequency: 7,
         duration: 35,
         startDate: new Date(Date.now() + 24 * 60 * 60 * 1000)
@@ -423,7 +496,9 @@ export default function CreateChama() {
         onPress={onToggle}
         activeOpacity={0.7}
       >
-        <Text className={`font-medium ${value ? "text-gray-900" : "text-gray-500"}`}>
+        <Text
+          className={`font-medium ${value ? "text-gray-900" : "text-gray-500"}`}
+        >
           {value || placeholder}
         </Text>
         <ChevronDown size={20} color="#6b7280" />
@@ -445,8 +520,8 @@ export default function CreateChama() {
                   {typeof option === "object"
                     ? option.label
                     : typeof option === "number"
-                    ? `${option} ${option === 1 ? "member" : "members"}`
-                    : option}
+                      ? `${option} ${option === 1 ? "member" : "members"}`
+                      : option}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -622,53 +697,62 @@ export default function CreateChama() {
           </View>
 
           <View>
-            <Text className="text-sm font-medium text-gray-700 mb-2">
-              Contribution Amount (cUSD) <Text className="text-red-500">*</Text>
-            </Text>
+            <View className="flex-row justify-between items-center mb-2">
+              <Text className="text-sm font-medium text-gray-700">
+                Contribution Amount (USDC){" "}
+                <Text className="text-red-500">*</Text>
+              </Text>
+              <Text className="text-xs text-gray-500">
+                Min: {MINIMUM_CONTRIBUTION} USDC
+              </Text>
+            </View>
             <TextInput
-              placeholder="5"
-              value={formData.contribution.toString()}
-              onChangeText={(text) =>
-                updateFormData("contribution", parseFloat(text) || 0)
-              }
-              keyboardType="numeric"
+              placeholder="5.00"
+              value={formData.contribution}
+              onChangeText={handleContributionChange}
+              keyboardType="decimal-pad"
               className={`bg-gray-50 border rounded-xl px-4 py-3 text-gray-900 ${
-                formData.contribution <= 0 &&
-                formData.contribution.toString() !== ""
+                getContributionValue() < MINIMUM_CONTRIBUTION &&
+                formData.contribution !== ""
                   ? "border-red-300 bg-red-50"
                   : "border-gray-200"
               }`}
               placeholderTextColor="#9ca3af"
             />
-            {formData.contribution <= 0 &&
-              formData.contribution.toString() !== "" && (
+            {formData.contribution !== "" && (
+              <View className="mt-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                <Text className="text-blue-900 text-xs font-medium">
+                  ≈ KES {convertToKES(formData.contribution)} (at 1 USDC = KES{" "}
+                  {USDC_TO_KES_RATE})
+                </Text>
+              </View>
+            )}
+            {getContributionValue() < MINIMUM_CONTRIBUTION &&
+              formData.contribution !== "" && (
                 <Text className="text-red-600 text-xs mt-1">
-                  Contribution amount must be greater than 0
+                  Minimum contribution is {MINIMUM_CONTRIBUTION} USDC
                 </Text>
               )}
           </View>
 
           <View className="bg-blue-50 border border-blue-200 rounded-xl p-5">
             <View className="flex-row items-start gap-3">
-              <View className="w-8 h-8 rounded-full bg-blue-100 items-center justify-center flex-shrink-0">
-                <Info size={18} color="#2563eb" />
-              </View>
               <View className="flex-1">
                 <Text className="text-blue-900 font-semibold mb-2 text-base">
                   Financial Summary
                 </Text>
                 <Text className="text-blue-800 text-sm">
-                  • Total pool per payout: cUSD{" "}
-                  {(
-                    formData.contribution * formData.maxMembers
-                  ).toLocaleString()}
-                  {"\n"}• Total contributions: cUSD{" "}
-                  {(
-                    formData.contribution * formData.maxMembers
-                  ).toLocaleString()}
-                  {"\n"}• Duration: {formData.duration} days
+                  • Total pool per payout:{" "}
+                  {(getContributionValue() * formData.maxMembers).toFixed(2)}{" "}
+                  USDC (≈ KES{" "}
+                  {convertToKES(
+                    (getContributionValue() * formData.maxMembers).toString()
+                  )}
+                  ){"\n"}• Each contribution:{" "}
+                  {getContributionValue().toFixed(2)} USDC
                   {"\n"}• Frequency: {formData.frequency} days
-                  {"\n"}• Start: {formData.startDate} at {formData.startTime}
+                  {"\n"}• Starts: {formatDate(formData.startDate)} at{" "}
+                  {formatTime(formData.startTime)}
                   {!isStartDateTimeInFuture() &&
                     formData.startDate.trim() !== "" && (
                       <Text className="text-red-600">
@@ -695,146 +779,174 @@ export default function CreateChama() {
         </Text>
       </View>
       <View className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <View className={`flex-row items-center justify-between p-5  border border-downy-100 rounded-xl ${formData.isPublic ? "bg-emerald-50" : "bg-gray-50"}`}>
-        <View className="flex-row items-center gap-3 flex-1">
-          <View className="w-10 h-10 rounded-full bg-white items-center justify-center border border-emerald-200">
-            <Users size={20} color="#059669" />
-          </View>
-          <View className="flex-1">
-            <Text className="font-semibold text-gray-900 text-base">Chama Type</Text>
-            <Text className="text-sm text-gray-600 mt-0.5">
-              {formData.isPublic
-                ? "Public - Anyone can join"
-                : "Private - Invitation only"}
-            </Text>
-          </View>
-        </View>
-        <Switch
-          value={formData.isPublic}
-          onValueChange={(value) => updateFormData("isPublic", value)}
-          trackColor={{ false: "#d1d5db", true: "#10b981" }}
-          thumbColor={formData.isPublic ? "#ffffff" : "#ffffff"}
-        />
-      </View>
-
-      {formData.isPublic && (
-        <View className="p-5 bg-amber-50 border border-amber-200 rounded-xl mt-4">
-          <View className="flex-row items-center gap-3">
-            <View className="w-10 h-10 rounded-full bg-white items-center justify-center border border-amber-200">
-              <Shield size={20} color="#d97706" />
+        <View
+          className={`flex-row items-center justify-between p-5  border border-downy-100 rounded-xl ${formData.isPublic ? "bg-emerald-50" : "bg-gray-50"}`}
+        >
+          <View className="flex-row items-center gap-3 flex-1">
+            <View className="w-10 h-10 rounded-full bg-white items-center justify-center border border-emerald-200">
+              <Users size={20} color="#059669" />
             </View>
             <View className="flex-1">
               <Text className="font-semibold text-gray-900 text-base">
-                Collateral Required
+                Chama Type
               </Text>
               <Text className="text-sm text-gray-600 mt-0.5">
-                Members must provide collateral that caters for one cycle.
+                {formData.isPublic
+                  ? "Public - Anyone can join"
+                  : "Private - Invitation only"}
               </Text>
             </View>
           </View>
-        </View>
-      )}
-
-      <View>
-        <Text className="text-sm font-medium text-gray-700 mb-2 mt-4">
-          Admin Requirements
-        </Text>
-        <Text className="text-sm text-gray-600 mb-2">
-          Define the requirements for members to join your chama
-        </Text>
-        <View className="flex-row gap-2 mb-2">
-          <TextInput
-            placeholder="e.g., Must be a tech professional"
-            value={newTerm}
-            onChangeText={setNewTerm}
-            className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 min-h-[44px]"
-            placeholderTextColor="#9ca3af"
-            multiline
-            textAlignVertical="top"
+          <Switch
+            value={formData.isPublic}
+            onValueChange={(value) => updateFormData("isPublic", value)}
+            trackColor={{ false: "#d1d5db", true: "#10b981" }}
+            thumbColor={formData.isPublic ? "#ffffff" : "#ffffff"}
           />
-          <TouchableOpacity
-            onPress={addTerm}
-            className="bg-emerald-600 w-12 h-12 rounded-xl items-center justify-center active:bg-emerald-700"
-            activeOpacity={0.7}
-          >
-            <Plus size={20} color={"#fff"} />
-          </TouchableOpacity>
         </View>
-        {formData.adminTerms.length > 0 && (
-          <View className="bg-gray-50 border border-gray-200 rounded-xl p-5">
-            <Text className="text-sm font-semibold text-gray-900 mb-3">
-              Requirements ({formData.adminTerms.length})
-            </Text>
-            <View className="gap-3">
-              {formData.adminTerms.map((term, index) => (
-                <View key={index} className="flex-row items-start gap-3 bg-white rounded-lg p-3 border border-gray-200">
-                  <View className="w-6 h-6 rounded-full bg-emerald-100 items-center justify-center flex-shrink-0">
-                    <Text className="text-emerald-700 text-xs font-bold">
-                      {index + 1}
-                    </Text>
-                  </View>
-                  <View className="flex-1 flex-row items-center justify-between">
-                    <Text className="text-sm text-gray-700 flex-1 font-medium">{term}</Text>
-                    <TouchableOpacity 
-                      onPress={() => removeTerm(term)}
-                      className="w-6 h-6 rounded-full bg-red-50 items-center justify-center active:bg-red-100"
-                      activeOpacity={0.7}
-                    >
-                      <X size={14} color="#dc2626" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
+
+        {formData.isPublic && (
+          <View className="p-5 bg-amber-50 border border-amber-200 rounded-xl mt-4">
+            <View className="flex-row items-center gap-3">
+              <View className="w-10 h-10 rounded-full bg-white items-center justify-center border border-amber-200">
+                <Shield size={20} color="#d97706" />
+              </View>
+              <View className="flex-1">
+                <Text className="font-semibold text-gray-900 text-base">
+                  Collateral Required
+                </Text>
+                <Text className="text-sm text-gray-600 mt-0.5">
+                  Members must provide collateral that caters for one cycle.
+                </Text>
+              </View>
             </View>
           </View>
         )}
-      </View>
 
-      <View className="bg-emerald-50 border border-emerald-200 rounded-xl p-5">
-        <Text className="text-emerald-900 font-semibold mb-3 text-base">Summary</Text>
-        <View className="gap-2">
-          <Text className="text-emerald-800 text-sm font-medium">
-            • Name: <Text className="font-normal">{formData.name}</Text>
+        <View>
+          <Text className="text-sm font-medium text-gray-700 mb-2 mt-4">
+            Admin Requirements
           </Text>
-          <Text className="text-emerald-800 text-sm font-medium">
-            • Members: <Text className="font-normal">{formData.maxMembers}</Text>
+          <Text className="text-sm text-gray-600 mb-2">
+            Define the requirements for members to join your chama
           </Text>
-          <Text className="text-emerald-800 text-sm font-medium">
-            • Contribution: <Text className="font-normal">cUSD {formData.contribution.toLocaleString()}</Text>
-          </Text>
-          <Text className="text-emerald-800 text-sm font-medium">
-            • Frequency: <Text className="font-normal">{formData.frequency} days</Text>
-          </Text>
-          <Text className="text-emerald-800 text-sm font-medium">
-            • One Cycle Duration: <Text className="font-normal">{formData.duration} days</Text>
-          </Text>
-          <Text className="text-emerald-800 text-sm font-medium">
-            • Start: <Text className="font-normal">{formatDate(formData.startDate)} at{" "}
-            {formatTime(formData.startTime)}</Text>
-          </Text>
-          <Text className="text-emerald-800 text-sm font-medium">
-            • Type: <Text className="font-normal">{formData.isPublic ? "Public" : "Private"}</Text>
-          </Text>
-          {formData.isPublic && (
-            <Text className="text-emerald-800 text-sm font-medium">
-              • Collateral Required: <Text className="font-normal">
-              {formData.contribution * formData.maxMembers} cUSD</Text>
-            </Text>
-          )}
+          <View className="flex-row gap-2 mb-2">
+            <TextInput
+              placeholder="e.g., Must be a tech professional"
+              value={newTerm}
+              onChangeText={setNewTerm}
+              className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 min-h-[44px]"
+              placeholderTextColor="#9ca3af"
+              multiline
+              textAlignVertical="top"
+            />
+            <TouchableOpacity
+              onPress={addTerm}
+              className="bg-emerald-600 w-12 h-12 rounded-xl items-center justify-center active:bg-emerald-700"
+              activeOpacity={0.7}
+            >
+              <Plus size={20} color={"#fff"} />
+            </TouchableOpacity>
+          </View>
           {formData.adminTerms.length > 0 && (
-            <>
-              <Text className="text-emerald-800 text-sm font-semibold mt-2">
-                • Requirements:
+            <View className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+              <Text className="text-sm font-semibold text-gray-900 mb-3">
+                Requirements ({formData.adminTerms.length})
               </Text>
-              {formData.adminTerms.map((term, index) => (
-                <Text key={index} className="text-emerald-800 text-sm pl-4 font-medium">
-                  {index + 1}. <Text className="font-normal">{term}</Text>
-                </Text>
-              ))}
-            </>
+              <View className="gap-3">
+                {formData.adminTerms.map((term, index) => (
+                  <View
+                    key={index}
+                    className="flex-row items-start gap-3 bg-white rounded-lg p-3 border border-gray-200"
+                  >
+                    <View className="w-6 h-6 rounded-full bg-emerald-100 items-center justify-center flex-shrink-0">
+                      <Text className="text-emerald-700 text-xs font-bold">
+                        {index + 1}
+                      </Text>
+                    </View>
+                    <View className="flex-1 flex-row items-center justify-between">
+                      <Text className="text-sm text-gray-700 flex-1 font-medium">
+                        {term}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => removeTerm(term)}
+                        className="w-6 h-6 rounded-full bg-red-50 items-center justify-center active:bg-red-100"
+                        activeOpacity={0.7}
+                      >
+                        <X size={14} color="#dc2626" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
           )}
         </View>
-      </View>
+
+        <View className="bg-emerald-50 border border-emerald-200 rounded-xl p-5">
+          <Text className="text-emerald-900 font-semibold mb-3 text-base">
+            Summary
+          </Text>
+          <View className="gap-2">
+            <Text className="text-emerald-800 text-sm font-medium">
+              • Name: <Text className="font-normal">{formData.name}</Text>
+            </Text>
+            <Text className="text-emerald-800 text-sm font-medium">
+              • Members:{" "}
+              <Text className="font-normal">{formData.maxMembers}</Text>
+            </Text>
+            <Text className="text-emerald-800 text-sm font-medium">
+              • Contribution:{" "}
+              <Text className="font-normal">
+                {formData.contribution.toLocaleString()} USDC
+              </Text>
+            </Text>
+            <Text className="text-emerald-800 text-sm font-medium">
+              • Frequency:{" "}
+              <Text className="font-normal">{formData.frequency} days</Text>
+            </Text>
+            <Text className="text-emerald-800 text-sm font-medium">
+              • One Cycle Duration:{" "}
+              <Text className="font-normal">{formData.duration} days</Text>
+            </Text>
+            <Text className="text-emerald-800 text-sm font-medium">
+              • Start:{" "}
+              <Text className="font-normal">
+                {formatDate(formData.startDate)} at{" "}
+                {formatTime(formData.startTime)}
+              </Text>
+            </Text>
+            <Text className="text-emerald-800 text-sm font-medium">
+              • Type:{" "}
+              <Text className="font-normal">
+                {formData.isPublic ? "Public" : "Private"}
+              </Text>
+            </Text>
+            {formData.isPublic && (
+              <Text className="text-emerald-800 text-sm font-medium">
+                • Collateral Required:{" "}
+                <Text className="font-normal">
+                  {Number(formData.contribution) * formData.maxMembers} USDC
+                </Text>
+              </Text>
+            )}
+            {formData.adminTerms.length > 0 && (
+              <>
+                <Text className="text-emerald-800 text-sm font-semibold mt-2">
+                  • Requirements:
+                </Text>
+                {formData.adminTerms.map((term, index) => (
+                  <Text
+                    key={index}
+                    className="text-emerald-800 text-sm pl-4 font-medium"
+                  >
+                    {index + 1}. <Text className="font-normal">{term}</Text>
+                  </Text>
+                ))}
+              </>
+            )}
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -851,7 +963,7 @@ export default function CreateChama() {
   const isStep1Valid =
     formData.name.trim() !== "" &&
     formData.description.trim() !== "" &&
-    formData.contribution > 0 &&
+    Number(formData.contribution) > 0 &&
     formData.frequency > 0 &&
     formData.startDate.trim() !== "" &&
     formData.startTime.trim() !== "" &&
@@ -872,7 +984,14 @@ export default function CreateChama() {
   return (
     <View className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="bg-downy-800 rounded-b-3xl" style={{ paddingTop: insets.top + 16, paddingBottom: 20, paddingHorizontal: 20 }}>
+      <View
+        className="bg-downy-800 rounded-b-3xl"
+        style={{
+          paddingTop: insets.top + 16,
+          paddingBottom: 20,
+          paddingHorizontal: 20,
+        }}
+      >
         <View className="flex-row items-center justify-between mb-6">
           <TouchableOpacity
             onPress={() => router.back()}
@@ -882,9 +1001,7 @@ export default function CreateChama() {
             <ArrowLeft size={20} color="white" />
           </TouchableOpacity>
           <View className="flex-1 items-center">
-            <Text className="text-2xl font-bold text-white">
-              Create Chama
-            </Text>
+            <Text className="text-2xl font-bold text-white">Create Chama</Text>
             <Text className="text-sm text-white/80 mt-1">Step {step} of 2</Text>
           </View>
           <View className="w-10" />
@@ -930,10 +1047,12 @@ export default function CreateChama() {
                 disabled={step === 1}
                 activeOpacity={0.7}
               >
-                <Text className={`font-semibold text-base ${
-                  step === 1 ? "text-gray-400" : "text-gray-700"
-                }`}>
-                  {step === 1 ? "Cancel" : "Back"}
+                <Text
+                  className={`font-semibold text-base ${
+                    step === 1 ? "text-gray-400" : "text-gray-700"
+                  }`}
+                >
+                  {step === 1 ? "Cancel" : "Previous"}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -956,15 +1075,15 @@ export default function CreateChama() {
                 <Text
                   className={`font-semibold text-base relative z-10 ${
                     (step === 1 && !isStep1Valid) || loading
-                      ? "text-gray-500"
+                      ? "text-gray-200"
                       : "text-white"
                   }`}
                 >
                   {loading
                     ? loadingState || "Creating..."
                     : step === 2
-                    ? "Create Chama"
-                    : "Next"}
+                      ? "Create Chama"
+                      : "Next"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1035,7 +1154,9 @@ export default function CreateChama() {
               }}
               activeOpacity={0.8}
             >
-              <Text style={{ color: "white", fontWeight: "600", fontSize: 16 }}>Done</Text>
+              <Text style={{ color: "white", fontWeight: "600", fontSize: 16 }}>
+                Done
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1103,7 +1224,9 @@ export default function CreateChama() {
               }}
               activeOpacity={0.8}
             >
-              <Text style={{ color: "white", fontWeight: "600", fontSize: 16 }}>Done</Text>
+              <Text style={{ color: "white", fontWeight: "600", fontSize: 16 }}>
+                Done
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1201,9 +1324,9 @@ export default function CreateChama() {
                     You'll lock{" "}
                     <Text style={{ fontWeight: "600" }}>
                       {(
-                        formData.contribution * formData.maxMembers
+                        Number(formData.contribution) * formData.maxMembers
                       ).toLocaleString()}{" "}
-                      cUSD
+                      USDC
                     </Text>{" "}
                     as collateral
                   </Text>
@@ -1300,9 +1423,9 @@ export default function CreateChama() {
                     I understand that I will lock{" "}
                     <Text style={{ fontWeight: "600" }}>
                       {(
-                        formData.contribution * formData.maxMembers
+                        Number(formData.contribution) * formData.maxMembers
                       ).toLocaleString()}{" "}
-                      cUSD
+                      USDC
                     </Text>{" "}
                     as collateral and agree to the terms outlined above.
                   </Text>

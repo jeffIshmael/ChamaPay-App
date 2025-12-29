@@ -31,6 +31,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { formatTimeRemaining } from "@/Utils/helperFunctions";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -366,8 +367,8 @@ export default function HomeScreen() {
               <View className="flex-row items-center justify-between pt-3 border-t border-gray-100">
                 <View className="flex-row items-center flex-1">
                   <Calendar color="#6b7280" size={16} />
-                  <Text className="text-sm font-medium text-gray-700 ml-2">
-                    Next: {chama.nextTurnMember} {`(${chama.nextPayoutDate})`}
+                  <Text className="text-sm font-medium text-gray-700 ml-2">{ chama.status === "active" ? 
+                    `Next: ${chama.nextTurnMember} (${chama.nextPayoutDate})`:`Starts in: ${formatTimeRemaining(chama.startDate)}`}
                   </Text>
                 </View>
                 {chama.myTurn && (
