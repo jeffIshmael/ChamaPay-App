@@ -37,6 +37,7 @@ export const checkStartDate = async () => {
     }
     for (const chama of nonStartedChamas) {
       const members = chama.members;
+      console.log("the chama members", members);
 
       // extract blockchain addresses
       const addresses = members.map(
