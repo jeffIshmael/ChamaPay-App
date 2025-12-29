@@ -46,7 +46,7 @@ import { chain, client } from "../../constants/thirdweb";
 
 // Exchange rate constant (KES per 1 USDC)
 const USDC_TO_KES_RATE = 129.5; // Update this with current rate
-const MINIMUM_CONTRIBUTION = 0.01; // Minimum contribution in USDC
+const MINIMUM_CONTRIBUTION = 0.001; // Minimum contribution in USDC
 
 interface FormData {
   name: string;
