@@ -5,11 +5,17 @@
 import { PrismaClient } from "@prisma/client";
 import { toEther } from "thirdweb";
 import {
-    getChamasThatHaveReachedPaydate,
-    getNonStartedChamas,
-    shuffleArray,
+  getChamasThatHaveReachedPaydate,
+  getNonStartedChamas,
+  shuffleArray,
 } from "./HelperFunctions";
 import { checkPayoutResult, setPayoutOrder, triggerPayout } from "./Thirdweb";
+import {
+  pimlicoAddMemberToPayoutOrder,
+  pimlicoProcessPayout,
+  pimlicoSetPayoutOrder,
+} from "./pimlicoAgent";
+import { notifyAllChamaMembers, notifyUser } from "./prismaFunctions";
 
 const prisma = new PrismaClient();
 
@@ -33,7 +39,7 @@ export const checkStartDate = async () => {
         members.map((member: any) => member.address)
       );
       // set the payout order on the blockchain
-      const txHash = await setPayoutOrder(chama.id, shuffledPayoutOrder);
+      const txHash = await pimlicoSetPayoutOrder(chama.id, shuffledPayoutOrder);
       if (!txHash) {
         throw new Error("Failed to set payout order");
       }
@@ -56,7 +62,11 @@ export const checkStartDate = async () => {
         data: { payOutOrder: JSON.stringify(payoutOrder), started: true },
       });
 
-      //TO DO: we will send the notification to the members
+      // notify all the members
+      await notifyAllChamaMembers(
+        chama.id,
+        `Your ${chama.name} chama has started!Tap to view the payout order and your position.`
+      );
     }
   } catch (error) {
     console.log(error);
@@ -74,7 +84,9 @@ export const checkPaydate = async () => {
     }
     for (const chama of chamasThatHaveReachedPaydate) {
       // trigger the payout on the blockchain
-      const receipt = await triggerPayout(Number(chama.blockchainId));
+      // the pimlico requires it as an array
+      const arrayBlockchainId = [Number(chama.blockchainId)];
+      const receipt = await pimlicoProcessPayout(arrayBlockchainId);
       if (!receipt) {
         throw new Error("Failed to trigger payout");
       }
@@ -99,7 +111,10 @@ export const checkPaydate = async () => {
         });
         if (!user) {
           throw new Error("User not found");
-        };
+        }
+
+        const userMessage = `You’ve received ${payoutResult.amount} USDC as the payout for round ${chama.round} of the ${chama.name} chama.`;
+        const othersMessage = `${chama.name} chama – round ${chama.round} payout is complete! 🎉 ${user.userName} received ${payoutResult.amount} USDC.`;
 
         // update a payout record in the database
         await prisma.payOut.create({
@@ -139,8 +154,10 @@ export const checkPaydate = async () => {
             ),
           },
         });
-        // TODO: Send notification to recipient
-        // TODO: Send notification to other members
+        // send the recipient the text
+        await notifyUser(user.id, userMessage);
+        // Send notification to other members
+        await notifyAllChamaMembers(chama.id, othersMessage, user.id);
       } else if (payoutResult.type === "refund") {
         // Handle refund - notify members
         console.log(`Chama ${chama.id}: Refund processed`);
@@ -149,12 +166,14 @@ export const checkPaydate = async () => {
         const payoutOrder: PayoutOrder[] = JSON.parse(
           chama.payOutOrder as string
         );
-        const updatedPayoutOrder = payoutOrder.map((order: PayoutOrder) => {          // Extend paydate for unpaid members by cycleTime
+        const updatedPayoutOrder = payoutOrder.map((order: PayoutOrder) => {
+          // Extend paydate for unpaid members by cycleTime
           if (!order.paid) {
             return {
               ...order,
               payDate: new Date(
-                new Date(order.payDate).getTime() + chama.cycleTime * 24 * 60 * 60 * 1000
+                new Date(order.payDate).getTime() +
+                  chama.cycleTime * 24 * 60 * 60 * 1000
               ),
             };
           }
@@ -171,7 +190,11 @@ export const checkPaydate = async () => {
             ),
           },
         });
-        // TODO: Send notification to all members about refund
+        // Send notification to all members about refund
+        await notifyAllChamaMembers(
+          chama.id,
+          `Round ${chama.round} of the ${chama.name} chama couldn’t proceed because not all members contributed. Your contribution has been refunded to your wallet.`
+        );
       } else {
         console.warn(`Chama ${chama.id}: Unknown payout result`);
       }
