@@ -31,46 +31,49 @@ export const checkStartDate = async () => {
   try {
     const nonStartedChamas = await getNonStartedChamas();
     console.log("non started chamas", nonStartedChamas);
-   
+
     if (nonStartedChamas.length < 0) {
       return;
     }
     for (const chama of nonStartedChamas) {
       const members = chama.members;
-      console.log("nostarted chama members", members);
-      // shuffle the members to get the payout order
-      const shuffledPayoutOrder = shuffleArray(
-        members.map((member: any) => member.address)
+
+      // extract blockchain addresses
+      const addresses = members.map(
+        (m) => m.user.smartAddress // or m.user.address
       );
-      console.log("the shuffled payout order", shuffledPayoutOrder);
-      // set the payout order on the blockchain
+
+      console.log("the addresses b4 shuffling", addresses);
+
+      // shuffle them
+      const shuffledPayoutOrder = shuffleArray(addresses);
+
+      console.log("after shuffling", shuffledPayoutOrder);
+
+      // send to contract
       const txHash = await pimlicoSetPayoutOrder(chama.id, shuffledPayoutOrder);
-      if (!txHash) {
-        throw new Error("Failed to set payout order");
-      }
-      // add the paydate, status to the payout order
-      const payoutOrder: PayoutOrder[] = await Promise.all(
-        shuffledPayoutOrder.map(async (address: string, index: number) => {
-          return {
-            userAddress: address,
-            payDate: new Date(
-              chama.payDate.getTime() +
-                chama.cycleTime * 24 * 60 * 60 * 1000 * index
-            ),
-            paid: false,
-          };
+      if (!txHash) throw new Error("Failed to set payout order");
+
+      // compute payout dates
+      const payoutOrder: PayoutOrder[] = shuffledPayoutOrder.map(
+        (address, index) => ({
+          userAddress: address,
+          payDate: new Date(
+            chama.payDate.getTime() +
+              chama.cycleTime * 24 * 60 * 60 * 1000 * index
+          ),
+          paid: false,
         })
       );
-      // update the payout order in the chama
+
       await prisma.chama.update({
         where: { id: chama.id },
         data: { payOutOrder: JSON.stringify(payoutOrder), started: true },
       });
 
-      // notify all the members
       await notifyAllChamaMembers(
         chama.id,
-        `Your ${chama.name} chama has started!Tap to view the payout order and your position.`
+        `Your ${chama.name} chama has started! Tap to view the payout order and your position.`
       );
     }
   } catch (error) {

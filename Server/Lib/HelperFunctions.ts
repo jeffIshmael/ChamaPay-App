@@ -49,18 +49,21 @@ export async function getNonStartedChamas() {
         },
       },
       include: {
-        members: true,
+        members: {
+          include: {
+            user: true,
+          },
+        },
       },
     });
-    if (chamas.length > 0) {
-      return chamas;
-    }
-    return [];
+
+    return chamas ?? [];
   } catch (error) {
     console.log(error);
     return [];
   }
 }
+
 
 // function to get chamas that have reached the paydate
 export async function getChamasThatHaveReachedPaydate() {
