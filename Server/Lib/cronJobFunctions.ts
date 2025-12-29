@@ -30,6 +30,7 @@ interface PayoutOrder {
 export const checkStartDate = async () => {
   try {
     const nonStartedChamas = await getNonStartedChamas();
+    console.log("non started chamas", nonStartedChamas);
     if (nonStartedChamas.length < 0) {
       return;
     }
