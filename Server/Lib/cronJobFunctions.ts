@@ -52,7 +52,7 @@ export const checkStartDate = async () => {
       console.log("after shuffling", shuffledPayoutOrder);
 
       // send to contract
-      const txHash = await pimlicoSetPayoutOrder(chama.id, shuffledPayoutOrder);
+      const txHash = await pimlicoSetPayoutOrder(Number(chama.blockchainId), shuffledPayoutOrder);
       if (!txHash) throw new Error("Failed to set payout order");
 
       // compute payout dates
