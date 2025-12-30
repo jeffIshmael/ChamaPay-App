@@ -30,26 +30,21 @@ interface PayoutOrder {
 export const checkStartDate = async () => {
   try {
     const nonStartedChamas = await getNonStartedChamas();
-    console.log("non started chamas", nonStartedChamas);
 
     if (nonStartedChamas.length < 0) {
       return;
     }
     for (const chama of nonStartedChamas) {
       const members = chama.members;
-      console.log("the chama members", members);
 
       // extract blockchain addresses
       const addresses = members.map(
         (m) => m.user.smartAddress // or m.user.address
       );
 
-      console.log("the addresses b4 shuffling", addresses);
-
       // shuffle them
       const shuffledPayoutOrder = shuffleArray(addresses);
 
-      console.log("after shuffling", shuffledPayoutOrder);
 
       // send to contract
       const txHash = await pimlicoSetPayoutOrder(Number(chama.blockchainId), shuffledPayoutOrder);

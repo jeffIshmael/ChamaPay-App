@@ -133,8 +133,8 @@ const ChamaOverviewTab: FC<Props> = ({
                 </Text>
               </View>
               <Text className="text-sm text-green-700">
-                Thank you for your contribution this month. You can still make
-                additional payments if needed.
+                Thank you for your contribution this cycle. You can still make
+                additional payments for next cycle.
               </Text>
             </View>
           ) : (
@@ -291,7 +291,7 @@ const ChamaOverviewTab: FC<Props> = ({
                         <Text className="text-base font-medium text-gray-900 capitalize">
                           {isMyTransaction ? (
                             <Text className="font-bold text-blue-700">
-                              Your
+                              You
                             </Text>
                           ) : (
                             transaction.user.name

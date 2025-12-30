@@ -19,7 +19,6 @@ export const pimlicoSetPayoutOrder = async (
     const agentSmartAccountClient = await getAgentSmartWallet();
     // we need to map the string array to make it 0x..
     const bcAddresses = memberAddresses.map((addr) => addr as `0x${string}`);
-    console.log("The blockchain addresses", bcAddresses);
     const hash = await agentSmartAccountClient.writeContract({
       address: contractAddress,
       abi: contractABI,

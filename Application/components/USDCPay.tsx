@@ -295,12 +295,6 @@ const USDCPay = ({
               <Text className="text-gray-600 text-center mb-4">
                 {successMessage}
               </Text>
-              <View className="bg-gray-50 rounded-lg p-3 mb-4 w-full">
-                <Text className="text-sm text-gray-500 mb-1">Transaction Hash:</Text>
-                <Text className="text-xs text-gray-700 font-mono" numberOfLines={1}>
-                  {txHash}
-                </Text>
-              </View>
             </View>
             <TouchableOpacity
               onPress={handleSuccessClose}

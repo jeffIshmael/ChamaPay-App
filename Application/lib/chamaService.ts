@@ -360,7 +360,7 @@ export const transformChamaData = (
 
     // Time formatting
     nextPayoutDate: formatTimeRemaining(nextPayoutDate),
-    myTurnDate: new Date(myTurnDate).toISOString().split("T")[0],
+    myTurnDate: myTurnDate,
 
     nextPayoutAmount: parseFloat(backendChama.amount) * memberCount,
 
@@ -374,6 +374,7 @@ export const transformChamaData = (
         )?.user?.userName) ||
       "Not assigned",
     currentTurnMemberPosition: safeNextPayoutIndex + 1,
+    currentTurnMemberAddress: nextPayoutEntry.userAddress,
 
     contributionDueDate: backendChama.payDate,
 
