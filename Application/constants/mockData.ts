@@ -56,10 +56,10 @@ export interface JoinedChama {
   maxMembers: number;
   contribution: number;
   totalContributions: number;
-  myContributions: number;
   nextPayoutDate: string;
   nextPayoutAmount: number;
   currentTurnMember: string;
+  currentTurnMemberPosition: number;
   myTurnDate: string;
   contributionDueDate: string;
   hasOutstandingPayment: boolean;
@@ -71,11 +71,11 @@ export interface JoinedChama {
   location: string;
   adminTerms: string[];
   collateralAmount: number;
-  nextPayout: string;
+  nextPayout: string | null;
   myTurn: boolean;
   myPosition: number;
   nextTurnMember: string;
-  status: string;
+  status: "not started" | "active";
   unreadMessages: number;
   isPublic: boolean;
   messages: Message[];

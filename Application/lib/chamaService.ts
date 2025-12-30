@@ -1,3 +1,4 @@
+import { JoinedChama } from "@/constants/mockData";
 import { serverUrl } from "@/constants/serverUrl";
 import { formatTimeRemaining } from "@/Utils/helperFunctions";
 
@@ -303,85 +304,139 @@ export const getUserFromUserId = async (
 };
 
 // Transform backend chama data to frontend format
-export const transformChamaData = (backendChama: BackendChama) => {
+export const transformChamaData = (
+  backendChama: BackendChama,
+  userAddress: string
+): JoinedChama => {
   const memberCount =
     backendChama._count?.members || backendChama.members?.length || 0;
-  // Calculate the next payout date properly
-  const nextPayoutDate = backendChama.payDate
-    ? new Date(backendChama.payDate).toISOString()
-    : new Date().toISOString();
+
+  // Parse payout order array safely
+  const payoutArray = backendChama.payOutOrder
+    ? JSON.parse(backendChama.payOutOrder)
+    : [];
+
+  // --------- GET USER POSITION IN PAYOUT ORDER ---------
+  const myPosition = payoutArray.length
+    ? payoutArray.findIndex(
+        (entry: any) =>
+          entry.userAddress?.toLowerCase() === userAddress.toLowerCase()
+      ) + 1 // +1 so position starts at 1 instead of index 0
+    : null;
+
+  // --------- GET MY PAY DATE FROM PAYOUT ORDER ---------
+  const myTurnDate =
+    payoutArray.length && myPosition
+      ? payoutArray[myPosition - 1].payDate
+      : backendChama.payDate;
+
+  // --------- GET NEXT PAYOUT DATE (first unpaid or first in array) ---------
+  const nextPayoutIndex = payoutArray.findIndex((p: any) => !p.paid);
+
+  // If all are paid or payoutArray is empty, fallback to 0
+  const safeNextPayoutIndex = nextPayoutIndex !== -1 ? nextPayoutIndex : 0;
+
+  // Get the actual entry
+  const nextPayoutEntry = payoutArray[safeNextPayoutIndex];
+
+  // Next payout date
+  const nextPayoutDate = nextPayoutEntry
+    ? nextPayoutEntry.payDate
+    : backendChama.payDate;
 
   return {
-    id: backendChama.id, // Use id as ID for routing
-    slug: backendChama.slug, // Include slug for navigation
+    id: backendChama.id,
+    slug: backendChama.slug,
     name: backendChama.name,
     description: backendChama.description,
-    currency: "USDC", // Default currency
+    currency: "USDC",
+
     totalMembers: memberCount,
     maxMembers: backendChama.maxNo,
     contribution: parseFloat(backendChama.amount),
     totalContributions: parseFloat(backendChama.amount) * memberCount,
+
     startDate: backendChama.startDate,
-    myContributions: parseFloat(backendChama.amount), // Assuming user has made at least one contribution
-    nextPayoutDate:formatTimeRemaining(nextPayoutDate),
-    nextPayoutAmount:parseFloat(backendChama.amount) * memberCount,
+
+    // Time formatting
+    nextPayoutDate: formatTimeRemaining(nextPayoutDate),
+    myTurnDate: new Date(myTurnDate).toISOString().split("T")[0],
+
+    nextPayoutAmount: parseFloat(backendChama.amount) * memberCount,
+
+    // Current turn member = entry with first unpaid or fallback to first
     currentTurnMember:
-      backendChama.members?.[0]?.user?.name ||
-      backendChama.members?.[0]?.user?.userName ||
+      (nextPayoutEntry &&
+        backendChama.members?.find(
+          (m) =>
+            m.user.address?.toLowerCase() ===
+            nextPayoutEntry.userAddress?.toLowerCase()
+        )?.user?.userName) ||
       "Not assigned",
-    myTurnDate: backendChama.payDate
-      ? new Date(backendChama.payDate).toISOString().split("T")[0]
-      : new Date().toISOString().split("T")[0],
-    contributionDueDate: backendChama.startDate
-      ? new Date(backendChama.startDate).toISOString().split("T")[0]
-      : new Date().toISOString().split("T")[0],
-    hasOutstandingPayment: false, // Would need to check payment status
-    frequency: `${backendChama.cycleTime} days`, // Convert cycle time to frequency string
-    duration: `${backendChama.cycleTime} days`, // Convert cycle time to duration
-    rating: backendChama.rating || 0, // Default rating
-    raterCount: backendChama.raterCount || 0, // Default rater count
+    currentTurnMemberPosition: safeNextPayoutIndex + 1,
+
+    contributionDueDate: new Date(backendChama.payDate)
+      .toISOString()
+      .split("T")[0],
+
+    hasOutstandingPayment: false, // optional feature
+
+    frequency: `${backendChama.cycleTime} days`,
+    duration: `${backendChama.cycleTime} days`,
+
+    rating: backendChama.rating || 0,
+    raterCount: backendChama.raterCount || 0,
+
     category: backendChama.type,
-    location: "Nairobi", // Default location
+    location: "Nairobi",
     adminTerms: backendChama.adminTerms
       ? typeof backendChama.adminTerms === "string"
         ? JSON.parse(backendChama.adminTerms)
         : backendChama.adminTerms
       : [],
+
     collateralAmount: parseFloat(backendChama.amount) * backendChama.maxNo,
-    nextPayout: backendChama.payDate
-      ? new Date(backendChama.payDate).toISOString().split("T")[0]
-      : new Date().toISOString().split("T")[0],
-    myTurn: false, // Would need to calculate based on current position
-    myPosition: 1, // Default position
-    nextTurnMember:
-      backendChama.members?.[1]?.user?.name ||
-      backendChama.members?.[1]?.user?.userName ||
-      "Not assigned",
-    status: backendChama.started ? "active" : "not started", // Default status
-    unreadMessages: 0, // Would need to implement message tracking
+
+    nextPayout: nextPayoutDate
+      ? new Date(nextPayoutDate).toISOString().split("T")[0]
+      : null,
+
+    // --------- MY POSITION IN PAYOUT CYCLE ---------
+    myTurn: myPosition === 1,
+    myPosition: myPosition || null,
+
+    nextTurnMember: backendChama.members?.[1]?.user?.userName || "Not assigned",
+
+    status: (backendChama.started ? "active" : "not started") as
+      | "active"
+      | "not started",
+
+    unreadMessages: 0,
     isPublic: backendChama.type === "Public",
     blockchainId: backendChama.blockchainId,
-    messages: [], // Empty for now
-    payoutSchedule: JSON.stringify(backendChama.payOutOrder)
-      ? JSON.parse(backendChama.payOutOrder)
-      : [], // Would need to generate based on cycle
+
+    messages: [],
+
+    payoutSchedule: payoutArray,
+
     members:
       backendChama.members?.map((member) => ({
         id: member.user.id,
-        name: member.user.name || member.user.userName || "Unknown Member",
-        phone: "", // Not available in backend
+        name: member.user.userName || "Unknown Member",
+        phone: "",
         email: member.user.email,
         role: member.user.id === backendChama.admin.id ? "Admin" : "Member",
-        contributions: parseFloat(backendChama.amount), // Default contribution
-        address: member.user.address || "", // Add wallet address
+        contributions: parseFloat(backendChama.amount),
+        address: member.user.address || "",
       })) || [],
+
     recentTransactions:
       backendChama.payments?.map((payment) => ({
         id: payment.id,
         amount: payment.amount,
         type: payment.description ? "contribution" : "payment",
         date: payment.doneAt,
-        status: "completed", // Add missing status property
+        status: "completed",
         description: payment.description || "Contribution",
         txHash: payment.txHash,
         userId: payment.userId,
@@ -390,7 +445,7 @@ export const transformChamaData = (backendChama: BackendChama) => {
           name: payment.user.userName,
           email: payment.user.email,
           profileImageUrl: payment.user.profileImageUrl,
-          address: payment.user.address,
+          address: payment.user.smartAddress,
         },
       })) || [],
   };

@@ -1,16 +1,20 @@
 import { Transaction } from "@/constants/mockData";
-import { DollarSign, ExternalLink, LogOut, Receipt, TrendingUp } from "lucide-react-native";
-import React, { FC, useState } from "react";
 import {
-  Modal,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View
-} from "react-native";
+  DollarSign,
+  ExternalLink,
+  LogOut,
+  Receipt,
+  TrendingUp,
+  Plus,
+  CircleArrowDown,
+  CircleArrowOutUpRight,
+} from "lucide-react-native";
+import React, { FC, useState } from "react";
+import { Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { Badge } from "./ui/Badge";
 import { Card } from "./ui/Card";
 import { ProgressBar } from "./ui/ProgressBar";
+import { formatTimeRemaining } from "@/Utils/helperFunctions";
 
 type Props = {
   myContributions: number;
@@ -23,10 +27,12 @@ type Props = {
   currentTurnMember: string;
   recentTransactions: Transaction[];
   nextPayoutAmount: number;
+  nextPayoutDate: string;
   leaveChama: () => void;
   userAddress: `0x${string}`;
-  chamaStatus?: "active" | "pending" | "completed";
+  chamaStatus: "active" | "not started";
   chamaStartDate?: string;
+  currency: string;
 };
 
 const ChamaOverviewTab: FC<Props> = ({
@@ -40,12 +46,15 @@ const ChamaOverviewTab: FC<Props> = ({
   currentTurnMember,
   recentTransactions,
   nextPayoutAmount,
+  nextPayoutDate,
   leaveChama,
   userAddress,
-  chamaStatus = "active",
+  chamaStatus,
   chamaStartDate,
+  currency,
 }) => {
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<Transaction | null>(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
 
   const handleTransactionPress = (transaction: Transaction) => {
@@ -67,7 +76,7 @@ const ChamaOverviewTab: FC<Props> = ({
       <Card className="p-6 mb-6">
         <View className="flex-row items-center justify-between mb-4">
           <Text className="text-xl font-semibold text-gray-900">
-            Monthly Contribution
+            Cycle Contribution
           </Text>
           <Badge
             variant={myContributions >= contribution ? "default" : "secondary"}
@@ -83,25 +92,31 @@ const ChamaOverviewTab: FC<Props> = ({
             </Text>
           </Badge>
         </View>
-        
+
         <View className="gap-4">
           {/* Contribution Stats */}
           <View className="bg-gray-50 rounded-xl p-4">
             <View className="flex-row justify-between items-center mb-2">
-              <Text className="text-sm font-medium text-gray-600">Required</Text>
+              <Text className="text-sm font-medium text-gray-600">
+                Required
+              </Text>
               <Text className="text-lg font-semibold text-gray-900">
-                cUSD {contribution.toLocaleString()}
+                {contribution.toLocaleString()} {currency}
               </Text>
             </View>
             <View className="flex-row justify-between items-center mb-3">
-              <Text className="text-sm font-medium text-gray-600">Contributed</Text>
+              <Text className="text-sm font-medium text-gray-600">
+                Contributed
+              </Text>
               <Text className="text-lg font-semibold text-emerald-600">
-                cUSD {myContributions.toLocaleString()}
+                {myContributions.toLocaleString()} {currency}
               </Text>
             </View>
             <ProgressBar
               value={
-                contribution > 0 ? Math.min((myContributions / contribution) * 100, 100) : 0
+                contribution > 0
+                  ? Math.min((myContributions / contribution) * 100, 100)
+                  : 0
               }
             />
           </View>
@@ -118,7 +133,8 @@ const ChamaOverviewTab: FC<Props> = ({
                 </Text>
               </View>
               <Text className="text-sm text-green-700">
-                Thank you for your contribution this month. You can still make additional payments if needed.
+                Thank you for your contribution this month. You can still make
+                additional payments if needed.
               </Text>
             </View>
           ) : (
@@ -132,7 +148,14 @@ const ChamaOverviewTab: FC<Props> = ({
                 </Text>
               </View>
               <Text className="text-sm text-orange-700 mb-3">
-                cUSD {remainingAmount.toLocaleString()} remaining • Due: {contributionDueDate}
+                {remainingAmount} {currency} remaining • Due:{" "}
+               { new Date(contributionDueDate).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
               </Text>
             </View>
           )}
@@ -146,7 +169,9 @@ const ChamaOverviewTab: FC<Props> = ({
             <View className="flex-row items-center justify-center gap-2">
               <DollarSign size={18} color="white" />
               <Text className="text-white text-base font-semibold">
-                {myContributions >= contribution ? "Make Additional Payment" : "Make Payment"}
+                {myContributions >= contribution
+                  ? "Make Additional Payment"
+                  : "Make Payment"}
               </Text>
             </View>
           </TouchableOpacity>
@@ -161,20 +186,25 @@ const ChamaOverviewTab: FC<Props> = ({
           </View>
           <View className="flex-1">
             <Text className="text-lg font-semibold text-gray-900">
-              {chamaStatus === "pending" ? "Payout Schedule" : "Next Payout"}
+              {chamaStatus === "not started" ? "Payout Schedule" : "Next Payout"}
             </Text>
             <Text className="text-sm text-gray-600">
-              {chamaStatus === "pending" 
-                ? chamaStartDate 
-                  ? `Starts ${new Date(chamaStartDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`
-                  : "Starting soon"
-                : "August 15, 2024"
-              }
+              {chamaStatus === "not started"
+                ? `Starts in ${formatTimeRemaining(new Date(chamaStartDate!))}`
+                : chamaStatus === "active"
+                  ? `${new Date(nextPayoutDate).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}`
+                  : "Cycle complete"}
             </Text>
           </View>
         </View>
-        
-        {chamaStatus === "pending" ? (
+
+        {chamaStatus === "not started" ? (
           <View className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-200">
             <View className="items-center">
               <View className="w-16 h-16 bg-amber-100 rounded-full items-center justify-center mb-4">
@@ -184,8 +214,9 @@ const ChamaOverviewTab: FC<Props> = ({
                 Random Selection
               </Text>
               <Text className="text-sm text-amber-700 text-center leading-5">
-                The payout schedule will be randomly generated and displayed once the chama starts. 
-                All members will be notified when the schedule is ready.
+                The payout schedule will be randomly generated and displayed
+                once the chama starts. All members will be notified when the
+                schedule is ready.
               </Text>
             </View>
           </View>
@@ -193,13 +224,19 @@ const ChamaOverviewTab: FC<Props> = ({
           <View className="bg-gradient-to-r from-emerald-50 to-blue-50 rounded-xl p-4">
             <View className="gap-3">
               <View className="flex-row justify-between items-center">
-                <Text className="text-sm font-medium text-gray-600">Recipient</Text>
-                <Text className="text-base font-semibold text-gray-900">{currentTurnMember}</Text>
+                <Text className="text-sm font-medium text-gray-600">
+                  Recipient
+                </Text>
+                <Text className="text-base font-semibold text-gray-900">
+                  {currentTurnMember}
+                </Text>
               </View>
               <View className="flex-row justify-between items-center">
-                <Text className="text-sm font-medium text-gray-600">Amount</Text>
+                <Text className="text-sm font-medium text-gray-600">
+                  Amount
+                </Text>
                 <Text className="text-lg font-bold text-emerald-600">
-                  cUSD {nextPayoutAmount.toLocaleString()}
+                  {nextPayoutAmount.toLocaleString()} {currency}
                 </Text>
               </View>
             </View>
@@ -210,12 +247,14 @@ const ChamaOverviewTab: FC<Props> = ({
       {/* Recent Transactions */}
       <Card className="p-6 mb-6">
         <View className="flex-row items-center justify-between mb-4">
-          <Text className="text-lg font-semibold text-gray-900">Recent Transactions</Text>
+          <Text className="text-lg font-semibold text-gray-900">
+            Recent Transactions
+          </Text>
           <TouchableOpacity className="bg-gray-100 px-3 py-1 rounded-full">
             <Text className="text-xs text-gray-600 font-medium">View All</Text>
           </TouchableOpacity>
         </View>
-        
+
         <View className="gap-3">
           {recentTransactions.length > 0 ? (
             recentTransactions.slice(0, 3).map((transaction) => {
@@ -225,56 +264,67 @@ const ChamaOverviewTab: FC<Props> = ({
                   key={transaction.id}
                   onPress={() => handleTransactionPress(transaction)}
                   className={`flex-row items-center justify-between py-3 px-4 rounded-xl ${
-                    isMyTransaction 
-                      ? "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200" 
+                    isMyTransaction
+                      ? "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200"
                       : "bg-gray-50"
                   }`}
                   activeOpacity={0.7}
                 >
-                  <View className="flex-row items-center gap-4">
-                    <View
-                      className={`w-10 h-10 rounded-full items-center justify-center ${
-                        transaction.type === "contribution"
-                          ? "bg-emerald-100"
-                          : "bg-orange-100"
-                      }`}
-                    >
-                      <DollarSign
-                        size={16}
-                        color={
-                          transaction.type === "contribution"
-                            ? "#059669"
-                            : "#ea580c"
-                        }
-                      />
+                  <View className="flex-row items-center gap-2">
+                    <View className={`w-10 h-10  items-center justify-center`}>
+                      {transaction.type === "contribution" ? (
+                        <CircleArrowDown
+                          size={24}
+                          color={"#059669"}
+                          className="w-10 h-10"
+                        />
+                      ) : (
+                        <CircleArrowOutUpRight
+                          size={24}
+                          color={"#ea580c"}
+                          className="w-10 h-10"
+                        />
+                      )}
                     </View>
                     <View>
                       <View className="flex-row items-center gap-2">
                         <Text className="text-base font-medium text-gray-900 capitalize">
                           {isMyTransaction ? (
-                            <Text className="font-bold text-blue-700">You</Text>
+                            <Text className="font-bold text-blue-700">
+                              Your
+                            </Text>
                           ) : (
                             transaction.user.name
-                          )} {transaction.description}
+                          )}{" "}
+                          {transaction.description}
                         </Text>
                       </View>
                       <Text className="text-sm text-gray-600">
-                        {new Date(transaction.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        {new Date(transaction.date).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        )}
                       </Text>
                     </View>
                   </View>
                   <View className="items-end">
-                    <Text className="text-base font-semibold text-gray-900">
-                    {(transaction.amount || 0).toString()} cUSD
+                    <Text className="text-sm  font-semibold text-emerald-700">
+                      {(transaction.amount || 0).toString()} {currency}
                     </Text>
-                    <View
+                    {/* <View
                       className={`px-2 py-1 rounded-full ${
                         transaction.type === "contribution"
                           ? "bg-emerald-100"
                           : "bg-orange-100"
                       }`}
-                    >
-                      <Text
+                    > */}
+                    {/* <Text
                         className={`text-xs font-medium ${
                           transaction.type === "contribution"
                             ? "text-emerald-700"
@@ -282,8 +332,8 @@ const ChamaOverviewTab: FC<Props> = ({
                         }`}
                       >
                         {transaction.type === "contribution" ? "In" : "Out"}
-                      </Text>
-                    </View>
+                      </Text> */}
+                    {/* </View> */}
                   </View>
                 </TouchableOpacity>
               );
@@ -293,7 +343,9 @@ const ChamaOverviewTab: FC<Props> = ({
               <View className="w-16 h-16 bg-gray-100 rounded-full items-center justify-center mb-3">
                 <DollarSign size={24} color="#9ca3af" />
               </View>
-              <Text className="text-gray-500 font-medium">No transactions yet</Text>
+              <Text className="text-gray-500 font-medium">
+                No transactions yet
+              </Text>
               <Text className="text-gray-400 text-sm text-center mt-1">
                 Your recent transactions will appear here
               </Text>
@@ -310,11 +362,12 @@ const ChamaOverviewTab: FC<Props> = ({
               Leave Chama
             </Text>
             <Text className="text-sm text-gray-600">
-              You can only leave once the current cycle is over. This action cannot be undone.
+              You can only leave once the current cycle is over. This action
+              cannot be undone.
             </Text>
           </View>
-          <TouchableOpacity 
-            onPress={leaveChama} 
+          <TouchableOpacity
+            onPress={leaveChama}
             className="bg-red-50 border border-red-200 p-3 rounded-xl"
             activeOpacity={0.8}
           >
@@ -335,7 +388,7 @@ const ChamaOverviewTab: FC<Props> = ({
         <View className="flex-1 justify-end bg-black/50">
           <View className="bg-white rounded-t-3xl p-6 max-h-[80%]">
             <View className="w-10 h-1 bg-gray-300 rounded self-center mb-6" />
-            
+
             {selectedTransaction && (
               <>
                 <View className="items-center mb-6">
@@ -354,7 +407,10 @@ const ChamaOverviewTab: FC<Props> = ({
                   <View className="bg-gray-50 rounded-xl p-4">
                     <Text className="text-sm text-gray-600 mb-1">Amount</Text>
                     <Text className="text-2xl font-bold text-gray-900">
-                      {parseFloat(selectedTransaction.amount?.toString() || "0").toLocaleString()} cUSD
+                      {parseFloat(
+                        selectedTransaction.amount?.toString() || "0"
+                      ).toLocaleString()}{" "}
+                      {currency}
                     </Text>
                   </View>
 
@@ -364,28 +420,40 @@ const ChamaOverviewTab: FC<Props> = ({
                       {selectedTransaction.user.address === userAddress ? (
                         <Text className="font-bold text-gray-800">You</Text>
                       ) : (
-                        <Text className="font-bold text-gray-900">{selectedTransaction.user.address}</Text>
+                        <Text className="font-bold text-gray-900">
+                          {selectedTransaction.user.address}
+                        </Text>
                       )}
                     </Text>
                   </View>
 
                   <View className="bg-gray-50 rounded-xl p-4">
-                    <Text className="text-sm text-gray-600 mb-1">Date & Time</Text>
+                    <Text className="text-sm text-gray-600 mb-1">
+                      Date & Time
+                    </Text>
                     <Text className="text-base font-semibold text-gray-900">
-                      {new Date(selectedTransaction.date).toLocaleDateString("en-US", { 
-                        weekday: "long",
-                        year: "numeric", 
-                        month: "long", 
-                        day: "numeric",
-                        hour: "2-digit", 
-                        minute: "2-digit" 
-                      })}
+                      {new Date(selectedTransaction.date).toLocaleDateString(
+                        "en-US",
+                        {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }
+                      )}
                     </Text>
                   </View>
 
                   <View className="bg-gray-50 rounded-xl p-4">
-                    <Text className="text-sm text-gray-600 mb-1">Transaction Hash</Text>
-                    <Text className="text-xs text-gray-700 font-mono" numberOfLines={2}>
+                    <Text className="text-sm text-gray-600 mb-1">
+                      Transaction Hash
+                    </Text>
+                    <Text
+                      className="text-xs text-gray-700 font-mono"
+                      numberOfLines={2}
+                    >
                       {selectedTransaction.txHash}
                     </Text>
                   </View>
