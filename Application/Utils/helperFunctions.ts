@@ -29,7 +29,7 @@ export const formatTimeRemaining = (targetDate: string | Date): string => {
   
     // Less than a week - show days
     if (diffDays < 7) {
-      return `${diffDays} day${diffDays !== 1 ? 's' : ''}`;
+      return `${diffDays} dy${diffDays !== 1 ? 's' : ''}`;
     }
   
     // Less than a month - show weeks and days
@@ -38,9 +38,9 @@ export const formatTimeRemaining = (targetDate: string | Date): string => {
       const remainingDays = diffDays % 7;
       
       if (remainingDays === 0) {
-        return `${weeks} week${weeks !== 1 ? 's' : ''}`;
+        return `${weeks} wk${weeks !== 1 ? 's' : ''}`;
       }
-      return `${weeks} week${weeks !== 1 ? 's' : ''} ${remainingDays} day${remainingDays !== 1 ? 's' : ''}`;
+      return `${weeks} wk${weeks !== 1 ? 's' : ''} ${remainingDays} dy${remainingDays !== 1 ? 's' : ''}`;
     }
   
     // More than a month - show months, weeks, and days
@@ -49,14 +49,14 @@ export const formatTimeRemaining = (targetDate: string | Date): string => {
     const remainingWeeks = Math.floor(remainingDaysAfterMonths / 7);
     const remainingDays = remainingDaysAfterMonths % 7;
   
-    let result = `${months} month${months !== 1 ? 's' : ''}`;
+    let result = `${months} mnth${months !== 1 ? 's' : ''}`;
     
     if (remainingWeeks > 0) {
-      result += ` ${remainingWeeks} week${remainingWeeks !== 1 ? 's' : ''}`;
+      result += ` ${remainingWeeks} wk${remainingWeeks !== 1 ? 's' : ''}`;
     }
     
     if (remainingDays > 0) {
-      result += ` ${remainingDays} day${remainingDays !== 1 ? 's' : ''}`;
+      result += ` ${remainingDays} dy${remainingDays !== 1 ? 's' : ''}`;
     }
   
     return result;

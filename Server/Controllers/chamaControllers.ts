@@ -128,6 +128,9 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
           include: {
             user: true,
           },
+          orderBy: {
+            doneAt: "desc",
+          },
         },
         messages: {
           include: {
@@ -171,6 +174,11 @@ export const getChamasUserIsMemberOf = async (req: Request, res: Response) => {
             _count: {
               select: {
                 members: true,
+              },
+            },
+            members: {
+              include: {
+                user: true,
               },
             },
           },
@@ -353,7 +361,6 @@ export const addMemberToChama = async (req: Request, res: Response) => {
   }
 };
 
-
 // send message
 export const sendChamaMessage = async (req: Request, res: Response) => {
   try {
@@ -362,19 +369,19 @@ export const sendChamaMessage = async (req: Request, res: Response) => {
     if (!userId) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
-    if (!chamaId ) {
+    if (!chamaId) {
       return res
         .status(400)
         .json({ success: false, error: "All fields are required" });
     }
 
     const messages = await prisma.message.create({
-      data:{
+      data: {
         chamaId: chamaId,
         text: message,
-        senderId: userId    
-      }
-    })
+        senderId: userId,
+      },
+    });
 
     return res
       .status(200)

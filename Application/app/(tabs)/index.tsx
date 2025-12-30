@@ -46,7 +46,7 @@ export default function HomeScreen() {
 
   // Fetch user's chamas function
   const fetchChamas = useCallback(async () => {
-    if (!token) {
+    if (!token || !user) {
       setLoading(false);
       return;
     }
@@ -55,7 +55,7 @@ export default function HomeScreen() {
       const response = await getUserChamas(token);
       if (response.success && response.chamas) {
         const transformed = response.chamas.map((member: any) =>
-          transformChamaData(member.chama)
+          transformChamaData(member.chama, user.address)
         );
         setChamas(transformed);
         setError(null);
@@ -368,7 +368,7 @@ export default function HomeScreen() {
                 <View className="flex-row items-center flex-1">
                   <Calendar color="#6b7280" size={16} />
                   <Text className="text-sm font-medium text-gray-700 ml-2">{ chama.status === "active" ? 
-                    `Next: ${chama.nextTurnMember} (${chama.nextPayoutDate})`:`Starts in: ${formatTimeRemaining(chama.startDate)}`}
+                    `Next: ${chama.currentTurnMember} (${chama.nextPayoutDate})`:`Starts in: ${formatTimeRemaining(chama.startDate)}`}
                   </Text>
                 </View>
                 {chama.myTurn && (

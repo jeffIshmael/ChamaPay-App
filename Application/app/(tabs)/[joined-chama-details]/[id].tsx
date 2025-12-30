@@ -16,7 +16,7 @@ import { generateChamaShareUrl } from "@/lib/encryption";
 import { formatToK } from "@/lib/formatNumbers";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Share, Share2, User } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import {
   Alert,
   Image,
@@ -36,6 +36,7 @@ import {
   ChamaDetailsLoadingState,
   ChamaDetailsErrorState,
 } from "@/components/LoadingStates";
+import { formatTimeRemaining } from "@/Utils/helperFunctions";
 
 // Loading Skeleton Component
 const SkeletonBox = ({
@@ -134,14 +135,14 @@ export default function JoinedChamaDetails() {
   }, [individualBalance]);
 
   const fetchChama = async () => {
-    if (!token) {
+    if (!token || !user) {
       Alert.alert("Error", "Please login to continue");
       return;
     }
     setIsLoading(true);
     const response = await getChamaBySlug(id as string, token);
     if (response.success && response.chama) {
-      const transformedChama = transformChamaData(response.chama);
+      const transformedChama = transformChamaData(response.chama, user?.smartAddress);
       console.log(transformedChama);
       setChama(transformedChama);
 
@@ -303,10 +304,12 @@ export default function JoinedChamaDetails() {
       currentTurnMember={chama.currentTurnMember}
       recentTransactions={chama.recentTransactions}
       nextPayoutAmount={nextPayoutAmount}
+      nextPayoutDate={chama.nextPayout!}
       leaveChama={leaveChama}
       userAddress={(user?.address as `0x${string}`) || ""}
-      chamaStatus={chama.status as "active" | "pending" | "completed"}
+      chamaStatus={chama.status}
       chamaStartDate={chama.contributionDueDate}
+      currency={chama.currency}
     />
   );
 
@@ -393,17 +396,18 @@ export default function JoinedChamaDetails() {
               </Text>
             </View>
             <View className="items-center">
-              <Text className="text-emerald-100 text-xs">My Turn</Text>
+              <Text className="text-emerald-100 text-xs">Next Position</Text>
               <Text className="text-lg text-white font-semibold">
-                {chama.status === "active" ? chama.currentTurnMember : "--"}
+                #{chama.currentTurnMemberPosition}
               </Text>
             </View>
             <View className="items-center">
-              <Text className="text-emerald-100 text-xs">Next Payout</Text>
+              <Text className="text-emerald-100 text-xs">My Turn in</Text>
               <Text className="text-lg text-white font-semibold">
-                {formatToK(chama.nextPayoutAmount)} {chama.currency}
+                {chama.status === "active" ? formatTimeRemaining(chama.myTurnDate) : "--"}
               </Text>
             </View>
+           
           </View>
         </View>
       </SafeAreaView>
