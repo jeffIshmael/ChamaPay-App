@@ -1,9 +1,10 @@
 import { Card } from "@/components/ui/Card";
 import { Member } from "@/constants/mockData";
+import { useAuth } from "@/Contexts/AuthContext";
 import { Crown, DollarSign, Lock, User } from "lucide-react-native";
 import React, { FC } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { toEther } from "thirdweb/utils";
+import { toEther, toTokens } from "thirdweb/utils";
 
 type Props = {
   members: Member[];
@@ -22,6 +23,7 @@ const getInitials = (name: string) => {
 
 
 const MembersTab: FC<Props> = ({ members = [], eachMemberBalances, isPublic = false }) => {
+  const {user } = useAuth();
   const totalMembers = members?.length || 0;
   const adminMembers = members?.filter(m => m && m.role === "Admin").length || 0;
 
@@ -39,8 +41,8 @@ const MembersTab: FC<Props> = ({ members = [], eachMemberBalances, isPublic = fa
     }
     
     const memberBalances = balances[memberIndex];
-    const balance = Number(toEther(memberBalances[0] || BigInt(0)));
-    const locked = Number(toEther(memberBalances[1] || BigInt(0)));
+    const balance = Number(toTokens(memberBalances[0] || BigInt(0),6));
+    const locked = Number(toTokens(memberBalances[1] || BigInt(0),6));
     
     return { balance, locked };
   };
@@ -81,7 +83,7 @@ const MembersTab: FC<Props> = ({ members = [], eachMemberBalances, isPublic = fa
           {members && members.length > 0 ? (
             members.map((member, index) => {
               if (!member) return null;
-              const isCurrentUser = member.name?.includes("You") || member.name?.includes("Sarah");
+              const isCurrentUser = member.id === user?.id;
               const memberBalance = getMemberBalance(member.address || "");
               
               return (
@@ -103,9 +105,9 @@ const MembersTab: FC<Props> = ({ members = [], eachMemberBalances, isPublic = fa
                       <View className="flex-1">
                         <View className="flex-row items-center gap-2 mb-2">
                           <Text className={`text-base font-semibold ${
-                            isCurrentUser ? "text-emerald-900" : "text-gray-900"
+                            isCurrentUser ? "text-emerald-600" : "text-gray-900"
                           }`}>
-                            {member.name || "Unknown Member"}
+                            { isCurrentUser ? "You" :`${member.name}` || "Unknown Member"}
                           </Text>
                           {member.role === "Admin" && (
                             <View className="bg-purple-100 px-2 py-1 rounded-full">
@@ -115,11 +117,11 @@ const MembersTab: FC<Props> = ({ members = [], eachMemberBalances, isPublic = fa
                               </View>
                             </View>
                           )}
-                          {isCurrentUser && (
+                          {/* {isCurrentUser && (
                             <View className="bg-emerald-100 px-2 py-1 rounded-full">
                               <Text className="text-xs font-medium text-emerald-700">You</Text>
                             </View>
-                          )}
+                          )} */}
                         </View>
                         
                         {/* Balance Information */}
@@ -128,7 +130,7 @@ const MembersTab: FC<Props> = ({ members = [], eachMemberBalances, isPublic = fa
                           <View className="flex-row items-center gap-2">
                             <DollarSign size={14} color="#6b7280" />
                             <Text className="text-sm text-gray-600">
-                              Balance: {memberBalance.balance.toLocaleString()} cUSD
+                              Balance: {memberBalance.balance.toLocaleString()} USDC
                             </Text>
                           </View>
                           
@@ -137,7 +139,7 @@ const MembersTab: FC<Props> = ({ members = [], eachMemberBalances, isPublic = fa
                             <View className="flex-row items-center gap-2">
                               <Lock size={14} color="#f59e0b" />
                               <Text className="text-sm text-amber-600">
-                                Locked: {memberBalance.locked.toLocaleString()} cUSD
+                                Locked: {memberBalance.locked.toLocaleString()} USDC
                               </Text>
                             </View>
                           )}

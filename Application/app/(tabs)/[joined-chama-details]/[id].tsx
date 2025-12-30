@@ -31,7 +31,7 @@ import {
   View,
 } from "react-native";
 import { useReadContract } from "thirdweb/react";
-import { toEther } from "thirdweb/utils";
+import { toEther, toTokens } from "thirdweb/utils";
 import {
   ChamaDetailsLoadingState,
   ChamaDetailsErrorState,
@@ -142,7 +142,10 @@ export default function JoinedChamaDetails() {
     setIsLoading(true);
     const response = await getChamaBySlug(id as string, token);
     if (response.success && response.chama) {
-      const transformedChama = transformChamaData(response.chama, user?.smartAddress);
+      const transformedChama = transformChamaData(
+        response.chama,
+        user?.smartAddress
+      );
       console.log(transformedChama);
       setChama(transformedChama);
 
@@ -287,7 +290,7 @@ export default function JoinedChamaDetails() {
   const firstBalance = Array.isArray(balanceToUse)
     ? balanceToUse[0]
     : balanceToUse;
-  const myContributions = Number(toEther(firstBalance || BigInt(0)) || 0);
+  const myContributions = Number(toTokens(firstBalance || BigInt(0), 6) || 0);
   const remainingAmount = Number(contribution) - Number(myContributions);
   const nextPayoutAmount = chama.nextPayoutAmount || 0;
   const unreadMessages = chama.unreadMessages || 0;
@@ -320,11 +323,11 @@ export default function JoinedChamaDetails() {
   const renderScheduleTab = () => (
     <ScheduleTab
       payoutSchedule={chama.payoutSchedule}
-      chamaStatus={
-        chama.status === "not started"
-          ? "pending"
-          : (chama.status as "active" | "pending" | "completed")
-      }
+      currentUserAddress={chama.currentTurnMemberAddress}
+      chamaStatus={chama.status}
+      members={chama.members}
+      contributionAmount={chama.contribution}
+      totalPayout={chama.nextPayoutAmount}
     />
   );
 
@@ -404,10 +407,11 @@ export default function JoinedChamaDetails() {
             <View className="items-center">
               <Text className="text-emerald-100 text-xs">My Turn in</Text>
               <Text className="text-lg text-white font-semibold">
-                {chama.status === "active" ? formatTimeRemaining(chama.myTurnDate) : "--"}
+                {chama.status === "active"
+                  ? formatTimeRemaining(chama.myTurnDate)
+                  : "--"}
               </Text>
             </View>
-           
           </View>
         </View>
       </SafeAreaView>
@@ -432,11 +436,11 @@ export default function JoinedChamaDetails() {
               onPress={() => setActiveTab("overview")}
             />
             <TabButton
-              label="Chat"
+              label="Chats"
               value="chat"
               isActive={activeTab === "chat"}
               onPress={() => setActiveTab("chat")}
-              badge={unreadMessages}
+              // badge={unreadMessages}
             />
             <TabButton
               label="Schedule"

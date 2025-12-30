@@ -1,14 +1,20 @@
 import { Card } from "@/components/ui/Card";
-import { PayoutScheduleItem, PayoutStatus } from "@/constants/mockData";
-import { CheckCircle, Info } from "lucide-react-native";
-import React, { FC } from "react";
+import { PayoutScheduleItem } from "@/constants/mockData";
+import { CheckCircle, Info, Clock } from "lucide-react-native";
+import React, { FC, useMemo } from "react";
 import { ScrollView, Text, View } from "react-native";
+import { Member } from "@/constants/mockData";
 
 type Props = {
   payoutSchedule: PayoutScheduleItem[];
-  currentUserName?: string;
-  chamaStatus?: "active" | "pending" | "completed";
+  currentUserAddress?: string; // Changed to address for better matching
+  chamaStatus: "active" | "not started";
+  members: Member[];
+  contributionAmount: number; // Amount each member contributes
+  totalPayout: number; // Total payout per round
 };
+
+type PayoutStatus = "completed" | "next" | "upcoming" | "pending";
 
 const getStatusColor = (status: PayoutStatus) => {
   switch (status) {
@@ -17,7 +23,7 @@ const getStatusColor = (status: PayoutStatus) => {
     case "next":
       return "bg-emerald-100 text-emerald-700";
     case "upcoming":
-      return "bg-gray-100 text-gray-700";
+      return "bg-blue-100 text-blue-700";
     default:
       return "bg-gray-100 text-gray-700";
   }
@@ -29,134 +35,225 @@ const getStatusBadgeColor = (status: PayoutStatus) => {
       return "bg-green-200";
     case "next":
       return "bg-emerald-200";
+    case "upcoming":
+      return "bg-blue-200";
     default:
       return "bg-gray-200";
   }
 };
 
+const getStatusLabel = (status: PayoutStatus) => {
+  switch (status) {
+    case "completed":
+      return "Paid";
+    case "next":
+      return "Next";
+    case "upcoming":
+      return "Upcoming";
+    default:
+      return "Pending";
+  }
+};
+
 const ScheduleTab: FC<Props> = ({
-  payoutSchedule = [],
-  currentUserName,
-  chamaStatus = "active",
+  payoutSchedule,
+  currentUserAddress,
+  chamaStatus,
+  members,
+  contributionAmount,
+  totalPayout,
 }) => {
+  // Helper function to find member by address
+  const getMemberByAddress = (address: string): Member | undefined => {
+    return members.find(
+      (m) => m.address?.toLowerCase() === address.toLowerCase()
+    );
+  };
+
+  // Helper function to truncate address
+  const truncateAddress = (address: string) => {
+    if (!address) return "";
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  // Determine payout status based on date and paid flag
+  const getPayoutStatus = (
+    payout: PayoutScheduleItem,
+    index: number
+  ): PayoutStatus => {
+    if (payout.paid) return "completed";
+
+    const now = new Date();
+    const payoutDate = new Date(payout.payDate);
+
+    // Find the first unpaid payout
+    const firstUnpaidIndex = payoutSchedule.findIndex((p) => !p.paid);
+
+    if (firstUnpaidIndex === index) return "next";
+    if (payoutDate > now) return "upcoming";
+
+    return "pending";
+  };
+
+  // Calculate estimated payout amount per member
+  const estimatedPayoutAmount = useMemo(() => {
+    if (contributionAmount && members.length > 0) {
+      return contributionAmount * members.length;
+    }
+    return totalPayout || 0;
+  }, [contributionAmount, members.length, totalPayout]);
+
+  // Check if current user is in this payout
+  const isCurrentUserPayout = (address: string) => {
+    if (!currentUserAddress) return false;
+    return address.toLowerCase() === currentUserAddress.toLowerCase();
+  };
+
+  if (chamaStatus === "not started") {
+    return (
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        <View className="gap-3">
+          {/* Header Card for Pending Status */}
+          <Card className="p-6 mb-4">
+            <View className="items-center">
+              <View className="w-16 h-16 bg-amber-100 rounded-full items-center justify-center mb-4">
+                <Text className="text-2xl">🎲</Text>
+              </View>
+              <Text className="text-lg font-semibold text-amber-800 mb-2">
+                Schedule Pending
+              </Text>
+              <Text className="text-sm text-amber-700 text-center leading-5">
+                The payout schedule will be randomly generated and displayed
+                once the chama starts. All members will be notified when the
+                schedule is ready.
+              </Text>
+            </View>
+          </Card>
+
+          {/* Position Slots */}
+          {members.length > 0 &&
+            members.map((member, index) => (
+              <Card key={member.id || index} className="p-4">
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center gap-3">
+                    <View className="w-8 h-8 rounded-full items-center justify-center bg-gray-100">
+                      <Text className="text-sm font-medium text-gray-600">
+                        {index + 1}
+                      </Text>
+                    </View>
+                    <View>
+                      <Text className="text-gray-500 text-sm font-medium">
+                        Position {index + 1}
+                      </Text>
+                      <Text className="text-gray-400 text-xs">
+                        {member.address
+                          ? truncateAddress(member.address)
+                          : "Not assigned"}
+                      </Text>
+                    </View>
+                  </View>
+                  <View className="items-end">
+                    <Text className="text-gray-500 text-sm font-medium">
+                      {estimatedPayoutAmount > 0
+                        ? `${estimatedPayoutAmount.toLocaleString()} USDC`
+                        : "TBD"}
+                    </Text>
+                    <View className="px-2 py-1 rounded-full mt-1 bg-gray-200">
+                      <Text className="text-xs font-medium text-gray-600">
+                        Pending
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </Card>
+            ))}
+        </View>
+        <View className="h-20" />
+      </ScrollView>
+    );
+  }
+
+  // Active/Completed Schedule
   return (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
       <View className="gap-3">
-        {chamaStatus === "pending" ? (
-          <>
-            {/* Header Card for Pending Status */}
-            <Card className="p-6 mb-4">
-              <View className="items-center">
-                <View className="w-16 h-16 bg-amber-100 rounded-full items-center justify-center mb-4">
-                  <Text className="text-2xl">🎲</Text>
-                </View>
-                <Text className="text-lg font-semibold text-amber-800 mb-2">
-                  Schedule Pending
-                </Text>
-                <Text className="text-sm text-amber-700 text-center leading-5">
-                  The payout schedule will be randomly generated and displayed
-                  once the chama starts. All members will be notified when the
-                  schedule is ready.
-                </Text>
-              </View>
-            </Card>
+        {payoutSchedule && payoutSchedule.length > 0 ? (
+          payoutSchedule.map((payout, index) => {
+            const status = getPayoutStatus(payout, index);
+            const member = getMemberByAddress(payout.userAddress);
+            const isUserTurn = isCurrentUserPayout(payout.userAddress);
 
-            {/* Position Slots */}
-            {payoutSchedule &&
-              payoutSchedule.length > 0 &&
-              payoutSchedule.map((payout) => (
-                <Card key={payout.position} className="p-4">
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-row items-center gap-3">
-                      <View className="w-8 h-8 rounded-full items-center justify-center bg-gray-100">
-                        <Text className="text-sm font-medium text-gray-600">
-                          {payout.position}
+            return (
+              <Card key={`${payout.userAddress}-${index}`} className="p-4">
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center gap-3 flex-1">
+                    <View
+                      className={`w-8 h-8 rounded-full items-center justify-center ${getStatusColor(
+                        status
+                      )}`}
+                    >
+                      {status === "completed" ? (
+                        <CheckCircle size={16} color="#059669" />
+                      ) : status === "next" ? (
+                        <Clock size={16} color="#059669" />
+                      ) : (
+                        <Text
+                          className={`text-sm font-medium ${
+                            status === "pending"
+                              ? "text-emerald-600"
+                              : "text-gray-600"
+                          }`}
+                        >
+                          {index + 1}
                         </Text>
-                      </View>
-                      <View>
-                        <Text className="text-gray-500 text-sm font-medium">
-                          Position {payout.position}
-                        </Text>
-                        <Text className="text-gray-400 text-xs">
-                          Member to be assigned
-                        </Text>
-                      </View>
+                      )}
                     </View>
-                    <View className="items-end">
-                      <Text className="text-gray-500 text-sm font-medium">
-                        cUSD {(payout.amount || 0).toLocaleString()}
+                    <View className="flex-1">
+                      <Text className="text-gray-900 text-sm font-medium">
+                        {member?.name || truncateAddress(payout.userAddress)}
                       </Text>
-                      <View className="px-2 py-1 rounded-full mt-1 bg-gray-200">
-                        <Text className="text-xs font-medium text-gray-600">
-                          Pending
-                        </Text>
-                      </View>
+                      <Text className="text-gray-600 text-xs">
+                        {new Date(payout.payDate).toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </Text>
                     </View>
                   </View>
-                </Card>
-              ))}
-          </>
-        ) : /* Active/Completed Schedule */
-        payoutSchedule && payoutSchedule.length > 0 ? (
-          payoutSchedule.map((payout) => (
-            <Card key={payout.position} className="p-4">
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center gap-3">
-                  <View
-                    className={`w-8 h-8 rounded-full items-center justify-center ${getStatusColor(
-                      payout.status
-                    )}`}
-                  >
-                    {payout.status === "completed" ? (
-                      <CheckCircle size={16} color="#059669" />
-                    ) : (
-                      <Text
-                        className={`text-sm font-medium ${
-                          payout.status === "next"
-                            ? "text-emerald-600"
-                            : "text-gray-600"
-                        }`}
-                      >
-                        {payout.position}
-                      </Text>
-                    )}
-                  </View>
-                  <View>
+                  <View className="items-end">
                     <Text className="text-gray-900 text-sm font-medium">
-                      {payout.member}
+                      {estimatedPayoutAmount > 0
+                        ? `${estimatedPayoutAmount.toLocaleString()} USDC`
+                        : "—"}
                     </Text>
-                    <Text className="text-gray-600 text-xs">{payout.date}</Text>
+                    <View
+                      className={`px-2 py-1 rounded-full mt-1 ${getStatusBadgeColor(
+                        status
+                      )}`}
+                    >
+                      <Text className="text-xs font-medium capitalize">
+                        {getStatusLabel(status)}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-                <View className="items-end">
-                  <Text className="text-gray-900 text-sm font-medium">
-                    cUSD {(payout.amount || 0).toLocaleString()}
-                  </Text>
-                  <View
-                    className={`px-2 py-1 rounded-full mt-1 ${getStatusBadgeColor(
-                      payout.status
-                    )}`}
-                  >
-                    <Text className="text-xs font-medium capitalize">
-                      {payout.status}
-                    </Text>
+
+                {isUserTurn && status !== "completed" && (
+                  <View className="mt-3 p-2 bg-emerald-50 rounded-lg">
+                    <View className="flex-row items-center gap-2">
+                      <Info size={14} color="#059669" />
+                      <Text className="text-xs text-emerald-700">
+                        {status === "next"
+                          ? "Your payout is coming up next!"
+                          : "This is your payout turn"}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              </View>
-              {(currentUserName
-                ? payout.member === currentUserName
-                : payout.member === "You (Sarah)") && (
-                <View className="mt-3 p-2 bg-emerald-50 rounded-lg">
-                  <View className="flex-row items-center gap-2">
-                    <Info size={14} color="#059669" />
-                    <Text className="text-xs text-emerald-700">
-                      This is your payout turn
-                    </Text>
-                  </View>
-                </View>
-              )}
-            </Card>
-          ))
+                )}
+              </Card>
+            );
+          })
         ) : (
           <Card className="p-6">
             <View className="items-center">

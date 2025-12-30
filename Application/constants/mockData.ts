@@ -16,14 +16,12 @@ export interface Message {
   isAdmin?: boolean;
 }
 
-export type PayoutStatus = "completed" | "next" | "not started" | "upcoming";
+export type PayoutStatus = boolean | "next";
 
 export interface PayoutScheduleItem {
-  position: number;
-  member: string;
-  date: string;
-  status: PayoutStatus;
-  amount: number;
+  paid: boolean;
+  payDate: Date;
+  userAddress: string;
 }
 
 export interface Transaction {
@@ -60,6 +58,7 @@ export interface JoinedChama {
   nextPayoutAmount: number;
   currentTurnMember: string;
   currentTurnMemberPosition: number;
+  currentTurnMemberAddress: string;
   myTurnDate: string;
   contributionDueDate: Date;
   hasOutstandingPayment: boolean;
