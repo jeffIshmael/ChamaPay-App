@@ -61,7 +61,7 @@ export interface JoinedChama {
   currentTurnMember: string;
   currentTurnMemberPosition: number;
   myTurnDate: string;
-  contributionDueDate: string;
+  contributionDueDate: Date;
   hasOutstandingPayment: boolean;
   frequency: string;
   duration: string;

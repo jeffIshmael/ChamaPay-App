@@ -2,8 +2,8 @@
 const { ethers, upgrades } = require("hardhat");
 
 async function main() {
-  const ChamapayV2 = await ethers.getContractFactory("ChamapayV2");
-  const chamapay = await upgrades.upgradeProxy(CHAMAPAY_ADDRESS, ChamapayV2);
+  const ChamapayV2 = await ethers.getContractFactory("ChamaPayV2");
+  const chamapay = await upgrades.upgradeProxy("0xF3a5E77DD4b4277c07591aB5dD6Fd15f98F6D3Fa", ChamapayV2);
   console.log("Chamapay upgraded");
 }
 

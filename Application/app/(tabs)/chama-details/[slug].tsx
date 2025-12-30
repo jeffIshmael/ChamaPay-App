@@ -96,13 +96,16 @@ export default function ChamaDetails() {
 
   useEffect(() => {
     const fetchChama = async () => {
-      if (!token) return;
-      
+      if (!token || !user) return;
+
       setIsLoading(true);
       try {
         const response = await getChamaBySlug(slug as string, token);
         if (response.success && response.chama) {
-          const transformedChama = transformChamaData(response.chama);
+          const transformedChama = transformChamaData(
+            response.chama,
+            user?.address
+          );
           console.log("the transformed chama", transformedChama);
           setChama(transformedChama);
           setProgressPercentage(
@@ -213,7 +216,7 @@ export default function ChamaDetails() {
 
   const handleProceedJoin = async () => {
     if (isJoining) return; // Prevent double-clicks
-    
+
     try {
       if (!token) {
         Alert.alert("Error", "Please login to continue");
@@ -228,7 +231,7 @@ export default function ChamaDetails() {
         Alert.alert("Error", "Oops!! You are not connected to a wallet.");
         return;
       }
-      
+
       setIsJoining(true);
 
       // collateral amount in wei
@@ -237,11 +240,36 @@ export default function ChamaDetails() {
         6
       );
       const blockchainId = BigInt(Number(chama.blockchainId));
-      
+
+      console.log("usdc contract", usdcContract);
+
       // Approve transaction since we will use a function that will transferFrom the user's wallet to the chama's wallet
       const approveTransaction = prepareContractCall({
         contract: usdcContract,
-        method: "function approve(address spender, uint256 amount)",
+        method: {
+          inputs: [
+            {
+              internalType: "address",
+              name: "spender",
+              type: "address",
+            },
+            {
+              internalType: "uint256",
+              name: "amount",
+              type: "uint256",
+            },
+          ],
+          name: "approve",
+          outputs: [
+            {
+              internalType: "bool",
+              name: "",
+              type: "bool",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
         params: [chamapayContract.address, collateralAmountInWei],
       });
       const { transactionHash: approveTransactionHash } = await sendTransaction(
@@ -336,7 +364,7 @@ export default function ChamaDetails() {
 
   const handleRequestToJoinChama = async () => {
     if (isJoining) return; // Prevent double-clicks
-    
+
     try {
       if (!token) {
         Alert.alert("Error", "Please login to continue");
@@ -351,16 +379,16 @@ export default function ChamaDetails() {
         Alert.alert("Error", "Oops!! You are not connected to a wallet.");
         return;
       }
-      
+
       setIsJoining(true);
-      
+
       // send a notification to the admin to approve the join request
       // const response = await sendNotificationToAdmin(chama.id, user.id);
       // if (!response.success) {
       //   Alert.alert("Error", "Failed to send notification to admin.");
       //   return;
       // }
-      
+
       Alert.alert(
         "Success",
         "Request sent to admin. Please wait for approval."
@@ -805,7 +833,9 @@ export default function ChamaDetails() {
                     </Text>
                   </View>
                   <Text className="font-bold text-gray-900 text-lg">
-                    {chama.isPublic ? `${chama.collateralAmount} ${chama.currency}` : "N/A"}
+                    {chama.isPublic
+                      ? `${chama.collateralAmount} ${chama.currency}`
+                      : "N/A"}
                   </Text>
                 </View>
               </View>
@@ -846,7 +876,9 @@ export default function ChamaDetails() {
                   )}
                   <Text className="text-white font-bold text-lg">
                     {isJoining
-                      ? chama.isPublic ? "Joining..." : "Sending Request..."
+                      ? chama.isPublic
+                        ? "Joining..."
+                        : "Sending Request..."
                       : chama.isPublic
                         ? "Join Chama"
                         : "Request to Join Chama"}
@@ -875,8 +907,8 @@ export default function ChamaDetails() {
                 Lock Collateral
               </Text>
               <Text className="text-gray-600 text-center text-base leading-6">
-                Lock {chama?.collateralAmount} {chama?.currency} as collateral to cater for
-                default.
+                Lock {chama?.collateralAmount} {chama?.currency} as collateral
+                to cater for default.
               </Text>
             </View>
 
@@ -927,9 +959,11 @@ export default function ChamaDetails() {
                 }`}
                 activeOpacity={0.8}
               >
-                <Text className={`font-bold text-center text-base ${
-                  isJoining ? "text-gray-400" : "text-gray-700"
-                }`}>
+                <Text
+                  className={`font-bold text-center text-base ${
+                    isJoining ? "text-gray-400" : "text-gray-700"
+                  }`}
+                >
                   Cancel
                 </Text>
               </TouchableOpacity>
@@ -941,9 +975,7 @@ export default function ChamaDetails() {
                 }`}
                 activeOpacity={0.8}
               >
-                {isJoining && (
-                  <ActivityIndicator size="small" color="white" />
-                )}
+                {isJoining && <ActivityIndicator size="small" color="white" />}
                 <Text className="text-white font-bold text-center text-base">
                   {isJoining ? "Processing..." : "Continue"}
                 </Text>

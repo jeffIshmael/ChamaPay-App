@@ -265,9 +265,7 @@ export default function CreateChama() {
       const startDateTimeTimestamp = Math.floor(startDateTime.getTime() / 1000);
 
       // convert duration to timestamp
-      const durationTimestamp = BigInt(
-        Math.floor(formData.duration * 24 * 60 * 60)
-      );
+      const durationDays = BigInt(formData.duration);
 
       // convert contribution to wei
       const contributionInWei = toUnits(contributionValue.toString(), 6);
@@ -362,7 +360,7 @@ export default function CreateChama() {
         },
         params: [
           contributionInWei,
-          durationTimestamp,
+          durationDays,
           BigInt(startDateTimeTimestamp),
           BigInt(formData.maxMembers),
           formData.isPublic,
@@ -444,10 +442,10 @@ export default function CreateChama() {
       setLoadingState("");
       Alert.alert("Success", "Chama created successfully");
       router.push("/(tabs)");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating chama:", error);
       setLoadingState("");
-      Alert.alert("Error", "Network error. Please try again.");
+      Alert.alert("Error: Unable to create chama.");
     } finally {
       setLoading(false);
     }

@@ -14,7 +14,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 
-contract ChamaPay is 
+contract ChamaPayV2 is 
     Initializable,
     OwnableUpgradeable,
     PausableUpgradeable,
@@ -179,28 +179,35 @@ contract ChamaPay is
         emit MemberAdded(_chamaId, msg.sender);
     }
 
-    function depositCash(uint _chamaId, uint _amount) public onlyMembers(_chamaId) nonReentrant whenNotPaused {
-        require(_chamaId < totalChamas, "Chama does not exist");
-        Chama storage chama = chamas[_chamaId];
-        require(_amount > 0, "Amount must be greater than 0");
-        
-        require(
-            USDCToken.transferFrom(msg.sender, address(this), _amount),
-            "Token transfer failed"
-        );
+   function depositCash(uint _chamaId, uint _amount) 
+    public 
+    onlyMembers(_chamaId) 
+    nonReentrant 
+    whenNotPaused 
+{
+    require(_chamaId < totalChamas, "Chama does not exist");
+    Chama storage chama = chamas[_chamaId];
+    require(_amount > 0, "Amount must be greater than 0");
 
-        uint netAmount = (_amount * 100) / 101;
-        uint txFees = netAmount - _amount;
+    require(
+        USDCToken.transferFrom(msg.sender, address(this), _amount),
+        "Token transfer failed"
+    );
 
-        chama.balances[msg.sender] += netAmount;
+    // 0.5% fee
+    uint txFees = _amount / 200;      // 0.5%
+    uint netAmount = _amount - txFees;
 
-        if (chama.balances[msg.sender] >= chama.amount) {
-            chama.hasSent[msg.sender] = true;
-        }
-        
-        totalFees += txFees;
-        emit CashDeposited(_chamaId, msg.sender, _amount);
+    chama.balances[msg.sender] += netAmount;
+
+    if (chama.balances[msg.sender] >= chama.amount) {
+        chama.hasSent[msg.sender] = true;
     }
+
+    totalFees += txFees;
+    emit CashDeposited(_chamaId, msg.sender, _amount);
+}
+
 
     function depositForMember(address _memberAddress, uint _chamaId, uint _amount) public onlyAiAgent nonReentrant whenNotPaused {
         require(_chamaId < totalChamas, "Chama does not exist");

@@ -9,7 +9,7 @@ import {
 
 import { useAuth } from "@/Contexts/AuthContext";
 import { getAllBalances } from "@/constants/thirdweb";
-import CUSDPay from "./CUSDPay";
+import USDCPay from "./USDCPay";
 import MPesaPay from "./Mpesapay";
 
 interface PaymentModalProps {
@@ -30,9 +30,9 @@ const PaymentModal = ({
   chamaName,
 }: PaymentModalProps) => {
   const [paymentMethod, setPaymentMethod] = useState("");
-  const [showCUSDPay, setShowCUSDPay] = useState(false);
+  const [showUSDCPay, setShowUSDCPay] = useState(false);
   const [showMPesaPay, setShowMPesaPay] = useState(false);
-  const [cUSDBalance, setcUSDBalance] = useState <string | null>(null);
+  const [USDCBalance, setUSDCBalance] = useState <string | null>(null);
   const { user } = useAuth();
 
   const handlePaymentMethod = (method: string) => {
@@ -40,20 +40,20 @@ const PaymentModal = ({
   };
 
   const handlePaymentSuccess = () => {
-    // CUSDPay will handle its own success modal
-    // Just close the CUSDPay component and reset
-    setShowCUSDPay(false);
+    // USDCPay will handle its own success modal
+    // Just close the USDCPay component and reset
+    setShowUSDCPay(false);
     setPaymentMethod("");
   };
 
 
   useEffect(() => {
     console.log("the payment method", paymentMethod);
-    const fetchcUSDBalance = async () => {
-      const balance = await getAllBalances(user?.address as string);
-      setcUSDBalance((balance.cUSD.displayValue));
+    const fetchUSDCBalance = async () => {
+      const balance = await getAllBalances(user?.address as `0x${string}`);
+      setUSDCBalance((balance.USDC.displayValue));
     };
-    fetchcUSDBalance();
+    fetchUSDCBalance();
   }, [user?.address]);
 
   return (
@@ -76,19 +76,19 @@ const PaymentModal = ({
                 <View className="w-full items-center">
                   <TouchableOpacity
                     onPress={() => {
-                      handlePaymentMethod("cusd");
-                      setShowCUSDPay(true);
+                      handlePaymentMethod("USDC");
+                      setShowUSDCPay(true);
                     }}
                     className="flex-row justify-between items-center py-3 px-5 bg-gray-50 rounded-lg w-full my-2"
                   >
                     <View className="flex-row items-center">
                       <Image
-                        source={require("../assets/images/cusd.jpg")}
+                        source={require("../assets/images/usdclogo.png")}
                         className="w-10 h-10 mr-4"
                       />
                       <View>
-                        <Text className="text-lg font-medium">cUSD</Text>
-                        <Text className="text-xs text-gray-500">{Number(cUSDBalance).toFixed(3)} cUSD</Text>
+                        <Text className="text-lg font-medium">USDC</Text>
+                        <Text className="text-xs text-gray-500">{Number(USDCBalance).toFixed(3)} USDC</Text>
                       </View>
                     </View>
                    
@@ -114,17 +114,17 @@ const PaymentModal = ({
           ) : paymentMethod === "mpesa" ? (
             <MPesaPay  chamaName={chamaName} chamaId={chamaId} /> // MPesaPay component
           ) : (
-            <CUSDPay
-              visible={showCUSDPay}
+            <USDCPay
+              visible={showUSDCPay}
               onClose={() => {
                 setPaymentMethod("");
-                setShowCUSDPay(false);
+                setShowUSDCPay(false);
                 onClose();
               }}
               onSuccess={handlePaymentSuccess}
               chamaId={chamaId}
               chamaBlockchainId={chamaBlockchainId}
-              cUSDBalance={cUSDBalance || "0"}
+              USDCBalance={USDCBalance || "0"}
               chamaName={chamaName}
             />
           )}

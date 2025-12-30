@@ -10,19 +10,19 @@ import {
   TextInput,
   TouchableOpacity, View
 } from "react-native";
-import { prepareContractCall, sendTransaction, waitForReceipt } from "thirdweb";
+import { prepareContractCall, sendTransaction, toUnits, waitForReceipt } from "thirdweb";
 import { useActiveAccount } from "thirdweb/react";
 import { parseEther } from "viem";
 import { serverUrl } from "../constants/serverUrl";
-import { chain, chamapayContract, client, cUSDContract } from "../constants/thirdweb";
+import { chain, chamapayContract, client,usdcContract } from "../constants/thirdweb";
 
-const CUSDPay = ({
+const USDCPay = ({
   visible,
   onClose,
   onSuccess,
   chamaId,
   chamaBlockchainId,
-  cUSDBalance,
+  USDCBalance,
   chamaName,
 }: {
   visible: boolean;
@@ -30,7 +30,7 @@ const CUSDPay = ({
   onSuccess: (data?: { txHash: string; message: string; amount: string }) => void;
   chamaId: number;
   chamaBlockchainId: number;
-  cUSDBalance: string;
+  USDCBalance: string;
   chamaName: string;
 }) => {
   const [loading, setLoading] = useState(false);
@@ -57,8 +57,8 @@ const CUSDPay = ({
       }
 
       const totalAmount = paymentAmount + transactionFee;
-      if (totalAmount > Number(cUSDBalance)) {
-        setError(`Insufficient balance. Total required: ${totalAmount.toFixed(4)} cUSD (including 2% fee)`);
+      if (totalAmount > Number(USDCBalance)) {
+        setError(`Insufficient balance. Total required: ${totalAmount.toFixed(4)} USDC (including 0.5% fee)`);
         return;
       }
 
@@ -73,13 +73,13 @@ const CUSDPay = ({
       }
 
       // Convert amount to wei for blockchain transaction
-      const amountInWei = parseEther(totalAmount.toString());
+      const amountInWei = toUnits(totalAmount.toString(),6);
       console.log("the amount in wei", amountInWei);
       console.log("the chama blockchain id", chamaBlockchainId);
 
       // first call approve function
       const approveTransaction = prepareContractCall({
-        contract: cUSDContract,
+        contract: usdcContract,
         method: "function approve(address spender, uint256 amount)",
         params: [chamapayContract.address, amountInWei],
       });
@@ -141,7 +141,7 @@ const CUSDPay = ({
       }
 
       setTxHash(transactionHash);
-      setSuccessMessage(`Successfully deposited ${amount} cUSD to ${chamaName}`);
+      setSuccessMessage(`Successfully deposited ${amount} USDC to ${chamaName}`);
       // Show success modal
       setShowSuccessModal(true);
     } catch (error) {
@@ -161,9 +161,9 @@ const CUSDPay = ({
       return;
     }
     
-    // Calculate 2% transaction fee locally
+    // Calculate 0.5% transaction fee locally
     const amountValue = Number(text);
-    const fee = amountValue * 0.02; // 2% of the amount
+    const fee = amountValue * 0.005; // 0.5% of the amount
     setTransactionFee(fee);
   };
 
@@ -188,11 +188,11 @@ const CUSDPay = ({
   //function to handle the gas fee
   const formatGasFee = (gasFee: number) => {
     if (gasFee > 0.01) {
+      return `${gasFee.toFixed(3)}`;
+    } else if (gasFee > 0.001) {
       return `${gasFee.toFixed(4)}`;
-    } else if (gasFee > 0.0001) {
-      return `${gasFee.toFixed(6)}`;
     } else {
-      return `< 0.0001`;
+      return `< 0.001`;
     }
   };
   return (
@@ -213,15 +213,15 @@ const CUSDPay = ({
           <View>
             <View className="flex-row items-center mb-6">
               <Image
-                source={require("../assets/images/cusd.jpg")}
+                source={require("../assets/images/usdclogo.png")}
                 className="w-12 h-12 mr-4"
               />
-              <Text className="text-xl font-semibold text-gray-900">Pay with cUSD</Text>
+              <Text className="text-xl font-semibold text-gray-900">Pay with USDC</Text>
             </View>
 
             <View className="w-full">
               <View className="mb-4">
-                <Text className="text-sm text-gray-700 mb-2 font-medium">Amount (cUSD)</Text>
+                <Text className="text-sm text-gray-700 mb-2 font-medium">Amount (USDC)</Text>
                 <TextInput
                   className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50"
                   placeholder="0"
@@ -233,18 +233,18 @@ const CUSDPay = ({
               </View>
 
               <Text className="text-black font-light text-base mb-4">
-                Available balance: {Number(cUSDBalance).toFixed(3)} cUSD
+                Available balance: {Number(USDCBalance).toFixed(3)} USDC
               </Text>
 
               {Number(amount) > 0 && (<View className="mb-6">
                 <Text className="text-black font-light text-base mb-2">
-                  Transaction fee (2%):{" "}
-                  {transactionFee.toFixed(3)}{" "}
-                  cUSD
+                  Transaction fee (0.5%):{" "}
+                  {formatGasFee(transactionFee)} {" "}
+                  USDC
                 </Text>
                
                   <Text className="text-black font-semibold text-base">
-                    Total: {(Number(amount) + transactionFee).toFixed(3)} cUSD
+                    Total: {(Number(amount) + transactionFee).toFixed(3)} USDC
                   </Text>
                 </View>
               )}
@@ -318,4 +318,4 @@ const CUSDPay = ({
   );
 };
 
-export default CUSDPay;
+export default USDCPay;
