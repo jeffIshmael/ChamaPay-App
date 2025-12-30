@@ -308,7 +308,7 @@ export default function JoinedChamaDetails() {
       leaveChama={leaveChama}
       userAddress={(user?.address as `0x${string}`) || ""}
       chamaStatus={chama.status}
-      chamaStartDate={chama.contributionDueDate}
+      chamaStartDate={chama.startDate}
       currency={chama.currency}
     />
   );

@@ -87,6 +87,7 @@ export default function AuthScreen() {
         strategy: type,
       });
       // Register wallet with connection manager so it persists across app
+      
       try {
         await connect(wallet);
         // Store wallet connection data

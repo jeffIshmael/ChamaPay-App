@@ -375,9 +375,7 @@ export const transformChamaData = (
       "Not assigned",
     currentTurnMemberPosition: safeNextPayoutIndex + 1,
 
-    contributionDueDate: new Date(backendChama.payDate)
-      .toISOString()
-      .split("T")[0],
+    contributionDueDate: backendChama.payDate,
 
     hasOutstandingPayment: false, // optional feature
 

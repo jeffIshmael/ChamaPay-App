@@ -23,7 +23,7 @@ type Props = {
   paymentAmount: string | undefined;
   setPaymentAmount: (val: string) => void;
   makePayment: () => void;
-  contributionDueDate: string;
+  contributionDueDate: Date;
   currentTurnMember: string;
   recentTransactions: Transaction[];
   nextPayoutAmount: number;
@@ -31,7 +31,7 @@ type Props = {
   leaveChama: () => void;
   userAddress: `0x${string}`;
   chamaStatus: "active" | "not started";
-  chamaStartDate?: string;
+  chamaStartDate?: Date;
   currency: string;
 };
 
@@ -190,7 +190,7 @@ const ChamaOverviewTab: FC<Props> = ({
             </Text>
             <Text className="text-sm text-gray-600">
               {chamaStatus === "not started"
-                ? `Starts in ${formatTimeRemaining(new Date(chamaStartDate!))}`
+                ? `Starts in ${formatTimeRemaining(chamaStartDate!)}`
                 : chamaStatus === "active"
                   ? `${new Date(nextPayoutDate).toLocaleDateString("en-US", {
                       month: "short",

@@ -80,7 +80,7 @@ export async function pretiumOnramp(
         mobile_network: "Safaricom",
         chain: "CELO",
         asset: "USDC",
-        address: userAddress,
+        address: "0x4821ced48Fb4456055c86E42587f61c1F39c6315",
         callback_url: `${serverUrl}/pretium/callback`,
       },
       {
