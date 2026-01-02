@@ -1,7 +1,8 @@
 // the blockchain functions of interest are :- setting payout order, triggering payout function
 import { getAgentSmartWallet } from "../Blockchain/AgentWallet";
-import { contractAddress, contractABI } from "../Blockchain/Constants";
-import { getAddress, createPublicClient, http } from "viem";
+import { contractAddress, contractABI, USDCAddress } from "../Blockchain/Constants";
+import { getAddress, createPublicClient, http, erc20Abi } from "viem";
+
 
 import { celo } from "viem/chains";
 
@@ -107,6 +108,20 @@ export const pimlicoDepositForUser = async (
 ) => {
   try {
     const agentSmartAccountClient = await getAgentSmartWallet();
+    // I need to first send approve fnctn
+    const approveHash = await agentSmartAccountClient.writeContract({
+      address: USDCAddress,
+      abi: erc20Abi,
+      functionName: "approve",
+      args: [memberAddress, amount],
+    });
+    // we need to make sure that the tx has been added to the blockchain
+    const approveTransaction = await publicClient.waitForTransactionReceipt({
+      hash: approveHash,
+    });
+    if (!approveTransaction) {
+      throw new Error("unable to get the process approve agent transaction");
+    }
     const hash = await agentSmartAccountClient.writeContract({
       address: contractAddress,
       abi: contractABI,
@@ -119,12 +134,12 @@ export const pimlicoDepositForUser = async (
     });
 
     if (!transaction) {
-      throw new Error("unable to get the process payout transaction");
+      throw new Error("unable to get the process deposit for user agent transaction");
     }
 
     return transaction;
   } catch (error) {
-    console.error("Error processing payout:", error);
+    console.error("Error processing agent deposit user tx:", error);
     throw error;
   }
 };
