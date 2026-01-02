@@ -475,6 +475,8 @@ export default function JoinedChamaDetails() {
           chamaId={Number(chama.id)}
           chamaBlockchainId={Number(chama.blockchainId)} // Default blockchain ID since it's not in the interface
           chamaName={chama.name}
+          remainingAmount={remainingAmount}
+          paymentAmount={Number(paymentAmount)}
         />
       )}
 

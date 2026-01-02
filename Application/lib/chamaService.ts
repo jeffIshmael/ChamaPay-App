@@ -1,6 +1,7 @@
 import { JoinedChama } from "@/constants/mockData";
 import { serverUrl } from "@/constants/serverUrl";
 import { formatTimeRemaining } from "@/Utils/helperFunctions";
+import { Notification } from "@/app/(tabs)/notifications";
 
 // User service functions
 export const checkUsernameAvailability = async (
@@ -128,6 +129,22 @@ export interface BackendChama {
   };
 }
 
+interface allUserDetails {
+  user: {
+    address: string;
+    email: string;
+    id: number;
+    joinRequests: [];
+    notifications: [];
+    payOuts: [];
+    payments: [];
+    phoneNo: null | string;
+    profileImageUrl: string;
+    smartAddress: string;
+    userName: string;
+  };
+}
+
 export interface ChamaResponse {
   success: boolean;
   chamas?: BackendChama[];
@@ -157,6 +174,42 @@ export interface UserDetails {
   email: string;
   profileImageUrl?: string;
   address?: string;
+}
+
+// Database notification type
+interface DbNotification {
+  id: number;
+  type: string | null;
+  message: string;
+  senderId: number | null;
+  requestId: number | null;
+  userId: number;
+  chamaId: number | null;
+  read: boolean;
+  createdAt: string;
+  chama?: {
+    id: number;
+    name: string;
+  } | null;
+}
+
+// Database join request type
+interface DbJoinRequest {
+  id: number;
+  status: string;
+  createdAt: string;
+  userId: number;
+  chamaId: number;
+  chama: {
+    id: number;
+    name: string;
+    slug: string;
+  };
+  user: {
+    id: number;
+    userName: string;
+    email: string;
+  };
 }
 
 // get user details
@@ -397,7 +450,7 @@ export const transformChamaData = (
     collateralAmount: parseFloat(backendChama.amount) * backendChama.maxNo,
 
     nextPayout: nextPayoutDate
-      ? new Date(nextPayoutDate).toISOString().split("T")[0]
+      ? nextPayoutDate
       : null,
 
     // --------- MY POSITION IN PAYOUT CYCLE ---------
@@ -520,5 +573,221 @@ export const saveMessageToDb = async (
   } catch (error) {
     console.error("Error adding member to chama:", error);
     return { success: false, error: "Failed to add member to chama" };
+  }
+};
+
+// function to get all user details
+export const getUserDetails = async (
+  token: string
+): Promise<allUserDetails> => {
+  try {
+    const response = await fetch(`${serverUrl}/user/details`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error fetching getting user details:", error);
+    return {
+      user: {
+        address: "",
+        email: "",
+        id: 0,
+        joinRequests: [],
+        notifications: [],
+        payOuts: [],
+        payments: [],
+        phoneNo: null,
+        profileImageUrl: "",
+        smartAddress: "",
+        userName: "",
+      },
+    };
+  }
+};
+
+// Helper function to map notification types from database to UI types
+const mapNotificationType = (type: string | null): Notification["type"] => {
+  switch (type) {
+    case "contribution_due":
+      return "contribution_due";
+    case "payout_received":
+      return "payout_received";
+    case "new_message":
+      return "new_message";
+    case "member_joined":
+      return "member_joined";
+    case "payout_scheduled":
+      return "payout_scheduled";
+    case "payment_made":
+      return "contribution_due"; // Map to existing type
+    case "round_complete":
+      return "payout_scheduled";
+    default:
+      return "other"; // Default fallback
+  }
+};
+
+
+
+// Helper function to generate user-friendly titles
+const generateNotificationTitle = (type: string | null): string => {
+  switch (type) {
+    case "contribution_due":
+      return "Contribution Due Soon";
+    case "payout_received":
+      return "Payout Received!";
+    case "new_message":
+      return "New Message";
+    case "member_joined":
+      return "New Member Joined";
+    case "payout_scheduled":
+      return "Your Payout is Coming Up";
+    case "payment_made":
+      return "Payment Confirmed";
+    case "round_complete":
+      return "Round Completed";
+    case "request_approved":
+      return "Request Approved";
+    case "request_rejected":
+      return "Request Declined";
+    default:
+      return "Notification";
+  }
+};
+
+// function to transform notifications and join requests
+export const transformNotification = async (
+  notifications: DbNotification[],
+  requests: DbJoinRequest[]
+): Promise<Notification[]> => {
+  try {
+    const transformedNotifications: Notification[] = [];
+
+    // Transform regular notifications
+    notifications.forEach((notif) => {
+      const transformed: Notification = {
+        id: notif.id.toString(),
+        type: mapNotificationType(notif.type),
+        title: generateNotificationTitle(notif.type),
+        message: notif.message,
+        timestamp: notif.createdAt,
+        read: notif.read,
+        actionRequired: false,
+        chama: notif.chama?.name || "Unknown Chama",
+        chamaId: notif.chamaId,
+      };
+
+      transformedNotifications.push(transformed);
+    });
+
+    // Transform join requests into notifications
+    // Only show pending requests as actionable notifications
+    const pendingRequests = requests.filter((req) => req.status === "pending");
+
+    pendingRequests.forEach((request) => {
+      const transformed: Notification = {
+        id: `request-${request.id}`,
+        type: "join_request",
+        title: "New Join Request",
+        message: `${request.user.userName} wants to join ${request.chama.name}`,
+        timestamp: request.createdAt,
+        read: false, // Pending requests are always unread
+        actionRequired: true,
+        chama: request.chama.name,
+        chamaId: request.chama.id,
+        requestId: request.id,
+        requestUserId: request.user.id,
+        requestUserName: request.user.userName,
+      };
+
+      transformedNotifications.push(transformed);
+    });
+
+    // Sort by timestamp (most recent first)
+    transformedNotifications.sort((a, b) => {
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+
+    return transformedNotifications;
+  } catch (error) {
+    console.error("Error transforming notifications:", error);
+    return [];
+  }
+};
+
+
+
+// Extended Notification interface (update your existing interface)
+export interface ExtendedNotification extends Notification {
+  chamaId?: number | null;
+  requestId?: number; // For join requests
+  requestUserId?: number; // User who made the request
+  requestUserName?: string; // Name of user who made the request
+}
+
+// Function to handle join request actions
+export const handleJoinRequestAction = async (
+  requestId: number,
+  action: "approve" | "reject",
+  token: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const response = await fetch(
+      `${process.env.EXPO_PUBLIC_API_URL}/api/chama/request/${requestId}/${action}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      return { success: false, error: error.message || "Action failed" };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error handling join request:", error);
+    return { success: false, error: error.message || "An error occurred" };
+  }
+};
+
+// Function to mark notification as read
+export const markNotificationAsRead = async (
+  notificationId: number,
+  token: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const response = await fetch(
+      `${process.env.EXPO_PUBLIC_API_URL}/api/notifications/${notificationId}/read`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      return {
+        success: false,
+        error: error.message || "Failed to mark as read",
+      };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error marking notification as read:", error);
+    return { success: false, error: error.message || "An error occurred" };
   }
 };

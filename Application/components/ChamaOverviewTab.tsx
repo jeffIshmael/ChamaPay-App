@@ -392,7 +392,7 @@ const ChamaOverviewTab: FC<Props> = ({
             {selectedTransaction && (
               <>
                 <View className="items-center mb-6">
-                  <View className="w-16 h-16 bg-emerald-100 rounded-full items-center justify-center mb-4">
+                  <View className="w-16 h-16  items-center justify-center ">
                     <Receipt size={24} color="#059669" />
                   </View>
                   <Text className="text-xl font-bold text-gray-900 mb-2">
@@ -406,7 +406,7 @@ const ChamaOverviewTab: FC<Props> = ({
                 <View className="space-y-4 mb-6">
                   <View className="bg-gray-50 rounded-xl p-4">
                     <Text className="text-sm text-gray-600 mb-1">Amount</Text>
-                    <Text className="text-2xl font-bold text-gray-900">
+                    <Text className="text-xl font-bold text-gray-900">
                       {parseFloat(
                         selectedTransaction.amount?.toString() || "0"
                       ).toLocaleString()}{" "}
@@ -418,9 +418,9 @@ const ChamaOverviewTab: FC<Props> = ({
                     <Text className="text-sm text-gray-600 mb-1">From</Text>
                     <Text className="text-base font-semibold text-gray-900">
                       {selectedTransaction.user.address === userAddress ? (
-                        <Text className="font-bold text-gray-800">You</Text>
+                        <Text className="font-semibold text-gray-800">You</Text>
                       ) : (
-                        <Text className="font-bold text-gray-900">
+                        <Text className="font-semibold text-gray-900">
                           {selectedTransaction.user.address}
                         </Text>
                       )}
@@ -435,12 +435,13 @@ const ChamaOverviewTab: FC<Props> = ({
                       {new Date(selectedTransaction.date).toLocaleDateString(
                         "en-US",
                         {
-                          weekday: "long",
+                          weekday: "short",
                           year: "numeric",
-                          month: "long",
+                          month: "short",
                           day: "numeric",
                           hour: "2-digit",
                           minute: "2-digit",
+                        
                         }
                       )}
                     </Text>
@@ -458,7 +459,7 @@ const ChamaOverviewTab: FC<Props> = ({
                     </Text>
                   </View>
 
-                  <View className="bg-gray-50 rounded-xl p-4">
+                  {/* <View className="bg-gray-50 rounded-xl p-4">
                     <Text className="text-sm text-gray-600 mb-1">Status</Text>
                     <View className="flex-row items-center gap-2 mt-1">
                       <View className="w-2 h-2 bg-emerald-500 rounded-full" />
@@ -466,7 +467,7 @@ const ChamaOverviewTab: FC<Props> = ({
                         {selectedTransaction.status}
                       </Text>
                     </View>
-                  </View>
+                  </View> */}
                 </View>
 
                 <View className="gap-3">

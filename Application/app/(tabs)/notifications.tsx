@@ -1,3 +1,10 @@
+import { useAuth } from "@/Contexts/AuthContext";
+import { 
+  getUserDetails, 
+  transformNotification,
+  handleJoinRequestAction,
+  markNotificationAsRead 
+} from "@/lib/chamaService";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
@@ -6,94 +13,54 @@ import {
   CheckCircle,
   MessageCircle,
   Users,
-  Wallet
+  Wallet,
+  UserPlus,
+  X,
+  Check,
 } from "lucide-react-native";
-import React from "react";
-import {
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
+import React, { useEffect, useState } from "react";
+import { 
+  ScrollView, 
+  Text, 
+  TouchableOpacity, 
+  View, 
+  ActivityIndicator,
+  Alert,
+  RefreshControl 
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-interface Notification {
+export interface Notification {
   id: string;
   type:
     | "contribution_due"
     | "payout_received"
     | "new_message"
     | "member_joined"
-    | "payout_scheduled";
+    | "payout_scheduled"
+    | "join_request" | "other";
   title: string;
   message: string;
   timestamp: string;
   read: boolean;
-  priority: "high" | "medium" | "low";
+  actionRequired: boolean;
   chama: string;
+  chamaId?: number | null;
+  requestId?: number;
+  requestUserId?: number;
+  requestUserName?: string;
 }
-
-const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    type: "contribution_due",
-    title: "Contribution Due Tomorrow",
-    message:
-      "Your monthly contribution of KES 10,000 for Tech Developers Circle is due tomorrow.",
-    timestamp: "2025-01-24T10:00:00Z",
-    read: false,
-    priority: "high",
-    chama: "Tech Developers Circle",
-  },
-  {
-    id: "2",
-    type: "payout_received",
-    title: "Payout Received!",
-    message:
-      "You have received KES 120,000 from Tech Developers Circle. Funds are now available in your wallet.",
-    timestamp: "2025-01-23T14:30:00Z",
-    read: false,
-    priority: "medium",
-    chama: "Tech Developers Circle",
-  },
-  {
-    id: "3",
-    type: "new_message",
-    title: "New Message in Women Entrepreneurs Chama",
-    message:
-      'Grace Wanjiku: "Hello everyone! Excited to be part of this chama 🎉"',
-    timestamp: "2025-01-23T09:15:00Z",
-    read: true,
-    priority: "low",
-    chama: "Women Entrepreneurs Chama",
-  },
-  {
-    id: "4",
-    type: "member_joined",
-    title: "New Member Joined",
-    message:
-      "Grace Wanjiku has joined Women Entrepreneurs Chama. Welcome them to the group!",
-    timestamp: "2025-01-22T16:45:00Z",
-    read: true,
-    priority: "low",
-    chama: "Women Entrepreneurs Chama",
-  },
-  {
-    id: "5",
-    type: "payout_scheduled",
-    title: "Your Payout is Coming Up",
-    message:
-      "Your turn for payout in Tech Developers Circle is scheduled for March 10, 2025.",
-    timestamp: "2025-01-20T11:20:00Z",
-    read: true,
-    priority: "medium",
-    chama: "Tech Developers Circle",
-  },
-];
 
 export default function Notifications() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user, token } = useAuth();
+  
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [processingRequestId, setProcessingRequestId] = useState<number | null>(null);
+
   const getNotificationIcon = (type: Notification["type"]) => {
     const iconProps = { size: 20 };
 
@@ -108,21 +75,10 @@ export default function Notifications() {
         return <Users {...iconProps} className="text-purple-600" />;
       case "payout_scheduled":
         return <CheckCircle {...iconProps} className="text-teal-600" />;
+      case "join_request":
+        return <UserPlus {...iconProps} className="text-amber-600" />;
       default:
         return <Bell {...iconProps} className="text-gray-400" />;
-    }
-  };
-
-  const getPriorityClasses = (priority: Notification["priority"]): string => {
-    switch (priority) {
-      case "high":
-        return "bg-red-100 text-red-700";
-      case "medium":
-        return "bg-yellow-100 text-yellow-700";
-      case "low":
-        return "bg-gray-100 text-gray-700";
-      default:
-        return "bg-gray-100 text-gray-700";
     }
   };
 
@@ -143,12 +99,123 @@ export default function Notifications() {
     }
   };
 
-  const unreadCount: number = mockNotifications.filter((n) => !n.read).length;
+  const fetchNotifications = async () => {
+    if (!token) return;
+
+    try {
+      setLoading(true);
+      const details = await getUserDetails(token);
+      console.log("Raw notifications:", details.user.notifications);
+      console.log("Raw join requests:", details.user.joinRequests);
+      
+      const transformedNotifications = await transformNotification(
+        details.user.notifications,
+        details.user.joinRequests
+      );
+      
+      console.log("Transformed notifications:", transformedNotifications);
+      setNotifications(transformedNotifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      Alert.alert("Error", "Failed to load notifications");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchNotifications();
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [token]);
+
+  const handleJoinRequest = async (
+    requestId: number,
+    action: "approve" | "reject",
+    userName: string
+  ) => {
+    if (!token) return;
+
+    Alert.alert(
+      action === "approve" ? "Approve Request" : "Reject Request",
+      `Are you sure you want to ${action} ${userName}'s request to join?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: action === "approve" ? "Approve" : "Reject",
+          style: action === "approve" ? "default" : "destructive",
+          onPress: async () => {
+            setProcessingRequestId(requestId);
+            const result = await handleJoinRequestAction(requestId, action, token);
+            setProcessingRequestId(null);
+
+            if (result.success) {
+              Alert.alert(
+                "Success",
+                `Request ${action === "approve" ? "approved" : "rejected"} successfully`
+              );
+              // Remove the notification from the list
+              setNotifications(prev => 
+                prev.filter(n => n.requestId !== requestId)
+              );
+            } else {
+              Alert.alert("Error", result.error || "Action failed");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleNotificationPress = async (notification: Notification) => {
+    // Mark as read if it's not a join request
+    if (!notification.actionRequired && !notification.read && token) {
+      const numericId = parseInt(notification.id.replace("request-", ""));
+      if (!isNaN(numericId)) {
+        await markNotificationAsRead(numericId, token);
+        // Update local state
+        setNotifications(prev =>
+          prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
+        );
+      }
+    }
+
+    // Navigate to relevant screen based on type
+    if (notification.chamaId) {
+      // You can navigate to the chama detail screen
+      // router.push(`/chama/${notification.chamaId}`);
+    }
+  };
+
+  const unreadCount: number = notifications.filter((n) => !n.read).length;
+
+  if (loading) {
+    return (
+      <View className="flex-1 bg-gray-50 items-center justify-center">
+        <ActivityIndicator size="large" color="#10b981" />
+        <Text className="text-gray-600 mt-4">Loading notifications...</Text>
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-gray-50">
       {/* Modern Digital Header */}
-      <View className="bg-downy-800 rounded-b-3xl" style={{ paddingTop: insets.top + 16, paddingBottom: 20, paddingHorizontal: 20 }}>
+      <View
+        className="bg-downy-800 rounded-b-3xl"
+        style={{
+          paddingTop: insets.top + 16,
+          paddingBottom: 6,
+          paddingHorizontal: 20,
+        }}
+      >
         {/* Top Bar */}
         <View className="flex-row items-center justify-between mb-6">
           <TouchableOpacity
@@ -170,34 +237,25 @@ export default function Notifications() {
           {unreadCount > 0 && (
             <View className="bg-emerald-500 px-3 py-1.5 rounded-full">
               <Text className="text-xs font-bold text-white">
-                {unreadCount} unread
+                {unreadCount}
               </Text>
             </View>
           )}
         </View>
-
-        {/* Action Buttons */}
-        {unreadCount > 0 && (
-          <View className="flex-row gap-3">
-            <TouchableOpacity className="flex-1 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl py-3 items-center active:bg-white/30">
-              <Text className="text-sm font-semibold text-white">
-                Mark all as read
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity className="flex-1 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl py-3 items-center active:bg-white/30">
-              <Text className="text-sm font-semibold text-white">
-                Clear all
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
 
       {/* Notifications List */}
-      <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
-        {mockNotifications.map((notification: Notification, index: number) => (
+      <ScrollView 
+        className="flex-1 p-4" 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
+        {notifications.map((notification: Notification) => (
           <TouchableOpacity
             key={notification.id}
+            onPress={() => handleNotificationPress(notification)}
             className={`mb-3 p-4 bg-white rounded-xl border border-gray-200 ${
               !notification.read
                 ? "border-l-4 border-l-emerald-500 bg-emerald-50"
@@ -219,13 +277,6 @@ export default function Notifications() {
                   </Text>
 
                   <View className="flex-row items-center gap-2 ml-2">
-                    <View
-                      className={`px-2 py-1 rounded-full ${getPriorityClasses(notification.priority)}`}
-                    >
-                      <Text className="text-xs font-medium capitalize">
-                        {notification.priority}
-                      </Text>
-                    </View>
                     {!notification.read && (
                       <View className="w-2 h-2 bg-emerald-500 rounded-full" />
                     )}
@@ -248,20 +299,72 @@ export default function Notifications() {
                     {formatTime(notification.timestamp)}
                   </Text>
                 </View>
+
+                {/* Action Buttons for Join Requests */}
+                {notification.actionRequired && notification.requestId && (
+                  <View className="flex-row gap-2 mt-3">
+                    <TouchableOpacity
+                      onPress={() =>
+                        handleJoinRequest(
+                          notification.requestId!,
+                          "approve",
+                          notification.requestUserName || "User"
+                        )
+                      }
+                      disabled={processingRequestId === notification.requestId}
+                      className="flex-1 bg-emerald-500 py-2.5 rounded-lg flex-row items-center justify-center gap-2"
+                      activeOpacity={0.7}
+                    >
+                      {processingRequestId === notification.requestId ? (
+                        <ActivityIndicator size="small" color="white" />
+                      ) : (
+                        <>
+                          <Check size={16} color="white" />
+                          <Text className="text-white font-semibold text-sm">
+                            Approve
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() =>
+                        handleJoinRequest(
+                          notification.requestId!,
+                          "reject",
+                          notification.requestUserName || "User"
+                        )
+                      }
+                      disabled={processingRequestId === notification.requestId}
+                      className="flex-1 bg-red-500 py-2.5 rounded-lg flex-row items-center justify-center gap-2"
+                      activeOpacity={0.7}
+                    >
+                      {processingRequestId === notification.requestId ? (
+                        <ActivityIndicator size="small" color="white" />
+                      ) : (
+                        <>
+                          <X size={16} color="white" />
+                          <Text className="text-white font-semibold text-sm">
+                            Reject
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             </View>
           </TouchableOpacity>
         ))}
 
-        {mockNotifications.length === 0 && (
+        {notifications.length === 0 && (
           <View className="bg-white rounded-xl border border-gray-200 p-8 items-center">
             <Bell size={48} className="text-gray-400 mb-4" />
             <Text className="text-lg font-medium text-gray-900 mb-2">
               No Notifications
             </Text>
             <Text className="text-sm text-gray-600 text-center">
-              You&apos;re all caught up! We&apos;ll notify you of any important
-              updates.
+              You're all caught up! We'll notify you of any important updates.
             </Text>
           </View>
         )}

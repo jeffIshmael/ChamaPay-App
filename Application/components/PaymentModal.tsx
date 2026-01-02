@@ -17,6 +17,8 @@ interface PaymentModalProps {
   chamaId: number;
   chamaBlockchainId: number;
   chamaName: string;
+  remainingAmount: number;
+  paymentAmount: number;
 }
 
 const PaymentModal = ({
@@ -26,6 +28,8 @@ const PaymentModal = ({
   chamaId,
   chamaBlockchainId,
   chamaName,
+  remainingAmount,
+  paymentAmount,
 }: PaymentModalProps) => {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [showUSDCPay, setShowUSDCPay] = useState(false);
@@ -116,6 +120,9 @@ const PaymentModal = ({
               chamaBlockchainId={chamaBlockchainId}
               chamaId={chamaId}
               onClose={() => onClose()}
+              onBack={()=>setPaymentMethod("")}
+              remainingAmount={remainingAmount}
+              contributionAmount={paymentAmount}
             /> // MPesaPay component
           ) : (
             <USDCPay
@@ -123,11 +130,14 @@ const PaymentModal = ({
               onClose={() => {
                 onClose();
               }}
+              onBack={()=>setPaymentMethod("")}
               onSuccess={handlePaymentSuccess}
               chamaId={chamaId}
               chamaBlockchainId={chamaBlockchainId}
               USDCBalance={USDCBalance || "0"}
               chamaName={chamaName}
+              remainingAmount={remainingAmount}
+              contributionAmount={paymentAmount}
             />
           )}
         </View>
