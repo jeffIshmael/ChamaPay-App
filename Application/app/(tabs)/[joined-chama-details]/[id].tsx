@@ -102,6 +102,7 @@ export default function JoinedChamaDetails() {
   const {
     data: individualBalance,
     isLoading: isIndividualBalanceLoading,
+    refetch: refetchBalance,
     error: individualBalanceError,
   } = useReadContract({
     contract: chamapayContract,
@@ -123,7 +124,6 @@ export default function JoinedChamaDetails() {
     params: [BigInt(Number(chama?.blockchainId) || 0) as bigint],
   });
   const [myBalance, setMyBalance] = useState<bigint[] | undefined>();
-
 
 
   useEffect(() => {
@@ -190,10 +190,12 @@ export default function JoinedChamaDetails() {
   const handlePaymentSuccess = () => {
     // Close payment modal and reload page data
     setShowPaymentModal(false);
+    refetchBalance();
     fetchChama();
   };
 
   const handlePaymentClose = () => {
+    refetchBalance();
     setShowPaymentModal(false);
   };
 

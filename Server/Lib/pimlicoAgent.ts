@@ -136,9 +136,6 @@ export const pimlicoDepositForUser = async (
     if (!transaction) {
       throw new Error("unable to get the process deposit for user agent transaction");
     }
-
-    console.log("transaction to deposit for member", transaction);
-
     return transaction;
   } catch (error) {
     console.error("Error processing agent deposit user tx:", error);

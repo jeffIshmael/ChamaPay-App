@@ -1,11 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  Image,
-  Modal,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Image, Modal, Text, TouchableOpacity, View } from "react-native";
 
 import { useAuth } from "@/Contexts/AuthContext";
 import { getAllBalances } from "@/constants/thirdweb";
@@ -15,7 +9,11 @@ import MPesaPay from "./Mpesapay";
 interface PaymentModalProps {
   visible: boolean;
   onClose: () => void;
-  onSuccess: (data?: { txHash: string; message: string; amount: string }) => void;
+  onSuccess: (data?: {
+    txHash: string;
+    message: string;
+    amount: string;
+  }) => void;
   chamaId: number;
   chamaBlockchainId: number;
   chamaName: string;
@@ -32,7 +30,7 @@ const PaymentModal = ({
   const [paymentMethod, setPaymentMethod] = useState("");
   const [showUSDCPay, setShowUSDCPay] = useState(false);
   const [showMPesaPay, setShowMPesaPay] = useState(false);
-  const [USDCBalance, setUSDCBalance] = useState <string | null>(null);
+  const [USDCBalance, setUSDCBalance] = useState<string | null>(null);
   const { user } = useAuth();
 
   const handlePaymentMethod = (method: string) => {
@@ -46,12 +44,11 @@ const PaymentModal = ({
     setPaymentMethod("");
   };
 
-
   useEffect(() => {
     console.log("the payment method", paymentMethod);
     const fetchUSDCBalance = async () => {
       const balance = await getAllBalances(user?.address as `0x${string}`);
-      setUSDCBalance((balance.USDC.displayValue));
+      setUSDCBalance(balance.USDC.displayValue);
     };
     fetchUSDCBalance();
   }, [user?.address]);
@@ -88,10 +85,12 @@ const PaymentModal = ({
                       />
                       <View>
                         <Text className="text-lg font-medium">USDC</Text>
-                        <Text className="text-xs text-gray-500">{Number(USDCBalance).toFixed(3)} USDC</Text>
+                        <Text className="text-xs text-gray-500">
+                          {Number(USDCBalance).toFixed(3)} USDC
+                        </Text>
                       </View>
                     </View>
-                   
+
                     <Text className="text-2xl text-gray-500">➔</Text>
                   </TouchableOpacity>
 
@@ -112,13 +111,16 @@ const PaymentModal = ({
               </View>
             </>
           ) : paymentMethod === "mpesa" ? (
-            <MPesaPay  chamaName={chamaName} chamaBlockchainId={chamaBlockchainId} /> // MPesaPay component
+            <MPesaPay
+              chamaName={chamaName}
+              chamaBlockchainId={chamaBlockchainId}
+              chamaId={chamaId}
+              onClose={() => onClose()}
+            /> // MPesaPay component
           ) : (
             <USDCPay
               visible={showUSDCPay}
               onClose={() => {
-                setPaymentMethod("");
-                setShowUSDCPay(false);
                 onClose();
               }}
               onSuccess={handlePaymentSuccess}
