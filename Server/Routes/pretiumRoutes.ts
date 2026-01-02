@@ -6,7 +6,8 @@ import {
   getExchangeRate,
   pretiumVerifyNumber,
   pretiumCallback,
-  pretiumCheckTransaction
+  pretiumCheckTransaction,
+  pretiumCheckTriggerDepositFor
 } from "../Controllers/pretiumControllers";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -20,6 +21,8 @@ router.post("/onramp", authenticate, initiatePretiumOnramp);
 router.post("/offramp", authenticate, initiatePretiumOfframp);
 // check trnsaction status
 router.post("/transactionStatus",authenticate, pretiumCheckTransaction);
+// trigger deposit for
+router.post("/agentDeposit",authenticate, pretiumCheckTriggerDepositFor);
 
 // validate phoneno
 router.get("/verify", pretiumVerifyNumber);

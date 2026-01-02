@@ -99,4 +99,32 @@ export const pimlicoProcessPayout = async (chamaBlockchainIds: number[]) => {
   }
 };
 
+// function to trigger deposit for user
+export const pimlicoDepositForUser = async (
+  chamaBlockchainId: number,
+  memberAddress: `0x${string}`,
+  amount: bigint
+) => {
+  try {
+    const agentSmartAccountClient = await getAgentSmartWallet();
+    const hash = await agentSmartAccountClient.writeContract({
+      address: contractAddress,
+      abi: contractABI,
+      functionName: "depositForMember",
+      args: [memberAddress, BigInt(chamaBlockchainId), amount],
+    });
+    // we need to make sure that the tx has been added to the blockchain
+    const transaction = await publicClient.waitForTransactionReceipt({
+      hash: hash,
+    });
 
+    if (!transaction) {
+      throw new Error("unable to get the process payout transaction");
+    }
+
+    return transaction;
+  } catch (error) {
+    console.error("Error processing payout:", error);
+    throw error;
+  }
+};

@@ -9,6 +9,8 @@ import {
   pretiumOnramp,
   verifyPhoneNo,
 } from "../Lib/PretiumFunctions";
+import { pimlicoDepositForUser } from "../Lib/pimlicoAgent";
+import { toUnits } from "thirdweb";
 
 const prisma = new PrismaClient();
 
@@ -31,7 +33,15 @@ export async function getExchangeRate(req: Request, res: Response) {
 }
 
 export async function initiatePretiumOnramp(req: Request, res: Response) {
-  const { amount, phoneNo, exchangeRate, cusdAmount, isDeposit } = req.body;
+  const {
+    amount,
+    phoneNo,
+    exchangeRate,
+    usdcAmount,
+    isDeposit,
+    additionalFee,
+  } = req.body;
+  console.log("the additional fee received for the onramp", additionalFee);
   const userId = req.user?.userId;
   try {
     if (!userId) {
@@ -61,8 +71,18 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
         error: "Amount and phone number are required",
       });
     }
+    // deposit has no additional fee while payment has do lets handle them
     // No additional fee while depositing
-    const result = await pretiumOnramp(phoneNo, amount, user.smartAddress);
+    const receivingAddress = isDeposit
+      ? user.smartAddress
+      : "0x9bC7e0C7020242DE044c9211b5887F41E683719E"; // update to agent wallet
+    console.log("the receiving addess", receivingAddress);
+    const result = await pretiumOnramp(
+      phoneNo,
+      amount,
+      receivingAddress,
+      additionalFee
+    );
     console.log("the onramping pretium result", result);
     if (!result) {
       return res.status(400).json({
@@ -82,7 +102,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
         type: isDeposit ? "deposit" : "payment",
         status: result.status,
         isRealesed: false,
-        cusdAmount,
+        cusdAmount: usdcAmount,
         exchangeRate: exchangeRate,
         walletAddress: user.smartAddress,
       },
@@ -105,7 +125,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
 }
 
 export async function initiatePretiumOfframp(req: Request, res: Response) {
-  const { amount, phoneNo, kesFee, cusdAmount, exchangeRate, txHash } =
+  const { amount, phoneNo, kesFee, usdcAmount, exchangeRate, txHash } =
     req.body;
   const userId = req.user?.userId;
   try {
@@ -155,7 +175,7 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
         amount: amount,
         status: result.status,
         isRealesed: false,
-        cusdAmount,
+        cusdAmount: usdcAmount,
         exchangeRate: exchangeRate,
         walletAddress: user.smartAddress,
       },
@@ -292,6 +312,67 @@ export async function pretiumCheckTransaction(req: Request, res: Response) {
     return res.status(200).json({
       success: true,
       details: statusResult,
+    });
+  } catch (error) {
+    console.log("error in checking transaction status", error);
+    return res.status(500).json({
+      success: false,
+      error: error,
+    });
+  }
+}
+
+// confirm state of onramp tx then trigger deposit for user
+export async function pretiumCheckTriggerDepositFor(
+  req: Request,
+  res: Response
+) {
+  const { transactionCode, chamaBlockchainId, amount } = req.body;
+  const userId = req.user?.userId;
+  try {
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+    }
+
+    // Get user's wallet address
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { smartAddress: true },
+    });
+
+    const statusResult = await checkPretiumTxStatus(transactionCode);
+    if (!statusResult) {
+      return res.status(400).json({
+        success: false,
+        details: `Cannot get the status of ${transactionCode}`,
+      });
+    }
+    console.log("The transaction status", statusResult);
+    if (!statusResult.is_released) {
+      return res.status(400).json({
+        success: false,
+        details: `${transactionCode} transaction has not yet processed.`,
+      });
+    }
+    // we will trigger the agent to deposit for the user
+    const bigintAmount = toUnits(amount, 6);
+    const txResult = await pimlicoDepositForUser(
+      chamaBlockchainId,
+      user?.smartAddress as `0x${string}`,
+      bigintAmount
+    );
+    if (!txResult) {
+      return res.status(400).json({
+        success: false,
+        details: `Error in the blockchain deposit for function.`,
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      details: txResult.transactionHash,
     });
   } catch (error) {
     console.log("error in checking transaction status", error);
