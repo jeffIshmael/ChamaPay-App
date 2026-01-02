@@ -121,7 +121,7 @@ contract ChamaPay is
         newChama.startDate = _startDate;
         newChama.duration = _duration;
         newChama.maxMembers = _maxMembers;
-        newChama.payDate = _startDate + _duration * 24 * 60 * 60;
+        newChama.payDate = _startDate + _duration * 1 days;
         newChama.admin = msg.sender;
         newChama.members.push(msg.sender);
         newChama.cycle = 1;
@@ -311,55 +311,88 @@ contract ChamaPay is
     }
 
     function disburse(uint _chamaId) internal {
-        Chama storage chama = chamas[_chamaId];        
+        Chama storage chama = chamas[_chamaId];
+
         require(chama.payoutOrder.length > 0, "Payout order is empty");
+
+        // Determine recipient index safely
         uint index = (chama.round == 0) ? 0 : (chama.round - 1);
         index = index % chama.payoutOrder.length;
-        address recipient = chama.members[index];
 
+        // Recipient must come from payoutOrder, NOT members[]
+        address recipient = chama.payoutOrder[index];
+
+        // Total payout this round
         uint totalPay = chama.amount * chama.members.length;
 
+        // Compute available funds
         uint totalAvailable = 0;
         for (uint i = 0; i < chama.payoutOrder.length; i++) {
             address member = chama.payoutOrder[i];
             totalAvailable += chama.balances[member];
-            if(chama.isPublic) {
+            if (chama.isPublic) {
                 totalAvailable += chama.lockedAmounts[member];
             }
         }
+
         require(totalAvailable >= totalPay, "Not enough funds to disburse");
 
+        // Fix deficits for public chama members
         for (uint i = 0; i < chama.payoutOrder.length; i++) {
             address member = chama.payoutOrder[i];
-            if (chama.balances[member] < chama.amount) {
-                require(chama.isPublic, "Member has not contributed and it's a private chama.");
-                uint deficit = chama.amount - chama.balances[member];
-                require(chama.lockedAmounts[member] >= deficit, "Member does not have enough locked funds.");
 
+            if (chama.balances[member] < chama.amount) {
+                require(chama.isPublic, "Member has not contributed and chama is private");
+
+                uint deficit = chama.amount - chama.balances[member];
+
+                require(
+                    chama.lockedAmounts[member] >= deficit,
+                    "Insufficient locked funds to cover deficit"
+                );
+
+                // Reduce locked funds safely
                 chama.lockedAmounts[member] -= deficit;
+
+                // Add deficit to balance
                 chama.balances[member] += deficit;
+
+                // Mark as sent
                 chama.hasSent[member] = true;
             }
         }
 
+        // Now send payout
         processPayout(recipient, totalPay);
         recordWithdrawal(_chamaId, recipient, totalPay);
 
+        // SAFELY deduct contributions from ALL members
         for (uint i = 0; i < chama.payoutOrder.length; i++) {
-            chama.hasSent[chama.payoutOrder[i]] = false;
-            chama.balances[chama.payoutOrder[i]] -= chama.amount;
+            address member = chama.payoutOrder[i];
+
+            require(
+                chama.balances[member] >= chama.amount,
+                "Insufficient balance when deducting round contribution"
+            );
+
+            chama.balances[member] -= chama.amount;
+            chama.hasSent[member] = false;
         }
 
+        // Update round and cycle
         if (chama.round + 1 > chama.payoutOrder.length) {
             chama.cycle += 1;
             chama.round = 1;
         } else {
             chama.round += 1;
         }
-        chama.payDate += chama.duration * 24 * 60 * 60;
+
+        // Move pay date
+        chama.payDate += chama.duration * 1 days;
 
         emit FundsDisbursed(_chamaId, recipient, totalPay);
     }
+
 
     function deleteMember(uint _chamaId, address _member) public onlyMembers(_chamaId) {
         Chama storage chama = chamas[_chamaId];
