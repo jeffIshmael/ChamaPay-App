@@ -14,7 +14,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 
-contract ChamaPayV2 is 
+contract ChamaPay is 
     Initializable,
     OwnableUpgradeable,
     PausableUpgradeable,
@@ -220,10 +220,10 @@ contract ChamaPayV2 is
             "Token transfer failed"
         );
 
-        chama.balances[msg.sender] += _amount;
+        chama.balances[_memberAddress] += _amount;
 
-        if (chama.balances[msg.sender] >= chama.amount) {
-            chama.hasSent[msg.sender] = true;
+        if (chama.balances[_memberAddress] >= chama.amount) {
+            chama.hasSent[_memberAddress] = true;
         }
         emit OnrampUpdated(_chamaId, _memberAddress, _amount);
     }
