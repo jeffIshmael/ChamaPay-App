@@ -113,7 +113,7 @@ export const pimlicoDepositForUser = async (
       address: USDCAddress,
       abi: erc20Abi,
       functionName: "approve",
-      args: [memberAddress, amount],
+      args: [contractAddress, amount],
     });
     // we need to make sure that the tx has been added to the blockchain
     const approveTransaction = await publicClient.waitForTransactionReceipt({
