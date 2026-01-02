@@ -7,6 +7,7 @@
 pragma solidity ^0.8.22;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
@@ -21,7 +22,7 @@ contract ChamaPay is
     ReentrancyGuardUpgradeable,
     UUPSUpgradeable 
 {
-
+    using SafeERC20 for IERC20;
     uint public totalChamas;
     uint public totalPayments;
     uint public totalFees;
@@ -286,14 +287,15 @@ contract ChamaPay is
     }
 
     function processPayout(address _receiver, uint _amount) internal nonReentrant {
-        require(USDCToken.balanceOf(address(this)) >= _amount, "Contract does not have enough cUSD");
+        require(USDCToken.balanceOf(address(this)) >= _amount, "Contract does not have enough USDC");
+
         uint contractBal = USDCToken.balanceOf(address(this));
         uint receiverBalBefore = USDCToken.balanceOf(_receiver);
 
-        bool success = USDCToken.transfer(_receiver, _amount);
+        // Safe transfer handles all non-standard ERC20 implementations
+        USDCToken.safeTransfer(_receiver, _amount);
 
-        emit TransferDone(_receiver, _amount, success, contractBal, receiverBalBefore);
-        require(success, "Transfer failed");
+        emit TransferDone(_receiver, _amount, true, contractBal, receiverBalBefore);
         emit PayOutProcessed(_receiver, _amount);
     }
 
