@@ -244,7 +244,9 @@ const MPesaPay = ({
         if (!txResult.success) {
           throw new Error(txResult.error || "Failed to deposit for user.");
         }
+
         const txHashResult = txResult.details;
+        console.log("The tx hash", txHashResult);
         setTxHash(txHashResult);
 
         // Onramp completed successfully
@@ -667,7 +669,6 @@ const MPesaPay = ({
 
                 {/* USDC You'll pay */}
                 <View className="bg-white/70 rounded-lg p-2.5 mt-1.5">
-                 
                   <Text className="text-xl font-bold text-green-600 text-center">
                     {usdcAmount} USDC
                   </Text>
@@ -681,9 +682,7 @@ const MPesaPay = ({
             {/* Buy Button */}
             <TouchableOpacity
               className={`py-4 rounded-xl items-center justify-center shadow-lg ${
-                isFormValid && !loading
-                  ? "bg-downy-800"
-                  : "bg-gray-300"
+                isFormValid && !loading ? "bg-downy-800" : "bg-gray-300"
               }`}
               disabled={!isFormValid || loading}
               onPress={handleOnramp}
