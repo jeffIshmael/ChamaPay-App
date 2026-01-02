@@ -52,7 +52,7 @@ interface Transaction {
   status: string;
 }
 
-interface Quote {
+export interface Quote {
   currencyCode: CurrencyCode;
   exchangeRate: { buying_rate: number; selling_rate: number };
   success: boolean;
