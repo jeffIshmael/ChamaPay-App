@@ -313,7 +313,10 @@ contract ChamaPay is
     function disburse(uint _chamaId) internal {
         Chama storage chama = chamas[_chamaId];        
         require(chama.payoutOrder.length > 0, "Payout order is empty");
-        address recipient = chama.members[(chama.round - 1) % chama.payoutOrder.length];
+        uint index = (chama.round == 0) ? 0 : (chama.round - 1);
+        index = index % chama.payoutOrder.length;
+        address recipient = chama.members[index];
+
         uint totalPay = chama.amount * chama.members.length;
 
         uint totalAvailable = 0;

@@ -450,7 +450,7 @@ export const transformChamaData = (
     collateralAmount: parseFloat(backendChama.amount) * backendChama.maxNo,
 
     nextPayout: nextPayoutDate
-      ? new Date(nextPayoutDate).toISOString().split("T")[0]
+      ? nextPayoutDate
       : null,
 
     // --------- MY POSITION IN PAYOUT CYCLE ---------

@@ -26,11 +26,19 @@ const MPesaPay = ({
   chamaBlockchainId,
   chamaId,
   onClose,
+  onBack,
+  remainingAmount = 0,
+  contributionAmount = 0,
+  currency = "USDC",
 }: {
   chamaName: string;
   chamaBlockchainId: number;
-  chamaId:number;
+  chamaId: number;
   onClose: () => void;
+  onBack: () => void;
+  remainingAmount?: number;
+  contributionAmount?: number;
+  currency?: string;
 }) => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [kesAmount, setKesAmount] = useState("");
@@ -53,22 +61,24 @@ const MPesaPay = ({
   const [slideAnim] = useState(new Animated.Value(0));
   const [scaleAnim] = useState(new Animated.Value(1));
 
+  // Calculate remaining amount in KES
+  const remainingInKes = exchangeRate 
+    ? (remainingAmount * exchangeRate.exchangeRate.selling_rate).toFixed(2)
+    : "0";
+
   // Fetch exchange rate on mount and ensure we have the latest rate
   useEffect(() => {
     const fetchRate = async () => {
       setLoadingRate(true);
       try {
-        // Prioritize fetching fresh rate from API
         const rate = await getExchangeRate("KES" as CurrencyCode);
         if (rate) {
           setExchangeRate(rate);
         } else if (exchangeRateData) {
-          // Fallback to hook data if API fails
           setExchangeRate(exchangeRateData);
         }
       } catch (error) {
         console.error("Error fetching exchange rate:", error);
-        // Fallback to hook data on error
         if (exchangeRateData) {
           setExchangeRate(exchangeRateData);
         }
@@ -78,13 +88,10 @@ const MPesaPay = ({
     };
 
     fetchRate();
-
-    // Refresh rate every 30 seconds to ensure accuracy
     const interval = setInterval(fetchRate, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Update from hook data if it changes and we don't have a rate yet
   useEffect(() => {
     if (!exchangeRate && exchangeRateData && !loadingRate) {
       setExchangeRate(exchangeRateData);
@@ -95,11 +102,8 @@ const MPesaPay = ({
   useEffect(() => {
     if (!exchangeRate) return;
     if (kesAmount && parseFloat(kesAmount) > 0) {
-      // Calculate 0.5% tx fee from KES amount
       const txFee = parseFloat(kesAmount) * 0.005;
-      // Amount after fee deduction
       const kesAfterFee = parseFloat(kesAmount) - txFee;
-      // Convert to USDC
       const usdc = kesAfterFee / exchangeRate.exchangeRate.selling_rate;
       setUsdcAmount(usdc.toFixed(3));
     } else {
@@ -143,8 +147,15 @@ const MPesaPay = ({
     }
   }, [currentStep]);
 
+  // Quick fill function for remaining amount
+  const fillRemainingAmount = () => {
+    if (exchangeRate && remainingAmount > 0) {
+      const kesValue = (remainingAmount * exchangeRate.exchangeRate.selling_rate).toFixed(2);
+      setKesAmount(kesValue);
+    }
+  };
+
   const handleOnramp = async () => {
-    // Validation
     if (!phoneNumber || phoneNumber.length < 9) {
       Alert.alert(
         "Invalid Phone Number",
@@ -185,12 +196,9 @@ const MPesaPay = ({
 
     try {
       const fullPhoneNumber = `0${phoneNumber}`;
-
-      // Calculate 0.5% tx fee from KES amount
       const txFee = Number(kesAmount) * 0.005;
       const kesAfterFee = Number(kesAmount) - txFee;
 
-      // Step 1: Initiate onramp - send only the original amount (before fee)
       const result = await pretiumOnramp(
         fullPhoneNumber,
         Number(kesAmount),
@@ -205,17 +213,13 @@ const MPesaPay = ({
         throw new Error(result.error || "Failed to initiate payment.");
       }
 
-      // Step 2: Show M-Pesa prompt message
       setStatusMessage("Check your phone for M-Pesa prompt...");
 
-      // Step 3: Start polling for status
       try {
         const onrampResult = await pollPretiumPaymentStatus(
           result.transactionCode,
           token,
           (status, data) => {
-            console.log("Status update:", status, data);
-
             switch (status) {
               case "pending":
                 setStatusMessage("Waiting for payment confirmation...");
@@ -237,7 +241,6 @@ const MPesaPay = ({
         setCurrentStep("sending_usdc");
         setStatusMessage("Sending USDC to your chama...");
 
-        // since the onramp is okay, trigger the agent to deposit
         const txResult = await agentDeposit(
           result.transactionCode,
           chamaBlockchainId,
@@ -251,15 +254,11 @@ const MPesaPay = ({
         }
 
         const txHashResult = txResult.details;
-        console.log("The tx hash", txHashResult);
         setTxHash(txHashResult);
-
-        // Onramp completed successfully
         setLoading(false);
         setCurrentStep("completed");
         setStatusMessage("Payment completed successfully!");
 
-        // Success animation
         Animated.sequence([
           Animated.timing(scaleAnim, {
             toValue: 1.1,
@@ -284,7 +283,6 @@ const MPesaPay = ({
               {
                 text: "Done",
                 onPress: () => {
-                  // Reset form
                   setPhoneNumber("");
                   setKesAmount("");
                   setUsdcAmount("0.00");
@@ -372,7 +370,6 @@ const MPesaPay = ({
         }}
         className="mb-6 bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 rounded-2xl p-4 shadow-lg border border-green-100"
       >
-        {/* Progress Steps */}
         <View className="mb-4">
           <View className="flex-row justify-between items-center">
             {steps.map((step, index) => {
@@ -382,7 +379,6 @@ const MPesaPay = ({
 
               return (
                 <React.Fragment key={step.id}>
-                  {/* Step Circle */}
                   <View className="items-center" style={{ flex: 1 }}>
                     <Animated.View
                       style={{
@@ -421,7 +417,6 @@ const MPesaPay = ({
                     </Text>
                   </View>
 
-                  {/* Connecting Line */}
                   {index < steps.length - 1 && (
                     <View
                       className="flex-1 items-center"
@@ -443,7 +438,6 @@ const MPesaPay = ({
           </View>
         </View>
 
-        {/* Status Message */}
         <View className="items-center bg-white rounded-xl p-4 shadow-sm">
           {loading && currentStep !== "completed" && (
             <View className="mb-2">
@@ -517,15 +511,23 @@ const MPesaPay = ({
   };
 
   return (
-    <View className="bg-white rounded-t-3xl shadow-2xl w-full max-h-[65vh]">
+    <View className="bg-white rounded-t-3xl shadow-2xl w-full max-h-[70vh]">
       <ScrollView
         className="px-6 py-6"
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        {/* Header */}
+        {/* Header with Back Button */}
         <View className="mb-4">
           <View className="flex-row items-center justify-between mb-2">
+            <TouchableOpacity
+              onPress={onBack}
+              className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center mr-2"
+              activeOpacity={0.7}
+            >
+              <Text className="text-gray-700 text-xl">←</Text>
+            </TouchableOpacity>
+            
             <View className="flex-row items-center flex-1">
               <View className="bg-green-50 rounded-xl p-2 mr-2 shadow-sm">
                 <Image
@@ -536,14 +538,43 @@ const MPesaPay = ({
               </View>
               <View className="flex-1">
                 <Text className="text-xl font-bold text-gray-800">
-                  Pay to {chamaName} chama
+                  Pay to {chamaName}
                 </Text>
-                <Text className="text-xs text-gray-500 mt-0.5">
+                {/* <Text className="text-xs text-gray-500 mt-0.5">
                   Quick & secure payment
-                </Text>
+                </Text> */}
               </View>
             </View>
           </View>
+
+          {/* Remaining Amount Alert */}
+          {remainingAmount > 0 && (
+            <View className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-2">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1">
+                  <Text className="text-xs font-semibold text-amber-800 mb-0.5">
+                    Contribution Due
+                  </Text>
+                  <Text className="text-sm font-semibold text-amber-900">
+                    {remainingAmount.toFixed(3)} {currency} remaining
+                  </Text>
+                  <Text className="text-xs text-amber-700 mt-0.5">
+                    ≈ {remainingInKes} {exchangeRate?.currencyCode || "KES"}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={fillRemainingAmount}
+                  disabled={loadingRate}
+                  className="bg-amber-600 px-3 py-2 rounded-lg"
+                  activeOpacity={0.7}
+                >
+                  <Text className="text-white text-xs font-semibold">
+                    Pay Full
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Status Indicator */}
@@ -631,18 +662,6 @@ const MPesaPay = ({
                 style={{ opacity: fadeAnim }}
                 className="mb-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border-2 border-green-200 shadow-md"
               >
-                {/* <View className="flex-row items-center justify-between mb-2">
-                  <Text className="text-xs text-gray-600 font-medium">
-                    Payment breakdown
-                  </Text>
-                  <View className="bg-green-100 rounded-full px-2 py-0.5">
-                    <Text className="text-xs text-green-700 font-bold">
-                      USDC
-                    </Text>
-                  </View>
-                </View> */}
-
-                {/* Amount Breakdown */}
                 <View className="space-y-1.5 mb-2">
                   <View className="flex-row justify-between items-center">
                     <Text className="text-xs text-gray-600">Amount</Text>
@@ -659,29 +678,25 @@ const MPesaPay = ({
                       {exchangeRate.currencyCode}
                     </Text>
                   </View>
-                  {/* <View className="h-px bg-green-300 my-0.5" />
-                  <View className="flex-row justify-between items-center">
-                    <Text className="text-xs text-gray-600">
-                      Amount after fee
-                    </Text>
-                    <Text className="text-xs font-semibold text-gray-800">
-                      {(Number(kesAmount) - Number(kesAmount) * 0.005).toFixed(
-                        2
-                      )}{" "}
-                      {exchangeRate.currencyCode}
-                    </Text>
-                  </View> */}
                 </View>
 
-                {/* USDC You'll pay */}
                 <View className="bg-white/70 rounded-lg p-2.5 mt-1.5">
                   <Text className="text-xl font-bold text-green-600 text-center">
                     {usdcAmount} USDC
                   </Text>
                   <Text className="text-xs text-gray-600 text-center mb-0.5">
-                    will paid to {chamaName}
+                    will be paid to {chamaName}
                   </Text>
                 </View>
+
+                {/* Show if payment covers remaining amount */}
+                {remainingAmount > 0 && parseFloat(usdcAmount) >= remainingAmount && (
+                  <View className="bg-green-100 rounded-lg p-2 mt-2">
+                    <Text className="text-xs text-green-800 text-center font-medium">
+                      ✓ This payment will complete your contribution
+                    </Text>
+                  </View>
+                )}
               </Animated.View>
             )}
 
@@ -711,21 +726,6 @@ const MPesaPay = ({
                 </Text>
               )}
             </TouchableOpacity>
-
-            {/* Info Card */}
-            {/* <View className="mt-3 bg-blue-50 rounded-xl p-3 border border-blue-100">
-              <View className="flex-row items-center">
-                <View className="flex-1">
-                  <Text className="text-xs font-semibold text-blue-900 mb-0.5">
-                    How it works
-                  </Text>
-                  <Text className="text-xs text-blue-800 leading-4">
-                    You'll receive an M-Pesa prompt on your phone. Enter your
-                    PIN to complete the payment instantly.
-                  </Text>
-                </View>
-              </View>
-            </View> */}
           </View>
         )}
       </ScrollView>
