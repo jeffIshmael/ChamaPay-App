@@ -14,10 +14,9 @@ import {
   HelpCircle,
   Key,
   LogOut,
-  Settings,
-  Shield,
-  User,
-  Wallet,
+  LucideFingerprint,
+  Fingerprint,
+  FingerprintIcon
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -164,9 +163,7 @@ export default function ProfileSettings() {
                 source={{ uri: getUserProfileImage() }}
                 className="w-16 h-16 rounded-full border-2 border-white/30"
               />
-              <View className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full items-center justify-center border-2 border-white">
-                <User size={12} color="white" />
-              </View>
+
             </View>
             <View className="flex-1">
               <Text className="text-lg font-bold text-white">
@@ -262,9 +259,6 @@ export default function ProfileSettings() {
           {/* Notification Settings */}
           <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
             <View className="flex-row items-center gap-3 mb-6">
-              {/* <View className="w-12 h-12 bg-orange-100 rounded-xl items-center justify-center">
-                <Bell size={20} color="#ea580c" />
-              </View> */}
               <View>
                 <Text className="text-lg font-bold text-gray-900">
                   Notifications
@@ -335,9 +329,7 @@ export default function ProfileSettings() {
           {/* Security */}
           <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
             <View className="flex-row items-center gap-3 mb-6">
-              {/* <View className="w-12 h-12 bg-red-100 rounded-xl items-center justify-center">
-                <Shield size={20} color="#dc2626" />
-              </View> */}
+
               <View>
                 <Text className="text-lg font-bold text-gray-900">
                   Security
@@ -348,7 +340,7 @@ export default function ProfileSettings() {
               </View>
             </View>
             <View className="gap-3">
-              <TouchableOpacity className="w-full p-4 bg-gray-50 rounded-xl active:bg-gray-100 flex-row items-center justify-between">
+              {/* <TouchableOpacity className="w-full p-4 bg-gray-50 rounded-xl active:bg-gray-100 flex-row items-center justify-between">
                 <View className="flex-row items-center gap-3">
                   <View className="w-10 h-10 bg-blue-100 rounded-lg items-center justify-center">
                     <Key size={16} color="#3b82f6" />
@@ -363,12 +355,12 @@ export default function ProfileSettings() {
                   </View>
                 </View>
                 <ChevronRight size={20} color="#9ca3af" />
-              </TouchableOpacity>
+              </TouchableOpacity> */}
 
               <TouchableOpacity className="w-full p-4 bg-gray-50 rounded-xl active:bg-gray-100 flex-row items-center justify-between">
                 <View className="flex-row items-center gap-3">
                   <View className="w-10 h-10 bg-green-100 rounded-lg items-center justify-center">
-                    <Key size={16} color="#059669" />
+                    <Fingerprint size={16} color="#059669" />
                   </View>
                   <View>
                     <Text className="text-gray-900 font-semibold text-base">
