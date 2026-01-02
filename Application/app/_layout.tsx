@@ -9,9 +9,9 @@ const queryClient = new QueryClient();
 
 export default function RootLayout() {
   return (
-    <ThirdwebProvider>
-      <AuthProvider>
-        <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
+      <ThirdwebProvider>
+        <AuthProvider>
           <SafeAreaProvider>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" />
@@ -21,8 +21,8 @@ export default function RootLayout() {
               <Stack.Screen name="wallet-setup" />
             </Stack>
           </SafeAreaProvider>
-        </QueryClientProvider>
-      </AuthProvider>
-    </ThirdwebProvider>
+        </AuthProvider>
+      </ThirdwebProvider>
+    </QueryClientProvider>
   );
 }

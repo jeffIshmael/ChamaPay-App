@@ -76,6 +76,7 @@ export async function getExchangeRate(currencyCode: CurrencyCode) {
       method: "GET",
     });
     const data = await response.json();
+    console.log("exchange rate data", data);
     return data;
   } catch (error) {
     console.log("Error getting exchange rate:", error);
@@ -189,6 +190,29 @@ export const pollPretiumPaymentStatus = async (
     }, interval);
   });
 };
+
+// function to trigger agent deposit
+export async function agentDeposit(transactionCode: string,chamaBlockchainId:number, usdcAmount: string, token:string) {
+  try {
+    const response = await fetch(`${serverUrl}/pretium/agentDeposit`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        transactionCode,
+        chamaBlockchainId,
+        amount: usdcAmount
+      }),
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error checking payment status:", error);
+    return { success: false, error: "Failed to check payment status" };
+  }
+}
 
 // function to validate the phone number
 export async function verifyPhoneNumber(phoneNumber: string) {
