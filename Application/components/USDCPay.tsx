@@ -181,7 +181,6 @@ const USDCPay = ({
     setError("");
     setTxHash("");
     setSuccessMessage("");
-    // Call onClose to reload the page
     onClose();
   };
 

@@ -40,6 +40,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
     usdcAmount,
     isDeposit,
     additionalFee,
+    chamaId,
   } = req.body;
   console.log("the additional fee received for the onramp", additionalFee);
   const userId = req.user?.userId;
@@ -76,14 +77,12 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
     const receivingAddress = isDeposit
       ? user.smartAddress
       : "0x9bC7e0C7020242DE044c9211b5887F41E683719E"; // update to agent wallet
-    console.log("the receiving addess", receivingAddress);
     const result = await pretiumOnramp(
       phoneNo,
       amount,
       receivingAddress,
       additionalFee
     );
-    console.log("the onramping pretium result", result);
     if (!result) {
       return res.status(400).json({
         success: false,
@@ -105,6 +104,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
         cusdAmount: usdcAmount,
         exchangeRate: exchangeRate,
         walletAddress: user.smartAddress,
+        chamaId: chamaId,
       },
     });
 
@@ -327,7 +327,7 @@ export async function pretiumCheckTriggerDepositFor(
   req: Request,
   res: Response
 ) {
-  const { transactionCode, chamaBlockchainId, amount } = req.body;
+  const { transactionCode, chamaBlockchainId, chamaId, amount } = req.body;
   const userId = req.user?.userId;
   try {
     if (!userId) {
@@ -370,6 +370,17 @@ export async function pretiumCheckTriggerDepositFor(
         details: `Error in the blockchain deposit for function.`,
       });
     }
+
+    // update the payment
+    await prisma.payment.create({
+      data: {
+        amount: amount,
+        description: "deposited",
+        chamaId: chamaId,
+        txHash: txResult.transactionHash,
+        userId: userId,
+      },
+    });
     return res.status(200).json({
       success: true,
       details: txResult.transactionHash,

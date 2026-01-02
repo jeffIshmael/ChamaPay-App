@@ -24,9 +24,13 @@ import { Quote } from "@/app/(tabs)/wallet";
 const MPesaPay = ({
   chamaName,
   chamaBlockchainId,
+  chamaId,
+  onClose,
 }: {
   chamaName: string;
   chamaBlockchainId: number;
+  chamaId:number;
+  onClose: () => void;
 }) => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [kesAmount, setKesAmount] = useState("");
@@ -238,6 +242,7 @@ const MPesaPay = ({
           result.transactionCode,
           chamaBlockchainId,
           usdcAmount,
+          chamaId,
           token
         );
 
@@ -287,6 +292,7 @@ const MPesaPay = ({
                   setStatusMessage("");
                   setReceiptNumber("");
                   setTxHash("");
+                  onClose();
                 },
               },
             ]

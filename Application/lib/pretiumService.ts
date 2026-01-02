@@ -192,7 +192,7 @@ export const pollPretiumPaymentStatus = async (
 };
 
 // function to trigger agent deposit
-export async function agentDeposit(transactionCode: string,chamaBlockchainId:number, usdcAmount: string, token:string) {
+export async function agentDeposit(transactionCode: string,chamaBlockchainId:number, usdcAmount: string, chamaId:number, token:string) {
   try {
     const response = await fetch(`${serverUrl}/pretium/agentDeposit`, {
       method: "POST",
@@ -203,6 +203,7 @@ export async function agentDeposit(transactionCode: string,chamaBlockchainId:num
       body: JSON.stringify({
         transactionCode,
         chamaBlockchainId,
+        chamaId,
         amount: usdcAmount
       }),
     });
