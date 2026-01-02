@@ -381,7 +381,7 @@ export const transformChamaData = (
     hasOutstandingPayment: false, // optional feature
 
     frequency: `${backendChama.cycleTime} days`,
-    duration: `${backendChama.cycleTime} days`,
+    duration: backendChama.cycleTime,
 
     rating: backendChama.rating || 0,
     raterCount: backendChama.raterCount || 0,

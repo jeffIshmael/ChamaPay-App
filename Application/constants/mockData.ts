@@ -63,7 +63,7 @@ export interface JoinedChama {
   contributionDueDate: Date;
   hasOutstandingPayment: boolean;
   frequency: string;
-  duration: string;
+  duration: number;
   rating: number;
   raterCount: number;
   category: string;

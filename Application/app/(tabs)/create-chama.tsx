@@ -25,7 +25,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-// Custom checkbox component to avoid dependency conflicts
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   prepareContractCall,
@@ -45,19 +44,19 @@ import { registerChamaToDatabase } from "@/lib/chamaService";
 import { chain, client } from "../../constants/thirdweb";
 
 // Exchange rate constant (KES per 1 USDC)
-const USDC_TO_KES_RATE = 129.5; // Update this with current rate
-const MINIMUM_CONTRIBUTION = 0.001; // Minimum contribution in USDC
+const USDC_TO_KES_RATE = 129.5;
+const MINIMUM_CONTRIBUTION = 0.001;
 
 interface FormData {
   name: string;
   description: string;
   isPublic: boolean;
-  maxMembers: number;
-  contribution: string; // Changed to string to handle decimal input properly
-  frequency: number; // in days
-  duration: number; // calculated automatically
-  startDate: string; // date in YYYY-MM-DD format
-  startTime: string; // time in HH:MM format
+  maxMembers: string; // Changed to string to show empty state
+  contribution: string;
+  frequency: string; // Changed to string to show empty state
+  duration: number;
+  startDate: string;
+  startTime: string;
   adminTerms: string[];
   collateralRequired: boolean;
 }
@@ -106,16 +105,14 @@ export default function CreateChama() {
     name: "",
     description: "",
     isPublic: false,
-    maxMembers: 5,
-    contribution: "5", // Default to 5 USDC as string
-    frequency: 7, // default to weekly
-    duration: 35, // calculated automatically
-    startDate: new Date(Date.now() + 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10), // Default to tomorrow
-    startTime: new Date().toTimeString().slice(0, 5), // Default to current time
+    maxMembers: "", // No default
+    contribution: "", // No default
+    frequency: "", // No default
+    duration: 0,
+    startDate: "", // No default
+    startTime: "", // No default
     adminTerms: [],
-    collateralRequired: false, // Will be set automatically based on isPublic
+    collateralRequired: false,
   });
   const [newTerm, setNewTerm] = useState("");
   const { data: totalChamas, isLoading } = useReadContract({
@@ -149,9 +146,23 @@ export default function CreateChama() {
     return isNaN(value) ? 0 : value;
   };
 
+  // Helper function to get numeric maxMembers value
+  const getMaxMembersValue = (): number => {
+    const value = parseInt(formData.maxMembers);
+    return isNaN(value) ? 0 : value;
+  };
+
+  // Helper function to get numeric frequency value
+  const getFrequencyValue = (): number => {
+    const value = parseInt(formData.frequency);
+    return isNaN(value) ? 0 : value;
+  };
+
   // Calculate duration automatically when frequency or maxMembers changes
   useEffect(() => {
-    const calculatedDuration = formData.frequency * formData.maxMembers;
+    const maxMembers = getMaxMembersValue();
+    const frequency = getFrequencyValue();
+    const calculatedDuration = frequency * maxMembers;
     setFormData((prev) => ({ ...prev, duration: calculatedDuration }));
   }, [formData.frequency, formData.maxMembers]);
 
@@ -160,7 +171,6 @@ export default function CreateChama() {
     setFormData((prev) => ({ ...prev, collateralRequired: prev.isPublic }));
   }, [formData.isPublic]);
 
-  // log the total chamas when the component mounts
   useEffect(() => {
     console.log("the total chamas", totalChamas);
   }, [totalChamas]);
@@ -200,6 +210,7 @@ export default function CreateChama() {
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return "Select date";
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
       year: "numeric",
@@ -209,6 +220,7 @@ export default function CreateChama() {
   };
 
   const formatTime = (timeString: string) => {
+    if (!timeString) return "Select time";
     const [hours, minutes] = timeString.split(":");
     const date = new Date();
     date.setHours(parseInt(hours), parseInt(minutes));
@@ -220,13 +232,17 @@ export default function CreateChama() {
   };
 
   const handleContributionChange = (text: string) => {
-    // Allow empty string, numbers, and decimal point
     if (text === "" || /^\d*\.?\d*$/.test(text)) {
-      // Prevent multiple decimal points
       const decimalCount = (text.match(/\./g) || []).length;
       if (decimalCount <= 1) {
         updateFormData("contribution", text);
       }
+    }
+  };
+
+  const handleFrequencyChange = (text: string) => {
+    if (text === "" || /^\d+$/.test(text)) {
+      updateFormData("frequency", text);
     }
   };
 
@@ -251,37 +267,23 @@ export default function CreateChama() {
 
     setLoading(true);
     try {
-      // Set initial loading state based on chama type
       if (formData.isPublic) {
         setLoadingState("Processing...");
       }
 
-      // Combine start date and time into Date object
       const startDateTime = new Date(
         `${formData.startDate}T${formData.startTime}:00`
       );
-
-      // convert startDateTime to timestamp
       const startDateTimeTimestamp = Math.floor(startDateTime.getTime() / 1000);
-
-      // convert duration to timestamp
       const durationDays = BigInt(formData.duration);
-
-      // convert contribution to wei
       const contributionInWei = toUnits(contributionValue.toString(), 6);
-
-      // user should lock amount to cater for the whole cycle
-      const totalCollateralRequired = contributionValue * formData.maxMembers;
-      // convert contribution to wei
+      const totalCollateralRequired = contributionValue * getMaxMembersValue();
       const totalCollateralRequiredInWei = toUnits(
         totalCollateralRequired.toString(),
         6
       );
-
       const blockchainId = Number(totalChamas).toString();
-      console.log("the total chamas", totalChamas);
 
-      // if its public, we need to sign approve tx because the contract will be calling the transferFrom due to the locking
       if (formData.isPublic) {
         setLoadingState("Checking payment...");
 
@@ -301,10 +303,6 @@ export default function CreateChama() {
           transactionHash: approveTransactionHash,
         });
 
-        console.log(
-          "the approve transaction receipt",
-          approveTransactionReceipt
-        );
         if (!approveTransactionReceipt) {
           setLoadingState("");
           Alert.alert(
@@ -315,14 +313,12 @@ export default function CreateChama() {
         }
       }
 
-      // Set creating state
       if (formData.isPublic) {
         setLoadingState("Creating...");
       } else {
         setLoadingState("Checking details...");
       }
 
-      // registering chama to the blockchain
       const createChamaTransaction = prepareContractCall({
         contract: chamapayContract,
         method: {
@@ -362,7 +358,7 @@ export default function CreateChama() {
           contributionInWei,
           durationDays,
           BigInt(startDateTimeTimestamp),
-          BigInt(formData.maxMembers),
+          BigInt(getMaxMembersValue()),
           formData.isPublic,
         ],
       });
@@ -383,17 +379,13 @@ export default function CreateChama() {
         chain: chain,
         transactionHash: createChamaTransactionHash,
       });
-      console.log(
-        "the create chama on blockchain transaction hash",
-        transactionReceipt.transactionHash
-      );
+
       if (!transactionReceipt) {
         setLoadingState("");
         Alert.alert("Error", "Failed to create chama");
         return;
       }
 
-      // registering chama to the database
       const registerChamaToDatabaseResponse = await registerChamaToDatabase(
         {
           name: formData.name,
@@ -401,8 +393,8 @@ export default function CreateChama() {
           type: formData.isPublic ? "Public" : "Private",
           adminTerms: JSON.stringify(formData.adminTerms),
           amount: contributionValue.toString(),
-          cycleTime: formData.frequency,
-          maxNo: formData.maxMembers,
+          cycleTime: getFrequencyValue(),
+          maxNo: getMaxMembersValue(),
           startDate: startDateTime,
           promoCode: "",
           collateralRequired: formData.isPublic,
@@ -422,19 +414,16 @@ export default function CreateChama() {
         return;
       }
 
-      // depopulate the form data
       setFormData({
         name: "",
         description: "",
         isPublic: false,
-        maxMembers: 5,
-        contribution: "5",
-        frequency: 7,
-        duration: 35,
-        startDate: new Date(Date.now() + 24 * 60 * 60 * 1000)
-          .toISOString()
-          .slice(0, 10),
-        startTime: new Date().toTimeString().slice(0, 5),
+        maxMembers: "",
+        contribution: "",
+        frequency: "",
+        duration: 0,
+        startDate: "",
+        startTime: "",
         adminTerms: [],
         collateralRequired: false,
       });
@@ -455,9 +444,8 @@ export default function CreateChama() {
     if (step < 2) {
       setStep(step + 1);
     } else {
-      // Check if collateral is required (public chama)
       if (formData.isPublic && formData.collateralRequired) {
-        setAgreedToCollateral(false); // Reset agreement state
+        setAgreedToCollateral(false);
         setShowCollateralModal(true);
       } else {
         createChama();
@@ -531,7 +519,6 @@ export default function CreateChama() {
 
   const renderStep1 = () => (
     <View className="gap-6">
-      {/* Basic Information Card */}
       <View className="mb-2">
         <Text className="text-2xl font-bold text-gray-900 mb-2">
           Basic Information & Financial Settings
@@ -576,7 +563,6 @@ export default function CreateChama() {
         </View>
       </View>
 
-      {/* Financial Settings Card */}
       <View className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <Text className="text-lg font-semibold text-gray-900 mb-4">
           Financial Settings
@@ -585,15 +571,15 @@ export default function CreateChama() {
           <View className="flex-row gap-4">
             <View className="flex-1">
               <Text className="text-sm font-medium text-gray-700 mb-2">
-                Maximum Members
+                Maximum Members <Text className="text-red-500">*</Text>
               </Text>
               <CustomDropdown
                 placeholder="Select members"
-                value={`${formData.maxMembers} members`}
+                value={formData.maxMembers ? `${formData.maxMembers} members` : ""}
                 options={memberOptions}
                 show={showMembersDropdown}
                 onToggle={() => setShowMembersDropdown(!showMembersDropdown)}
-                onSelect={(value) => updateFormData("maxMembers", value)}
+                onSelect={(value) => updateFormData("maxMembers", value.toString())}
               />
             </View>
 
@@ -602,11 +588,9 @@ export default function CreateChama() {
                 Frequency (days) <Text className="text-red-500">*</Text>
               </Text>
               <TextInput
-                placeholder="30"
-                value={formData.frequency.toString()}
-                onChangeText={(text) =>
-                  updateFormData("frequency", parseInt(text) || 0)
-                }
+                placeholder="e.g., 7 or 30"
+                value={formData.frequency}
+                onChangeText={handleFrequencyChange}
                 keyboardType="numeric"
                 className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900"
                 placeholderTextColor="#9ca3af"
@@ -621,7 +605,7 @@ export default function CreateChama() {
               </Text>
               <TouchableOpacity
                 onPress={() => {
-                  setSelectedDate(new Date(formData.startDate));
+                  setSelectedDate(formData.startDate ? new Date(formData.startDate) : new Date(Date.now() + 24 * 60 * 60 * 1000));
                   setShowDatePicker(true);
                   setPickerMode("date");
                 }}
@@ -632,7 +616,7 @@ export default function CreateChama() {
                 }`}
                 activeOpacity={0.7}
               >
-                <Text className="text-gray-900 font-medium">
+                <Text className={`font-medium ${formData.startDate ? "text-gray-900" : "text-gray-500"}`}>
                   {formatDate(formData.startDate)}
                 </Text>
                 <Calendar size={20} color="#6b7280" />
@@ -651,10 +635,14 @@ export default function CreateChama() {
               </Text>
               <TouchableOpacity
                 onPress={() => {
-                  const [hours, minutes] = formData.startTime.split(":");
-                  const date = new Date(formData.startDate);
-                  date.setHours(parseInt(hours), parseInt(minutes));
-                  setSelectedDate(date);
+                  if (formData.startTime) {
+                    const [hours, minutes] = formData.startTime.split(":");
+                    const date = new Date(formData.startDate || Date.now());
+                    date.setHours(parseInt(hours), parseInt(minutes));
+                    setSelectedDate(date);
+                  } else {
+                    setSelectedDate(new Date());
+                  }
                   setShowTimePicker(true);
                   setPickerMode("time");
                 }}
@@ -665,7 +653,7 @@ export default function CreateChama() {
                 }`}
                 activeOpacity={0.7}
               >
-                <Text className="text-gray-900 font-medium">
+                <Text className={`font-medium ${formData.startTime ? "text-gray-900" : "text-gray-500"}`}>
                   {formatTime(formData.startTime)}
                 </Text>
                 <Clock size={20} color="#6b7280" />
@@ -679,20 +667,22 @@ export default function CreateChama() {
             </View>
           </View>
 
-          <View>
+          {/* <View>
             <Text className="text-sm font-medium text-gray-700 mb-2">
               Duration (days)
             </Text>
             <View className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
               <Text className="text-gray-900 font-semibold">
-                {formData.duration} days (calculated automatically)
+                {formData.duration > 0 ? `${formData.duration} days` : "Not calculated yet"} (calculated automatically)
               </Text>
-              <Text className="text-gray-600 text-sm mt-1">
-                Frequency ({formData.frequency} days) × Members (
-                {formData.maxMembers})
-              </Text>
+              {formData.duration > 0 && (
+                <Text className="text-gray-600 text-sm mt-1">
+                  Frequency ({formData.frequency} days) × Members (
+                  {formData.maxMembers})
+                </Text>
+              )}
             </View>
-          </View>
+          </View> */}
 
           <View>
             <View className="flex-row justify-between items-center mb-2">
@@ -705,7 +695,7 @@ export default function CreateChama() {
               </Text>
             </View>
             <TextInput
-              placeholder="5.00"
+              placeholder="e.g., 5.00"
               value={formData.contribution}
               onChangeText={handleContributionChange}
               keyboardType="decimal-pad"
@@ -717,7 +707,7 @@ export default function CreateChama() {
               }`}
               placeholderTextColor="#9ca3af"
             />
-            {formData.contribution !== "" && (
+            {formData.contribution !== "" && getContributionValue() > 0 && (
               <View className="mt-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                 <Text className="text-blue-900 text-xs font-medium">
                   ≈ KES {convertToKES(formData.contribution)} (at 1 USDC = KES{" "}
@@ -733,34 +723,36 @@ export default function CreateChama() {
               )}
           </View>
 
-          <View className="bg-blue-50 border border-blue-200 rounded-xl p-5">
-            <View className="flex-row items-start gap-3">
-              <View className="flex-1">
-                <Text className="text-blue-900 font-semibold mb-2 text-base">
-                  Financial Summary
-                </Text>
-                <Text className="text-blue-800 text-sm">
-                  • Total pool per payout:{" "}
-                  {(getContributionValue() * formData.maxMembers).toFixed(2)}{" "}
-                  USDC (≈ KES{" "}
-                  {convertToKES(
-                    (getContributionValue() * formData.maxMembers).toString()
-                  )}
-                  ){"\n"}• Each contribution:{" "}
-                  {getContributionValue().toFixed(2)} USDC
-                  {"\n"}• Frequency: {formData.frequency} days
-                  {"\n"}• Starts: {formatDate(formData.startDate)} at{" "}
-                  {formatTime(formData.startTime)}
-                  {!isStartDateTimeInFuture() &&
-                    formData.startDate.trim() !== "" && (
-                      <Text className="text-red-600">
-                        {"\n"}• Start date/time must be in the future
-                      </Text>
+          {formData.contribution && formData.maxMembers && formData.frequency && formData.startDate && formData.startTime && (
+            <View className="bg-blue-50 border border-blue-200 rounded-xl p-5">
+              <View className="flex-row items-start gap-3">
+                <View className="flex-1">
+                  <Text className="text-blue-900 font-semibold mb-2 text-base">
+                    Financial Summary
+                  </Text>
+                  <Text className="text-blue-800 text-sm">
+                    • Total pool per payout:{" "}
+                    {(getContributionValue() * getMaxMembersValue()).toFixed(2)}{" "}
+                    USDC (≈ KES{" "}
+                    {convertToKES(
+                      (getContributionValue() * getMaxMembersValue()).toString()
                     )}
-                </Text>
+                    ){"\n"}• Each contribution:{" "}
+                    {getContributionValue().toFixed(2)} USDC
+                    {"\n"}• Frequency: {formData.frequency} days
+                    {"\n"}• Starts: {formatDate(formData.startDate)} at{" "}
+                    {formatTime(formData.startTime)}
+                    {!isStartDateTimeInFuture() &&
+                      formData.startDate.trim() !== "" && (
+                        <Text className="text-red-600">
+                          {"\n"}• Start date/time must be in the future
+                        </Text>
+                      )}
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
+          )}
         </View>
       </View>
     </View>
@@ -887,31 +879,32 @@ export default function CreateChama() {
           </Text>
           <View className="gap-2">
             <Text className="text-emerald-800 text-sm font-medium">
-              • Name: <Text className="font-normal">{formData.name}</Text>
+              • Name: <Text className="font-normal">{formData.name || "Not set"}</Text>
             </Text>
             <Text className="text-emerald-800 text-sm font-medium">
               • Members:{" "}
-              <Text className="font-normal">{formData.maxMembers}</Text>
+              <Text className="font-normal">{formData.maxMembers || "Not set"}</Text>
             </Text>
             <Text className="text-emerald-800 text-sm font-medium">
               • Contribution:{" "}
               <Text className="font-normal">
-                {formData.contribution.toLocaleString()} USDC
+                {formData.contribution ? `${formData.contribution} USDC` : "Not set"}
               </Text>
             </Text>
             <Text className="text-emerald-800 text-sm font-medium">
               • Frequency:{" "}
-              <Text className="font-normal">{formData.frequency} days</Text>
+              <Text className="font-normal">{formData.frequency ? `${formData.frequency} days` : "Not set"}</Text>
             </Text>
             <Text className="text-emerald-800 text-sm font-medium">
               • One Cycle Duration:{" "}
-              <Text className="font-normal">{formData.duration} days</Text>
+              <Text className="font-normal">{formData.duration > 0 ? `${formData.duration} days` : "Not calculated"}</Text>
             </Text>
             <Text className="text-emerald-800 text-sm font-medium">
               • Start:{" "}
               <Text className="font-normal">
-                {formatDate(formData.startDate)} at{" "}
-                {formatTime(formData.startTime)}
+                {formData.startDate && formData.startTime
+                  ? `${formatDate(formData.startDate)} at ${formatTime(formData.startTime)}`
+                  : "Not set"}
               </Text>
             </Text>
             <Text className="text-emerald-800 text-sm font-medium">
@@ -920,11 +913,11 @@ export default function CreateChama() {
                 {formData.isPublic ? "Public" : "Private"}
               </Text>
             </Text>
-            {formData.isPublic && (
+            {formData.isPublic && formData.contribution && formData.maxMembers && (
               <Text className="text-emerald-800 text-sm font-medium">
                 • Collateral Required:{" "}
                 <Text className="font-normal">
-                  {Number(formData.contribution) * formData.maxMembers} USDC
+                  {(Number(formData.contribution) * Number(formData.maxMembers)).toFixed(2)} USDC
                 </Text>
               </Text>
             )}
@@ -951,6 +944,7 @@ export default function CreateChama() {
 
   // Check if start date and time are in the future
   const isStartDateTimeInFuture = () => {
+    if (!formData.startDate || !formData.startTime) return false;
     const now = new Date();
     const startDateTime = new Date(
       `${formData.startDate}T${formData.startTime}:00`
@@ -961,23 +955,15 @@ export default function CreateChama() {
   const isStep1Valid =
     formData.name.trim() !== "" &&
     formData.description.trim() !== "" &&
-    Number(formData.contribution) > 0 &&
-    formData.frequency > 0 &&
+    formData.contribution.trim() !== "" &&
+    getContributionValue() >= MINIMUM_CONTRIBUTION &&
+    formData.frequency.trim() !== "" &&
+    getFrequencyValue() > 0 &&
+    formData.maxMembers.trim() !== "" &&
+    getMaxMembersValue() > 0 &&
     formData.startDate.trim() !== "" &&
     formData.startTime.trim() !== "" &&
     isStartDateTimeInFuture();
-
-  // Debug validation
-  console.log("Validation check:", {
-    name: formData.name,
-    description: formData.description,
-    contribution: formData.contribution,
-    frequency: formData.frequency,
-    startDate: formData.startDate,
-    startTime: formData.startTime,
-    isStartDateTimeInFuture: isStartDateTimeInFuture(),
-    isValid: isStep1Valid,
-  });
 
   return (
     <View className="flex-1 bg-gray-50">
@@ -1322,7 +1308,7 @@ export default function CreateChama() {
                     You'll lock{" "}
                     <Text style={{ fontWeight: "600" }}>
                       {(
-                        Number(formData.contribution) * formData.maxMembers
+                        getContributionValue() * getMaxMembersValue()
                       ).toLocaleString()}{" "}
                       USDC
                     </Text>{" "}
@@ -1421,7 +1407,7 @@ export default function CreateChama() {
                     I understand that I will lock{" "}
                     <Text style={{ fontWeight: "600" }}>
                       {(
-                        Number(formData.contribution) * formData.maxMembers
+                        getContributionValue() * getMaxMembersValue()
                       ).toLocaleString()}{" "}
                       USDC
                     </Text>{" "}

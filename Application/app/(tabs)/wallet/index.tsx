@@ -11,6 +11,8 @@ import {
   QrCode,
   Send,
   Upload,
+  ExternalLink,
+  Loader2,
 } from "lucide-react-native";
 import React, { useEffect, useState, useCallback } from "react";
 import {
@@ -25,6 +27,8 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Modal,
+  Animated,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
@@ -68,6 +72,9 @@ export default function CryptoWallet() {
   const [theExhangeQuote, setTheExchangeQuote] = useState<Quote | null>(null);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [transactionError, setTransactionError] = useState<string | null>(null);
+  const [showAllTransactions, setShowAllTransactions] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
   const wallet = useActiveWallet();
   const activeAccount = useActiveAccount();
   const { user, token } = useAuth();
@@ -185,6 +192,17 @@ export default function CryptoWallet() {
     setRefreshing(false);
   };
 
+  const openTransactionDetails = (tx: Transaction) => {
+    setSelectedTransaction(tx);
+    setModalVisible(true);
+  };
+
+  const viewOnChain = (hash: string) => {
+    // Celo explorer URL - adjust if using different chain
+    const explorerUrl = `https://celoscan.io/tx/${hash}`;
+    Linking.openURL(explorerUrl);
+  };
+
   const celoLogo = require("@/assets/images/celoLogo.jpg");
 
   const usdcBalance = parseFloat(userBalance?.USDC.displayValue || "0");
@@ -278,7 +296,11 @@ export default function CryptoWallet() {
   );
 
   const TransactionCard = ({ tx }: { tx: Transaction }) => (
-    <View className="bg-white p-4 rounded-xl shadow-sm mb-3 border border-gray-100">
+    <TouchableOpacity
+      onPress={() => openTransactionDetails(tx)}
+      className="bg-white p-4 rounded-xl shadow-sm mb-3 border border-gray-100"
+      activeOpacity={0.7}
+    >
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center flex-1">
           <View
@@ -291,13 +313,13 @@ export default function CryptoWallet() {
           </View>
 
           <View className="flex-1">
-            <Text className="text-gray-900 font-semibold text-base capitalize">
-              {tx.type} {tx.token}
+            <Text className="text-gray-900 font-semibold text-base ">
+              <Text className="text-base capitalise">{tx.type}</Text> {tx.token}
             </Text>
             <Text className="text-xs text-gray-500 mt-1">
-              {tx.type === "send"
+              {tx.type === "sent"
                 ? `To: ${tx.recipient || "Unknown"}`
-                : tx.type === "receive"
+                : tx.type === "received"
                   ? `From: ${tx.sender || "Unknown"}`
                   : "On-chain transaction"}
             </Text>
@@ -308,7 +330,7 @@ export default function CryptoWallet() {
           <Text
             className={`font-bold text-base ${getTransactionTextColor(tx.type)}`}
           >
-            {tx.type === "send" ? "-" : "+"}
+            {tx.type === "sent" ? "-" : "+"}
             {parseFloat(tx.amount).toLocaleString(undefined, {
               minimumFractionDigits: 2,
               maximumFractionDigits: 4,
@@ -320,20 +342,163 @@ export default function CryptoWallet() {
           </Text>
         </View>
       </View>
+    </TouchableOpacity>
+  );
 
-      <TouchableOpacity
-        onPress={() => {
-          Alert.alert(
-            "Transaction Details",
-            `Hash: ${tx.hash}\nStatus: ${tx.status}\nDate: ${formatDate(
-              tx.date
-            )}`
-          );
-        }}
-        className="mt-3 pt-3 border-t border-gray-100"
+  const TransactionDetailsModal = () => {
+    if (!selectedTransaction) return null;
+
+    return (
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
       >
-        <Text className="text-xs text-blue-600 font-medium">View Details</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setModalVisible(false)}
+          className="flex-1 bg-black/50 justify-center items-center px-6"
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl w-full max-w-md overflow-hidden"
+            style={styles.modalCard}
+          >
+            {/* Header */}
+            <View className="bg-gradient-to-b from-emerald-600 to-emerald-700 p-6">
+              <View className="items-center">
+                <View
+                  className="w-16 h-16 rounded-full items-center justify-center mb-3"
+                  style={{
+                    backgroundColor: `${getTransactionIconColor(selectedTransaction.type)}20`,
+                  }}
+                >
+                  {getTransactionIcon(selectedTransaction.type)}
+                </View>
+                <Text className="text-white text-2xl font-bold mb-1 capitalize">
+                  {selectedTransaction.type}
+                </Text>
+                <Text
+                  className={`text-3xl font-extrabold ${
+                    selectedTransaction.type === "sent"
+                      ? "text-red-200"
+                      : "text-emerald-200"
+                  }`}
+                >
+                  {selectedTransaction.type === "sent" ? "-" : "+"}
+                  {parseFloat(selectedTransaction.amount).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 4,
+                  })}{" "}
+                  {selectedTransaction.token}
+                </Text>
+              </View>
+            </View>
+
+            {/* Details */}
+            <View className="p-6">
+              <View className="space-y-4">
+                {/* Status */}
+                <View className="flex-row justify-between items-center py-3 border-b border-gray-100">
+                  <Text className="text-gray-600 font-medium">Status</Text>
+                  <View className="bg-emerald-100 px-3 py-1 rounded-full">
+                    <Text className="text-emerald-700 font-semibold text-sm capitalize">
+                      {selectedTransaction.status}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Date */}
+                <View className="flex-row justify-between items-center py-3 border-b border-gray-100">
+                  <Text className="text-gray-600 font-medium">Date</Text>
+                  <Text className="text-gray-900 font-semibold">
+                    {formatDate(selectedTransaction.date)}
+                  </Text>
+                </View>
+
+                {/* To/From */}
+                {selectedTransaction.type === "sent" && selectedTransaction.recipient && (
+                  <View className="py-3 border-b border-gray-100">
+                    <Text className="text-gray-600 font-medium mb-2">To</Text>
+                    <View className="bg-gray-50 p-3 rounded-lg">
+                      <Text className="text-gray-900 font-mono text-sm">
+                        {selectedTransaction.recipient}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {selectedTransaction.type === "received" && selectedTransaction.sender && (
+                  <View className="py-3 border-b border-gray-100">
+                    <Text className="text-gray-600 font-medium mb-2">From</Text>
+                    <View className="bg-gray-50 p-3 rounded-lg">
+                      <Text className="text-gray-900 font-mono text-sm">
+                        {selectedTransaction.sender}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Transaction Hash */}
+                <View className="py-3">
+                  <Text className="text-gray-600 font-medium mb-2">
+                    Transaction Hash
+                  </Text>
+                  <View className="bg-gray-50 p-3 rounded-lg">
+                    <Text
+                      className="text-gray-900 font-mono text-xs"
+                      numberOfLines={2}
+                      ellipsizeMode="middle"
+                    >
+                      {selectedTransaction.hash}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Action Buttons */}
+              <View className="mt-6 space-y-3">
+                <TouchableOpacity
+                  onPress={() => viewOnChain(selectedTransaction.hash)}
+                  className="bg-emerald-600 py-4 rounded-xl flex-row items-center justify-center"
+                  activeOpacity={0.8}
+                >
+                  <ExternalLink size={20} color="white" />
+                  <Text className="text-white font-bold text-base ml-2">
+                    View on Chain
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setModalVisible(false)}
+                  className="bg-gray-100 py-4 rounded-xl"
+                  activeOpacity={0.8}
+                >
+                  <Text className="text-gray-700 font-bold text-base text-center">
+                    Close
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+    );
+  };
+
+  const LoadingState = () => (
+    <View className="bg-white p-8 rounded-2xl items-center justify-center shadow-sm">
+      <View className="mb-4">
+        <Loader2 size={48} color="#059669" className="animate-spin" />
+      </View>
+      <Text className="text-gray-900 font-semibold text-lg mb-2">
+        Loading Transactions
+      </Text>
+      <Text className="text-gray-500 text-sm text-center">
+        Fetching your transaction history...
+      </Text>
     </View>
   );
 
@@ -355,17 +520,18 @@ export default function CryptoWallet() {
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
+      year: "numeric",
       hour: "numeric",
       minute: "2-digit",
     });
   };
 
   const getTransactionIcon = (type: string) => {
-    const iconProps = { size: 16, color: getTransactionIconColor(type) };
+    const iconProps = { size: 20, color: getTransactionIconColor(type) };
     switch (type) {
-      case "send":
+      case "sent":
         return <ArrowUpRight {...iconProps} />;
-      case "receive":
+      case "received":
         return <ArrowDownRight {...iconProps} />;
       case "deposit":
         return <Download {...iconProps} />;
@@ -378,9 +544,9 @@ export default function CryptoWallet() {
 
   const getTransactionIconColor = (type: string): string => {
     switch (type) {
-      case "send":
+      case "sent":
         return "#dc2626";
-      case "receive":
+      case "received":
         return "#059669";
       case "deposit":
         return "#2563eb";
@@ -393,9 +559,9 @@ export default function CryptoWallet() {
 
   const getTransactionTextColor = (type: string): string => {
     switch (type) {
-      case "send":
+      case "sent":
         return "text-red-600";
-      case "receive":
+      case "received":
         return "text-emerald-600";
       case "deposit":
         return "text-blue-600";
@@ -431,6 +597,12 @@ export default function CryptoWallet() {
     </TouchableOpacity>
   );
 
+  // Get limited transactions for initial view
+  const getDisplayTransactions = () => {
+    if (!theTransaction || theTransaction.length === 0) return [];
+    return showAllTransactions ? theTransaction : theTransaction.slice(0, 3);
+  };
+
   return (
     <KeyboardAvoidingView
       className="flex-1"
@@ -459,17 +631,6 @@ export default function CryptoWallet() {
           <View className="mb- items-center">
             <View className="flex-row items-center gap-4 mb-4">
               <Text className="text-2xl text-emerald-100">Total Balance</Text>
-              {/* <TouchableOpacity
-                onPress={() => setBalanceVisible(!balanceVisible)}
-                className="p-2 rounded-full bg-white/20"
-                activeOpacity={0.7}
-              >
-                {balanceVisible ? (
-                  <Eye size={20} color="white" />
-                ) : (
-                  <EyeOff size={20} color="white" />
-                )}
-              </TouchableOpacity> */}
             </View>
 
             <View className="items-center mb-3">
@@ -632,14 +793,10 @@ export default function CryptoWallet() {
                 </Text>
               </View>
 
-              {loadingTransactions && (
-                <View className="bg-white p-8 rounded-xl items-center justify-center shadow-sm">
-                  <Text className="text-gray-600 font-medium">
-                    Loading transactions...
-                  </Text>
-                </View>
-              )}
+              {/* Loading State */}
+              {loadingTransactions && <LoadingState />}
 
+              {/* Error State */}
               {transactionError && !loadingTransactions && (
                 <View className="bg-red-50 p-4 rounded-xl border border-red-200 mb-4">
                   <Text className="text-red-700 font-medium text-sm">
@@ -660,7 +817,7 @@ export default function CryptoWallet() {
               {!loadingTransactions &&
                 !transactionError &&
                 (!theTransaction || theTransaction.length === 0) && (
-                  <View className=" p-10 items-center justify-center ">
+                  <View className="p-10 items-center justify-center">
                     <History size={48} color="#9ca3af" className="mb-4" />
                     <Text className="text-gray-900 font-bold text-lg mb-2">
                       No Transactions Yet
@@ -672,28 +829,30 @@ export default function CryptoWallet() {
                   </View>
                 )}
 
-              {/* Transactions List - Grouped by Date */}
+              {/* Transactions List */}
               {!loadingTransactions &&
                 !transactionError &&
                 theTransaction &&
                 theTransaction.length > 0 && (
                   <View>
-                    {Object.entries(
-                      groupTransactionsByDate(theTransaction)
-                    ).map(([dateKey, dayTransactions]) => (
-                      <View key={dateKey} className="mb-6">
-                        <Text className="text-sm font-semibold text-gray-600 mb-3 px-1">
-                          {dateKey}
-                        </Text>
-
-                        {dayTransactions.map((tx) => (
-                          <TransactionCard
-                            key={`${tx.id}-${tx.date}`}
-                            tx={tx}
-                          />
-                        ))}
-                      </View>
+                    {getDisplayTransactions().map((tx) => (
+                      <TransactionCard key={`${tx.id}-${tx.date}`} tx={tx} />
                     ))}
+
+                    {/* View All Button */}
+                    {theTransaction.length > 3 && (
+                      <TouchableOpacity
+                        onPress={() => setShowAllTransactions(!showAllTransactions)}
+                        className=" flex py-4  mt-2 justify-end"
+                        activeOpacity={0.8}
+                      >
+                        <Text className="text-emerald-600 font-bold text-center">
+                          {showAllTransactions
+                            ? "Show Less"
+                            : `View All Transactions (${theTransaction.length - 3} more)`}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 )}
 
@@ -703,6 +862,9 @@ export default function CryptoWallet() {
           )}
         </View>
       </ScrollView>
+
+      {/* Transaction Details Modal */}
+      <TransactionDetailsModal />
     </KeyboardAvoidingView>
   );
 }
@@ -727,5 +889,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 3,
+  },
+  modalCard: {
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 20,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
   },
 });

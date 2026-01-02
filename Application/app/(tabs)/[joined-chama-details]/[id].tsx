@@ -37,6 +37,7 @@ import {
   ChamaDetailsErrorState,
 } from "@/components/LoadingStates";
 import { formatTimeRemaining } from "@/Utils/helperFunctions";
+import { useExchangeRate } from "@/hooks/useExchangeRate";
 
 // Loading Skeleton Component
 const SkeletonBox = ({
@@ -122,6 +123,8 @@ export default function JoinedChamaDetails() {
     params: [BigInt(Number(chama?.blockchainId) || 0) as bigint],
   });
   const [myBalance, setMyBalance] = useState<bigint[] | undefined>();
+
+
 
   useEffect(() => {
     // Handle individualBalance which comes as an array of BigInt values
