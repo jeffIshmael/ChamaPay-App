@@ -275,7 +275,7 @@ export default function CreateChama() {
         `${formData.startDate}T${formData.startTime}:00`
       );
       const startDateTimeTimestamp = Math.floor(startDateTime.getTime() / 1000);
-      const durationDays = BigInt(formData.duration);
+      const durationDays = BigInt(formData.frequency);
       const contributionInWei = toUnits(contributionValue.toString(), 6);
       const totalCollateralRequired = contributionValue * getMaxMembersValue();
       const totalCollateralRequiredInWei = toUnits(
