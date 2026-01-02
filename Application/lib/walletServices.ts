@@ -5,8 +5,8 @@ import { serverUrl } from "@/constants/serverUrl";
  */
 export interface Transaction {
   id: number;
-  type: "send" | "receive";
-  token: "cUSD" | "USDC";
+  type: "sent" | "received";
+  token:  "USDC";
   amount: string;
   recipient?: string;
   sender?: string;
@@ -57,8 +57,8 @@ interface UserDetailsResponse {
 const validateTransaction = (tx: Partial<Transaction>): Transaction => {
   return {
     id: tx.id ?? 0,
-    type: tx.type ?? "send",
-    token: tx.token ?? "cUSD",
+    type: tx.type ?? "sent",
+    token: tx.token ?? "USDC",
     amount: tx.amount ?? "0",
     recipient: tx.recipient,
     sender: tx.sender,
@@ -74,10 +74,10 @@ const validateTransaction = (tx: Partial<Transaction>): Transaction => {
 const transformPayment = (payment: PaymentData): Transaction => {
   return validateTransaction({
     id: payment.id,
-    type: "send",
-    token: "cUSD",
+    type: "sent",
+    token: "USDC",
     amount: payment.amount,
-    recipient: payment.chama.name,
+    recipient: payment.chama.name +" " + "chama",
     sender: "you",
     hash: payment.txHash,
     date: payment.doneAt,
@@ -91,11 +91,11 @@ const transformPayment = (payment: PaymentData): Transaction => {
 const transformPayout = (payout: PayoutData): Transaction => {
   return validateTransaction({
     id: payout.id,
-    type: "receive",
-    token: "cUSD",
+    type: "received",
+    token: "USDC",
     amount: payout.amount,
     recipient: "You",
-    sender: payout.chama.name,
+    sender: payout.chama.name +" " + "chama",
     hash: payout.txHash,
     date: payout.doneAt,
     status: "completed",
@@ -185,7 +185,7 @@ export const getTheUserTx = async (
  */
 export const filterTransactionsByType = (
   transactions: Transaction[],
-  type: "send" | "receive"
+  type: "sent" | "received"
 ): Transaction[] => {
   return transactions.filter((tx) => tx.type === type);
 };

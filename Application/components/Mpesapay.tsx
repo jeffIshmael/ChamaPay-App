@@ -11,33 +11,37 @@ import {
 } from "react-native";
 import { initiateOnramp, pollOnrampStatus } from "@/lib/onrampService";
 import { useAuth } from "@/Contexts/AuthContext";
+import { useExchangeRate } from "@/hooks/useExchangeRate";
+import { pretiumOnramp } from "@/lib/pretiumService";
 
-const EXCHANGE_RATE = 132; // 132 KES = 1 cUSD
 
 const MPesaPay = ({chamaName, chamaId}: {chamaName:string, chamaId:number}) => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [kesAmount, setKesAmount] = useState("");
-  const [cusdAmount, setCusdAmount] = useState("0.00");
+  const [usdcAmount, setUsdcAmount] = useState("0.00");
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState<
-    "input" | "payment_sent" | "payment_received" | "sending_cusd" | "completed"
+    "input" | "payment_sent" | "payment_received" | "sending_usdc" | "completed"
   >("input");
   const [statusMessage, setStatusMessage] = useState("");
   const [receiptNumber, setReceiptNumber] = useState("");
   const [txHash, setTxHash] = useState("");
   const { token } = useAuth();
+  const { data: exchangeRate } = useExchangeRate("KES");
+
+  console.log("The usdc to Kes rate", exchangeRate);
 
   // Animation values
   const [fadeAnim] = useState(new Animated.Value(1));
   const [pulseAnim] = useState(new Animated.Value(1));
 
-  // Calculate cUSD amount when KES changes
+  // Calculate USDC amount when KES changes
   useEffect(() => {
     if (kesAmount && parseFloat(kesAmount) > 0) {
-      const cusd = parseFloat(kesAmount) / EXCHANGE_RATE;
-      setCusdAmount(cusd.toFixed(6));
+      const usdc = parseFloat(kesAmount) / exchangeRate.exchangeRate.selling_rate;
+      setUsdcAmount(usdc.toFixed(3));
     } else {
-      setCusdAmount("0.00");
+      setUsdcAmount("0.00");
     }
   }, [kesAmount]);
 
@@ -86,17 +90,15 @@ const MPesaPay = ({chamaName, chamaId}: {chamaName:string, chamaId:number}) => {
     setStatusMessage("Initiating payment request...");
 
     try {
-      const fullPhoneNumber = `254${phoneNumber}`;
+      const fullPhoneNumber = `0${phoneNumber}`;
+      
+      
+      // add 0.5% tx fee
+      const additionalFee = Number(kesAmount) * 0.005;
+      const fullKesAmount = Number(kesAmount) + additionalFee;
 
       // Step 1: Initiate onramp
-      const result = await initiateOnramp(
-        Number(fullPhoneNumber),
-        kesAmount,
-        `${chamaName} Payment`,
-        true,
-        EXCHANGE_RATE,
-        token
-      );
+      const result = await pretiumOnramp(fullPhoneNumber,fullKesAmount, exchangeRate.exchangeRate.selling_rate, Number(usdcAmount),false, token,additionalFee);
 
       if (!result.success) {
         throw new Error(result.error || "Failed to initiate onramp");
@@ -122,8 +124,8 @@ const MPesaPay = ({chamaName, chamaId}: {chamaName:string, chamaId:number}) => {
                 setCurrentStep("payment_received");
                 setStatusMessage("Payment received! 🎉");
                 setTimeout(() => {
-                  setCurrentStep("sending_cusd");
-                  setStatusMessage(`Sending ${data.cusdAmount} cUSD to your wallet...`);
+                  setCurrentStep("sending_usdc");
+                  setStatusMessage(`Sending ${data.cusdAmount} USDC to your wallet...`);
                 }, 1500);
                 break;
               case "completed":
@@ -365,7 +367,7 @@ const MPesaPay = ({chamaName, chamaId}: {chamaName:string, chamaId:number}) => {
               Pay to {chamaName}
             </Text>
             <Text className="text-sm text-gray-500">
-              1 cUSD = {EXCHANGE_RATE} KES
+              1 USDC = {exchangeRate.exchangeRate.selling_rate} {exchangeRate.currencyCode}
             </Text>
           </View>
         </View>
@@ -404,11 +406,11 @@ const MPesaPay = ({chamaName, chamaId}: {chamaName:string, chamaId:number}) => {
           {/* Amount Input */}
           <View className="mb-4">
             <Text className="text-sm font-medium text-gray-700 mb-2">
-              Amount (KES)
+              Amount ({exchangeRate.currencyCode})
             </Text>
             <View className="flex-row items-center border-2 border-gray-200 rounded-xl overflow-hidden bg-gray-50">
               <View className="px-4 py-3.5">
-                <Text className="text-gray-600 font-semibold text-base">KES</Text>
+                <Text className="text-gray-600 font-semibold text-base">{exchangeRate.currencyCode}</Text>
               </View>
               <TextInput
                 className="flex-1 px-4 py-3 text-base text-gray-800"
@@ -420,7 +422,7 @@ const MPesaPay = ({chamaName, chamaId}: {chamaName:string, chamaId:number}) => {
               />
             </View>
             <Text className="text-xs text-gray-500 mt-1.5">
-              Minimum: KES 100
+              Minimum: 10 {exchangeRate.currencyCode}
             </Text>
           </View>
 
@@ -431,10 +433,10 @@ const MPesaPay = ({chamaName, chamaId}: {chamaName:string, chamaId:number}) => {
                 Payment amount
               </Text>
               <Text className="text-xl font-bold text-green-600 text-center">
-                {cusdAmount} cUSD
+                {cusdAmount} USDC
               </Text>
               <Text className="text-xs text-gray-500 text-center mt-1">
-                ≈ ${(parseFloat(cusdAmount) * 1).toFixed(2)} USD
+                ≈ ${(parseFloat(cusdAmount) * 1).toFixed(2)} USDC
               </Text>
             </View>
           )}
@@ -456,7 +458,7 @@ const MPesaPay = ({chamaName, chamaId}: {chamaName:string, chamaId:number}) => {
           {/* Info Text */}
           <View className="mt-4 bg-blue-50 rounded-lg p-3">
             <Text className="text-xs text-blue-800 text-center">
-              💡 You'll receive an M-Pesa prompt. Enter your PIN to buy cUSD
+              💡 You'll receive an M-Pesa prompt. Enter your PIN to buy USDC
               instantly.
             </Text>
           </View>

@@ -3,14 +3,14 @@ import { serverUrl } from "@/constants/serverUrl";
 export type CurrencyCode = "KES" | "UGX" | "CDF" | "MWK" | "ETB" | "GHS";
 
 // function to onramp through pretium
-// note: amount should be plus the additional fee
 export async function pretiumOnramp(
   phoneNo: string,
   amount: number,
   exchangeRate: number,
-  cusdAmount: number,
+  usdcAmount: number,
   isDeposit: boolean,
-  token: string
+  token: string,
+  additionalFee?: number
 ) {
   try {
     const response = await fetch(`${serverUrl}/pretium/onramp`, {
@@ -23,8 +23,9 @@ export async function pretiumOnramp(
         amount,
         phoneNo,
         exchangeRate,
-        cusdAmount,
-        isDeposit
+        usdcAmount,
+        isDeposit,
+        additionalFee,
       }),
     });
     const data = await response.json();
@@ -39,7 +40,7 @@ export async function pretiumOfframp(
   phoneNo: string,
   amount: number, // the kes
   exchangeRate: number,
-  cusdAmount: string,
+  usdcAmount: string,
   txHash: string,
   kesFee: number,
   token: string
@@ -55,7 +56,7 @@ export async function pretiumOfframp(
         amount,
         phoneNo,
         kesFee,
-        cusdAmount,
+        usdcAmount,
         exchangeRate,
         txHash,
       }),

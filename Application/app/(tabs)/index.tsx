@@ -16,7 +16,7 @@ import {
   Settings,
   Users,
   Wallet,
-  HandCoins
+  HandCoins,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -31,7 +31,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { formatTimeRemaining } from "@/Utils/helperFunctions";
+import { formatDays, formatTimeRemaining } from "@/Utils/helperFunctions";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -264,7 +264,10 @@ export default function HomeScreen() {
       {/* My Chamas */}
       <ScrollView
         className="flex-1 px-5"
-        style={{ paddingTop: 20 }}
+        contentContainerStyle={{
+          paddingTop: 20,
+          paddingBottom: insets.bottom + 100, // Accounts for safe area
+        }}
         showsVerticalScrollIndicator={false}
       >
         <View className="flex-row items-center justify-between mb-5">
@@ -347,7 +350,7 @@ export default function HomeScreen() {
                       <HandCoins color="#3b82f6" size={16} />
                       <Text className="text-sm font-semibold text-blue-700 ml-1.5">
                         {chama.contribution?.toLocaleString() || "0"}{" "}
-                        {chama.currency}{" "}/{chama.duration}
+                        {chama.currency} / {formatDays(Number(chama.duration))}
                       </Text>
                     </View>
                   </View>
@@ -367,8 +370,10 @@ export default function HomeScreen() {
               <View className="flex-row items-center justify-between pt-3 border-t border-gray-100">
                 <View className="flex-row items-center flex-1">
                   <Calendar color="#6b7280" size={16} />
-                  <Text className="text-sm font-medium text-gray-700 ml-2">{ chama.status === "active" ? 
-                    `Next: ${chama.currentTurnMember} (${chama.nextPayoutDate})`:`Starts in: ${formatTimeRemaining(chama.startDate)}`}
+                  <Text className="text-sm font-medium text-gray-700 ml-2">
+                    {chama.status === "active"
+                      ? `Next: ${chama.currentTurnMember} (${chama.nextPayoutDate})`
+                      : `Starts in: ${formatTimeRemaining(chama.startDate)}`}
                   </Text>
                 </View>
                 {chama.myTurn && (

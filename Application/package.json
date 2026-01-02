@@ -20,6 +20,7 @@
     "@react-navigation/bottom-tabs": "^7.3.10",
     "@react-navigation/elements": "^2.3.8",
     "@react-navigation/native": "^7.1.6",
+    "@tanstack/react-query": "^5.90.16",
     "@thirdweb-dev/react-native-adapter": "^1.5.5",
     "@thirdweb-dev/wallets": "^2.5.39",
     "@walletconnect/react-native-compat": "^2.21.9",
