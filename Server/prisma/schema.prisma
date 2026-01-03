@@ -74,8 +74,9 @@ model Payment {
   doneAt      DateTime @default(now())
   txHash      String
   userId      Int
-  chamaId     Int
-  chama       Chama    @relation(fields: [chamaId], references: [id])
+  receiver    String?
+  chamaId     Int?
+  chama       Chama?   @relation(fields: [chamaId], references: [id])
   user        User     @relation(fields: [userId], references: [id])
 }
 
