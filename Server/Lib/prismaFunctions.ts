@@ -42,3 +42,20 @@ export async function notifyAllChamaMembers(
     console.error("Unable to send the chama members notification.", error);
   }
 }
+
+// function to register a payment to the database
+export async function registerPayment(userId: number, chamaId: number, amount: string, description: string, txHash: string) {
+  try {
+    await prisma.payment.create({
+      data: {
+        userId: userId,
+        chamaId: chamaId,
+        amount: amount,
+        description: description,
+        txHash: txHash,
+      },
+    });
+  } catch (error) {
+    console.error("Unable to register the payment.", error);
+  }
+}

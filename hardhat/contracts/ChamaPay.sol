@@ -180,34 +180,34 @@ contract ChamaPay is
         emit MemberAdded(_chamaId, msg.sender);
     }
 
-   function depositCash(uint _chamaId, uint _amount) 
-    public 
-    onlyMembers(_chamaId) 
-    nonReentrant 
-    whenNotPaused 
-{
-    require(_chamaId < totalChamas, "Chama does not exist");
-    Chama storage chama = chamas[_chamaId];
-    require(_amount > 0, "Amount must be greater than 0");
+    function depositCash(uint _chamaId, uint _amount) 
+        public 
+        onlyMembers(_chamaId) 
+        nonReentrant 
+        whenNotPaused 
+    {
+        require(_chamaId < totalChamas, "Chama does not exist");
+        Chama storage chama = chamas[_chamaId];
+        require(_amount > 0, "Amount must be greater than 0");
 
-    require(
-        USDCToken.transferFrom(msg.sender, address(this), _amount),
-        "Token transfer failed"
-    );
+        require(
+            USDCToken.transferFrom(msg.sender, address(this), _amount),
+            "Token transfer failed"
+        );
 
-    // 0.5% fee
-    uint txFees = _amount / 200;      // 0.5%
-    uint netAmount = _amount - txFees;
+        // 0.5% fee
+        uint txFees = _amount / 200;      // 0.5%
+        uint netAmount = _amount - txFees;
 
-    chama.balances[msg.sender] += netAmount;
+        chama.balances[msg.sender] += netAmount;
 
-    if (chama.balances[msg.sender] >= chama.amount) {
-        chama.hasSent[msg.sender] = true;
+        if (chama.balances[msg.sender] >= chama.amount) {
+            chama.hasSent[msg.sender] = true;
+        }
+
+        totalFees += txFees;
+        emit CashDeposited(_chamaId, msg.sender, _amount);
     }
-
-    totalFees += txFees;
-    emit CashDeposited(_chamaId, msg.sender, _amount);
-}
 
 
     function depositForMember(address _memberAddress, uint _chamaId, uint _amount) public onlyAiAgent nonReentrant whenNotPaused {
@@ -316,72 +316,75 @@ contract ChamaPay is
         Chama storage chama = chamas[_chamaId];
 
         require(chama.payoutOrder.length > 0, "Payout order is empty");
+        require(chama.members.length > 0, "No members in chama");
 
-        // Determine recipient index safely
+        // Select recipient of this round
         uint index = (chama.round == 0) ? 0 : (chama.round - 1);
         index = index % chama.payoutOrder.length;
 
-        // Recipient must come from payoutOrder, NOT members[]
         address recipient = chama.payoutOrder[index];
 
-        // Total payout this round
-        uint totalPay = chama.amount * chama.members.length;
+        // Fallback if payoutOrder contains invalid address
+        if (recipient == address(0)) {
+            recipient = chama.members[index % chama.members.length];
+        }
 
-        // Compute available funds
+        // Calculate the amount each member must contribute
+        uint contributionAmount = chama.amount;
+        uint memberCount = chama.payoutOrder.length;
+
+        uint totalPay = contributionAmount * memberCount;
+
+
+        // Calculate total funds available
         uint totalAvailable = 0;
-        for (uint i = 0; i < chama.payoutOrder.length; i++) {
-            address member = chama.payoutOrder[i];
-            totalAvailable += chama.balances[member];
+
+        for (uint i = 0; i < chama.members.length; i++) {
+            address m = chama.members[i];
+            totalAvailable += chama.balances[m];
+
             if (chama.isPublic) {
-                totalAvailable += chama.lockedAmounts[member];
+                totalAvailable += chama.lockedAmounts[m];
             }
         }
 
-        require(totalAvailable >= totalPay, "Not enough funds to disburse");
+        require(totalAvailable >= totalPay, "Not enough total funds");
 
-        // Fix deficits for public chama members
-        for (uint i = 0; i < chama.payoutOrder.length; i++) {
-            address member = chama.payoutOrder[i];
+        // Fix any underfunded members BEFORE payout
+        for (uint i = 0; i < chama.members.length; i++) {
+            address member = chama.members[i];
 
-            if (chama.balances[member] < chama.amount) {
-                require(chama.isPublic, "Member has not contributed and chama is private");
+            if (chama.balances[member] < contributionAmount) {
+                uint deficit = contributionAmount - chama.balances[member];
 
-                uint deficit = chama.amount - chama.balances[member];
+                require(chama.isPublic, "Private: member has insufficient balance");
+                require(chama.lockedAmounts[member] >= deficit, "Insufficient locked funds");
 
-                require(
-                    chama.lockedAmounts[member] >= deficit,
-                    "Insufficient locked funds to cover deficit"
-                );
-
-                // Reduce locked funds safely
+                // Cover deficit
                 chama.lockedAmounts[member] -= deficit;
-
-                // Add deficit to balance
                 chama.balances[member] += deficit;
-
-                // Mark as sent
-                chama.hasSent[member] = true;
             }
         }
 
-        // Now send payout
+
+        // Make the payout
         processPayout(recipient, totalPay);
         recordWithdrawal(_chamaId, recipient, totalPay);
 
-        // SAFELY deduct contributions from ALL members
-        for (uint i = 0; i < chama.payoutOrder.length; i++) {
-            address member = chama.payoutOrder[i];
 
-            require(
-                chama.balances[member] >= chama.amount,
-                "Insufficient balance when deducting round contribution"
-            );
+        // Deduct each member’s contribution SAFELY
+        for (uint i = 0; i < chama.members.length; i++) {
+            address m = chama.members[i];
 
-            chama.balances[member] -= chama.amount;
-            chama.hasSent[member] = false;
+            // This will never underflow because we fixed deficits earlier
+            chama.balances[m] -= contributionAmount;
+
+            // Reset for next round
+            chama.hasSent[m] = false;
         }
 
-        // Update round and cycle
+
+        // Update round & cycle
         if (chama.round + 1 > chama.payoutOrder.length) {
             chama.cycle += 1;
             chama.round = 1;
@@ -394,6 +397,7 @@ contract ChamaPay is
 
         emit FundsDisbursed(_chamaId, recipient, totalPay);
     }
+
 
 
     function deleteMember(uint _chamaId, address _member) public onlyMembers(_chamaId) {
