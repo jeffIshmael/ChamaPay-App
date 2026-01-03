@@ -286,7 +286,7 @@ contract ChamaPay is
         return _allMembersContributed(_chamaId);
     }
 
-    function processPayout(address _receiver, uint _amount) internal nonReentrant {
+    function processPayout(address _receiver, uint _amount) internal {
         require(USDCToken.balanceOf(address(this)) >= _amount, "Contract does not have enough USDC");
 
         uint contractBal = USDCToken.balanceOf(address(this));
@@ -471,19 +471,24 @@ contract ChamaPay is
             require(chamaId < totalChamas, "Chama does not exist");
             Chama storage chama = chamas[chamaId];
             bool isPastPayDate = block.timestamp >= chama.payDate;
+            
+            // Skip if pay date hasn't passed yet
+            if (!isPastPayDate) {
+                emit PayDateChecked(chamaId, false, false, false);
+                continue;
+            }
+            
             bool isAllMembersContributed = allMembersContributed(chamaId);
-            require(isPastPayDate, "Pay date has not passed");
             bool isDisbursed;
             
-            if (isPastPayDate) {
-                if (isAllMembersContributed) {
-                    disburse(chamaId);
-                    isDisbursed = true;
-                } else {
-                    refund(chamaId);
-                    isDisbursed = false;
-                }
+            if (isAllMembersContributed) {
+                disburse(chamaId);
+                isDisbursed = true;
+            } else {
+                refund(chamaId);
+                isDisbursed = false;
             }
+            
             emit PayDateChecked(chamaId, isPastPayDate, isAllMembersContributed, isDisbursed);
         }
     }
