@@ -29,6 +29,7 @@ import {
   View,
   Modal,
   Animated,
+  FlatList,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
@@ -72,7 +73,6 @@ export default function CryptoWallet() {
   const [theExhangeQuote, setTheExchangeQuote] = useState<Quote | null>(null);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [transactionError, setTransactionError] = useState<string | null>(null);
-  const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const wallet = useActiveWallet();
@@ -142,30 +142,6 @@ export default function CryptoWallet() {
   useEffect(() => {
     fetchRate();
   }, []);
-
-  const groupTransactionsByDate = (
-    transactions: Transaction[]
-  ): { [key: string]: Transaction[] } => {
-    if (!transactions || transactions.length === 0) return {};
-
-    return transactions.reduce(
-      (groups, tx) => {
-        const date = new Date(tx.date);
-        const dateKey = date.toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        });
-
-        if (!groups[dateKey]) {
-          groups[dateKey] = [];
-        }
-        groups[dateKey].push(tx);
-        return groups;
-      },
-      {} as { [key: string]: Transaction[] }
-    );
-  };
 
   const getRelativeTime = (dateString: string): string => {
     const date = new Date(dateString);
@@ -597,32 +573,14 @@ export default function CryptoWallet() {
     </TouchableOpacity>
   );
 
-  // Get limited transactions for initial view
-  const getDisplayTransactions = () => {
-    if (!theTransaction || theTransaction.length === 0) return [];
-    return showAllTransactions ? theTransaction : theTransaction.slice(0, 3);
-  };
-
   return (
     <KeyboardAvoidingView
       className="flex-1"
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={insets.top + 64}
     >
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        className="flex-1 bg-gray-50"
-        contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#059669"
-            colors={["#059669"]}
-          />
-        }
-      >
-        {/* Header */}
+      <View className="flex-1 bg-gray-50">
+        {/* Header - Fixed */}
         <View
           className="bg-downy-800 px-6 pb-8 rounded-b-3xl shadow-md"
           style={{ paddingTop: insets.top + 24 }}
@@ -686,7 +644,7 @@ export default function CryptoWallet() {
           </View>
         </View>
 
-        {/* Quick Actions */}
+        {/* Quick Actions - Fixed */}
         <View className="px-6 py-4 -mt-10">
           <View
             className="bg-white rounded-2xl p-5 shadow-md"
@@ -754,11 +712,10 @@ export default function CryptoWallet() {
           </View>
         </View>
 
-        {/* Transaction History */}
-        <View className="px-6 pb-8">
-          {/* Tab Headers */}
+        {/* Tab Headers - Fixed */}
+        <View className="px-6 pb-4">
           <View
-            className="flex-row bg-white rounded-2xl p-1.5 mb-6 gap-1.5 shadow-sm"
+            className="flex-row bg-white rounded-2xl p-1.5 gap-1.5 shadow-sm"
             style={styles.card}
           >
             <TabButton
@@ -772,102 +729,105 @@ export default function CryptoWallet() {
               isActive={activeTab === "history"}
             />
           </View>
+        </View>
 
-          {/* Assets/Overview Tab */}
-          {activeTab === "overview" && (
-            <View>
-              <Text className="text-2xl font-bold text-gray-900 mb-6">
-                My Assets
+        {/* Content Area - Scrollable */}
+        {activeTab === "overview" ? (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            className="flex-1 px-6"
+            contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="#059669"
+                colors={["#059669"]}
+              />
+            }
+          >
+            <Text className="text-2xl font-bold text-gray-900 mb-6">
+              My Assets
+            </Text>
+            {walletData.balances.map((token) => (
+              <TokenCard key={token.symbol} token={token} />
+            ))}
+          </ScrollView>
+        ) : (
+          <View className="flex-1 px-6">
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-2xl font-bold text-gray-900">
+                Transaction History
               </Text>
-              {walletData.balances.map((token) => (
-                <TokenCard key={token.symbol} token={token} />
-              ))}
             </View>
-          )}
 
-          {activeTab === "history" && (
-            <View>
-              <View className="flex-row items-center justify-between mb-4">
-                <Text className="text-2xl font-bold text-gray-900">
-                  Transaction History
+            {/* Loading State */}
+            {loadingTransactions && <LoadingState />}
+
+            {/* Error State */}
+            {transactionError && !loadingTransactions && (
+              <View className="bg-red-50 p-4 rounded-xl border border-red-200 mb-4">
+                <Text className="text-red-700 font-medium text-sm">
+                  {transactionError}
                 </Text>
-              </View>
-
-              {/* Loading State */}
-              {loadingTransactions && <LoadingState />}
-
-              {/* Error State */}
-              {transactionError && !loadingTransactions && (
-                <View className="bg-red-50 p-4 rounded-xl border border-red-200 mb-4">
-                  <Text className="text-red-700 font-medium text-sm">
-                    {transactionError}
+                <TouchableOpacity
+                  onPress={() => onRefresh()}
+                  className="mt-2 bg-red-100 px-3 py-1 rounded-md self-start"
+                >
+                  <Text className="text-red-700 font-semibold text-xs">
+                    Retry
                   </Text>
-                  <TouchableOpacity
-                    onPress={() => onRefresh()}
-                    className="mt-2 bg-red-100 px-3 py-1 rounded-md self-start"
-                  >
-                    <Text className="text-red-700 font-semibold text-xs">
-                      Retry
-                    </Text>
-                  </TouchableOpacity>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Empty State */}
+            {!loadingTransactions &&
+              !transactionError &&
+              (!theTransaction || theTransaction.length === 0) && (
+                <View className="p-10 items-center justify-center">
+                  <History size={48} color="#9ca3af" className="mb-4" />
+                  <Text className="text-gray-900 font-bold text-lg mb-2">
+                    No Transactions Yet
+                  </Text>
+                  <Text className="text-gray-500 text-sm text-center leading-5">
+                    Your transaction history will appear here when you make
+                    your first transaction
+                  </Text>
                 </View>
               )}
 
-              {/* Empty State */}
-              {!loadingTransactions &&
-                !transactionError &&
-                (!theTransaction || theTransaction.length === 0) && (
-                  <View className="p-10 items-center justify-center">
-                    <History size={48} color="#9ca3af" className="mb-4" />
-                    <Text className="text-gray-900 font-bold text-lg mb-2">
-                      No Transactions Yet
-                    </Text>
-                    <Text className="text-gray-500 text-sm text-center leading-5">
-                      Your transaction history will appear here when you make
-                      your first transaction
-                    </Text>
-                  </View>
-                )}
-
-              {/* Transactions List */}
-              {!loadingTransactions &&
-                !transactionError &&
-                theTransaction &&
-                theTransaction.length > 0 && (
-                  <View>
-                    {getDisplayTransactions().map((tx) => (
-                      <TransactionCard key={`${tx.id}-${tx.date}`} tx={tx} />
-                    ))}
-
-                    {/* View All Button */}
-                    {theTransaction.length > 3 && (
-                      <TouchableOpacity
-                        onPress={() => setShowAllTransactions(!showAllTransactions)}
-                        className=" flex py-4  mt-2 justify-end"
-                        activeOpacity={0.8}
-                      >
-                        <Text className="text-emerald-600 font-bold text-center">
-                          {showAllTransactions
-                            ? "Show Less"
-                            : `View All Transactions (${theTransaction.length - 3} more)`}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                )}
-
-              {/* Spacing at bottom */}
-              <View style={{ height: insets.bottom + 24 }} />
-            </View>
-          )}
-        </View>
-      </ScrollView>
+            {/* Transactions List - Scrollable */}
+            {!loadingTransactions &&
+              !transactionError &&
+              theTransaction &&
+              theTransaction.length > 0 && (
+                <FlatList
+                  data={theTransaction}
+                  renderItem={({ item }) => <TransactionCard tx={item} />}
+                  keyExtractor={(item) => `${item.id}-${item.date}`}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+                  refreshControl={
+                    <RefreshControl
+                      refreshing={refreshing}
+                      onRefresh={onRefresh}
+                      tintColor="#059669"
+                      colors={["#059669"]}
+                    />
+                  }
+                />
+              )}
+          </View>
+        )}
+      </View>
 
       {/* Transaction Details Modal */}
       <TransactionDetailsModal />
     </KeyboardAvoidingView>
   );
 }
+
 
 const styles = StyleSheet.create({
   card: {

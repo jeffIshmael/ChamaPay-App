@@ -87,7 +87,7 @@ const MembersTab: FC<Props> = ({ members = [], eachMemberBalances, isPublic = fa
               const memberBalance = getMemberBalance(member.address || "");
               
               return (
-                <Card key={member.id} className={`p-4 ${isCurrentUser ? "border-2 border-emerald-200 bg-emerald-50" : ""}`}>
+                <Card key={member.id} className={`p-4 ${isCurrentUser ? "border-2 border-downy-400/20 bg-emerald-50" : ""}`}>
                   <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center gap-4 flex-1">
                       {/* Avatar */}
@@ -107,7 +107,7 @@ const MembersTab: FC<Props> = ({ members = [], eachMemberBalances, isPublic = fa
                           <Text className={`text-base font-semibold ${
                             isCurrentUser ? "text-emerald-600" : "text-gray-900"
                           }`}>
-                            { isCurrentUser ? "You" :`${member.name}` || "Unknown Member"}
+                            { isCurrentUser ? "# You" :`${member.name}` || "Unknown Member"}
                           </Text>
                           {member.role === "Admin" && (
                             <View className="bg-purple-100 px-2 py-1 rounded-full">

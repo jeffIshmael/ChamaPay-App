@@ -1,10 +1,5 @@
 import { useRouter } from "expo-router";
-import {
-  ArrowLeft,
-  Check,
-  Smartphone,
-  Wallet,
-} from "lucide-react-native";
+import { ArrowLeft, Check, Smartphone, Wallet } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   Alert,
@@ -21,8 +16,14 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
-import { useSendTransaction } from "thirdweb/react";
-import { prepareContractCall, toUnits, toWei, waitForReceipt } from "thirdweb";
+import { useActiveAccount, useSendTransaction } from "thirdweb/react";
+import {
+  prepareContractCall,
+  sendTransaction,
+  toUnits,
+  toWei,
+  waitForReceipt,
+} from "thirdweb";
 
 import { verifyPhoneNumber, pretiumOfframp } from "@/lib/pretiumService";
 import { chain, client, usdcContract } from "@/constants/thirdweb";
@@ -59,23 +60,21 @@ export default function WithdrawCryptoScreen() {
     useState<Verification | null>(null);
   const [verificationError, setVerificationError] = useState("");
   const { mutate: sendTx, data: transactionResult } = useSendTransaction();
-  const {
-    USDCBalance,
-    totalBalance,
-    address,
-    currencyCode,
-    offramp,
-  } = useLocalSearchParams();
+  const { USDCBalance, totalBalance, address, currencyCode, offramp } =
+    useLocalSearchParams();
   const { token, user } = useAuth();
+  const activeAccount = useActiveAccount();
 
   const selectedToken = "USDC"; // Fixed to USDC only
 
-  const tokens = [{
-    symbol: "USDC",
-    name: "USD Coin",
-    balance: USDCBalance,
-    image: require("@/assets/images/usdclogo.png"),
-  }]
+  const tokens = [
+    {
+      symbol: "USDC",
+      name: "USD Coin",
+      balance: USDCBalance,
+      image: require("@/assets/images/usdclogo.png"),
+    },
+  ];
 
   const withdrawMethods = [
     {
@@ -95,11 +94,11 @@ export default function WithdrawCryptoScreen() {
 
   // Helper function to format numbers with commas
   const formatNumberWithCommas = (value: string | number) => {
-    const num = typeof value === 'string' ? parseFloat(value) : value;
-    if (isNaN(num)) return '0.00';
-    return num.toLocaleString('en-US', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
+    const num = typeof value === "string" ? parseFloat(value) : value;
+    if (isNaN(num)) return "0.00";
+    return num.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     });
   };
   const calculateTotalKESAmount = () => {
@@ -146,23 +145,36 @@ export default function WithdrawCryptoScreen() {
   };
 
   // Function to send USDC to the settlement address
-  const transferUSDC = async (amount: string, receivingAddress: string) => {
+  const transferUSDC = async (amount: string, receivingAddress: `0x${string}`) => {
+    if (!activeAccount) {
+      Alert.alert("Error", "Please connect your wallet");
+      return;
+    }
     const amountInWei = toUnits(amount, 6);
+
     try {
-      const transaction = prepareContractCall({
+
+      const transferTransaction = prepareContractCall({
         contract: usdcContract,
-        method: "function transfer(address to, uint256 value)",
+        method: "function transfer(address to, uint256 amount)",
         params: [receivingAddress, amountInWei],
       });
-      sendTx(transaction);
-
-      const transactionReceipt = await waitForReceipt({
+      const { transactionHash: transferTransactionHash } =
+        await sendTransaction({
+          account: activeAccount,
+          transaction: transferTransaction,
+        });
+      const transferTransactionReceipt = await waitForReceipt({
         client: client,
         chain: chain,
-        transactionHash: transactionResult?.transactionHash!,
+        transactionHash: transferTransactionHash,
       });
+      if (!transferTransactionReceipt) {
+        Alert.alert("Error", "Failed to send transaction");
+        return;
+      }
 
-      return transactionReceipt.transactionHash;
+      return transferTransactionReceipt.transactionHash;
     } catch (error) {
       console.log("error in the sending token", error);
       return null;
@@ -204,7 +216,7 @@ export default function WithdrawCryptoScreen() {
     setProcessingStep("processing");
 
     try {
-      const txHash = await transferUSDC(amount, walletAddress);
+      const txHash = await transferUSDC(amount, walletAddress as `0x${string}`);
       if (!txHash) {
         throw new Error("Unable to send the usdc.");
       }
@@ -234,6 +246,9 @@ export default function WithdrawCryptoScreen() {
     if (!token) {
       throw new Error("No token, please refresh page.");
     }
+    if(!activeAccount){
+      throw new Error("No wallet connected, please refresh page.");
+    }
     setShowVerificationModal(false);
     setIsProcessing(true);
     setProcessingStep("processing");
@@ -257,8 +272,7 @@ export default function WithdrawCryptoScreen() {
         amount, // Exact USDC amount sent
         txHash,
         kesFee, // Fee in KES that we're taking
-        token,
-       
+        token
       );
 
       if (offrampResult.success) {
@@ -493,7 +507,7 @@ export default function WithdrawCryptoScreen() {
                   </View>
 
                   {/* Conversion Breakdown */}
-                  <View className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-4">
+                  <View className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-2">
                     <View className="flex-row justify-between items-center mb-2">
                       <Text className="text-sm text-gray-600">
                         {amount} USDC converts to
@@ -510,19 +524,19 @@ export default function WithdrawCryptoScreen() {
                         - {currencyCode} {formatNumberWithCommas(kesFee)}
                       </Text>
                     </View>
-                    <View className="h-px bg-gray-200 my-2" />
-                    <View className="flex-row justify-between items-center">
+                    {/* <View className="h-px bg-gray-200 my-2" /> */}
+                    {/* <View className="flex-row justify-between items-center">
                       <Text className="text-sm font-bold text-gray-900">
                         You Send
                       </Text>
                       <Text className="text-sm font-bold text-gray-900">
                         {formatNumberWithCommas(amount)} USDC
                       </Text>
-                    </View>
+                    </View> */}
                   </View>
 
                   {/* Final Amount Highlight */}
-                  <View className="mt-4 bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-2xl border-2 border-blue-200">
+                  <View className="mt-4 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-2xl border-2 border-blue-200">
                     <Text className="text-xs text-blue-600 font-semibold mb-2 text-center tracking-wide">
                       YOU'LL RECEIVE
                     </Text>
@@ -567,14 +581,16 @@ export default function WithdrawCryptoScreen() {
               disabled={
                 !amount.trim() ||
                 parseFloat(amount) <= 0 ||
-                parseFloat(amount) > parseFloat(currentToken.balance.toString()) ||
+                parseFloat(amount) >
+                  parseFloat(currentToken.balance.toString()) ||
                 (selectedMethod === "mpesa" && phoneNumber.length !== 9) ||
                 (selectedMethod === "crypto" && !walletAddress.trim())
               }
               className={`w-full py-4 rounded-2xl shadow-lg ${
                 !amount.trim() ||
                 parseFloat(amount) <= 0 ||
-                parseFloat(amount) > parseFloat(currentToken.balance.toString()) ||
+                parseFloat(amount) >
+                  parseFloat(currentToken.balance.toString()) ||
                 (selectedMethod === "mpesa" && phoneNumber.length !== 9) ||
                 (selectedMethod === "crypto" && !walletAddress.trim())
                   ? "bg-gray-300"
@@ -586,7 +602,8 @@ export default function WithdrawCryptoScreen() {
                 className={`text-center font-bold text-lg ${
                   !amount.trim() ||
                   parseFloat(amount) <= 0 ||
-                  parseFloat(amount) > parseFloat(currentToken.balance.toString()) ||
+                  parseFloat(amount) >
+                    parseFloat(currentToken.balance.toString()) ||
                   (selectedMethod === "mpesa" && phoneNumber.length !== 9) ||
                   (selectedMethod === "crypto" && !walletAddress.trim())
                     ? "text-gray-500"
@@ -693,7 +710,9 @@ export default function WithdrawCryptoScreen() {
                       </Text>
                     </View>
                     <View className="flex-row justify-between">
-                      <Text className="text-sm text-gray-600">Service Fee (0.5%)</Text>
+                      <Text className="text-sm text-gray-600">
+                        Service Fee (0.5%)
+                      </Text>
                       <Text className="text-sm font-semibold text-amber-600">
                         - {currencyCode} {formatNumberWithCommas(kesFee)}
                       </Text>
