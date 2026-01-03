@@ -2408,6 +2408,349 @@
           ]
         }
       }
+    },
+    "830c97f8fff297018fe25edee73e7d1b3230b4c769e3d0be17454712eb81c75f": {
+      "address": "0xbE55208b4487d7Cf946Cfdd47E66afd6dd9ed73A",
+      "txHash": "0xb9d3ef67a0828ebd7be6822a86ac284a71c47c97cc0e96e7d0265b9c26a5a49e",
+      "layout": {
+        "solcVersion": "0.8.22",
+        "storage": [
+          {
+            "label": "totalChamas",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint256",
+            "contract": "ChamaPay",
+            "src": "contracts/ChamaPay.sol:26"
+          },
+          {
+            "label": "totalPayments",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_uint256",
+            "contract": "ChamaPay",
+            "src": "contracts/ChamaPay.sol:27"
+          },
+          {
+            "label": "totalFees",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_uint256",
+            "contract": "ChamaPay",
+            "src": "contracts/ChamaPay.sol:28"
+          },
+          {
+            "label": "USDCToken",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_contract(IERC20)1482",
+            "contract": "ChamaPay",
+            "src": "contracts/ChamaPay.sol:30"
+          },
+          {
+            "label": "aiAgent",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_address",
+            "contract": "ChamaPay",
+            "src": "contracts/ChamaPay.sol:31"
+          },
+          {
+            "label": "chamas",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_array(t_struct(Chama)2485_storage)dyn_storage",
+            "contract": "ChamaPay",
+            "src": "contracts/ChamaPay.sol:68"
+          },
+          {
+            "label": "payments",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_array(t_struct(Payment)2500_storage)dyn_storage",
+            "contract": "ChamaPay",
+            "src": "contracts/ChamaPay.sol:78"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_struct(InitializableStorage)73_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)13_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(PausableStorage)224_storage": {
+            "label": "struct PausableUpgradeable.PausableStorage",
+            "members": [
+              {
+                "label": "_paused",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReentrancyGuardStorage)288_storage": {
+            "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
+            "members": [
+              {
+                "label": "_status",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_array(t_address)dyn_storage": {
+            "label": "address[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_struct(Chama)2485_storage)dyn_storage": {
+            "label": "struct ChamaPay.Chama[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_struct(Payment)2500_storage)dyn_storage": {
+            "label": "struct ChamaPay.Payment[]",
+            "numberOfBytes": "32"
+          },
+          "t_contract(IERC20)1482": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Chama)2485_storage": {
+            "label": "struct ChamaPay.Chama",
+            "members": [
+              {
+                "label": "chamaId",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "amount",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "startDate",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "payDate",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "duration",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "maxMembers",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "5"
+              },
+              {
+                "label": "cycle",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "6"
+              },
+              {
+                "label": "round",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "7"
+              },
+              {
+                "label": "admin",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "8"
+              },
+              {
+                "label": "members",
+                "type": "t_array(t_address)dyn_storage",
+                "offset": 0,
+                "slot": "9"
+              },
+              {
+                "label": "payoutOrder",
+                "type": "t_array(t_address)dyn_storage",
+                "offset": 0,
+                "slot": "10"
+              },
+              {
+                "label": "balances",
+                "type": "t_mapping(t_address,t_uint256)",
+                "offset": 0,
+                "slot": "11"
+              },
+              {
+                "label": "hasSent",
+                "type": "t_mapping(t_address,t_bool)",
+                "offset": 0,
+                "slot": "12"
+              },
+              {
+                "label": "lockedAmounts",
+                "type": "t_mapping(t_address,t_uint256)",
+                "offset": 0,
+                "slot": "13"
+              },
+              {
+                "label": "isPublic",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "14"
+              }
+            ],
+            "numberOfBytes": "480"
+          },
+          "t_struct(Payment)2500_storage": {
+            "label": "struct ChamaPay.Payment",
+            "members": [
+              {
+                "label": "id",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "chamaId",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "receiver",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "amount",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "timestamp",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              }
+            ],
+            "numberOfBytes": "160"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol:43",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Pausable": [
+            {
+              "contract": "PausableUpgradeable",
+              "label": "_paused",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol:21",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
     }
   }
 }

@@ -39,6 +39,7 @@ interface PaymentData {
   chama: {
     name: string;
   };
+  receiver: string;
 }
 
 /**
@@ -77,7 +78,7 @@ const transformPayment = (payment: PaymentData): Transaction => {
     type: "sent",
     token: "USDC",
     amount: payment.amount,
-    recipient: payment.chama.name +" " + "chama",
+    recipient: payment.receiver ? payment.receiver : payment.chama.name +" " + "chama",
     sender: "you",
     hash: payment.txHash,
     date: payment.doneAt,
