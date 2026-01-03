@@ -1,6 +1,7 @@
 // This file has all user related functions
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
+import { registerUserPayment } from "../Lib/prismaFunctions";
 
 const prisma = new PrismaClient();
 
@@ -79,7 +80,10 @@ export const getUser = async (req: Request, res: Response): Promise<void> => {
 };
 
 // function to get all the userdaitls
-export const getUserDetails = async (req: Request, res: Response): Promise<void> => {
+export const getUserDetails = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     if (!req.user?.userId) {
       res.status(401).json({ message: "User not authenticated" });
@@ -361,6 +365,44 @@ export const searchUsers = async (
     });
   } catch (error: unknown) {
     console.error("Search users error:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};
+
+// re
+export const registerPayment = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const userId: number = req.user?.userId as number;
+    if (!req.user?.userId) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+    const { receiver, amount, description, txHash } = req.body;
+    if (!receiver || !amount || !description || !txHash) {
+      res
+        .status(400)
+        .json({ success: false, error: "All fields are required" });
+      return;
+    }
+    const payment = await registerUserPayment(
+      userId,
+      receiver,
+      amount,
+      description,
+      txHash
+    );
+    if (payment === null) {
+      res.status(400).json({ success: false, error: "Failed to register payment" });
+      return;
+    }
+    res
+      .status(200)
+      .json({ success: true, message: "Payment registered successfully" });
+  } catch (error) {
+    console.error("Register payment error:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };

@@ -7,7 +7,8 @@ import {
     getUserById,
     searchUsers,
     updateUserProfile,
-    getUserDetails
+    getUserDetails,
+    registerPayment
 } from "../Controllers/userController";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -17,7 +18,7 @@ const router: Router = express.Router();
 router.post("/checkUserExists", checkUserExists);
 router.post("/checkUsernameAvailability", checkUsernameAvailability);
 router.get("/search", searchUsers);
-
+router.post("/registerPayment", authenticate, registerPayment);
 // Authenticated functions
 router.get("/", authenticate, getUser);
 router.get("/details", authenticate, getUserDetails);

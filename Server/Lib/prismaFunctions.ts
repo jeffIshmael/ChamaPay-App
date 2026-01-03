@@ -43,13 +43,13 @@ export async function notifyAllChamaMembers(
   }
 }
 
-// function to register a payment to the database
-export async function registerPayment(userId: number, chamaId: number, amount: string, description: string, txHash: string) {
+// function to register a normal transfer payment to the database
+export async function registerUserPayment(userId: number, receiver: string, amount: string, description: string, txHash: string) {
   try {
-    await prisma.payment.create({
+   const payment = await prisma.payment.create({
       data: {
         userId: userId,
-        chamaId: chamaId,
+        receiver: receiver,
         amount: amount,
         description: description,
         txHash: txHash,
