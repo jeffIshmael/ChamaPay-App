@@ -117,8 +117,10 @@ export const getUserDetails = async (
           },
         },
         pretiumTransactions:{
-          include:{
-            user:true,
+          where:{
+            isRealesed: true,
+            chamaId: null,
+            status:"COMPLETE"
           }
         }
       },

@@ -6,7 +6,7 @@ import { serverUrl } from "@/constants/serverUrl";
 export interface Transaction {
   id: number;
   type: "sent" | "received" | "withdrew" | "deposited";
-  token:  "USDC";
+  token: "USDC";
   amount: string;
   recipient?: string;
   sender?: string;
@@ -43,12 +43,41 @@ interface PaymentData {
 }
 
 /**
+ * Raw pretium data from API
+ */
+interface PretiumTxData {
+  account_number: null | number;
+  amount: string;
+  blockchainTxHash: null | string;
+  chamaId: null | number;
+  createdAt: string;
+  cusdAmount: string;
+  exchangeRate: string;
+  id: number;
+  isOnramp: boolean;
+  isRealesed: boolean;
+  message: string;
+  pretiumType: null | string;
+  receiptNumber: null | string;
+  shortcode: string;
+  status: "FAILED" | "CANCELLED" | "COMPLETED";
+  transactionCode: string;
+  transactionDate: null | string;
+  type: string;
+  updatedAt: string;
+  user: {};
+  userId: number;
+  walletAddress: string;
+}
+
+/**
  * User details response from API
  */
 interface UserDetailsResponse {
   user: {
     payOuts: PayoutData[];
     payments: PaymentData[];
+    pretiumTransactions: PretiumTxData[];
   };
 }
 
@@ -78,7 +107,9 @@ const transformPayment = (payment: PaymentData): Transaction => {
     type: "sent",
     token: "USDC",
     amount: payment.amount,
-    recipient: payment.receiver ? payment.receiver : payment.chama.name +" " + "chama",
+    recipient: payment.receiver
+      ? payment.receiver
+      : payment.chama.name + " " + "chama",
     sender: "you",
     hash: payment.txHash,
     date: payment.doneAt,
@@ -96,9 +127,26 @@ const transformPayout = (payout: PayoutData): Transaction => {
     token: "USDC",
     amount: payout.amount,
     recipient: "You",
-    sender: payout.chama.name +" " + "chama",
+    sender: payout.chama.name + " " + "chama",
     hash: payout.txHash,
     date: payout.doneAt,
+    status: "completed",
+  });
+};
+
+/**
+ * Transforms pretiumTx data from API to Transaction format
+ */
+const transformPretiumTx = (pretiumTx: PretiumTxData): Transaction => {
+  return validateTransaction({
+    id: pretiumTx.id,
+    type: pretiumTx.isOnramp ? "deposited": "withdrew",
+    token: "USDC",
+    amount: pretiumTx.amount,
+    recipient: pretiumTx.isOnramp ? "you" : pretiumTx.shortcode,
+    sender: pretiumTx.isOnramp ? pretiumTx.shortcode : "You",
+    hash: pretiumTx.receiptNumber!,
+    date: pretiumTx.updatedAt,
     status: "completed",
   });
 };
@@ -109,7 +157,8 @@ const transformPayout = (payout: PayoutData): Transaction => {
  */
 const mergeAndSortTransactions = (
   payouts: PayoutData[],
-  payments: PaymentData[]
+  payments: PaymentData[],
+  pretiumTransactions: PretiumTxData[]
 ): Transaction[] => {
   const transformed: Transaction[] = [];
 
@@ -121,6 +170,11 @@ const mergeAndSortTransactions = (
   // Transform payouts (receives)
   if (Array.isArray(payouts) && payouts.length > 0) {
     transformed.push(...payouts.map(transformPayout));
+  }
+
+  // Transform pretiumTxs (onramps& offramps)
+  if (Array.isArray(pretiumTransactions) && pretiumTransactions.length > 0) {
+    transformed.push(...pretiumTransactions.map(transformPretiumTx));
   }
 
   // Sort by date (newest first)
@@ -165,14 +219,16 @@ export const getTheUserTx = async (
       !data ||
       !data.user ||
       !Array.isArray(data.user.payOuts) ||
-      !Array.isArray(data.user.payments)
+      !Array.isArray(data.user.payments) ||
+      !Array.isArray(data.user.pretiumTransactions)
     ) {
       console.error("Invalid response structure from server");
       return null;
     }
 
-    const { payOuts, payments } = data.user;
-    const transactions = mergeAndSortTransactions(payOuts, payments);
+
+    const { payOuts, payments, pretiumTransactions } = data.user;
+    const transactions = mergeAndSortTransactions(payOuts, payments, pretiumTransactions);
 
     return transactions;
   } catch (error) {
