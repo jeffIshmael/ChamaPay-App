@@ -116,6 +116,7 @@ export default function JoinedChamaDetails() {
   const {
     data: eachMemberBalances,
     isLoading: isEachMemberBalancesLoading,
+    refetch: refetchEachMemberBalance,
     error: eachMemberBalancesError,
   } = useReadContract({
     contract: chamapayContract,
@@ -192,6 +193,7 @@ export default function JoinedChamaDetails() {
     setShowPaymentModal(false);
     refetchBalance();
     fetchChama();
+    refetchEachMemberBalance();
   };
 
   const handlePaymentClose = () => {

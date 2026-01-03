@@ -398,8 +398,6 @@ contract ChamaPay is
         emit FundsDisbursed(_chamaId, recipient, totalPay);
     }
 
-
-
     function deleteMember(uint _chamaId, address _member) public onlyMembers(_chamaId) {
         Chama storage chama = chamas[_chamaId];
         require(msg.sender == chama.admin || msg.sender == _member, "Only admin or the member can delete");

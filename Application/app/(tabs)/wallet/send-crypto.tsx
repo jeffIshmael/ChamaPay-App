@@ -1,5 +1,8 @@
+import { chain, client, usdcContract } from "@/constants/thirdweb";
+import { useAuth } from "@/Contexts/AuthContext";
 import { searchUsers } from "@/lib/chamaService";
-import { useRouter } from "expo-router";
+import { registerPayment } from "@/lib/userService";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, User, WalletMinimal } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
@@ -15,12 +18,13 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
-import { useLocalSearchParams } from "expo-router";
+import {
+  prepareContractCall,
+  sendTransaction,
+  toUnits,
+  waitForReceipt,
+} from "thirdweb";
 import { useActiveAccount } from "thirdweb/react";
-import { Try } from "expo-router/build/views/Try";
-import { usdcContract } from "@/constants/thirdweb";
-import { toUnits, prepareContractCall, sendTransaction, waitForReceipt } from "thirdweb";
-import { chain, client } from "@/constants/thirdweb";
 
 export default function SendCryptoScreen() {
   const [sendMode, setSendMode] = useState<"chamapay" | "external">("chamapay");
@@ -48,6 +52,7 @@ export default function SendCryptoScreen() {
   const insets = useSafeAreaInsets();
   const { USDCBalance, totalBalance, address } = useLocalSearchParams();
   const activeAccount = useActiveAccount();
+  const { token } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   // Fixed to USDC only - no need to display
   const tokenBalance = USDCBalance;
@@ -104,9 +109,31 @@ export default function SendCryptoScreen() {
     }, 200);
   };
 
+  // Validate Ethereum address
+  const isValidAddress = (address: string): boolean => {
+    if (!address || typeof address !== "string") return false;
+    const trimmed = address.trim();
+    // Check if it starts with 0x and has correct length (42 chars: 0x + 40 hex chars)
+    if (!trimmed.startsWith("0x") || trimmed.length !== 42) return false;
+    // Check if remaining characters are valid hex (0-9, a-f, A-F)
+    const hexPart = trimmed.slice(2);
+    return /^[0-9a-fA-F]+$/.test(hexPart);
+  };
+
+  // Validate amount
+  const isValidAmount = (amountStr: string): boolean => {
+    if (!amountStr || !amountStr.trim()) return false;
+    const num = parseFloat(amountStr);
+    return !isNaN(num) && num > 0 && isFinite(num);
+  };
+
   const handleSend = async () => {
     if (!activeAccount) {
       Alert.alert("Error", "Please connect your wallet");
+      return;
+    }
+    if (!token) {
+      Alert.alert("Error", "Please login to send transactions");
       return;
     }
     if (!recipient.trim() || !amount.trim()) {
@@ -118,7 +145,7 @@ export default function SendCryptoScreen() {
       Alert.alert("Error", "Please select a user from the search results");
       return;
     }
-    let receiver : `0x${string}` | null = null;
+    let receiver: `0x${string}` | null = null;
     if (sendMode === "chamapay" && selectedUser) {
       receiver = selectedUser.address as `0x${string}`;
     } else if (sendMode === "external" && recipient) {
@@ -153,7 +180,21 @@ export default function SendCryptoScreen() {
       }
       console.log("transferTransactionReceipt", transferTransactionReceipt);
       // a function to register the payment to the database
-      Alert.alert("Success", "Transaction sent successfully");
+      const paymentResponse = await registerPayment(
+        receiver,
+        amount,
+        "Transfer",
+        transferTransactionHash,
+        token
+      );
+      if (paymentResponse.success && paymentResponse.payment) {
+        Alert.alert("Success", "Transaction sent successfully", [
+          { text: "OK", onPress: () => router.push("/wallet") },
+        ]);
+      } else {
+        Alert.alert("Error", "Failed to register payment");
+        return;
+      }
     } catch (error) {
       console.error("Error sending transaction:", error);
       Alert.alert("Error", "Failed to send transaction");
@@ -414,27 +455,31 @@ export default function SendCryptoScreen() {
             onPress={handleSend}
             disabled={
               !recipient.trim() ||
-              !amount.trim() ||
+              !isValidAmount(amount) ||
               (sendMode === "chamapay" && !selectedUser) ||
+              (sendMode === "external" && !isValidAddress(recipient)) ||
               isProcessing
             }
             className={`w-full py-4 rounded-2xl shadow-lg ${
               !recipient.trim() ||
-              !amount.trim() ||
+              !isValidAmount(amount) ||
               (sendMode === "chamapay" && !selectedUser) ||
+              (sendMode === "external" && !isValidAddress(recipient)) ||
               isProcessing
                 ? "bg-gray-300"
-                : isProcessing ? "bg-gray-300" : "bg-downy-600"
+                : "bg-downy-600"
             }`}
             activeOpacity={0.8}
           >
             <Text
               className={`text-center text-lg font-bold ${
                 !recipient.trim() ||
-                !amount.trim() ||
-                (sendMode === "chamapay" && !selectedUser)
+                !isValidAmount(amount) ||
+                (sendMode === "chamapay" && !selectedUser) ||
+                (sendMode === "external" && !isValidAddress(recipient)) ||
+                isProcessing
                   ? "text-gray-500"
-                  : isProcessing ? "text-gray-500" : "text-white"
+                  : "text-white"
               }`}
             >
               {isProcessing ? "Sending..." : "Send USDC"}

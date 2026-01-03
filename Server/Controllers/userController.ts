@@ -116,6 +116,11 @@ export const getUserDetails = async (
             user: true,
           },
         },
+        pretiumTransactions:{
+          include:{
+            user:true,
+          }
+        }
       },
     });
 
@@ -398,9 +403,7 @@ export const registerPayment = async (
       res.status(400).json({ success: false, error: "Failed to register payment" });
       return;
     }
-    res
-      .status(200)
-      .json({ success: true, message: "Payment registered successfully" });
+    res.status(200).json({ success: true, payment: payment });
   } catch (error) {
     console.error("Register payment error:", error);
     res.status(500).json({ success: false, error: "Internal server error" });

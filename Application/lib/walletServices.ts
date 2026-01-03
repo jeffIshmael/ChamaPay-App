@@ -5,7 +5,7 @@ import { serverUrl } from "@/constants/serverUrl";
  */
 export interface Transaction {
   id: number;
-  type: "sent" | "received";
+  type: "sent" | "received" | "withdrew" | "deposited";
   token:  "USDC";
   amount: string;
   recipient?: string;

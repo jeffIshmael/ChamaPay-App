@@ -55,7 +55,9 @@ export async function registerUserPayment(userId: number, receiver: string, amou
         txHash: txHash,
       },
     });
+    return payment;
   } catch (error) {
     console.error("Unable to register the payment.", error);
+    return null;
   }
 }

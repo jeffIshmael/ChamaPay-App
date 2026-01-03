@@ -6,7 +6,7 @@ export const formatTimeRemaining = (targetDate: string | Date): string => {
 
   // If date has passed
   if (diffMs < 0) {
-    return "Overdue";
+    return "Passed";
   }
 
   const diffSeconds = Math.floor(diffMs / 1000);

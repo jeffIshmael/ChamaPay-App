@@ -19,6 +19,7 @@ import { useLocalSearchParams } from "expo-router";
 
 import { useAuth } from "@/Contexts/AuthContext";
 import { pretiumOnramp, pollPretiumPaymentStatus } from "@/lib/pretiumService";
+import { registerPayment } from "@/lib/userService";
 
 export default function DepositCryptoScreen() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] =

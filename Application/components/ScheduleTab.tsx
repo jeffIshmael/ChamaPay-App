@@ -1,9 +1,9 @@
 import { Card } from "@/components/ui/Card";
-import { PayoutScheduleItem } from "@/constants/mockData";
-import { CheckCircle, Info, Clock } from "lucide-react-native";
+import { Member, PayoutScheduleItem } from "@/constants/mockData";
+import { useAuth } from "@/Contexts/AuthContext";
+import { CheckCircle, Clock } from "lucide-react-native";
 import React, { FC, useMemo } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { Member } from "@/constants/mockData";
 
 type Props = {
   payoutSchedule: PayoutScheduleItem[];
@@ -21,7 +21,7 @@ const getStatusColor = (status: PayoutStatus) => {
     case "completed":
       return "bg-green-100 text-green-700";
     case "next":
-      return "bg-emerald-100 text-emerald-700";
+      return "bg-amber-100 text-amber-700";
     case "upcoming":
       return "bg-blue-100 text-blue-700";
     default:
@@ -34,7 +34,7 @@ const getStatusBadgeColor = (status: PayoutStatus) => {
     case "completed":
       return "bg-green-200";
     case "next":
-      return "bg-emerald-200";
+      return "bg-amber-200";
     case "upcoming":
       return "bg-blue-200";
     default:
@@ -63,6 +63,8 @@ const ScheduleTab: FC<Props> = ({
   contributionAmount,
   totalPayout,
 }) => {
+  const { user } = useAuth();
+
   // Helper function to find member by address
   const getMemberByAddress = (address: string): Member | undefined => {
     return members.find(
@@ -184,7 +186,7 @@ const ScheduleTab: FC<Props> = ({
             const isUserTurn = isCurrentUserPayout(payout.userAddress);
 
             return (
-              <Card key={`${payout.userAddress}-${index}`} className="p-4">
+              <Card key={`${payout.userAddress}-${index}`} className={`p-4 border ${payout.paid ? " bg-downy-200/10  border-downy-500 " : ""}`}>
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center gap-3 flex-1">
                     <View
@@ -195,7 +197,7 @@ const ScheduleTab: FC<Props> = ({
                       {status === "completed" ? (
                         <CheckCircle size={16} color="#059669" />
                       ) : status === "next" ? (
-                        <Clock size={16} color="#059669" />
+                        <Clock size={16} color="#F59E0B" />
                       ) : (
                         <Text
                           className={`text-sm font-medium ${
@@ -209,8 +211,11 @@ const ScheduleTab: FC<Props> = ({
                       )}
                     </View>
                     <View className="flex-1">
-                      <Text className="text-gray-900 text-sm font-medium">
-                        {member?.name || truncateAddress(payout.userAddress)}
+                      <Text className={` text-sm font-medium ${member?.name === user?.userName && payout.paid ? "text-downy-600" :"text-gray-900"} `}>
+                        {member?.name === user?.userName
+                          ? "# You"
+                          : (member?.name && member?.name) ||
+                            truncateAddress(payout.userAddress)}
                       </Text>
                       <Text className="text-gray-600 text-xs">
                         {new Date(payout.payDate).toLocaleString("en-US", {
@@ -222,7 +227,7 @@ const ScheduleTab: FC<Props> = ({
                     </View>
                   </View>
                   <View className="items-end">
-                    <Text className="text-gray-900 text-sm font-medium">
+                    <Text className={`text-sm font-medium ${payout.paid ? "text-emerald-700" : "text-gray-900"}`}>
                       {estimatedPayoutAmount > 0
                         ? `${estimatedPayoutAmount.toLocaleString()} USDC`
                         : "—"}
@@ -240,13 +245,13 @@ const ScheduleTab: FC<Props> = ({
                 </View>
 
                 {isUserTurn && status !== "completed" && (
-                  <View className="mt-3 p-2 bg-emerald-50 rounded-lg">
+                  <View className="mt-3 p-2 bg-amber-50 rounded-lg">
                     <View className="flex-row items-center gap-2">
-                      <Info size={14} color="#059669" />
-                      <Text className="text-xs text-emerald-700">
+                      {/* <Info size={14} color="#F59E0B" /> */}
+                      <Text className="text-xs text-amber-700">
                         {status === "next"
-                          ? "Your payout is coming up next!"
-                          : "This is your payout turn"}
+                          ? "Current payout turn."
+                          : "Current payout turn"}
                       </Text>
                     </View>
                   </View>
