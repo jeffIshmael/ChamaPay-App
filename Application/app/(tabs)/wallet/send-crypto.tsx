@@ -16,6 +16,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import { useLocalSearchParams } from "expo-router";
+import { useActiveAccount } from "thirdweb/react";
+import { Try } from "expo-router/build/views/Try";
+import { usdcContract } from "@/constants/thirdweb";
+import { toUnits, prepareContractCall, sendTransaction, waitForReceipt } from "thirdweb";
+import { chain, client } from "@/constants/thirdweb";
 
 export default function SendCryptoScreen() {
   const [sendMode, setSendMode] = useState<"chamapay" | "external">("chamapay");
@@ -42,7 +47,8 @@ export default function SendCryptoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { USDCBalance, totalBalance, address } = useLocalSearchParams();
-
+  const activeAccount = useActiveAccount();
+  const [isProcessing, setIsProcessing] = useState(false);
   // Fixed to USDC only - no need to display
   const tokenBalance = USDCBalance;
 
@@ -98,7 +104,11 @@ export default function SendCryptoScreen() {
     }, 200);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
+    if (!activeAccount) {
+      Alert.alert("Error", "Please connect your wallet");
+      return;
+    }
     if (!recipient.trim() || !amount.trim()) {
       Alert.alert("Error", "Please fill in all required fields");
       return;
@@ -108,8 +118,49 @@ export default function SendCryptoScreen() {
       Alert.alert("Error", "Please select a user from the search results");
       return;
     }
+    let receiver : `0x${string}` | null = null;
+    if (sendMode === "chamapay" && selectedUser) {
+      receiver = selectedUser.address as `0x${string}`;
+    } else if (sendMode === "external" && recipient) {
+      receiver = recipient as `0x${string}`;
+    }
 
-    Alert.alert("Send Crypto", `Sending ${amount} USDC...`);
+    if (!receiver) {
+      Alert.alert("Error", "Please select a user or enter a valid address");
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      const amountInWei = toUnits(amount, 6);
+      const transferTransaction = prepareContractCall({
+        contract: usdcContract,
+        method: "function transfer(address to, uint256 amount)",
+        params: [receiver, amountInWei],
+      });
+      const { transactionHash: transferTransactionHash } =
+        await sendTransaction({
+          account: activeAccount,
+          transaction: transferTransaction,
+        });
+      const transferTransactionReceipt = await waitForReceipt({
+        client: client,
+        chain: chain,
+        transactionHash: transferTransactionHash,
+      });
+      if (!transferTransactionReceipt) {
+        Alert.alert("Error", "Failed to send transaction");
+        return;
+      }
+      console.log("transferTransactionReceipt", transferTransactionReceipt);
+      // a function to register the payment to the database
+      Alert.alert("Success", "Transaction sent successfully");
+    } catch (error) {
+      console.error("Error sending transaction:", error);
+      Alert.alert("Error", "Failed to send transaction");
+      return;
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -364,14 +415,16 @@ export default function SendCryptoScreen() {
             disabled={
               !recipient.trim() ||
               !amount.trim() ||
-              (sendMode === "chamapay" && !selectedUser)
+              (sendMode === "chamapay" && !selectedUser) ||
+              isProcessing
             }
             className={`w-full py-4 rounded-2xl shadow-lg ${
               !recipient.trim() ||
               !amount.trim() ||
-              (sendMode === "chamapay" && !selectedUser)
+              (sendMode === "chamapay" && !selectedUser) ||
+              isProcessing
                 ? "bg-gray-300"
-                : "bg-downy-600"
+                : isProcessing ? "bg-gray-300" : "bg-downy-600"
             }`}
             activeOpacity={0.8}
           >
@@ -381,10 +434,10 @@ export default function SendCryptoScreen() {
                 !amount.trim() ||
                 (sendMode === "chamapay" && !selectedUser)
                   ? "text-gray-500"
-                  : "text-white"
+                  : isProcessing ? "text-gray-500" : "text-white"
               }`}
             >
-              Send USDC
+              {isProcessing ? "Sending..." : "Send USDC"}
             </Text>
           </TouchableOpacity>
         </View>
