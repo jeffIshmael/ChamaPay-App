@@ -13,7 +13,7 @@ import {
   History,
   QrCode,
   Send,
-  Upload
+  Upload,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -30,7 +30,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
@@ -377,10 +377,7 @@ export default function CryptoWallet() {
             style={styles.modalCard}
           >
             {/* Header */}
-            <View
-              className="p-6"
-              style={{ backgroundColor: headerColor }}
-            >
+            <View className="p-6" style={{ backgroundColor: headerColor }}>
               <View className="items-center">
                 <View
                   className="w-16 h-16 rounded-full items-center justify-center mb-3"
@@ -675,7 +672,11 @@ export default function CryptoWallet() {
 
               {balanceVisible && (
                 <Text className="text-emerald-100 text-lg font-semibold">
-                  ≈ {formatCurrency(usdcBalance)}
+                  ≈{" "}
+                  {theExhangeQuote?.exchangeRate.selling_rate
+                    ? usdcBalance * theExhangeQuote?.exchangeRate.selling_rate
+                    : "---"}{" "}
+                  {theExhangeQuote?.currencyCode}
                 </Text>
               )}
             </View>

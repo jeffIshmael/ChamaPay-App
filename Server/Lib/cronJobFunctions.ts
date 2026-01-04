@@ -45,9 +45,11 @@ export const checkStartDate = async () => {
       // shuffle them
       const shuffledPayoutOrder = shuffleArray(addresses);
 
-
       // send to contract
-      const txHash = await pimlicoSetPayoutOrder(Number(chama.blockchainId), shuffledPayoutOrder);
+      const txHash = await pimlicoSetPayoutOrder(
+        Number(chama.blockchainId),
+        shuffledPayoutOrder
+      );
       if (!txHash) throw new Error("Failed to set payout order");
 
       // compute payout dates
@@ -162,9 +164,14 @@ export const checkPaydate = async () => {
           },
         });
         // send the recipient the text
-        await notifyUser(user.id, userMessage);
+        await notifyUser(user.id, userMessage, "payout_received");
         // Send notification to other members
-        await notifyAllChamaMembers(chama.id, othersMessage, user.id);
+        await notifyAllChamaMembers(
+          chama.id,
+          othersMessage,
+          "payout_received",
+          user.id
+        );
       } else if (payoutResult.type === "refund") {
         // Handle refund - notify members
         console.log(`Chama ${chama.id}: Refund processed`);
