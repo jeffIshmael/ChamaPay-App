@@ -11,8 +11,10 @@ interface RegisterPaymentResponse {
   success: boolean;
   payment: PaymentData | null;
 }
-
-
+interface joinRequestResponse {
+  success: boolean;
+  request: {};
+}
 
 // function to register a payment to the database
 export async function registerPayment(
@@ -38,3 +40,25 @@ export async function registerPayment(
     return { success: false, payment: null };
   }
 }
+
+// function to request to join
+export async function requestToJoin(
+  chamaId: number,
+  token: string
+): Promise<RegisterPaymentResponse> {
+  try {
+    const response = await fetch(`${serverUrl}/user/joinRequest?chamaId=${chamaId}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error registering payment:", error);
+    return { success: false, payment: null };
+  }
+}
+

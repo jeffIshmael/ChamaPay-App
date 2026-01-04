@@ -123,3 +123,38 @@ export async function sortRequest(requestId: number, approve: boolean) {
     return null;
   }
 }
+
+// functions to get requests that a user has to approve
+export async function getSentRequests(userId: number) {
+  try {
+    // get the chamas user is admin
+    const userChamas = await prisma.chama.findMany({
+      where:{
+        adminId: userId,
+      }
+    });
+
+    if (userChamas.length == 0){
+      return [];
+    }
+
+    let requests = [];
+    // check the one that has requests
+    for(let i=0; i < userChamas.length; i++){
+      const chama = userChamas[i];
+      // get the request
+      const results = await prisma.chamaRequest.findMany({
+        where:{
+          chamaId: chama.id,
+          // status: "pending"
+        }
+      })
+      requests.push(results);
+    }
+    return requests;
+  } catch (error) {
+    console.error("approve request error", error);
+    return null;
+  }
+}
+

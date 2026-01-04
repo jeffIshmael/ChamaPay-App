@@ -1,9 +1,7 @@
 import { useAuth } from "@/Contexts/AuthContext";
 import { 
   getUserDetails, 
-  transformNotification,
-  handleJoinRequestAction,
-  markNotificationAsRead 
+  transformNotification
 } from "@/lib/chamaService";
 import { useRouter } from "expo-router";
 import {
