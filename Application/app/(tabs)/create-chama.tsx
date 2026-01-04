@@ -42,6 +42,7 @@ import { useAuth } from "../../Contexts/AuthContext";
 
 import { registerChamaToDatabase } from "@/lib/chamaService";
 import { chain, client } from "../../constants/thirdweb";
+import { Quote } from "./wallet";
 
 // Exchange rate constant (KES per 1 USDC)
 const USDC_TO_KES_RATE = 129.5;

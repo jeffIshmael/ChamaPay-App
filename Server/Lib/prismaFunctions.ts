@@ -4,13 +4,17 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 // send notification to a user
-export async function notifyUser(userId: number, message: string, type?:string) {
+export async function notifyUser(
+  userId: number,
+  message: string,
+  type?: string
+) {
   try {
     await prisma.notification.create({
       data: {
         userId: userId,
         message: message,
-        type: type
+        type: type,
       },
     });
   } catch (error) {
@@ -22,9 +26,8 @@ export async function notifyUser(userId: number, message: string, type?:string) 
 export async function notifyAllChamaMembers(
   chamaId: number,
   message: string,
-  type?:string,
+  type?: string,
   exceptUserId?: number
- 
 ) {
   try {
     // get all the members of the chama
@@ -47,9 +50,15 @@ export async function notifyAllChamaMembers(
 }
 
 // function to register a normal transfer payment to the database
-export async function registerUserPayment(userId: number, receiver: string, amount: string, description: string, txHash: string) {
+export async function registerUserPayment(
+  userId: number,
+  receiver: string,
+  amount: string,
+  description: string,
+  txHash: string
+) {
   try {
-   const payment = await prisma.payment.create({
+    const payment = await prisma.payment.create({
       data: {
         userId: userId,
         receiver: receiver,
@@ -61,6 +70,56 @@ export async function registerUserPayment(userId: number, receiver: string, amou
     return payment;
   } catch (error) {
     console.error("Unable to register the payment.", error);
+    return null;
+  }
+}
+
+// function to send admin request to join
+export async function requestToJoin(userId: number, chamaId: number) {
+  try {
+    const request = await prisma.chamaRequest.create({
+      data: {
+        userId: userId,
+        chamaId: chamaId,
+      },
+    });
+    if (!request) {
+      throw new Error("Unable to create request.");
+    }
+    return request;
+  } catch (error) {
+    console.error("send request error", error);
+    return null;
+  }
+}
+
+// approve/ reject  request
+export async function sortRequest(requestId: number, approve: boolean) {
+  try {
+    const request = await prisma.chamaRequest.update({
+      where: {
+        id: requestId,
+      },
+      data: {
+        status: approve ? "approved" : "rejected",
+      },
+    });
+    if (!request) {
+      throw new Error("Unable to update request.");
+    }
+    if (approve) {
+      // add member if approve
+      await prisma.chamaMember.create({
+        data: {
+          chamaId: request.chamaId,
+          userId: request.userId,
+          payDate: new Date(Date.now()),
+        },
+      });
+    }
+    return request;
+  } catch (error) {
+    console.error("approve request error", error);
     return null;
   }
 }

@@ -56,7 +56,7 @@ export default function HomeScreen() {
       const response = await getUserChamas(token);
       if (response.success && response.chamas) {
         const transformed = response.chamas.map((member: any) =>
-          transformChamaData(member.chama, user.address)
+          transformChamaData(member.chama, user.smartAddress)
         );
         setChamas(transformed);
         setError(null);
@@ -71,7 +71,7 @@ export default function HomeScreen() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, user]);
 
   // Fetch chamas on component mount
   useEffect(() => {
@@ -376,7 +376,7 @@ export default function HomeScreen() {
                     size={20}
                     color={chama.unreadMessages > 0 ? "#10b981" : "#9ca3af"}
                   />
-                  { chama.unreadMessages > 0 && (
+                  {chama.unreadMessages > 0 && (
                     <View className="absolute -top-1 -right-1 bg-red-500 rounded-full min-w-[16px] h-4 items-center justify-center px-1">
                       <Text className="text-[10px] font-bold text-white">
                         {chama.unreadMessages > 99
@@ -433,7 +433,7 @@ export default function HomeScreen() {
                   <Calendar color="#6b7280" size={16} />
                   <Text className="text-sm font-medium text-gray-700 ml-2">
                     {chama.status === "active"
-                      ? `Next: ${chama.currentTurnMember} (${chama.nextPayoutDate})`
+                      ? `Next: ${chama.currentTurnMember} ${chama.myTurn ? "{You}" : ""} (${chama.nextPayoutDate})`
                       : `Starts in: ${formatTimeRemaining(chama.startDate)}`}
                   </Text>
                 </View>
