@@ -6,17 +6,19 @@ import {
   transformChamaData,
 } from "@/lib/chamaService";
 import { decryptChamaSlug, parseChamaShareUrl } from "@/lib/encryption";
+import { formatDays, formatTimeRemaining } from "@/Utils/helperFunctions";
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   ArrowRight,
   Bell,
   Calendar,
-  Link,
-  Settings,
-  Users,
-  Wallet,
   HandCoins,
+  Link,
+  MessageCircleMore,
+  Settings,
+  Siren,
+  Users,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -31,7 +33,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { formatDays, formatTimeRemaining } from "@/Utils/helperFunctions";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -355,6 +356,37 @@ export default function HomeScreen() {
                     </View>
                   </View>
                 </View>
+
+                {/* Message Icon with Unread Indicator */}
+                <TouchableOpacity
+                  onPress={() =>
+                    router.push({
+                      pathname: "/[joined-chama-details]/[id]",
+                      params: {
+                        "joined-chama-details": chama.slug || `chama-${index}`,
+                        id: chama.slug,
+                        tab: "chat",
+                      },
+                    })
+                  }
+                  className="relative mr-4"
+                  activeOpacity={0.7}
+                >
+                  <MessageCircleMore
+                    size={20}
+                    color={chama.unreadMessages > 0 ? "#10b981" : "#9ca3af"}
+                  />
+                  { chama.unreadMessages > 0 && (
+                    <View className="absolute -top-1 -right-1 bg-red-500 rounded-full min-w-[16px] h-4 items-center justify-center px-1">
+                      <Text className="text-[10px] font-bold text-white">
+                        {chama.unreadMessages > 99
+                          ? "99+"
+                          : chama.unreadMessages}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
                 <Badge
                   color={chama.status === "active" ? "#047857" : "#9ca3af"}
                   bg={
@@ -367,6 +399,35 @@ export default function HomeScreen() {
                 </Badge>
               </View>
 
+              {/* Payment Due Alert */}
+              {chama.hasOutstandingPayment && (
+                <View className=" border border-amber-200 rounded-lg px-3 py-2.5 mb-3 flex-row items-center gap-2">
+                  <View className="bg-amber-500 rounded-full p-1">
+                    <Siren color="white" size={14} />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-sm font-semibold text-amber-900">
+                      Payment Alert
+                    </Text>
+                    <Text className="text-xs text-amber-700">
+                      Make your payment before (
+                      {new Date(chama.contributionDueDate).toLocaleDateString(
+                        "en-US",
+                        {
+                          month: "short",
+                          day: "numeric",
+                          // year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }
+                      )}
+                      )
+                    </Text>
+                  </View>
+                  <View className="bg-amber-500 rounded-full w-2 h-2" />
+                </View>
+              )}
+
               <View className="flex-row items-center justify-between pt-3 border-t border-gray-100">
                 <View className="flex-row items-center flex-1">
                   <Calendar color="#6b7280" size={16} />
@@ -376,6 +437,7 @@ export default function HomeScreen() {
                       : `Starts in: ${formatTimeRemaining(chama.startDate)}`}
                   </Text>
                 </View>
+
                 {chama.myTurn && (
                   <Badge bg="#059669" color="white">
                     Your Turn

@@ -198,9 +198,68 @@ export default function Notifications() {
 
   if (loading) {
     return (
-      <View className="flex-1 bg-gray-50 items-center justify-center">
-        <ActivityIndicator size="large" color="#10b981" />
-        <Text className="text-gray-600 mt-4">Loading notifications...</Text>
+      <View className="flex-1 bg-gray-50">
+        {/* Header Skeleton */}
+        <View
+          className="bg-downy-800 rounded-b-3xl"
+          style={{
+            paddingTop: insets.top + 16,
+            paddingBottom: 6,
+            paddingHorizontal: 20,
+          }}
+        >
+          <View className="flex-row items-center justify-between mb-6">
+            <TouchableOpacity
+              onPress={() => router.back()}
+              className="w-10 h-10 rounded-full bg-white/20 items-center justify-center"
+              activeOpacity={0.7}
+            >
+              <ArrowLeft size={20} color="white" />
+            </TouchableOpacity>
+
+            <View className="flex-1 items-center">
+              <Text className="text-3xl font-bold text-white">
+                Notifications
+              </Text>
+            </View>
+
+            <View className="w-10" />
+          </View>
+        </View>
+
+        {/* Loading Content */}
+        <View className="flex-1 p-4">
+         
+          {/* Skeleton Cards */}
+          {[1, 2, 3, 4, 5].map((item) => (
+            <View
+              key={item}
+              className="mb-3 p-4 bg-white rounded-xl border border-gray-200"
+            >
+              <View className="flex-row items-start gap-3">
+                {/* Icon Skeleton */}
+                <View className="w-5 h-5 bg-gray-200 rounded-full" />
+
+                <View className="flex-1">
+                  {/* Title Skeleton */}
+                  <View className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
+                  
+                  {/* Message Skeleton */}
+                  <View className="h-3 bg-gray-200 rounded w-full mb-1" />
+                  <View className="h-3 bg-gray-200 rounded w-5/6 mb-3" />
+                  
+                  {/* Footer Skeleton */}
+                  <View className="flex-row items-center justify-between">
+                    <View className="h-3 bg-gray-200 rounded w-20" />
+                    <View className="h-3 bg-gray-200 rounded w-16" />
+                  </View>
+                </View>
+              </View>
+            </View>
+          ))}
+
+        
+        </View>
       </View>
     );
   }

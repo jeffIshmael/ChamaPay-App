@@ -1,45 +1,41 @@
-import { useRouter, useFocusEffect } from "expo-router";
+import { AllBalances, getAllBalances } from "@/constants/thirdweb";
+import { useAuth } from "@/Contexts/AuthContext";
+import { CurrencyCode, getExchangeRate } from "@/lib/pretiumService";
+import { getTheUserTx } from "@/lib/walletServices";
+import { useFocusEffect, useRouter } from "expo-router";
 import {
   ArrowDownRight,
   ArrowUpRight,
   Copy,
   DollarSign,
   Download,
-  Eye,
-  EyeOff,
+  ExternalLink,
   History,
   QrCode,
   Send,
-  Upload,
-  ExternalLink,
-  Loader2,
+  Upload
 } from "lucide-react-native";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
+  FlatList,
   Image,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  Modal,
-  Animated,
-  FlatList,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useActiveAccount, useActiveWallet } from "thirdweb/react";
 import { shortenAddress } from "thirdweb/utils";
-import { AllBalances, getAllBalances } from "@/constants/thirdweb";
-import { useAuth } from "@/Contexts/AuthContext";
-import { getTheUserTx } from "@/lib/walletServices";
-import { getExchangeRate } from "@/lib/pretiumService";
-import { CurrencyCode } from "@/lib/pretiumService";
 
 interface Transaction {
   id: number;
@@ -51,8 +47,9 @@ interface Transaction {
   hash: string;
   date: string;
   status: string;
+  isPretiumTx?: boolean;
+  receiptNumber?: string;
 }
-
 export interface Quote {
   currencyCode: CurrencyCode;
   exchangeRate: { buying_rate: number; selling_rate: number };
@@ -73,7 +70,8 @@ export default function CryptoWallet() {
   const [theExhangeQuote, setTheExchangeQuote] = useState<Quote | null>(null);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [transactionError, setTransactionError] = useState<string | null>(null);
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<Transaction | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const wallet = useActiveWallet();
   const activeAccount = useActiveAccount();
@@ -289,15 +287,28 @@ export default function CryptoWallet() {
           </View>
 
           <View className="flex-1">
-            <Text className="text-gray-900 font-semibold text-base ">
-              <Text className="text-base capitalise">{tx.type}</Text> {tx.token}
-            </Text>
+            <View className="flex-row items-center gap-2">
+              <Text className="text-gray-900 font-semibold text-base capitalize">
+                {tx.type}
+              </Text>
+              {tx.isPretiumTx && (
+                <View className="bg-purple-100 px-1 py-0.5 rounded-full">
+                  <Text className="text-purple-700 text-xs font-semibold">
+                    M-PESA
+                  </Text>
+                </View>
+              )}
+            </View>
             <Text className="text-xs text-gray-500 mt-1">
-              {tx.type === "sent"
-                ? `To: ${tx.recipient || "Unknown"}`
-                : tx.type === "received"
-                  ? `From: ${tx.sender || "Unknown"}`
-                  : "On-chain transaction"}
+              {tx.isPretiumTx
+                ? tx.type === "deposited"
+                  ? `From: ${tx.sender || "M-PESA"}`
+                  : `To: ${tx.recipient || "M-PESA"}`
+                : tx.type === "sent"
+                  ? `To: ${tx.recipient || "Unknown"}`
+                  : tx.type === "received"
+                    ? `From: ${tx.sender || "Unknown"}`
+                    : "On-chain transaction"}
             </Text>
           </View>
         </View>
@@ -306,7 +317,7 @@ export default function CryptoWallet() {
           <Text
             className={`font-bold text-base ${getTransactionTextColor(tx.type)}`}
           >
-            {tx.type === "sent" ? "-" : "+"}
+            {tx.type === "sent" || tx.type === "withdrew" ? "-" : "+"}
             {parseFloat(tx.amount).toLocaleString(undefined, {
               minimumFractionDigits: 2,
               maximumFractionDigits: 4,
@@ -321,8 +332,31 @@ export default function CryptoWallet() {
     </TouchableOpacity>
   );
 
+  const getModalHeaderColor = (type: string, isPretiumTx?: boolean): string => {
+    if (isPretiumTx) {
+      return "#9333ea"; // Purple for M-PESA
+    }
+    switch (type) {
+      case "sent":
+        return "#ef4444"; // Red
+      case "received":
+        return "#10b981"; // Emerald
+      case "deposited":
+        return "#3b82f6"; // Blue
+      case "withdrew":
+        return "#f97316"; // Orange
+      default:
+        return "#6b7280"; // Gray
+    }
+  };
+
   const TransactionDetailsModal = () => {
     if (!selectedTransaction) return null;
+
+    const headerColor = getModalHeaderColor(
+      selectedTransaction.type,
+      selectedTransaction.isPretiumTx
+    );
 
     return (
       <Modal
@@ -343,31 +377,41 @@ export default function CryptoWallet() {
             style={styles.modalCard}
           >
             {/* Header */}
-            <View className="bg-gradient-to-b from-emerald-600 to-emerald-700 p-6">
+            <View
+              className="p-6"
+              style={{ backgroundColor: headerColor }}
+            >
               <View className="items-center">
                 <View
                   className="w-16 h-16 rounded-full items-center justify-center mb-3"
                   style={{
-                    backgroundColor: `${getTransactionIconColor(selectedTransaction.type)}20`,
+                    backgroundColor: "rgba(255, 255, 255, 0.2)",
                   }}
                 >
                   {getTransactionIcon(selectedTransaction.type)}
                 </View>
+                {selectedTransaction.isPretiumTx && (
+                  <View className="bg-white/20 px-3 py-1 rounded-full mb-2">
+                    <Text className="text-white text-xs font-semibold">
+                      M-PESA Transaction
+                    </Text>
+                  </View>
+                )}
                 <Text className="text-white text-2xl font-bold mb-1 capitalize">
                   {selectedTransaction.type}
                 </Text>
-                <Text
-                  className={`text-3xl font-extrabold ${
-                    selectedTransaction.type === "sent"
-                      ? "text-red-200"
-                      : "text-emerald-200"
-                  }`}
-                >
-                  {selectedTransaction.type === "sent" ? "-" : "+"}
-                  {parseFloat(selectedTransaction.amount).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 4,
-                  })}{" "}
+                <Text className="text-white text-3xl font-extrabold">
+                  {selectedTransaction.type === "sent" ||
+                  selectedTransaction.type === "withdrew"
+                    ? "-"
+                    : "+"}
+                  {parseFloat(selectedTransaction.amount).toLocaleString(
+                    undefined,
+                    {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 4,
+                    }
+                  )}{" "}
                   {selectedTransaction.token}
                 </Text>
               </View>
@@ -379,8 +423,12 @@ export default function CryptoWallet() {
                 {/* Status */}
                 <View className="flex-row justify-between items-center py-3 border-b border-gray-100">
                   <Text className="text-gray-600 font-medium">Status</Text>
-                  <View className="bg-emerald-100 px-3 py-1 rounded-full">
-                    <Text className="text-emerald-700 font-semibold text-sm capitalize">
+                  <View
+                    className={`${selectedTransaction.isPretiumTx ? "bg-purple-100" : "bg-emerald-100"} px-3 py-1 rounded-full`}
+                  >
+                    <Text
+                      className={`${selectedTransaction.isPretiumTx ? "text-purple-700" : "text-emerald-700"} font-semibold text-sm capitalize`}
+                    >
                       {selectedTransaction.status}
                     </Text>
                   </View>
@@ -395,61 +443,84 @@ export default function CryptoWallet() {
                 </View>
 
                 {/* To/From */}
-                {selectedTransaction.type === "sent" && selectedTransaction.recipient && (
-                  <View className="py-3 border-b border-gray-100">
-                    <Text className="text-gray-600 font-medium mb-2">To</Text>
-                    <View className="bg-gray-50 p-3 rounded-lg">
-                      <Text className="text-gray-900 font-mono text-sm">
-                        {selectedTransaction.recipient}
-                      </Text>
+                {(selectedTransaction.type === "sent" ||
+                  selectedTransaction.type === "withdrew") &&
+                  selectedTransaction.recipient && (
+                    <View className="py-3 border-b border-gray-100">
+                      <Text className="text-gray-600 font-medium mb-2">To</Text>
+                      <View className="bg-gray-50 p-3 rounded-lg">
+                        <Text className="text-gray-900 font-mono text-sm">
+                          {selectedTransaction.recipient}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                )}
+                  )}
 
-                {selectedTransaction.type === "received" && selectedTransaction.sender && (
-                  <View className="py-3 border-b border-gray-100">
-                    <Text className="text-gray-600 font-medium mb-2">From</Text>
-                    <View className="bg-gray-50 p-3 rounded-lg">
-                      <Text className="text-gray-900 font-mono text-sm">
-                        {selectedTransaction.sender}
+                {(selectedTransaction.type === "received" ||
+                  selectedTransaction.type === "deposited") &&
+                  selectedTransaction.sender && (
+                    <View className="py-3 border-b border-gray-100">
+                      <Text className="text-gray-600 font-medium mb-2">
+                        From
                       </Text>
+                      <View className="bg-gray-50 p-3 rounded-lg">
+                        <Text className="text-gray-900 font-mono text-sm">
+                          {selectedTransaction.sender}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                )}
+                  )}
 
-                {/* Transaction Hash */}
-                <View className="py-3">
-                  <Text className="text-gray-600 font-medium mb-2">
-                    Transaction Hash
-                  </Text>
-                  <View className="bg-gray-50 p-3 rounded-lg">
-                    <Text
-                      className="text-gray-900 font-mono text-xs"
-                      numberOfLines={2}
-                      ellipsizeMode="middle"
-                    >
-                      {selectedTransaction.hash}
+                {/* Receipt Number (for Pretium) or Transaction Hash */}
+                {selectedTransaction.isPretiumTx &&
+                selectedTransaction.receiptNumber ? (
+                  <View className="py-3">
+                    <Text className="text-gray-600 font-medium mb-2">
+                      M-PESA Receipt Number
                     </Text>
+                    <View className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                      <Text className="text-purple-900 font-mono text-sm font-semibold">
+                        {selectedTransaction.receiptNumber}
+                      </Text>
+                    </View>
                   </View>
-                </View>
+                ) : (
+                  <View className="py-3">
+                    <Text className="text-gray-600 font-medium mb-2">
+                      Transaction Hash
+                    </Text>
+                    <View className="bg-gray-50 p-3 rounded-lg">
+                      <Text
+                        className="text-gray-900 font-mono text-xs"
+                        numberOfLines={2}
+                        ellipsizeMode="middle"
+                      >
+                        {selectedTransaction.hash}
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </View>
 
               {/* Action Buttons */}
               <View className="mt-6 space-y-3">
-                <TouchableOpacity
-                  onPress={() => viewOnChain(selectedTransaction.hash)}
-                  className="bg-emerald-600 py-4 rounded-xl flex-row items-center justify-center"
-                  activeOpacity={0.8}
-                >
-                  <ExternalLink size={20} color="white" />
-                  <Text className="text-white font-bold text-base ml-2">
-                    View on Chain
-                  </Text>
-                </TouchableOpacity>
+                {!selectedTransaction.isPretiumTx &&
+                  selectedTransaction.hash !== "N/A" && (
+                    <TouchableOpacity
+                      onPress={() => viewOnChain(selectedTransaction.hash)}
+                      className="bg-emerald-600 py-4 rounded-xl flex-row items-center justify-center"
+                      activeOpacity={0.8}
+                    >
+                      <ExternalLink size={20} color="white" />
+                      <Text className="text-white font-bold text-base ml-2">
+                        View on Chain
+                      </Text>
+                    </TouchableOpacity>
+                  )}
 
                 <TouchableOpacity
                   onPress={() => setModalVisible(false)}
-                  className="bg-gray-100 py-4 rounded-xl"
+                  className="bg-gray-200 py-4 rounded-xl mt-3"
                   activeOpacity={0.8}
                 >
                   <Text className="text-gray-700 font-bold text-base text-center">
@@ -465,16 +536,10 @@ export default function CryptoWallet() {
   };
 
   const LoadingState = () => (
-    <View className="bg-white p-8 rounded-2xl items-center justify-center shadow-sm">
+    <View className="bg-transparent p-8  items-center justify-center ">
       <View className="mb-4">
-        <Loader2 size={48} color="#059669" className="animate-spin" />
+        <ActivityIndicator size="large" color="#10b981" />
       </View>
-      <Text className="text-gray-900 font-semibold text-lg mb-2">
-        Loading Transactions
-      </Text>
-      <Text className="text-gray-500 text-sm text-center">
-        Fetching your transaction history...
-      </Text>
     </View>
   );
 
@@ -509,9 +574,9 @@ export default function CryptoWallet() {
         return <ArrowUpRight {...iconProps} />;
       case "received":
         return <ArrowDownRight {...iconProps} />;
-      case "deposit":
+      case "deposited":
         return <Download {...iconProps} />;
-      case "withdraw":
+      case "withdrew":
         return <Upload {...iconProps} />;
       default:
         return <DollarSign {...iconProps} />;
@@ -524,9 +589,9 @@ export default function CryptoWallet() {
         return "#dc2626";
       case "received":
         return "#059669";
-      case "deposit":
+      case "deposited":
         return "#2563eb";
-      case "withdraw":
+      case "withdrew":
         return "#ea580c";
       default:
         return "#6b7280";
@@ -539,9 +604,9 @@ export default function CryptoWallet() {
         return "text-red-600";
       case "received":
         return "text-emerald-600";
-      case "deposit":
+      case "deposited":
         return "text-blue-600";
-      case "withdraw":
+      case "withdrew":
         return "text-orange-600";
       default:
         return "text-gray-600";
@@ -560,7 +625,7 @@ export default function CryptoWallet() {
     <TouchableOpacity
       onPress={() => setActiveTab(tabKey)}
       className={`flex-1 py-3.5 px-4 rounded-xl ${
-        isActive ? "bg-emerald-600 shadow-sm" : "bg-transparent"
+        isActive ? "bg-downy-600 shadow-sm" : "bg-transparent"
       }`}
     >
       <Text
@@ -759,6 +824,17 @@ export default function CryptoWallet() {
               <Text className="text-2xl font-bold text-gray-900">
                 Transaction History
               </Text>
+              {theTransaction && theTransaction.length > 3 && (
+                <TouchableOpacity
+                  onPress={() => router.push("/wallet/all-transactions")}
+                  className=" px-4 py-2 rounded-full"
+                  activeOpacity={0.8}
+                >
+                  <Text className="text-downy-600 text-sm font-semibold">
+                    View All
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Loading State */}
@@ -791,23 +867,23 @@ export default function CryptoWallet() {
                     No Transactions Yet
                   </Text>
                   <Text className="text-gray-500 text-sm text-center leading-5">
-                    Your transaction history will appear here when you make
-                    your first transaction
+                    Your transaction history will appear here when you make your
+                    first transaction
                   </Text>
                 </View>
               )}
 
-            {/* Transactions List - Scrollable */}
+            {/* Transactions List - Show only first 3, scrollable */}
             {!loadingTransactions &&
               !transactionError &&
               theTransaction &&
               theTransaction.length > 0 && (
                 <FlatList
-                  data={theTransaction}
+                  data={theTransaction.slice(0, 3)}
                   renderItem={({ item }) => <TransactionCard tx={item} />}
                   keyExtractor={(item) => `${item.id}-${item.date}`}
                   showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+                  contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
                   refreshControl={
                     <RefreshControl
                       refreshing={refreshing}
@@ -827,7 +903,6 @@ export default function CryptoWallet() {
     </KeyboardAvoidingView>
   );
 }
-
 
 const styles = StyleSheet.create({
   card: {

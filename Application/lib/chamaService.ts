@@ -1,7 +1,8 @@
-import { JoinedChama } from "@/constants/mockData";
+import { JoinedChama, Message } from "@/constants/mockData";
 import { serverUrl } from "@/constants/serverUrl";
 import { formatTimeRemaining } from "@/Utils/helperFunctions";
 import { Notification } from "@/app/(tabs)/notifications";
+import { MessageObj } from "@/hooks/useChat";
 
 // User service functions
 export const checkUsernameAvailability = async (
@@ -123,6 +124,7 @@ export interface BackendChama {
     address?: string;
   };
   members: ChamaMember[];
+  messages: Message[];
   payments?: any[];
   _count?: {
     members: number;
@@ -449,12 +451,10 @@ export const transformChamaData = (
 
     collateralAmount: parseFloat(backendChama.amount) * backendChama.maxNo,
 
-    nextPayout: nextPayoutDate
-      ? nextPayoutDate
-      : null,
+    nextPayout: nextPayoutDate ? nextPayoutDate : null,
 
     // --------- MY POSITION IN PAYOUT CYCLE ---------
-    myTurn: myPosition === 1,
+    myTurn: myPosition === safeNextPayoutIndex + 1,
     myPosition: myPosition || null,
 
     nextTurnMember: backendChama.members?.[1]?.user?.userName || "Not assigned",
@@ -467,7 +467,7 @@ export const transformChamaData = (
     isPublic: backendChama.type === "Public",
     blockchainId: backendChama.blockchainId,
 
-    messages: [],
+    messages: backendChama.messages,
 
     payoutSchedule: payoutArray,
 
@@ -632,8 +632,6 @@ const mapNotificationType = (type: string | null): Notification["type"] => {
   }
 };
 
-
-
 // Helper function to generate user-friendly titles
 const generateNotificationTitle = (type: string | null): string => {
   switch (type) {
@@ -719,8 +717,6 @@ export const transformNotification = async (
     return [];
   }
 };
-
-
 
 // Extended Notification interface (update your existing interface)
 export interface ExtendedNotification extends Notification {

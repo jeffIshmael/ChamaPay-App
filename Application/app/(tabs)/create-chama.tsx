@@ -12,7 +12,7 @@ import {
   Users,
   X,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -130,6 +130,7 @@ export default function CreateChama() {
   const [showMembersDropdown, setShowMembersDropdown] = useState(false);
   const [showCollateralModal, setShowCollateralModal] = useState(false);
   const [agreedToCollateral, setAgreedToCollateral] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
   const wallet = useActiveWallet();
   const activeAccount = useActiveAccount();
 
@@ -443,6 +444,8 @@ export default function CreateChama() {
   const handleNext = () => {
     if (step < 2) {
       setStep(step + 1);
+      // Scroll to top when moving to next step
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     } else {
       if (formData.isPublic && formData.collateralRequired) {
         setAgreedToCollateral(false);
@@ -456,6 +459,8 @@ export default function CreateChama() {
   const handleBack = () => {
     if (step > 1) {
       setStep(step - 1);
+      // Scroll to top when moving to next step
+      // scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     } else {
       router.back();
     }
@@ -575,11 +580,15 @@ export default function CreateChama() {
               </Text>
               <CustomDropdown
                 placeholder="Select members"
-                value={formData.maxMembers ? `${formData.maxMembers} members` : ""}
+                value={
+                  formData.maxMembers ? `${formData.maxMembers} members` : ""
+                }
                 options={memberOptions}
                 show={showMembersDropdown}
                 onToggle={() => setShowMembersDropdown(!showMembersDropdown)}
-                onSelect={(value) => updateFormData("maxMembers", value.toString())}
+                onSelect={(value) =>
+                  updateFormData("maxMembers", value.toString())
+                }
               />
             </View>
 
@@ -605,7 +614,11 @@ export default function CreateChama() {
               </Text>
               <TouchableOpacity
                 onPress={() => {
-                  setSelectedDate(formData.startDate ? new Date(formData.startDate) : new Date(Date.now() + 24 * 60 * 60 * 1000));
+                  setSelectedDate(
+                    formData.startDate
+                      ? new Date(formData.startDate)
+                      : new Date(Date.now() + 24 * 60 * 60 * 1000)
+                  );
                   setShowDatePicker(true);
                   setPickerMode("date");
                 }}
@@ -616,7 +629,9 @@ export default function CreateChama() {
                 }`}
                 activeOpacity={0.7}
               >
-                <Text className={`font-medium ${formData.startDate ? "text-gray-900" : "text-gray-500"}`}>
+                <Text
+                  className={`font-medium ${formData.startDate ? "text-gray-900" : "text-gray-500"}`}
+                >
                   {formatDate(formData.startDate)}
                 </Text>
                 <Calendar size={20} color="#6b7280" />
@@ -653,7 +668,9 @@ export default function CreateChama() {
                 }`}
                 activeOpacity={0.7}
               >
-                <Text className={`font-medium ${formData.startTime ? "text-gray-900" : "text-gray-500"}`}>
+                <Text
+                  className={`font-medium ${formData.startTime ? "text-gray-900" : "text-gray-500"}`}
+                >
                   {formatTime(formData.startTime)}
                 </Text>
                 <Clock size={20} color="#6b7280" />
@@ -723,36 +740,44 @@ export default function CreateChama() {
               )}
           </View>
 
-          {formData.contribution && formData.maxMembers && formData.frequency && formData.startDate && formData.startTime && (
-            <View className="bg-blue-50 border border-blue-200 rounded-xl p-5">
-              <View className="flex-row items-start gap-3">
-                <View className="flex-1">
-                  <Text className="text-blue-900 font-semibold mb-2 text-base">
-                    Financial Summary
-                  </Text>
-                  <Text className="text-blue-800 text-sm">
-                    • Total pool per payout:{" "}
-                    {(getContributionValue() * getMaxMembersValue()).toFixed(2)}{" "}
-                    USDC (≈ KES{" "}
-                    {convertToKES(
-                      (getContributionValue() * getMaxMembersValue()).toString()
-                    )}
-                    ){"\n"}• Each contribution:{" "}
-                    {getContributionValue().toFixed(2)} USDC
-                    {"\n"}• Frequency: {formData.frequency} days
-                    {"\n"}• Starts: {formatDate(formData.startDate)} at{" "}
-                    {formatTime(formData.startTime)}
-                    {!isStartDateTimeInFuture() &&
-                      formData.startDate.trim() !== "" && (
-                        <Text className="text-red-600">
-                          {"\n"}• Start date/time must be in the future
-                        </Text>
+          {formData.contribution &&
+            formData.maxMembers &&
+            formData.frequency &&
+            formData.startDate &&
+            formData.startTime && (
+              <View className="bg-blue-50 border border-blue-200 rounded-xl p-5">
+                <View className="flex-row items-start gap-3">
+                  <View className="flex-1">
+                    <Text className="text-blue-900 font-semibold mb-2 text-base">
+                      Financial Summary
+                    </Text>
+                    <Text className="text-blue-800 text-sm">
+                      • Total pool per payout:{" "}
+                      {(getContributionValue() * getMaxMembersValue()).toFixed(
+                        2
+                      )}{" "}
+                      USDC (≈ KES{" "}
+                      {convertToKES(
+                        (
+                          getContributionValue() * getMaxMembersValue()
+                        ).toString()
                       )}
-                  </Text>
+                      ){"\n"}• Each contribution:{" "}
+                      {getContributionValue().toFixed(2)} USDC
+                      {"\n"}• Frequency: {formData.frequency} days
+                      {"\n"}• Starts: {formatDate(formData.startDate)} at{" "}
+                      {formatTime(formData.startTime)}
+                      {!isStartDateTimeInFuture() &&
+                        formData.startDate.trim() !== "" && (
+                          <Text className="text-red-600">
+                            {"\n"}• Start date/time must be in the future
+                          </Text>
+                        )}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          )}
+            )}
         </View>
       </View>
     </View>
@@ -879,25 +904,36 @@ export default function CreateChama() {
           </Text>
           <View className="gap-2">
             <Text className="text-emerald-800 text-sm font-medium">
-              • Name: <Text className="font-normal">{formData.name || "Not set"}</Text>
+              • Name:{" "}
+              <Text className="font-normal">{formData.name || "Not set"}</Text>
             </Text>
             <Text className="text-emerald-800 text-sm font-medium">
               • Members:{" "}
-              <Text className="font-normal">{formData.maxMembers || "Not set"}</Text>
+              <Text className="font-normal">
+                {formData.maxMembers || "Not set"}
+              </Text>
             </Text>
             <Text className="text-emerald-800 text-sm font-medium">
               • Contribution:{" "}
               <Text className="font-normal">
-                {formData.contribution ? `${formData.contribution} USDC` : "Not set"}
+                {formData.contribution
+                  ? `${formData.contribution} USDC`
+                  : "Not set"}
               </Text>
             </Text>
             <Text className="text-emerald-800 text-sm font-medium">
               • Frequency:{" "}
-              <Text className="font-normal">{formData.frequency ? `${formData.frequency} days` : "Not set"}</Text>
+              <Text className="font-normal">
+                {formData.frequency ? `${formData.frequency} days` : "Not set"}
+              </Text>
             </Text>
             <Text className="text-emerald-800 text-sm font-medium">
               • One Cycle Duration:{" "}
-              <Text className="font-normal">{formData.duration > 0 ? `${formData.duration} days` : "Not calculated"}</Text>
+              <Text className="font-normal">
+                {formData.duration > 0
+                  ? `${formData.duration} days`
+                  : "Not calculated"}
+              </Text>
             </Text>
             <Text className="text-emerald-800 text-sm font-medium">
               • Start:{" "}
@@ -913,14 +949,20 @@ export default function CreateChama() {
                 {formData.isPublic ? "Public" : "Private"}
               </Text>
             </Text>
-            {formData.isPublic && formData.contribution && formData.maxMembers && (
-              <Text className="text-emerald-800 text-sm font-medium">
-                • Collateral Required:{" "}
-                <Text className="font-normal">
-                  {(Number(formData.contribution) * Number(formData.maxMembers)).toFixed(2)} USDC
+            {formData.isPublic &&
+              formData.contribution &&
+              formData.maxMembers && (
+                <Text className="text-emerald-800 text-sm font-medium">
+                  • Collateral Required:{" "}
+                  <Text className="font-normal">
+                    {(
+                      Number(formData.contribution) *
+                      Number(formData.maxMembers)
+                    ).toFixed(3)}{" "}
+                    USDC
+                  </Text>
                 </Text>
-              </Text>
-            )}
+              )}
             {formData.adminTerms.length > 0 && (
               <>
                 <Text className="text-emerald-800 text-sm font-semibold mt-2">
@@ -1011,6 +1053,7 @@ export default function CreateChama() {
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
         <ScrollView
+          ref={scrollViewRef}
           className="flex-1"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
@@ -1036,7 +1079,7 @@ export default function CreateChama() {
                     step === 1 ? "text-gray-400" : "text-gray-700"
                   }`}
                 >
-                  {step === 1 ? "Cancel" : "Previous"}
+                  {step === 1 ? "Cancel" : "←   Previous"}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -1048,8 +1091,7 @@ export default function CreateChama() {
                 {/* Progress Background */}
                 {step === 1 && isStep1Valid ? (
                   <>
-                    <View className="absolute left-0 top-0 bottom-0 w-1/2 bg-downy-600" />
-                    <View className="absolute right-0 top-0 bottom-0 w-1/2 bg-downy-600/50" />
+                    <View className="absolute left-0 top-0 bottom-0 right-0  bg-downy-600" />
                   </>
                 ) : step === 2 ? (
                   <View className="absolute left-0 top-0 bottom-0 right-0 bg-downy-600" />
@@ -1067,7 +1109,7 @@ export default function CreateChama() {
                     ? loadingState || "Creating..."
                     : step === 2
                       ? "Create Chama"
-                      : "Next"}
+                      : "Next  →"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1394,7 +1436,7 @@ export default function CreateChama() {
                 <CustomCheckbox
                   checked={agreedToCollateral}
                   onPress={() => setAgreedToCollateral(!agreedToCollateral)}
-                  color="#10B981"
+                  color="#1a6b6b"
                 />
                 <View className="flex-1 ml-3">
                   <Text
@@ -1425,9 +1467,10 @@ export default function CreateChama() {
                   padding: 12,
                   borderRadius: 8,
                   borderWidth: 1,
-                  borderColor: "#D1D5DB",
+                  borderColor: "gray",
                   alignItems: "center",
                 }}
+                // className="bg-gray-400"
               >
                 <Text
                   style={{
@@ -1450,9 +1493,9 @@ export default function CreateChama() {
                   flex: 1,
                   padding: 12,
                   borderRadius: 8,
-                  backgroundColor: agreedToCollateral ? "#10B981" : "#D1D5DB",
                   alignItems: "center",
                 }}
+                className={`${agreedToCollateral ? "bg-downy-700" : "bg-gray-300"}`}
               >
                 <Text
                   style={{
@@ -1461,7 +1504,7 @@ export default function CreateChama() {
                     color: agreedToCollateral ? "white" : "#9CA3AF",
                   }}
                 >
-                  I Understand, Continue
+                  Proceed →
                 </Text>
               </TouchableOpacity>
             </View>

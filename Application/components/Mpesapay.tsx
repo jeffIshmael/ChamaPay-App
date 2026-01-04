@@ -62,7 +62,7 @@ const MPesaPay = ({
   const [scaleAnim] = useState(new Animated.Value(1));
 
   // Calculate remaining amount in KES
-  const remainingInKes = exchangeRate 
+  const remainingInKes = exchangeRate
     ? (remainingAmount * exchangeRate.exchangeRate.selling_rate).toFixed(2)
     : "0";
 
@@ -150,7 +150,9 @@ const MPesaPay = ({
   // Quick fill function for remaining amount
   const fillRemainingAmount = () => {
     if (exchangeRate && remainingAmount > 0) {
-      const kesValue = (remainingAmount * exchangeRate.exchangeRate.selling_rate).toFixed(2);
+      const kesValue = (
+        remainingAmount * exchangeRate.exchangeRate.selling_rate
+      ).toFixed(2);
       setKesAmount(kesValue);
     }
   };
@@ -527,7 +529,7 @@ const MPesaPay = ({
             >
               <Text className="text-gray-700 text-xl">←</Text>
             </TouchableOpacity>
-            
+
             <View className="flex-row items-center flex-1">
               <View className="bg-green-50 rounded-xl p-2 mr-2 shadow-sm">
                 <Image
@@ -548,7 +550,7 @@ const MPesaPay = ({
           </View>
 
           {/* Remaining Amount Alert */}
-          {remainingAmount > 0 && (
+          {remainingAmount > 0 && !loading && currentStep === "input" && (
             <View className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-2">
               <View className="flex-row items-center justify-between">
                 <View className="flex-1">
@@ -690,13 +692,14 @@ const MPesaPay = ({
                 </View>
 
                 {/* Show if payment covers remaining amount */}
-                {remainingAmount > 0 && parseFloat(usdcAmount) >= remainingAmount && (
-                  <View className="bg-green-100 rounded-lg p-2 mt-2">
-                    <Text className="text-xs text-green-800 text-center font-medium">
-                      ✓ This payment will complete your contribution
-                    </Text>
-                  </View>
-                )}
+                {remainingAmount > 0 &&
+                  parseFloat(usdcAmount) >= remainingAmount && (
+                    <View className="bg-green-100 rounded-lg p-2 mt-2">
+                      <Text className="text-xs text-green-800 text-center font-medium">
+                        ✓ This payment will complete your contribution
+                      </Text>
+                    </View>
+                  )}
               </Animated.View>
             )}
 

@@ -1,20 +1,19 @@
 import { Transaction } from "@/constants/mockData";
+import { formatTimeRemaining } from "@/Utils/helperFunctions";
 import {
+  CircleArrowDown,
+  CircleArrowOutUpRight,
   DollarSign,
   ExternalLink,
   LogOut,
   Receipt,
-  TrendingUp,
-  Plus,
-  CircleArrowDown,
-  CircleArrowOutUpRight,
+  TrendingUp
 } from "lucide-react-native";
 import React, { FC, useState } from "react";
 import { Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { Badge } from "./ui/Badge";
 import { Card } from "./ui/Card";
 import { ProgressBar } from "./ui/ProgressBar";
-import { formatTimeRemaining } from "@/Utils/helperFunctions";
 
 type Props = {
   myContributions: number;

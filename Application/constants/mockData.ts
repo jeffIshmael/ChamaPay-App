@@ -11,8 +11,8 @@ export interface Member {
 export interface Message {
   id: number;
   sender: string;
-  message: string;
-  time: string;
+  text: string;
+  timestamp: string;
   isAdmin?: boolean;
 }
 
