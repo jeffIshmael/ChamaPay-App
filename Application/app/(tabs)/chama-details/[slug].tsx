@@ -50,6 +50,7 @@ import {
 } from "thirdweb";
 import { useActiveAccount } from "thirdweb/react";
 import ChamaDetailsLoader from "@/components/ChamaDetailsLoader";
+import { requestToJoin } from "@/lib/userService";
 
 export default function ChamaDetails() {
   const { slug } = useLocalSearchParams();
@@ -138,18 +139,6 @@ export default function ChamaDetails() {
 
   const getMemberCount = (chama: any): number => {
     return chama.totalMembers;
-  };
-
-  const handleJoinChama = async () => {
-    if (!chama) {
-      Alert.alert("Error", "Chama not found");
-      return;
-    }
-    if (!chama.isPublic) {
-      handleRequestToJoinChama();
-    } else {
-      setShowCollateralModal(true);
-    }
   };
 
   const handleShare = () => {
@@ -241,8 +230,6 @@ export default function ChamaDetails() {
         6
       );
       const blockchainId = BigInt(Number(chama.blockchainId));
-
-      console.log("usdc contract", usdcContract);
 
       // Approve transaction since we will use a function that will transferFrom the user's wallet to the chama's wallet
       const approveTransaction = prepareContractCall({
@@ -368,7 +355,7 @@ export default function ChamaDetails() {
 
     try {
       if (!token) {
-        Alert.alert("Error", "Please login to continue");
+        Alert.alert("Error", "Please login to continue.");
         return;
       }
 
@@ -376,19 +363,14 @@ export default function ChamaDetails() {
         Alert.alert("Error", "Chama not found");
         return;
       }
-      if (!activeAccount) {
-        Alert.alert("Error", "Oops!! You are not connected to a wallet.");
-        return;
-      }
 
       setIsJoining(true);
 
-      // send a notification to the admin to approve the join request
-      // const response = await sendNotificationToAdmin(chama.id, user.id);
-      // if (!response.success) {
-      //   Alert.alert("Error", "Failed to send notification to admin.");
-      //   return;
-      // }
+      const result = await requestToJoin(chama.id, token);
+      if (!result.success) {
+        Alert.alert("Error", "Request not sent.");
+        return;
+      }
 
       Alert.alert(
         "Success",
@@ -402,6 +384,17 @@ export default function ChamaDetails() {
       );
     } finally {
       setIsJoining(false);
+    }
+  };
+  const handleJoinChama = async () => {
+    if (!chama) {
+      Alert.alert("Error", "Chama not found");
+      return;
+    }
+    if (!chama.isPublic) {
+      handleRequestToJoinChama();
+    } else {
+      setShowCollateralModal(true);
     }
   };
 

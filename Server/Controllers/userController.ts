@@ -2,6 +2,7 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import {
+  getSentRequests,
   registerUserPayment,
   requestToJoin,
   sortRequest,
@@ -94,7 +95,7 @@ export const getUserDetails = async (
       return;
     }
 
-    const user = await prisma.user.findUnique({
+    const userResults = await prisma.user.findUnique({
       where: { id: req.user.userId },
       include: {
         joinRequests: {
@@ -130,10 +131,16 @@ export const getUserDetails = async (
       },
     });
 
-    if (!user) {
+    if (!userResults) {
       res.status(404).json({ message: "User not found" });
       return;
     }
+
+    //check if the user has requests they need to approve
+    const sentRequests = await getSentRequests(userResults.id);
+
+    const user = { ...userResults, sentRequests };
+
     res.status(200).json({ user: user });
   } catch (error: unknown) {
     console.error("Get user error:", error);

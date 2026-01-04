@@ -692,7 +692,7 @@ export const transformNotification = async (
         id: `request-${request.id}`,
         type: "join_request",
         title: "New Join Request",
-        message: `${request.user.userName} wants to join ${request.chama.name}`,
+        message: `${request.user?.userName} wants to join ${request.chama.name}`,
         timestamp: request.createdAt,
         read: false, // Pending requests are always unread
         actionRequired: true,
@@ -700,7 +700,7 @@ export const transformNotification = async (
         chamaId: request.chama.id,
         requestId: request.id,
         requestUserId: request.user.id,
-        requestUserName: request.user.userName,
+        requestUserName: request.user?.userName,
       };
 
       transformedNotifications.push(transformed);
@@ -725,65 +725,3 @@ export interface ExtendedNotification extends Notification {
   requestUserId?: number; // User who made the request
   requestUserName?: string; // Name of user who made the request
 }
-
-// Function to handle join request actions
-export const handleJoinRequestAction = async (
-  requestId: number,
-  action: "approve" | "reject",
-  token: string
-): Promise<{ success: boolean; error?: string }> => {
-  try {
-    const response = await fetch(
-      `${process.env.EXPO_PUBLIC_API_URL}/api/chama/request/${requestId}/${action}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json();
-      return { success: false, error: error.message || "Action failed" };
-    }
-
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error handling join request:", error);
-    return { success: false, error: error.message || "An error occurred" };
-  }
-};
-
-// Function to mark notification as read
-export const markNotificationAsRead = async (
-  notificationId: number,
-  token: string
-): Promise<{ success: boolean; error?: string }> => {
-  try {
-    const response = await fetch(
-      `${process.env.EXPO_PUBLIC_API_URL}/api/notifications/${notificationId}/read`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json();
-      return {
-        success: false,
-        error: error.message || "Failed to mark as read",
-      };
-    }
-
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error marking notification as read:", error);
-    return { success: false, error: error.message || "An error occurred" };
-  }
-};
