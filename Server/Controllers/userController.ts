@@ -1,7 +1,11 @@
 // This file has all user related functions
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-import { registerUserPayment } from "../Lib/prismaFunctions";
+import {
+  registerUserPayment,
+  requestToJoin,
+  sortRequest,
+} from "../Lib/prismaFunctions";
 
 const prisma = new PrismaClient();
 
@@ -116,13 +120,13 @@ export const getUserDetails = async (
             user: true,
           },
         },
-        pretiumTransactions:{
-          where:{
+        pretiumTransactions: {
+          where: {
             isRealesed: true,
             chamaId: null,
-            status:"COMPLETE"
-          }
-        }
+            status: "COMPLETE",
+          },
+        },
       },
     });
 
@@ -376,7 +380,7 @@ export const searchUsers = async (
   }
 };
 
-// re
+// register payment
 export const registerPayment = async (
   req: Request,
   res: Response
@@ -402,12 +406,116 @@ export const registerPayment = async (
       txHash
     );
     if (payment === null) {
-      res.status(400).json({ success: false, error: "Failed to register payment" });
+      res
+        .status(400)
+        .json({ success: false, error: "Failed to register payment" });
       return;
     }
     res.status(200).json({ success: true, payment: payment });
   } catch (error) {
     console.error("Register payment error:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};
+
+// send join request
+export const sendJoinRequest = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { chamaId } = req.query;
+  try {
+    const userId: number = req.user?.userId as number;
+    if (!req.user?.userId) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+
+    if (!chamaId) {
+      res
+        .status(400)
+        .json({ success: false, error: "All fields are required" });
+      return;
+    }
+    const request = await requestToJoin(userId, Number(chamaId));
+    if (request === null) {
+      res
+        .status(400)
+        .json({ success: false, error: "Failed to send request." });
+      return;
+    }
+
+    // // notify admin
+    // const adminId = await prisma.chama.findUnique({
+    //   where:{
+    //     id: chamaId
+    //   },
+    //   select:{
+    //     adminId: true
+    //   }
+    // });
+    // if(!adminId){
+    //   throw new Error("Unable to get admin.");
+    // }
+    // await notify
+    res.status(200).json({ success: true, request: request });
+  } catch (error) {
+    console.error("Register request error:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};
+
+// handle the request (approve, reject)
+export const confirmJoinRequest = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { chamaId, requestId, decision } = req.body;
+  try {
+    const userId: number = req.user?.userId as number;
+    if (!req.user?.userId) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+
+    if (!chamaId || !requestId || !decision) {
+      res
+        .status(400)
+        .json({ success: false, error: "All fields are required" });
+      return;
+    }
+
+    // get admin
+    const adminId = await prisma.chama.findUnique({
+      where: {
+        id: chamaId,
+      },
+      select: {
+        adminId: true,
+      },
+    });
+    if (!adminId) {
+      throw new Error("Unable to get admin.");
+    }
+    if (userId !== adminId.adminId) {
+      res
+        .status(400)
+        .json({ success: false, error: "Only admin can approve." });
+      return;
+    }
+    const toBeDone = decision === "approve";
+    // make it
+    const result = await sortRequest(requestId, toBeDone);
+
+    if (!result) {
+      res
+        .status(400)
+        .json({ success: false, error: "Unable to sort and add member." });
+      return;
+    }
+    res.status(200).json({ success: true, request: result });
+  } catch (error) {
+    console.error("sort request error:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };

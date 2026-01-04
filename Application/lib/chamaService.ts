@@ -1,6 +1,6 @@
 import { JoinedChama, Message } from "@/constants/mockData";
 import { serverUrl } from "@/constants/serverUrl";
-import { formatTimeRemaining } from "@/Utils/helperFunctions";
+import { formatDays, formatTimeRemaining } from "@/Utils/helperFunctions";
 import { Notification } from "@/app/(tabs)/notifications";
 import { MessageObj } from "@/hooks/useChat";
 
@@ -429,13 +429,13 @@ export const transformChamaData = (
         )?.user?.userName) ||
       "Not assigned",
     currentTurnMemberPosition: safeNextPayoutIndex + 1,
-    currentTurnMemberAddress: nextPayoutEntry.userAddress,
+    currentTurnMemberAddress: nextPayoutEntry?.userAddress,
 
     contributionDueDate: backendChama.payDate,
 
     hasOutstandingPayment: false, // optional feature
 
-    frequency: `${backendChama.cycleTime} days`,
+    frequency: formatDays(backendChama.cycleTime),
     duration: backendChama.cycleTime,
 
     rating: backendChama.rating || 0,

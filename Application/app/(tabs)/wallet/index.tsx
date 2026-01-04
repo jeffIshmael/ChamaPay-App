@@ -674,7 +674,7 @@ export default function CryptoWallet() {
                 <Text className="text-emerald-100 text-lg font-semibold">
                   ≈{" "}
                   {theExhangeQuote?.exchangeRate.selling_rate
-                    ? usdcBalance * theExhangeQuote?.exchangeRate.selling_rate
+                    ? (usdcBalance * theExhangeQuote?.exchangeRate.selling_rate).toFixed(2)
                     : "---"}{" "}
                   {theExhangeQuote?.currencyCode}
                 </Text>

@@ -8,7 +8,9 @@ import {
     searchUsers,
     updateUserProfile,
     getUserDetails,
-    registerPayment
+    registerPayment,
+    sendJoinRequest,
+    confirmJoinRequest
 } from "../Controllers/userController";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -19,6 +21,10 @@ router.post("/checkUserExists", checkUserExists);
 router.post("/checkUsernameAvailability", checkUsernameAvailability);
 router.get("/search", searchUsers);
 router.post("/registerPayment", authenticate, registerPayment);
+router.post("/joinRequest", authenticate, sendJoinRequest);
+router.post("/confirmRequest", authenticate, confirmJoinRequest);
+
+
 // Authenticated functions
 router.get("/", authenticate, getUser);
 router.get("/details", authenticate, getUserDetails);

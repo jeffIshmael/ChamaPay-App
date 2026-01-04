@@ -49,6 +49,7 @@ import {
   waitForReceipt,
 } from "thirdweb";
 import { useActiveAccount } from "thirdweb/react";
+import ChamaDetailsLoader from "@/components/ChamaDetailsLoader";
 
 export default function ChamaDetails() {
   const { slug } = useLocalSearchParams();
@@ -414,7 +415,7 @@ export default function ChamaDetails() {
     active: boolean;
   }) => (
     <TouchableOpacity
-      className={`flex-1 py-3.5 px-4 items-center justify-center rounded-xl ${
+      className={`flex-1 py-3 px-4 items-center justify-center rounded-xl ${
         active ? "bg-emerald-600 shadow-sm" : "bg-transparent"
       }`}
       onPress={() => setActiveTab(id)}
@@ -489,7 +490,7 @@ export default function ChamaDetails() {
               {
                 step: "2",
                 title: "Monthly Contributions",
-                description: `Contribute ${chama.contribution} cUSD every month on schedule`,
+                description: `Contribute ${chama.contribution} USDC every month on schedule`,
                 icon: "💰",
                 bgColor: "bg-blue-50",
                 borderColor: "border-blue-100",
@@ -526,7 +527,7 @@ export default function ChamaDetails() {
       </View>
 
       {/* Admin Terms */}
-      {chama && chama.adminTerms && (
+      {chama && chama.adminTerms.length > 0 && (
         <View className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-3xl shadow-sm border border-amber-200 p-6">
           <View className="flex-row items-center gap-3 mb-5">
             <View className="w-12 h-12 rounded-2xl bg-white shadow-sm items-center justify-center">
@@ -576,14 +577,16 @@ export default function ChamaDetails() {
               </Text>
             </View>
 
-            <View className="flex-row justify-between items-center py-3 border-b border-gray-100">
-              <Text className="text-gray-600 text-sm">
-                Total Pool (when full)
-              </Text>
-              <Text className="font-semibold text-gray-900">
-                {chama.totalContributions} {chama.currency}
-              </Text>
-            </View>
+            {chama.isPublic && (
+              <View className="flex-row justify-between items-center py-3 border-b border-gray-100">
+                <Text className="text-gray-600 text-sm">
+                  Total Pool (when full)
+                </Text>
+                <Text className="font-semibold text-gray-900">
+                  {chama.totalContributions} {chama.currency}
+                </Text>
+              </View>
+            )}
 
             <View className="flex-row justify-between items-center py-3 border-b border-gray-100">
               <Text className="text-gray-600 text-sm">Frequency</Text>
@@ -595,7 +598,7 @@ export default function ChamaDetails() {
             <View className="flex-row justify-between items-center py-3">
               <Text className="text-gray-600 text-sm">Collateral Required</Text>
               <Text className="font-semibold text-gray-900">
-                {!chama.isPublic ? "N/A" : `${chama.collateralAmount} cUSD`}
+                {!chama.isPublic ? "N/A" : `${chama.collateralAmount} USDC`}
               </Text>
             </View>
           </View>
@@ -678,13 +681,7 @@ export default function ChamaDetails() {
   return (
     <View className="flex-1 bg-gray-50">
       {isLoading ? (
-        <SafeAreaView
-          className="flex-1 items-center justify-center"
-          style={{ paddingTop: insets.top }}
-        >
-          <ActivityIndicator size="large" color="#10b981" />
-          <Text className="text-gray-600 mt-4">Loading chama details...</Text>
-        </SafeAreaView>
+        <ChamaDetailsLoader />
       ) : !chama ? (
         <SafeAreaView
           className="flex-1 items-center justify-center px-6"
@@ -706,9 +703,15 @@ export default function ChamaDetails() {
           </TouchableOpacity>
         </SafeAreaView>
       ) : (
-        <View className="h-full">
+        <View className="flex-1">
+          {/* Status Bar Background Color Extension */}
+          <View
+            className="absolute top-0 left-0 right-0 bg-downy-800 z-10"
+            style={{ height: insets.top }}
+          />
+
           <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-            {/* Dark Header - extends to top */}
+            {/* Dark Header */}
             <View
               className="bg-downy-800 pt-4 pb-8 px-6 shadow-lg rounded-b-2xl"
               style={{ paddingTop: insets.top + 16 }}
@@ -818,7 +821,7 @@ export default function ChamaDetails() {
                   <View className="flex-row items-center gap-2 mb-2">
                     <Wallet size={18} color="#10b981" />
                     <Text className="text-gray-600 text-xs font-medium">
-                      Monthly
+                      {chama.frequency}
                     </Text>
                   </View>
                   <Text className="font-bold text-gray-900 text-lg">
