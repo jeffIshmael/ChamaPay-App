@@ -4,12 +4,13 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 // send notification to a user
-export async function notifyUser(userId: number, message: string) {
+export async function notifyUser(userId: number, message: string, type?:string) {
   try {
     await prisma.notification.create({
       data: {
         userId: userId,
         message: message,
+        type: type
       },
     });
   } catch (error) {
@@ -21,7 +22,9 @@ export async function notifyUser(userId: number, message: string) {
 export async function notifyAllChamaMembers(
   chamaId: number,
   message: string,
+  type?:string,
   exceptUserId?: number
+ 
 ) {
   try {
     // get all the members of the chama
@@ -36,7 +39,7 @@ export async function notifyAllChamaMembers(
     // send each member a text
     for (const member of allMembers) {
       if (member.userId == exceptUserId) return;
-      await notifyUser(member.userId, message);
+      await notifyUser(member.userId, message, type);
     }
   } catch (error) {
     console.error("Unable to send the chama members notification.", error);

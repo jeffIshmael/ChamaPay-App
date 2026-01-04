@@ -256,7 +256,7 @@ const USDCPay = ({
             </View>
 
             {/* Remaining Amount Alert */}
-            {remainingAmount > 0 && (
+            {remainingAmount > 0 && !loading && (
               <View className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
                 <View className="flex-row items-center justify-between">
                   <View className="flex-1">

@@ -66,7 +66,7 @@ export default function BottomNavigation({ state, navigation }: BottomTabBarProp
                   </Pressable>
                   <Text className={cn(
                     "text-xs mt-1",
-                    isActive ? "text-downy-700" : "text-gray-500"
+                    isActive ? "text-downy-700 font-semibold" : "text-gray-500"
                   )}>Create chama</Text>
                 </View>
               );
@@ -106,7 +106,7 @@ export default function BottomNavigation({ state, navigation }: BottomTabBarProp
                 <Text
                   className={cn(
                     "text-xs mt-1",
-                    isActive ? "text-downy-600" : "text-gray-500"
+                    isActive ? "text-downy-600 font-semibold" : "text-gray-500"
                   )}
                 >
                   {tab.label}

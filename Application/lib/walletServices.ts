@@ -13,6 +13,8 @@ export interface Transaction {
   hash: string;
   date: string;
   status: "completed" | "pending" | "failed";
+  isPretiumTx?: boolean; // New flag to identify Pretium transactions
+  receiptNumber?: string; // For Pretium transactions
 }
 
 /**
@@ -95,6 +97,8 @@ const validateTransaction = (tx: Partial<Transaction>): Transaction => {
     hash: tx.hash ?? "0x",
     date: tx.date ?? new Date().toISOString(),
     status: tx.status ?? "completed",
+    isPretiumTx: tx.isPretiumTx ?? false,
+    receiptNumber: tx.receiptNumber,
   };
 };
 
@@ -114,6 +118,7 @@ const transformPayment = (payment: PaymentData): Transaction => {
     hash: payment.txHash,
     date: payment.doneAt,
     status: "completed",
+    isPretiumTx: false,
   });
 };
 
@@ -131,6 +136,7 @@ const transformPayout = (payout: PayoutData): Transaction => {
     hash: payout.txHash,
     date: payout.doneAt,
     status: "completed",
+    isPretiumTx: false,
   });
 };
 
@@ -142,12 +148,14 @@ const transformPretiumTx = (pretiumTx: PretiumTxData): Transaction => {
     id: pretiumTx.id,
     type: pretiumTx.isOnramp ? "deposited": "withdrew",
     token: "USDC",
-    amount: pretiumTx.amount,
+    amount: pretiumTx.cusdAmount,
     recipient: pretiumTx.isOnramp ? "you" : pretiumTx.shortcode,
     sender: pretiumTx.isOnramp ? pretiumTx.shortcode : "You",
-    hash: pretiumTx.receiptNumber!,
+    hash: pretiumTx.blockchainTxHash || "N/A", // Use blockchain hash if available
     date: pretiumTx.updatedAt,
     status: "completed",
+    isPretiumTx: true,
+    receiptNumber: pretiumTx.receiptNumber || undefined,
   });
 };
 
@@ -242,9 +250,27 @@ export const getTheUserTx = async (
  */
 export const filterTransactionsByType = (
   transactions: Transaction[],
-  type: "sent" | "received"
+  type: "sent" | "received" | "withdrew" | "deposited"
 ): Transaction[] => {
   return transactions.filter((tx) => tx.type === type);
+};
+
+/**
+ * Filters Pretium transactions
+ */
+export const filterPretiumTransactions = (
+  transactions: Transaction[]
+): Transaction[] => {
+  return transactions.filter((tx) => tx.isPretiumTx === true);
+};
+
+/**
+ * Filters blockchain transactions (non-Pretium)
+ */
+export const filterBlockchainTransactions = (
+  transactions: Transaction[]
+): Transaction[] => {
+  return transactions.filter((tx) => tx.isPretiumTx === false);
 };
 
 /**

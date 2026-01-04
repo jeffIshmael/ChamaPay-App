@@ -111,7 +111,7 @@ contract ChamaPay is
         
         if(_isPublic) {
             require(
-                USDCToken.transferFrom(msg.sender, address(this), _amount),
+                USDCToken.transferFrom(msg.sender, address(this), _amount * _maxMembers),
                 "Token transfer failed"
             );
         }
@@ -132,7 +132,7 @@ contract ChamaPay is
         newChama.isPublic = _isPublic;
 
         if (_isPublic) {
-            newChama.lockedAmounts[msg.sender] = _amount;
+            newChama.lockedAmounts[msg.sender] = _amount * _maxMembers;
         }
 
         totalChamas++;

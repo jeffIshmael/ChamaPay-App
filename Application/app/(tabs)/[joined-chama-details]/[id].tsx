@@ -1,5 +1,9 @@
 import ChamaOverviewTab from "@/components/ChamaOverviewTab";
 import ChatTab from "@/components/ChatTab";
+import {
+  ChamaDetailsErrorState,
+  ChamaDetailsLoadingState,
+} from "@/components/LoadingStates";
 import MembersTab from "@/components/MembersTab";
 import PaymentModal from "@/components/PaymentModal";
 import ScheduleTab from "@/components/ScheduleTab";
@@ -13,10 +17,10 @@ import {
   transformChamaData,
 } from "@/lib/chamaService";
 import { generateChamaShareUrl } from "@/lib/encryption";
-import { formatToK } from "@/lib/formatNumbers";
+import { formatTimeRemaining } from "@/Utils/helperFunctions";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Share, Share2, User } from "lucide-react-native";
-import React, { use, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Image,
@@ -26,18 +30,11 @@ import {
   SafeAreaView,
   Text,
   TextInput,
-  ActivityIndicator,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useReadContract } from "thirdweb/react";
 import { toEther, toTokens } from "thirdweb/utils";
-import {
-  ChamaDetailsLoadingState,
-  ChamaDetailsErrorState,
-} from "@/components/LoadingStates";
-import { formatTimeRemaining } from "@/Utils/helperFunctions";
-import { useExchangeRate } from "@/hooks/useExchangeRate";
 
 // Loading Skeleton Component
 const SkeletonBox = ({
@@ -60,10 +57,10 @@ const SkeletonBox = ({
 );
 
 export default function JoinedChamaDetails() {
-  const { id } = useLocalSearchParams();
+  const { id, tab } = useLocalSearchParams();
   const router = useRouter();
   const { user, token } = useAuth();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(tab === "chat" ? "chat" : "overview");
 
   const [paymentAmount, setPaymentAmount] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);

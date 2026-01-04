@@ -62,7 +62,7 @@ export default function ReceiveCryptoScreen() {
             <QRCode value={walletAddress} size={180} />
           </View>
           <Text className="text-sm text-gray-600 text-center">
-            Scan to send <Text className="font-semibold">USDC</Text>
+            Scan to recieve <Text className="font-semibold">USDC</Text>
           </Text>
         </View>
 

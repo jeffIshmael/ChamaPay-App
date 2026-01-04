@@ -1,7 +1,8 @@
-import { useRouter } from "expo-router";
-import { ArrowLeft, Check, Smartphone, Wallet } from "lucide-react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { ArrowLeft, Check, Smartphone } from "lucide-react-native";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -12,23 +13,20 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
-import { useActiveAccount, useSendTransaction } from "thirdweb/react";
 import {
   prepareContractCall,
   sendTransaction,
   toUnits,
-  toWei,
   waitForReceipt,
 } from "thirdweb";
+import { useActiveAccount } from "thirdweb/react";
 
-import { verifyPhoneNumber, pretiumOfframp } from "@/lib/pretiumService";
-import { chain, client, usdcContract } from "@/constants/thirdweb";
 import { pretiumSettlementAddress } from "@/constants/contractAddress";
+import { chain, client, usdcContract } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
+import { pretiumOfframp, verifyPhoneNumber } from "@/lib/pretiumService";
 
 interface Verification {
   success: boolean;
@@ -43,12 +41,8 @@ interface Verification {
 export default function WithdrawCryptoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [selectedMethod, setSelectedMethod] = useState<"mpesa" | "crypto">(
-    "mpesa"
-  );
   const [amount, setAmount] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [walletAddress, setWalletAddress] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState<
     "idle" | "processing" | "completed" | "failed"
@@ -59,7 +53,6 @@ export default function WithdrawCryptoScreen() {
   const [verifiedPhoneData, setVerifiedPhoneData] =
     useState<Verification | null>(null);
   const [verificationError, setVerificationError] = useState("");
-  const { mutate: sendTx, data: transactionResult } = useSendTransaction();
   const { USDCBalance, totalBalance, address, currencyCode, offramp } =
     useLocalSearchParams();
   const { token, user } = useAuth();
@@ -73,22 +66,6 @@ export default function WithdrawCryptoScreen() {
       name: "USD Coin",
       balance: USDCBalance,
       image: require("@/assets/images/usdclogo.png"),
-    },
-  ];
-
-  const withdrawMethods = [
-    {
-      id: "mpesa",
-      title: "M-Pesa",
-      subtitle: "Instant • Converted to KES",
-      icon: <Smartphone size={22} color="#10b981" />,
-      image: require("@/assets/images/mpesa.png"),
-    },
-    {
-      id: "crypto",
-      title: "External Wallet",
-      subtitle: "Instant • No additional fees",
-      icon: <Wallet size={22} color="#3b82f6" />,
     },
   ];
 
@@ -188,57 +165,15 @@ export default function WithdrawCryptoScreen() {
       return;
     }
 
-    if (selectedMethod === "mpesa" && phoneNumber.length !== 9) {
+    if (phoneNumber.length !== 9) {
       Alert.alert("Error", "Please enter a valid phone number");
       return;
     }
 
-    if (selectedMethod === "crypto" && !walletAddress.trim()) {
-      Alert.alert("Error", "Please enter wallet address");
-      return;
-    }
-
-    // For crypto withdrawals, proceed directly
-    if (selectedMethod === "crypto") {
-      handleCryptoWithdraw();
-      return;
-    }
-
-    // For M-Pesa, show verification modal
+    // Show verification modal
     setShowVerificationModal(true);
     // Auto-verify when modal opens
     handleVerifyPhoneNumber();
-  };
-
-  // Handle crypto withdrawal (direct to wallet)
-  const handleCryptoWithdraw = async () => {
-    setIsProcessing(true);
-    setProcessingStep("processing");
-
-    try {
-      const txHash = await transferUSDC(amount, walletAddress as `0x${string}`);
-      if (!txHash) {
-        throw new Error("Unable to send the usdc.");
-      }
-      setProcessingStep("completed");
-      setTimeout(() => {
-        setIsProcessing(false);
-        setProcessingStep("idle");
-        Alert.alert("Success!", `${amount} USDC sent to wallet`, [
-          {
-            text: "OK",
-            onPress: () => router.push("/wallet"),
-          },
-        ]);
-      }, 2000);
-    } catch (error) {
-      console.log("the error on transfer", error);
-      setProcessingStep("failed");
-      setTimeout(() => {
-        setIsProcessing(false);
-        setProcessingStep("idle");
-      }, 2000);
-    }
   };
 
   // Handle confirmed M-Pesa withdrawal
@@ -337,11 +272,11 @@ export default function WithdrawCryptoScreen() {
           >
             <ArrowLeft size={20} color="white" />
           </TouchableOpacity>
-          <Text className="text-2xl font-bold text-white">Withdraw Crypto</Text>
+          <Text className="text-2xl font-bold text-white">Withdraw to M-Pesa</Text>
           <View className="w-10" />
         </View>
         <Text className="text-emerald-100 text-sm text-center mt-1">
-          Convert crypto to mobile money or send to wallet
+          Convert crypto to mobile money (fiat money)
         </Text>
       </View>
 
@@ -355,100 +290,64 @@ export default function WithdrawCryptoScreen() {
           className="flex-1"
         >
           <View className="px-6 py-6 gap-5">
-            {/* Withdrawal Method */}
+            {/* M-Pesa Method Display */}
             <View className="bg-white p-6 rounded-2xl shadow-sm">
               <Text className="text-base font-bold text-gray-900 mb-4">
                 Withdrawal Method
               </Text>
-              <View className="gap-3">
-                {withdrawMethods.map((method) => (
-                  <TouchableOpacity
-                    key={method.id}
-                    onPress={() => {
-                      setSelectedMethod(method.id as any);
-                      setPhoneNumber("");
-                      setWalletAddress("");
-                      setAmount("");
-                    }}
-                    className={`flex-row items-center justify-between p-4 rounded-xl border-2 ${
-                      selectedMethod === method.id
-                        ? "border-emerald-500 bg-emerald-50"
-                        : "border-gray-200 bg-gray-50"
-                    }`}
-                    activeOpacity={0.7}
-                  >
-                    <View className="flex-row items-center flex-1">
-                      <View
-                        className={`w-12 h-12 rounded-full items-center justify-center mr-3 ${
-                          selectedMethod === method.id
-                            ? "bg-white border-2 border-emerald-200"
-                            : "bg-white border border-gray-200"
-                        }`}
-                      >
-                        {method.icon}
-                      </View>
-                      <View className="flex-1">
-                        {method.id === "mpesa" ? (
-                          <View>
-                            <Image
-                              source={method.image}
-                              className="h-10 w-16"
-                            />
-                          </View>
-                        ) : (
-                          <Text className="text-base font-semibold text-gray-900">
-                            {method.title}
-                          </Text>
-                        )}
-
-                        <Text className="text-xs text-gray-600 mt-0.5">
-                          {method.subtitle}
-                        </Text>
-                      </View>
-                    </View>
-                    {selectedMethod === method.id && (
-                      <View className="w-6 h-6 rounded-full bg-emerald-600 items-center justify-center">
-                        <Check size={14} color="white" strokeWidth={3} />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                ))}
+              <View className="flex-row items-center justify-between p-4 rounded-xl border-2 border-emerald-500 bg-emerald-50">
+                <View className="flex-row items-center flex-1">
+                  <View className="w-12 h-12 rounded-full items-center justify-center mr-3 bg-white border-2 border-emerald-200">
+                    <Smartphone size={22} color="#10b981" />
+                  </View>
+                  <View className="flex-1">
+                    <Image
+                      source={require("@/assets/images/mpesa.png")}
+                      className="h-10 w-16"
+                      resizeMode="contain"
+                    />
+                    <Text className="text-xs text-gray-600 mt-0.5">
+                      Instant • Converted to KES
+                    </Text>
+                  </View>
+                </View>
+                <View className="w-6 h-6 rounded-full bg-emerald-600 items-center justify-center">
+                  <Check size={14} color="white" strokeWidth={3} />
+                </View>
               </View>
             </View>
 
-            {/* Destination Details */}
-            {selectedMethod === "mpesa" && (
-              <View className="bg-white p-6 rounded-2xl shadow-sm">
-                <Text className="text-base font-bold text-gray-900 mb-2">
-                  M-Pesa Phone Number
-                </Text>
-                <Text className="text-sm text-gray-500 mb-3">
-                  Enter your M-Pesa registered number (To receive KES)
-                </Text>
+            {/* M-Pesa Phone Number */}
+            <View className="bg-white px-5 py-6 rounded-2xl shadow-sm">
+            <Text className="text-base font-bold text-gray-900 mb-2">
+              M-Pesa Phone Number
+            </Text>
+            <Text className="text-sm text-gray-500 mb-3">
+              Enter your M-Pesa registered number
+            </Text>
 
-                <View className="flex-row items-center bg-gray-50 rounded-xl border-2 border-gray-200 px-4 py-3">
-                  <Text className="text-base font-semibold text-gray-700 mr-2">
-                    +254
-                  </Text>
-                  <TextInput
-                    value={phoneNumber}
-                    onChangeText={(text) => {
-                      const cleaned = text.replace(/[^0-9]/g, "").slice(0, 9);
-                      setPhoneNumber(cleaned);
-                    }}
-                    placeholder="712345678"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="phone-pad"
-                    maxLength={9}
-                    style={{ fontSize: 16, padding: 0, margin: 0 }}
-                    className="flex-1"
-                  />
-                </View>
-                <Text className="text-xs text-gray-400 mt-2 ml-1">
-                  Format: 7XXXXXXXX or 1XXXXXXXX
-                </Text>
-              </View>
-            )}
+            <View className="flex-row items-center bg-gray-50 rounded-xl border-2 border-gray-200 px-4 py-3">
+              <Text className="text-base font-semibold text-gray-700 mr-2">
+                +254
+              </Text>
+              <TextInput
+                value={phoneNumber}
+                onChangeText={(text) => {
+                  const cleaned = text.replace(/[^0-9]/g, "").slice(0, 9);
+                  setPhoneNumber(cleaned);
+                }}
+                placeholder="712345678"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="phone-pad"
+                maxLength={9}
+                style={{ fontSize: 16, padding: 0, margin: 0 }}
+                className="flex-1"
+              />
+            </View>
+            <Text className="text-xs text-gray-400 mt-2 ml-1">
+              Format: 7XXXXXXXX or 1XXXXXXXX
+            </Text>
+          </View>
 
             {/* Amount Input */}
             <View className="bg-white p-6 rounded-2xl shadow-sm">
@@ -487,8 +386,8 @@ export default function WithdrawCryptoScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Show conversion breakdown for M-Pesa */}
-              {selectedMethod === "mpesa" && parseFloat(amount) > 0 && (
+              {/* Show conversion breakdown */}
+              {parseFloat(amount) > 0 && (
                 <>
                   <View className="my-5 flex-row items-center">
                     <View className="flex-1 h-px bg-gray-200" />
@@ -548,33 +447,6 @@ export default function WithdrawCryptoScreen() {
               )}
             </View>
 
-            {selectedMethod === "crypto" && (
-              <View className="bg-white p-6 rounded-2xl shadow-sm">
-                <Text className="text-base font-bold text-gray-900 mb-2">
-                  Destination Wallet
-                </Text>
-                <Text className="text-sm text-gray-500 mb-3">
-                  Enter the wallet address to receive USDC
-                </Text>
-
-                <TextInput
-                  value={walletAddress}
-                  onChangeText={setWalletAddress}
-                  placeholder="0x..."
-                  className="bg-gray-50 border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900"
-                  placeholderTextColor="#9CA3AF"
-                  multiline={true}
-                  numberOfLines={2}
-                />
-
-                <View className="mt-3 bg-amber-50 p-3 rounded-xl border border-amber-200 flex-row">
-                  <Text className="text-xs text-amber-700 flex-1 leading-4">
-                    Double-check the address. Transactions cannot be reversed.
-                  </Text>
-                </View>
-              </View>
-            )}
-
             {/* Withdraw Button */}
             <TouchableOpacity
               onPress={handleInitialWithdraw}
@@ -583,16 +455,14 @@ export default function WithdrawCryptoScreen() {
                 parseFloat(amount) <= 0 ||
                 parseFloat(amount) >
                   parseFloat(currentToken.balance.toString()) ||
-                (selectedMethod === "mpesa" && phoneNumber.length !== 9) ||
-                (selectedMethod === "crypto" && !walletAddress.trim())
+                phoneNumber.length !== 9
               }
               className={`w-full py-4 rounded-2xl shadow-lg ${
                 !amount.trim() ||
                 parseFloat(amount) <= 0 ||
                 parseFloat(amount) >
                   parseFloat(currentToken.balance.toString()) ||
-                (selectedMethod === "mpesa" && phoneNumber.length !== 9) ||
-                (selectedMethod === "crypto" && !walletAddress.trim())
+                phoneNumber.length !== 9
                   ? "bg-gray-300"
                   : "bg-downy-600"
               }`}
@@ -604,26 +474,21 @@ export default function WithdrawCryptoScreen() {
                   parseFloat(amount) <= 0 ||
                   parseFloat(amount) >
                     parseFloat(currentToken.balance.toString()) ||
-                  (selectedMethod === "mpesa" && phoneNumber.length !== 9) ||
-                  (selectedMethod === "crypto" && !walletAddress.trim())
+                  phoneNumber.length !== 9
                     ? "text-gray-500"
                     : "text-white"
                 }`}
               >
-                {selectedMethod === "mpesa"
-                  ? "Withdraw to M-Pesa"
-                  : "Withdraw to Wallet"}
+                Withdraw to M-Pesa
               </Text>
             </TouchableOpacity>
 
             {/* Info Note */}
-            {selectedMethod === "mpesa" && (
-              <View className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-                <Text className="text-xs text-blue-800 text-center">
-                  💡 Funds will be sent to your M-Pesa account instantly
-                </Text>
-              </View>
-            )}
+            <View className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+              <Text className="text-xs text-blue-800 text-center">
+                💡 Funds will be sent to your M-Pesa account instantly
+              </Text>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -764,9 +629,7 @@ export default function WithdrawCryptoScreen() {
                   Processing Withdrawal
                 </Text>
                 <Text className="text-sm text-gray-600 text-center mt-2">
-                  {selectedMethod === "mpesa"
-                    ? `Sending ${currencyCode} ${finalKESAmount} to +254${phoneNumber}`
-                    : `Sending ${amount} USDC to wallet`}
+                  Sending {currencyCode} {finalKESAmount} to +254{phoneNumber}
                 </Text>
               </>
             )}
