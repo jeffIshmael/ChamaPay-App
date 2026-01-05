@@ -208,6 +208,7 @@ interface DbJoinRequest {
     name: string;
     slug: string;
     blockchainId:number;
+    round: number
   };
   user: {
     id: number;
@@ -445,7 +446,7 @@ export const transformChamaData = (
     raterCount: backendChama.raterCount || 0,
 
     category: backendChama.type,
-    location: "Nairobi",
+    canJoin:  backendChama.round == 1 ,
     adminTerms: backendChama.adminTerms
       ? typeof backendChama.adminTerms === "string"
         ? JSON.parse(backendChama.adminTerms)
@@ -706,7 +707,8 @@ export const transformNotification = async (
         requestUserId: request.user.id,
         requestUserName: request.user?.userName,
         requestUserAddress: request.user.address,
-        chamaBlockchainId: request.chama.blockchainId
+        chamaBlockchainId: request.chama.blockchainId,
+        canAdd: request.chama.round == 1 ,
       };
 
       transformedNotifications.push(transformed);

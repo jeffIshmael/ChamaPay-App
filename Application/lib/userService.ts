@@ -70,6 +70,7 @@ export async function handleTheRequestToJoin(
   chamaId: number,
   decision: "approve" | "reject",
   requestId: number,
+  userName: string,
   token: string
 ): Promise<joinRequestResponse> {
   try {
@@ -82,6 +83,7 @@ export async function handleTheRequestToJoin(
       body: JSON.stringify({
         chamaId,
         requestId,
+        userName,
         decision,
       }),
     });

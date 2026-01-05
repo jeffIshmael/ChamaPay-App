@@ -852,34 +852,69 @@ export default function ChamaDetails() {
                   active={activeTab === "terms"}
                 />
               </View>
-
               {/* Tab Content */}
               {activeTab === "overview" && renderOverview()}
               {activeTab === "terms" && renderTerms()}
 
               {/* Inline Join Button (not fixed) */}
               <View className="mt-6">
-                <TouchableOpacity
-                  onPress={handleJoinChama}
-                  disabled={isJoining}
-                  className={`w-full py-4 rounded-2xl items-center justify-center flex-row gap-3 shadow-md ${
-                    isJoining ? "bg-gray-400" : "bg-emerald-600"
-                  }`}
-                  activeOpacity={0.85}
-                >
-                  {isJoining && (
-                    <ActivityIndicator size="small" color="white" />
-                  )}
-                  <Text className="text-white font-bold text-lg">
-                    {isJoining
-                      ? chama.isPublic
-                        ? "Joining..."
-                        : "Sending Request..."
-                      : chama.isPublic
-                        ? "Join Chama"
-                        : "Request to Join Chama"}
-                  </Text>
-                </TouchableOpacity>
+                {!chama.canJoin ? (
+                  // Show disabled state with explanation when user can't join
+                  <View className="w-full bg-gray-100 border-2 border-gray-200 rounded-2xl p-6">
+                    <View className="items-center mb-4">
+                      <View className="w-16 h-16 bg-amber-100 rounded-full items-center justify-center mb-3">
+                        <Text className="text-3xl">⏰</Text>
+                      </View>
+                      <Text className="text-xl font-bold text-gray-900 mb-2 text-center">
+                        Joining Not Available
+                      </Text>
+                      <Text className="text-gray-600 text-center text-sm leading-6">
+                        This chama has already made a payout for the current
+                        cycle. Please check back after the next contribution
+                        cycle begins.
+                      </Text>
+                    </View>
+
+                    {/* Info Box */}
+                    <View className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                      <View className="flex-row items-start gap-3">
+                        <Text className="text-lg">ℹ️</Text>
+                        <View className="flex-1">
+                          <Text className="text-amber-800 font-semibold text-sm mb-1">
+                            Why can't I join now?
+                          </Text>
+                          <Text className="text-amber-700 text-xs leading-5">
+                            To maintain fairness, new members can only join
+                            before the payout phase of each contribution cycle.
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                ) : (
+                  // Original join button when canJoin is true
+                  <TouchableOpacity
+                    onPress={handleJoinChama}
+                    disabled={isJoining}
+                    className={`w-full py-4 rounded-2xl items-center justify-center flex-row gap-3 shadow-md ${
+                      isJoining ? "bg-gray-400" : "bg-emerald-600"
+                    }`}
+                    activeOpacity={0.85}
+                  >
+                    {isJoining && (
+                      <ActivityIndicator size="small" color="white" />
+                    )}
+                    <Text className="text-white font-bold text-lg">
+                      {isJoining
+                        ? chama.isPublic
+                          ? "Joining..."
+                          : "Sending Request..."
+                        : chama.isPublic
+                          ? "Join Chama"
+                          : "Request to Join Chama"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           </ScrollView>

@@ -152,8 +152,10 @@ contract ChamaPay is
         require(_chamaId < chamas.length, "The chamaId does not exist");
         Chama storage chama = chamas[_chamaId];
         require(chama.members.length < 15, "Chama already has max members.");
+        require(chama.round == 1, "member cannot join mid cycle.");
+        require(!isMember(_chamaId,_address), "Already a member of the chama.");
         chama.members.push(_address);
-        if(block.timestamp < chama.startDate && chama.payoutOrder.length > 0) {
+        if(block.timestamp > chama.startDate && chama.payoutOrder.length > 0 ) {
             chama.payoutOrder.push(_address);
         }
         emit MemberAdded(_chamaId, _address);
@@ -165,7 +167,8 @@ contract ChamaPay is
         require(chama.isPublic, "This is not a public chama.");
         require(chama.members.length < chama.maxMembers, "Chama already has max members");
         require(!isMember(_chamaId, msg.sender), "Already a member of the chama.");
-        require(_amount >= chama.amount, "Amount too small.");
+        require(chama.round == 1, "member cannot join mid cycle.");
+        require(_amount >= chama.amount * chama.maxMembers, "Amount too small.");
         
         require(
             USDCToken.transferFrom(msg.sender, address(this), _amount),
@@ -173,7 +176,7 @@ contract ChamaPay is
         );
         
         chama.members.push(msg.sender);
-        if(block.timestamp < chama.startDate && chama.payoutOrder.length > 0) {
+        if(block.timestamp > chama.startDate && chama.payoutOrder.length > 0) {
             chama.payoutOrder.push(msg.sender);
         }
         chama.lockedAmounts[msg.sender] += chama.amount;
