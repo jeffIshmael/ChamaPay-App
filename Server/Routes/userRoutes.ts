@@ -17,20 +17,22 @@ import authenticate from "../Middlewares/authMiddleware";
 
 const router: Router = express.Router();
 
-// Public functions
+// Post functions
 router.post("/checkUserExists", checkUserExists);
 router.post("/checkUsernameAvailability", checkUsernameAvailability);
-router.get("/search", searchUsers);
 router.post("/registerPayment", authenticate, registerPayment);
-router.post("/joinRequest", authenticate, sendJoinRequest);
 router.post("/confirmRequest", authenticate, confirmJoinRequest);
 
 
-// Authenticated functions
+// get routes functions
 router.get("/", authenticate, getUser);
 router.get("/details", authenticate, getUserDetails);
 router.get("/hasRequest", authenticate, checkHasJoinRequest);
 router.put("/profile", authenticate, updateUserProfile);
+router.get("/search", searchUsers);
+
+// with params
 router.get("/:userId", authenticate, getUserById);
+router.get("/:userId/joinRequest", sendJoinRequest);
 
 export default router; 

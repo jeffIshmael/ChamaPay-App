@@ -15,7 +15,10 @@ interface joinRequestResponse {
   success: boolean;
   request: {} | null;
 }
-
+interface hasRequestResponse {
+  success: boolean;
+  hasRequest: boolean;
+}
 // function to register a payment to the database
 export async function registerPayment(
   receiver: string,
@@ -92,5 +95,25 @@ export async function handleTheRequestToJoin(
   } catch (error) {
     console.error("Error registering payment:", error);
     return { success: false, request: null };
+  }
+}
+
+// function to check user has an existing request
+export async function checkHasSentRequest(
+  chamaId: number,
+  userId: number
+): Promise<hasRequestResponse> {
+  try {
+    const response = await fetch(
+      `${serverUrl}/user/${userId}/hasRequest?chamaId=${chamaId}`,
+      {
+        method: "GET",
+      }
+    );
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error registering payment:", error);
+    return { success: false, hasRequest: false };
   }
 }

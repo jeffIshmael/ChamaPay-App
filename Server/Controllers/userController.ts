@@ -536,10 +536,10 @@ export const checkHasJoinRequest = async (
   res: Response
 ): Promise<void> => {
   const { chamaId } = req.query;
+  const { userId } = req.params;
   try {
-    const userId: number = req.user?.userId as number;
-    if (!req.user?.userId) {
-      res.status(401).json({ message: "User not authenticated" });
+    if (!userId) {
+      res.status(401).json({ message: "No user Id provided." });
       return;
     }
 
@@ -548,8 +548,19 @@ export const checkHasJoinRequest = async (
       return;
     }
 
+    const user = await prisma.user.findUnique({
+      where: {
+        id: Number(userId),
+      },
+    });
+
+    if (!user) {
+      res.status(400).json({ success: false, error: "user not found." });
+      return;
+    }
+
     // if user has
-    const hasRequest = await checkHasPendingRequest(userId, Number(chamaId));
+    const hasRequest = await checkHasPendingRequest(Number(userId), Number(chamaId));
     if (hasRequest === null) {
       res
         .status(400)
