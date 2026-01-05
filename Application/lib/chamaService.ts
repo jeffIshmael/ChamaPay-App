@@ -141,7 +141,7 @@ interface allUserDetails {
     notifications: [];
     payOuts: [];
     payments: [];
-    sentRequests:[];
+    sentRequests: [];
     phoneNo: null | string;
     profileImageUrl: string;
     smartAddress: string;
@@ -194,6 +194,7 @@ interface DbNotification {
   chama?: {
     id: number;
     name: string;
+    slug: string;
   } | null;
 }
 
@@ -208,8 +209,8 @@ interface DbJoinRequest {
     id: number;
     name: string;
     slug: string;
-    blockchainId:number;
-    round: number
+    blockchainId: number;
+    round: number;
   };
   user: {
     id: number;
@@ -404,7 +405,6 @@ export const transformChamaData = (
     ? nextPayoutEntry.payDate
     : backendChama.payDate;
 
-
   return {
     id: backendChama.id,
     slug: backendChama.slug,
@@ -448,7 +448,7 @@ export const transformChamaData = (
     raterCount: backendChama.raterCount || 0,
 
     category: backendChama.type,
-    canJoin:  backendChama.round == 1 ,
+    canJoin: backendChama.round == 1,
     adminTerms: backendChama.adminTerms
       ? typeof backendChama.adminTerms === "string"
         ? JSON.parse(backendChama.adminTerms)
@@ -607,7 +607,7 @@ export const getUserDetails = async (
         notifications: [],
         payOuts: [],
         payments: [],
-        sentRequests:[],
+        sentRequests: [],
         phoneNo: null,
         profileImageUrl: "",
         smartAddress: "",
@@ -634,13 +634,15 @@ const mapNotificationType = (type: string | null): Notification["type"] => {
       return "contribution_due"; // Map to existing type
     case "round_complete":
       return "payout_scheduled";
+    case "chama_started":
+      return "chama_started";
     default:
       return "other"; // Default fallback
   }
 };
 
 // Helper function to generate user-friendly titles
-const generateNotificationTitle = (type: string | null): string => {
+const generateNotificationTitle = (type: string | null, chamaName: string): string => {
   switch (type) {
     case "contribution_due":
       return "Contribution Due Soon";
@@ -660,6 +662,8 @@ const generateNotificationTitle = (type: string | null): string => {
       return "Request Approved";
     case "request_rejected":
       return "Request Declined";
+    case "chama_started":
+      return `${chamaName} Chama Started`;
     default:
       return "Notification";
   }
@@ -678,13 +682,14 @@ export const transformNotification = async (
       const transformed: Notification = {
         id: notif.id.toString(),
         type: mapNotificationType(notif.type),
-        title: generateNotificationTitle(notif.type),
+        title: generateNotificationTitle(notif.type, notif.chama?.name!),
         message: notif.message,
         timestamp: notif.createdAt,
         read: notif.read,
         actionRequired: false,
         chama: notif.chama?.name || "Unknown Chama",
         chamaId: notif.chamaId,
+        chamaSlug: notif.chama?.slug
       };
 
       transformedNotifications.push(transformed);
@@ -710,7 +715,7 @@ export const transformNotification = async (
         requestUserName: request.user?.userName,
         requestUserAddress: request.user.address,
         chamaBlockchainId: request.chama.blockchainId,
-        canAdd: request.chama.round == 1 ,
+        canAdd: request.chama.round == 1,
       };
 
       transformedNotifications.push(transformed);

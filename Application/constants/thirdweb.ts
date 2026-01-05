@@ -30,7 +30,7 @@ if (!clientId || !secretKey) {
 // Initialize the Thirdweb client
 export const client = createThirdwebClient({
   clientId,
-  // secretKey,
+  secretKey,
 });
 
 // Set your primary chain (Celo)

@@ -19,6 +19,10 @@ interface hasRequestResponse {
   success: boolean;
   hasRequest: boolean;
 }
+interface shareLinkResponse {
+  success: boolean;
+  notification: {};
+}
 // function to register a payment to the database
 export async function registerPayment(
   receiver: string,
@@ -115,5 +119,34 @@ export async function checkHasSentRequest(
   } catch (error) {
     console.error("Error registering payment:", error);
     return { success: false, hasRequest: false };
+  }
+}
+
+// function to share chama link
+export async function shareChamaLink(
+  senderName: string,
+  receiverId: number,
+  chamaSlug: string,
+  token: string
+): Promise<shareLinkResponse> {
+  try {
+    const message = `${senderName} has shared a chama to you. Tap to view.`;
+    const response = await fetch(`${serverUrl}/user/shareLink`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        receiverId,
+        message,
+        chamaSlug,
+      }),
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error sending sharing link:", error);
+    return { success: false, notification: {} };
   }
 }

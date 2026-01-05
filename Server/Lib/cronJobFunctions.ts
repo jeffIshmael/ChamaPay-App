@@ -89,7 +89,14 @@ export const checkPaydate = async () => {
       return;
     }
     for (const chama of chamasThatHaveReachedPaydate) {
+      const chamaPayoutOrder = chama.payOutOrder
+        ? JSON.parse(chama.payOutOrder)
+        : [];
+      if (chamaPayoutOrder.length !== chama.members.length) {
+        throw new Error("Payout order length mismatch");
+      }
       // trigger the payout on the blockchain
+
       // the pimlico requires it as an array
       const arrayBlockchainId = [Number(chama.blockchainId)];
       const receipt = await pimlicoProcessPayout(arrayBlockchainId);
