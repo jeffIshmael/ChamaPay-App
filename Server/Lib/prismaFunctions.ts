@@ -127,55 +127,37 @@ export async function sortRequest(requestId: number, approve: boolean) {
 // functions to get requests that a user has to approve
 export async function getSentRequests(userId: number) {
   try {
-    // get the chamas user is admin
-    const userChamas = await prisma.chama.findMany({
+    return await prisma.chamaRequest.findMany({
       where: {
-        adminId: userId,
+        chama: {
+          adminId: userId,
+        },
+      },
+      include: {
+        chama: true,
+        user: true,
       },
     });
-
-    if (userChamas.length == 0) {
-      return [];
-    }
-
-    let requests = [];
-    // check the one that has requests
-    for (let i = 0; i < userChamas.length; i++) {
-      const chama = userChamas[i];
-      // get the request
-      const results = await prisma.chamaRequest.findMany({
-        where: {
-          chamaId: chama.id,
-          // status: "pending"
-        },
-        include: {
-          chama: true,
-          user: true,
-        },
-      });
-      requests.push(results);
-    }
-    return requests;
   } catch (error) {
     console.error("approve request error", error);
-    return null;
+    return [];
   }
 }
 
 /// function to check whether userhas a chama's join request
-export async function checkHasPendingRequest(userId: number, chamaId: number){
+export async function checkHasPendingRequest(userId: number, chamaId: number) {
   try {
     const request = await prisma.chamaRequest.findFirst({
-      where:{
+      where: {
         chamaId: chamaId,
         userId: userId,
-        status: "pending"
-      }
+        status: "pending",
+      },
     });
-    if(request) return true;
+    if (request) return true;
     return false;
   } catch (error) {
     console.error("Unable to check if there is request", error);
-    return null; 
+    return null;
   }
 }
