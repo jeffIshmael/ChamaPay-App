@@ -129,26 +129,30 @@ export async function getSentRequests(userId: number) {
   try {
     // get the chamas user is admin
     const userChamas = await prisma.chama.findMany({
-      where:{
+      where: {
         adminId: userId,
-      }
+      },
     });
 
-    if (userChamas.length == 0){
+    if (userChamas.length == 0) {
       return [];
     }
 
     let requests = [];
     // check the one that has requests
-    for(let i=0; i < userChamas.length; i++){
+    for (let i = 0; i < userChamas.length; i++) {
       const chama = userChamas[i];
       // get the request
       const results = await prisma.chamaRequest.findMany({
-        where:{
+        where: {
           chamaId: chama.id,
           // status: "pending"
-        }
-      })
+        },
+        include: {
+          chama: true,
+          user: true,
+        },
+      });
       requests.push(results);
     }
     return requests;
@@ -158,3 +162,20 @@ export async function getSentRequests(userId: number) {
   }
 }
 
+/// function to check whether userhas a chama's join request
+export async function checkHasPendingRequest(userId: number, chamaId: number){
+  try {
+    const request = await prisma.chamaRequest.findFirst({
+      where:{
+        chamaId: chamaId,
+        userId: userId,
+        status: "pending"
+      }
+    });
+    if(request) return true;
+    return false;
+  } catch (error) {
+    console.error("Unable to check if there is request", error);
+    return null; 
+  }
+}

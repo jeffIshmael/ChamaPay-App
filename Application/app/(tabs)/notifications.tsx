@@ -1,8 +1,5 @@
 import { useAuth } from "@/Contexts/AuthContext";
-import { 
-  getUserDetails, 
-  transformNotification
-} from "@/lib/chamaService";
+import { getUserDetails, transformNotification } from "@/lib/chamaService";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
@@ -17,14 +14,14 @@ import {
   Check,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import { 
-  ScrollView, 
-  Text, 
-  TouchableOpacity, 
-  View, 
+import {
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
   ActivityIndicator,
   Alert,
-  RefreshControl 
+  RefreshControl,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -36,7 +33,8 @@ export interface Notification {
     | "new_message"
     | "member_joined"
     | "payout_scheduled"
-    | "join_request" | "other";
+    | "join_request"
+    | "other";
   title: string;
   message: string;
   timestamp: string;
@@ -53,11 +51,13 @@ export default function Notifications() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, token } = useAuth();
-  
+
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [processingRequestId, setProcessingRequestId] = useState<number | null>(null);
+  const [processingRequestId, setProcessingRequestId] = useState<number | null>(
+    null
+  );
 
   const getNotificationIcon = (type: Notification["type"]) => {
     const iconProps = { size: 20 };
@@ -105,12 +105,13 @@ export default function Notifications() {
       const details = await getUserDetails(token);
       console.log("Raw notifications:", details.user.notifications);
       console.log("Raw join requests:", details.user.joinRequests);
-      
+      console.log("Raw sent requests:", details.user.sentRequests);
+
       const transformedNotifications = await transformNotification(
         details.user.notifications,
-        details.user.joinRequests
+        details.user.sentRequests
       );
-      
+
       console.log("Transformed notifications:", transformedNotifications);
       setNotifications(transformedNotifications);
     } catch (error) {
@@ -131,66 +132,66 @@ export default function Notifications() {
     fetchNotifications();
   }, [token]);
 
-  const handleJoinRequest = async (
-    requestId: number,
-    action: "approve" | "reject",
-    userName: string
-  ) => {
-    if (!token) return;
+  // const handleJoinRequest = async (
+  //   requestId: number,
+  //   action: "approve" | "reject",
+  //   userName: string
+  // ) => {
+  //   if (!token) return;
 
-    Alert.alert(
-      action === "approve" ? "Approve Request" : "Reject Request",
-      `Are you sure you want to ${action} ${userName}'s request to join?`,
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: action === "approve" ? "Approve" : "Reject",
-          style: action === "approve" ? "default" : "destructive",
-          onPress: async () => {
-            setProcessingRequestId(requestId);
-            const result = await handleJoinRequestAction(requestId, action, token);
-            setProcessingRequestId(null);
+  //   Alert.alert(
+  //     action === "approve" ? "Approve Request" : "Reject Request",
+  //     `Are you sure you want to ${action} ${userName}'s request to join?`,
+  //     [
+  //       {
+  //         text: "Cancel",
+  //         style: "cancel",
+  //       },
+  //       {
+  //         text: action === "approve" ? "Approve" : "Reject",
+  //         style: action === "approve" ? "default" : "destructive",
+  //         onPress: async () => {
+  //           setProcessingRequestId(requestId);
+  //           const result = await handleJoinRequestAction(requestId, action, token);
+  //           setProcessingRequestId(null);
 
-            if (result.success) {
-              Alert.alert(
-                "Success",
-                `Request ${action === "approve" ? "approved" : "rejected"} successfully`
-              );
-              // Remove the notification from the list
-              setNotifications(prev => 
-                prev.filter(n => n.requestId !== requestId)
-              );
-            } else {
-              Alert.alert("Error", result.error || "Action failed");
-            }
-          },
-        },
-      ]
-    );
-  };
+  //           if (result.success) {
+  //             Alert.alert(
+  //               "Success",
+  //               `Request ${action === "approve" ? "approved" : "rejected"} successfully`
+  //             );
+  //             // Remove the notification from the list
+  //             setNotifications(prev =>
+  //               prev.filter(n => n.requestId !== requestId)
+  //             );
+  //           } else {
+  //             Alert.alert("Error", result.error || "Action failed");
+  //           }
+  //         },
+  //       },
+  //     ]
+  //   );
+  // };
 
-  const handleNotificationPress = async (notification: Notification) => {
-    // Mark as read if it's not a join request
-    if (!notification.actionRequired && !notification.read && token) {
-      const numericId = parseInt(notification.id.replace("request-", ""));
-      if (!isNaN(numericId)) {
-        await markNotificationAsRead(numericId, token);
-        // Update local state
-        setNotifications(prev =>
-          prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
-        );
-      }
-    }
+  // const handleNotificationPress = async (notification: Notification) => {
+  //   // Mark as read if it's not a join request
+  //   if (!notification.actionRequired && !notification.read && token) {
+  //     const numericId = parseInt(notification.id.replace("request-", ""));
+  //     if (!isNaN(numericId)) {
+  //       await markNotificationAsRead(numericId, token);
+  //       // Update local state
+  //       setNotifications(prev =>
+  //         prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
+  //       );
+  //     }
+  //   }
 
-    // Navigate to relevant screen based on type
-    if (notification.chamaId) {
-      // You can navigate to the chama detail screen
-      // router.push(`/chama/${notification.chamaId}`);
-    }
-  };
+  //   // Navigate to relevant screen based on type
+  //   if (notification.chamaId) {
+  //     // You can navigate to the chama detail screen
+  //     // router.push(`/chama/${notification.chamaId}`);
+  //   }
+  // };
 
   const unreadCount: number = notifications.filter((n) => !n.read).length;
 
@@ -227,7 +228,6 @@ export default function Notifications() {
 
         {/* Loading Content */}
         <View className="flex-1 p-4">
-         
           {/* Skeleton Cards */}
           {[1, 2, 3, 4, 5].map((item) => (
             <View
@@ -241,11 +241,11 @@ export default function Notifications() {
                 <View className="flex-1">
                   {/* Title Skeleton */}
                   <View className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
-                  
+
                   {/* Message Skeleton */}
                   <View className="h-3 bg-gray-200 rounded w-full mb-1" />
                   <View className="h-3 bg-gray-200 rounded w-5/6 mb-3" />
-                  
+
                   {/* Footer Skeleton */}
                   <View className="flex-row items-center justify-between">
                     <View className="h-3 bg-gray-200 rounded w-20" />
@@ -255,8 +255,6 @@ export default function Notifications() {
               </View>
             </View>
           ))}
-
-        
         </View>
       </View>
     );
@@ -302,8 +300,8 @@ export default function Notifications() {
       </View>
 
       {/* Notifications List */}
-      <ScrollView 
-        className="flex-1 p-4" 
+      <ScrollView
+        className="flex-1 p-4"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
@@ -312,7 +310,7 @@ export default function Notifications() {
         {notifications.map((notification: Notification) => (
           <TouchableOpacity
             key={notification.id}
-            onPress={() => handleNotificationPress(notification)}
+            // onPress={() => handleNotificationPress(notification)}
             className={`mb-3 p-4 bg-white rounded-xl border border-gray-200 ${
               !notification.read
                 ? "border-l-4 border-l-emerald-500 bg-emerald-50"
@@ -361,13 +359,13 @@ export default function Notifications() {
                 {notification.actionRequired && notification.requestId && (
                   <View className="flex-row gap-2 mt-3">
                     <TouchableOpacity
-                      onPress={() =>
-                        handleJoinRequest(
-                          notification.requestId!,
-                          "approve",
-                          notification.requestUserName || "User"
-                        )
-                      }
+                      // onPress={() =>
+                      //   handleJoinRequest(
+                      //     notification.requestId!,
+                      //     "approve",
+                      //     notification.requestUserName || "User"
+                      //   )
+                      // }
                       disabled={processingRequestId === notification.requestId}
                       className="flex-1 bg-emerald-500 py-2.5 rounded-lg flex-row items-center justify-center gap-2"
                       activeOpacity={0.7}
@@ -385,13 +383,13 @@ export default function Notifications() {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      onPress={() =>
-                        handleJoinRequest(
-                          notification.requestId!,
-                          "reject",
-                          notification.requestUserName || "User"
-                        )
-                      }
+                      // onPress={() =>
+                      //   handleJoinRequest(
+                      //     notification.requestId!,
+                      //     "reject",
+                      //     notification.requestUserName || "User"
+                      //   )
+                      // }
                       disabled={processingRequestId === notification.requestId}
                       className="flex-1 bg-red-500 py-2.5 rounded-lg flex-row items-center justify-center gap-2"
                       activeOpacity={0.7}

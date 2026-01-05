@@ -140,6 +140,7 @@ interface allUserDetails {
     notifications: [];
     payOuts: [];
     payments: [];
+    sentRequests:[];
     phoneNo: null | string;
     profileImageUrl: string;
     smartAddress: string;
@@ -601,6 +602,7 @@ export const getUserDetails = async (
         notifications: [],
         payOuts: [],
         payments: [],
+        sentRequests:[],
         phoneNo: null,
         profileImageUrl: "",
         smartAddress: "",
