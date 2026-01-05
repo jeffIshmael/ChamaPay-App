@@ -478,7 +478,7 @@ export const confirmJoinRequest = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const { chamaId, requestId, decision } = req.body;
+  const { chamaId, requestId, userName, decision } = req.body;
   try {
     const userId: number = req.user?.userId as number;
     if (!req.user?.userId) {
@@ -494,18 +494,20 @@ export const confirmJoinRequest = async (
     }
 
     // get admin
-    const adminId = await prisma.chama.findUnique({
+    const chama = await prisma.chama.findUnique({
       where: {
         id: chamaId,
       },
       select: {
         adminId: true,
+        name: true,
+        payOutOrder: true,
       },
     });
-    if (!adminId) {
+    if (!chama) {
       throw new Error("Unable to get admin.");
     }
-    if (userId !== adminId.adminId) {
+    if (userId !== chama.adminId) {
       res
         .status(400)
         .json({ success: false, error: "Only admin can approve." });
@@ -513,7 +515,7 @@ export const confirmJoinRequest = async (
     }
     const toBeDone = decision === "approve";
     // make it
-    const result = await sortRequest(requestId, toBeDone);
+    const result = await sortRequest(requestId, chama.name, userName, toBeDone);
 
     if (!result) {
       res

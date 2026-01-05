@@ -1,5 +1,6 @@
 // This file has prisma related functions
 import { PrismaClient } from "@prisma/client";
+import { PayoutOrder } from "./cronJobFunctions";
 
 const prisma = new PrismaClient();
 
@@ -74,6 +75,46 @@ export async function registerUserPayment(
   }
 }
 
+// function to add member to payout order :- wee need to ensure the cycle is not half way
+export async function addMemberToPayout(chamaId: number, userId: number) {
+  try {
+    const chama = await prisma.chama.findUnique({
+      where: {
+        id: chamaId,
+      },
+    });
+    if (!chama) {
+      throw new Error("Cannot get chama.");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+    if (!user) {
+      throw new Error("Cannot get user.");
+    }
+    // the payout order
+    const payoutOrder: PayoutOrder[] = chama.payOutOrder
+      ? JSON.parse(chama.payOutOrder)
+      : [];
+    if (payoutOrder.length > 0 && chama.started && chama.round == 1) {
+      const newPayOut = {
+        userAddress: user.address!,
+        payDate: new Date(
+          payoutOrder[payoutOrder.length - 1].payDate.getTime() +
+            chama.cycleTime * 24 * 60 * 60 * 1000
+        ),
+        paid: false,
+      };
+      payoutOrder.push(newPayOut);
+    }
+  } catch (error) {
+    throw new Error("couldnt add member to payout order");
+  }
+}
+
 // function to send admin request to join
 export async function requestToJoin(userId: number, chamaId: number) {
   try {
@@ -94,7 +135,12 @@ export async function requestToJoin(userId: number, chamaId: number) {
 }
 
 // approve/ reject  request
-export async function sortRequest(requestId: number, approve: boolean) {
+export async function sortRequest(
+  requestId: number,
+  chamaName: string,
+  userName: string,
+  approve: boolean
+) {
   try {
     const request = await prisma.chamaRequest.update({
       where: {
@@ -116,7 +162,23 @@ export async function sortRequest(requestId: number, approve: boolean) {
           payDate: new Date(Date.now()),
         },
       });
+
+      await addMemberToPayout(request.chamaId,request.userId);
+
+      // send members of the new member
+      const message = `${userName} joined ${chamaName} chama.`;
+      await notifyAllChamaMembers(
+        request.chamaId,
+        message,
+        "member_joined",
+        request.userId
+      );
     }
+    // notification to the sender
+    const message = `Request to join ${chamaName} chama was ${
+      approve ? "approved" : "rejected"
+    }`;
+    await notifyUser(request.userId, message, "new_message");
     return request;
   } catch (error) {
     console.error("approve request error", error);

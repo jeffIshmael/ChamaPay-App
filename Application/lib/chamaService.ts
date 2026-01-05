@@ -207,11 +207,13 @@ interface DbJoinRequest {
     id: number;
     name: string;
     slug: string;
+    blockchainId:number;
   };
   user: {
     id: number;
     userName: string;
     email: string;
+    address: string;
   };
 }
 
@@ -703,6 +705,8 @@ export const transformNotification = async (
         requestId: request.id,
         requestUserId: request.user.id,
         requestUserName: request.user?.userName,
+        requestUserAddress: request.user.address,
+        chamaBlockchainId: request.chama.blockchainId
       };
 
       transformedNotifications.push(transformed);

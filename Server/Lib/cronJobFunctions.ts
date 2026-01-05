@@ -20,7 +20,7 @@ import { formatUnits } from "viem";
 
 const prisma = new PrismaClient();
 
-interface PayoutOrder {
+export interface PayoutOrder {
   userAddress: string;
   payDate: Date;
   paid: boolean;
