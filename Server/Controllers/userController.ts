@@ -2,6 +2,7 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import {
+  checkHasPendingRequest,
   getSentRequests,
   registerUserPayment,
   requestToJoin,
@@ -521,6 +522,40 @@ export const confirmJoinRequest = async (
       return;
     }
     res.status(200).json({ success: true, request: result });
+  } catch (error) {
+    console.error("sort request error:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};
+
+// check has request
+export const checkHasJoinRequest = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { chamaId } = req.query;
+  try {
+    const userId: number = req.user?.userId as number;
+    if (!req.user?.userId) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+
+    if (!chamaId) {
+      res.status(400).json({ success: false, error: "No chama Id provided." });
+      return;
+    }
+
+    // if user has
+    const hasRequest = await checkHasPendingRequest(userId, Number(chamaId));
+    if (hasRequest === null) {
+      res
+        .status(400)
+        .json({ success: false, error: "Error checking if has request." });
+      return;
+    }
+
+    res.status(200).json({ success: true, hasRequest: hasRequest });
   } catch (error) {
     console.error("sort request error:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
