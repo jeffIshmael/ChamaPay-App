@@ -133,7 +133,7 @@ const ScheduleTab: FC<Props> = ({
           </Card>
 
           {/* Position Slots */}
-          {members.length > 0 &&
+          {/* {members.length > 0 &&
             members.map((member, index) => (
               <Card key={member.id || index} className="p-4">
                 <View className="flex-row items-center justify-between">
@@ -168,7 +168,7 @@ const ScheduleTab: FC<Props> = ({
                   </View>
                 </View>
               </Card>
-            ))}
+            ))} */}
         </View>
         <View className="h-20" />
       </ScrollView>

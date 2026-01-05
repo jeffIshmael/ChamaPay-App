@@ -140,10 +140,11 @@ export async function shareChamaLink(
       body: JSON.stringify({
         receiverId,
         message,
-        chamaSlug,
+        chamaLink: chamaSlug,
       }),
     });
     const data = await response.json();
+    console.log(data);
     return data;
   } catch (error) {
     console.error("Error sending sharing link:", error);

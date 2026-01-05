@@ -23,7 +23,7 @@ router.post("/checkUserExists", checkUserExists);
 router.post("/checkUsernameAvailability", checkUsernameAvailability);
 router.post("/registerPayment", authenticate, registerPayment);
 router.post("/confirmRequest", authenticate, confirmJoinRequest);
-router.post("/shareLink", authenticate, confirmJoinRequest);
+router.post("/shareLink", authenticate, shareChamaLink);
 
 
 // get routes functions

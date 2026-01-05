@@ -278,6 +278,7 @@ export default function JoinedChamaDetails() {
     setSendingLink(true);
 
     try {
+      console.log(user.userName!, selectedShareUser.id, chamaSlug, token);
       const notificationResult = await shareChamaLink(
         user.userName!,
         selectedShareUser.id,
