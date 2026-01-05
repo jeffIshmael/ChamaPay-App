@@ -56,7 +56,7 @@ export interface Notification {
   requestUserName?: string;
   requestUserAddress?: string;
   chamaBlockchainId?: number;
-
+  canAdd?: boolean;
 }
 
 export default function Notifications() {
@@ -150,6 +150,7 @@ export default function Notifications() {
     action: "approve" | "reject",
     userName: string,
     userAddress: `0x${string}`,
+    canAdd: boolean, // because we cant add in the middle of the cycle
     chamaBlockchainId: number,
     chamaId: number
   ) => {
@@ -170,6 +171,10 @@ export default function Notifications() {
 
     try {
       if (action === "approve") {
+        if (!canAdd) {
+          Alert.alert("error", "Member can't be added in the middle of cycle.");
+          return;
+        }
         // add in blockchain
         const addMemberTransaction = prepareContractCall({
           contract: chamapayContract,
@@ -213,6 +218,7 @@ export default function Notifications() {
         chamaId,
         action,
         requestId,
+        userName,
         token
       );
       if (!result.success) {
@@ -229,7 +235,7 @@ export default function Notifications() {
       setNotifications((prev) => prev.filter((n) => n.requestId !== requestId));
     } catch (error) {
       console.error("Error happened in handle request", error);
-    }finally{
+    } finally {
       setProcessingRequestId(null);
     }
   };
@@ -426,6 +432,7 @@ export default function Notifications() {
                           "approve",
                           notification.requestUserName || "User",
                           notification.requestUserAddress as `0x${string}`,
+                          notification.canAdd || false,
                           notification.chamaBlockchainId!,
                           notification.chamaId!
                         )
@@ -447,12 +454,13 @@ export default function Notifications() {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                       onPress={() =>
+                      onPress={() =>
                         handleJoinRequest(
                           notification.requestId!,
                           "reject",
                           notification.requestUserName || "User",
                           notification.requestUserAddress as `0x${string}`,
+                          notification.canAdd || false,
                           notification.chamaBlockchainId!,
                           notification.chamaId!
                         )

@@ -67,7 +67,7 @@ export interface JoinedChama {
   rating: number;
   raterCount: number;
   category: string;
-  location: string;
+  canJoin: boolean;
   adminTerms: string[];
   collateralAmount: number;
   nextPayout: string | null;
