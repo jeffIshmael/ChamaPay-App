@@ -43,6 +43,8 @@ export interface Notification {
     | "member_joined"
     | "payout_scheduled"
     | "join_request"
+    | "invite_link"
+    | "chama_started"
     | "other";
   title: string;
   message: string;
@@ -51,6 +53,7 @@ export interface Notification {
   actionRequired: boolean;
   chama: string;
   chamaId?: number | null;
+  chamaSlug?: string;
   requestId?: number;
   requestUserId?: number;
   requestUserName?: string;
@@ -84,6 +87,7 @@ export default function Notifications() {
       case "member_joined":
         return <Users {...iconProps} className="text-purple-600" />;
       case "payout_scheduled":
+      case "chama_started":
         return <CheckCircle {...iconProps} className="text-teal-600" />;
       case "join_request":
         return <UserPlus {...iconProps} className="text-amber-600" />;
@@ -144,13 +148,13 @@ export default function Notifications() {
     fetchNotifications();
   }, [token]);
 
-  // function to handle join resquest
+  // function to handle join request
   const handleJoinRequest = async (
     requestId: number,
     action: "approve" | "reject",
     userName: string,
     userAddress: `0x${string}`,
-    canAdd: boolean, // because we cant add in the middle of the cycle
+    canAdd: boolean,
     chamaBlockchainId: number,
     chamaId: number
   ) => {
@@ -240,25 +244,71 @@ export default function Notifications() {
     }
   };
 
-  // const handleNotificationPress = async (notification: Notification) => {
-  //   // Mark as read if it's not a join request
-  //   if (!notification.actionRequired && !notification.read && token) {
-  //     const numericId = parseInt(notification.id.replace("request-", ""));
-  //     if (!isNaN(numericId)) {
-  //       await markNotificationAsRead(numericId, token);
-  //       // Update local state
-  //       setNotifications(prev =>
-  //         prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
-  //       );
-  //     }
-  //   }
+  // Handle notification press with navigation
+  const handleNotificationPress = (notification: Notification) => {
+    // Don't navigate if it's an action-required notification (join requests)
+    if (notification.actionRequired) {
+      return;
+    }
 
-  //   // Navigate to relevant screen based on type
-  //   if (notification.chamaId) {
-  //     // You can navigate to the chama detail screen
-  //     // router.push(`/chama/${notification.chamaId}`);
-  //   }
-  // };
+    // Check if we have the required data for navigation
+    if (!notification.chamaSlug) {
+      console.warn("Missing chamaSlug for navigation");
+      return;
+    }
+
+    // Navigate based on notification type
+    switch (notification.type) {
+      case "chama_started":
+      case "payout_scheduled":
+        router.push({
+          pathname: "/[joined-chama-details]/[id]",
+          params: {
+            "joined-chama-details": notification.chamaSlug,
+            id: notification.chamaSlug,
+            tab: "schedule",
+          },
+        });
+        break;
+
+      case "new_message":
+        router.push({
+          pathname: "/[joined-chama-details]/[id]",
+          params: {
+            "joined-chama-details": notification.chamaSlug,
+            id: notification.chamaSlug,
+            tab: "chat",
+          },
+        });
+        break;
+
+      case "invite_link":
+        router.push({
+          pathname: "/chama-details/[slug]",
+          params: { slug: notification.chamaSlug },
+        });
+        break;
+
+      // Add more cases as needed
+      case "contribution_due":
+      case "payout_received":
+      case "member_joined":
+        // Navigate to chama details (home tab by default)
+        router.push({
+          pathname: "/[joined-chama-details]/[id]",
+          params: {
+            "joined-chama-details": notification.chamaSlug,
+            id: notification.chamaSlug,
+          },
+        });
+        break;
+
+      default:
+        // For other notification types, you can add a default behavior
+        console.log("No specific navigation for type:", notification.type);
+        break;
+    }
+  };
 
   const unreadCount: number = notifications.filter((n) => !n.read).length;
 
@@ -377,13 +427,14 @@ export default function Notifications() {
         {notifications.map((notification: Notification) => (
           <TouchableOpacity
             key={notification.id}
-            // onPress={() => handleNotificationPress(notification)}
+            onPress={() => handleNotificationPress(notification)}
             className={`mb-3 p-4 bg-white rounded-xl border border-gray-200 ${
               !notification.read
                 ? "border-l-4 border-l-emerald-500 bg-emerald-50"
                 : ""
             }`}
             activeOpacity={0.7}
+            disabled={notification.actionRequired && processingRequestId !== null}
           >
             <View className="flex-row items-start gap-3">
               {getNotificationIcon(notification.type)}

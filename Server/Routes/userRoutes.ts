@@ -11,7 +11,8 @@ import {
     registerPayment,
     sendJoinRequest,
     confirmJoinRequest,
-    checkHasJoinRequest
+    checkHasJoinRequest,
+    shareChamaLink
 } from "../Controllers/userController";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -22,6 +23,7 @@ router.post("/checkUserExists", checkUserExists);
 router.post("/checkUsernameAvailability", checkUsernameAvailability);
 router.post("/registerPayment", authenticate, registerPayment);
 router.post("/confirmRequest", authenticate, confirmJoinRequest);
+router.post("/shareLink", authenticate, confirmJoinRequest);
 
 
 // get routes functions

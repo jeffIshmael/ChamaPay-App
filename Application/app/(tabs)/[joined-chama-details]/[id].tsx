@@ -31,10 +31,11 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useReadContract } from "thirdweb/react";
 import { toEther, toTokens } from "thirdweb/utils";
+import { shareChamaLink } from "@/lib/userService";
 
 // Loading Skeleton Component
 const SkeletonBox = ({
@@ -60,7 +61,9 @@ export default function JoinedChamaDetails() {
   const { id, tab } = useLocalSearchParams();
   const router = useRouter();
   const { user, token } = useAuth();
-  const [activeTab, setActiveTab] = useState(tab === "chat" ? "chat" : "overview");
+  const [activeTab, setActiveTab] = useState(
+    tab === "chat" ? "chat" : tab === "schedule" ? "schedule" : "overview"
+  );
 
   const [paymentAmount, setPaymentAmount] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
@@ -122,7 +125,7 @@ export default function JoinedChamaDetails() {
     params: [BigInt(Number(chama?.blockchainId) || 0) as bigint],
   });
   const [myBalance, setMyBalance] = useState<bigint[] | undefined>();
-
+  const [sendingLink, setSendingLink] = useState(false);
 
   useEffect(() => {
     // Handle individualBalance which comes as an array of BigInt values
@@ -263,18 +266,40 @@ export default function JoinedChamaDetails() {
     setShowShareSearchResults(false);
   };
 
-  const shareToUser = () => {
+  const shareToUser = async (chamaSlug: string) => {
     if (!selectedShareUser) {
       Alert.alert("Error", "Please select a user from the search results");
       return;
     }
-    // In a real app, you'd implement the sharing logic here
-    Alert.alert("Shared", `Chama shared with @${selectedShareUser.userName}`);
-    setShareUsername("");
-    setSelectedShareUser(null);
-    setShowShareModal(false);
-  };
+    if (!user || !token) {
+      Alert.alert("Error", "Please refresh page");
+      return;
+    }
+    setSendingLink(true);
 
+    try {
+      const notificationResult = await shareChamaLink(
+        user.userName!,
+        selectedShareUser.id,
+        chamaSlug,
+        token
+      );
+      if (!notificationResult.success) {
+        Alert.alert("Error", "Unable to send the link.");
+        return;
+      }
+      // In a real app, you'd implement the sharing logic here
+      Alert.alert("Shared", `Chama shared with @${selectedShareUser.userName}`);
+      setSendingLink(false);
+      setShareUsername("");
+      setSelectedShareUser(null);
+      setShowShareModal(false);
+    } catch (error) {
+      console.error("sharing error", error);
+    } finally {
+      setSendingLink(false);
+    }
+  };
   if (isLoading) {
     return <ChamaDetailsLoadingState />;
   }
@@ -625,8 +650,8 @@ export default function JoinedChamaDetails() {
 
                 {/* Send Button */}
                 <TouchableOpacity
-                  onPress={shareToUser}
-                  disabled={!selectedShareUser}
+                  onPress={() => shareToUser(chama.slug)}
+                  disabled={!selectedShareUser || sendingLink}
                   activeOpacity={0.7}
                   className={`py-3.5 rounded-xl flex-row items-center justify-center shadow-lg ${
                     selectedShareUser ? "bg-emerald-600" : "bg-gray-300"
@@ -637,7 +662,7 @@ export default function JoinedChamaDetails() {
                       selectedShareUser ? "text-white" : "text-gray-500"
                     }`}
                   >
-                    Send Invite
+                    {sendingLink ? "Sending..." : "  Send Invite"}
                   </Text>
                 </TouchableOpacity>
               </View>

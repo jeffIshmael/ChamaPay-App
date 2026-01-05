@@ -50,7 +50,11 @@ import {
 } from "thirdweb";
 import { useActiveAccount } from "thirdweb/react";
 import ChamaDetailsLoader from "@/components/ChamaDetailsLoader";
-import { requestToJoin } from "@/lib/userService";
+import {
+  checkHasSentRequest,
+  requestToJoin,
+  shareChamaLink,
+} from "@/lib/userService";
 
 export default function ChamaDetails() {
   const { slug } = useLocalSearchParams();
@@ -83,7 +87,9 @@ export default function ChamaDetails() {
   const [activeTab, setActiveTab] = useState<"overview" | "schedule" | "terms">(
     "overview"
   );
+  const [hasRequest, setHasRequest] = useState(false);
   const [progressPercentage, setProgressPercentage] = useState<number>();
+  const [sendingLink, setSendingLink] = useState(false);
   const { token, user } = useAuth();
   const activeAccount = useActiveAccount();
 
@@ -109,10 +115,16 @@ export default function ChamaDetails() {
             user?.address
           );
           console.log("the transformed chama", transformedChama);
+          // check has sent request
+          const hasRequestResult = await checkHasSentRequest(
+            transformedChama.id,
+            user.id
+          );
           setChama(transformedChama);
           setProgressPercentage(
             (transformedChama.totalMembers / transformedChama.maxMembers) * 100
           );
+          setHasRequest(hasRequestResult.hasRequest);
         } else {
           // Handle case where chama is not found
           setChama(undefined);
@@ -192,16 +204,39 @@ export default function ChamaDetails() {
     setShowShareSearchResults(false);
   };
 
-  const shareToUser = () => {
+  const shareToUser = async (chamaSlug: string) => {
     if (!selectedShareUser) {
       Alert.alert("Error", "Please select a user from the search results");
       return;
     }
-    // In a real app, you'd implement the sharing logic here
-    Alert.alert("Shared", `Chama shared with @${selectedShareUser.userName}`);
-    setShareUsername("");
-    setSelectedShareUser(null);
-    setShowShareModal(false);
+    if (!user || !token) {
+      Alert.alert("Error", "Please refresh page");
+      return;
+    }
+    setSendingLink(true);
+
+    try {
+      const notificationResult = await shareChamaLink(
+        user.userName!,
+        selectedShareUser.id,
+        chamaSlug,
+        token
+      );
+      if (!notificationResult.success) {
+        Alert.alert("Error", "Unable to send the link.");
+        return;
+      }
+      // In a real app, you'd implement the sharing logic here
+      Alert.alert("Shared", `Chama shared with @${selectedShareUser.userName}`);
+      setSendingLink(false);
+      setShareUsername("");
+      setSelectedShareUser(null);
+      setShowShareModal(false);
+    } catch (error) {
+      console.error("sharing error", error);
+    } finally {
+      setSendingLink(false);
+    }
   };
 
   const handleProceedJoin = async () => {
@@ -371,6 +406,8 @@ export default function ChamaDetails() {
         Alert.alert("Error", "Request not sent.");
         return;
       }
+
+      setHasRequest(true);
 
       Alert.alert(
         "Success",
@@ -856,7 +893,6 @@ export default function ChamaDetails() {
               {activeTab === "overview" && renderOverview()}
               {activeTab === "terms" && renderTerms()}
 
-              {/* Inline Join Button (not fixed) */}
               <View className="mt-6">
                 {!chama.canJoin ? (
                   // Show disabled state with explanation when user can't join
@@ -895,9 +931,9 @@ export default function ChamaDetails() {
                   // Original join button when canJoin is true
                   <TouchableOpacity
                     onPress={handleJoinChama}
-                    disabled={isJoining}
+                    disabled={isJoining || hasRequest}
                     className={`w-full py-4 rounded-2xl items-center justify-center flex-row gap-3 shadow-md ${
-                      isJoining ? "bg-gray-400" : "bg-emerald-600"
+                      isJoining || hasRequest ? "bg-gray-400" : "bg-emerald-600"
                     }`}
                     activeOpacity={0.85}
                   >
@@ -911,7 +947,9 @@ export default function ChamaDetails() {
                           : "Sending Request..."
                         : chama.isPublic
                           ? "Join Chama"
-                          : "Request to Join Chama"}
+                          : !chama.isPublic && hasRequest
+                            ? "You already have a pending join request"
+                            : "Request to Join Chama"}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -1161,8 +1199,8 @@ export default function ChamaDetails() {
 
                 {/* Send Button */}
                 <TouchableOpacity
-                  onPress={shareToUser}
-                  disabled={!selectedShareUser}
+                  onPress={() => shareToUser(chama?.slug!)}
+                  disabled={!selectedShareUser || sendingLink}
                   activeOpacity={0.7}
                   className={`py-3.5 rounded-xl flex-row items-center justify-center shadow-lg ${
                     selectedShareUser ? "bg-emerald-600" : "bg-gray-300"
@@ -1173,7 +1211,7 @@ export default function ChamaDetails() {
                       selectedShareUser ? "text-white" : "text-gray-500"
                     }`}
                   >
-                    Send Invite
+                    {sendingLink ? "Sending..." : "  Send Invite"}
                   </Text>
                 </TouchableOpacity>
               </View>

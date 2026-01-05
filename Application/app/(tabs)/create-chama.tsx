@@ -1,4 +1,4 @@
-import { chamapayContract, usdcContract } from "@/constants/thirdweb";
+import { usdcContract } from "@/constants/thirdweb";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import {
@@ -31,6 +31,7 @@ import {
   sendTransaction,
   toUnits,
   waitForReceipt,
+  getContract,
 } from "thirdweb";
 import {
   useActiveAccount,
@@ -38,10 +39,13 @@ import {
   useReadContract,
 } from "thirdweb/react";
 import { toWei } from "thirdweb/utils";
+import { celo } from "thirdweb/chains";
 import { useAuth } from "../../Contexts/AuthContext";
 
 import { registerChamaToDatabase } from "@/lib/chamaService";
 import { chain, client } from "../../constants/thirdweb";
+import { chamapayContractAddress } from "@/constants/contractAddress";
+import { useSendTransaction } from "thirdweb/react";
 import { Quote } from "./wallet";
 
 // Exchange rate constant (KES per 1 USDC)
@@ -61,6 +65,12 @@ interface FormData {
   adminTerms: string[];
   collateralRequired: boolean;
 }
+
+const chamapayContract = getContract({
+  address: chamapayContractAddress,
+  chain: celo,
+  client,
+});
 
 const memberOptions = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
@@ -134,6 +144,8 @@ export default function CreateChama() {
   const scrollViewRef = useRef<ScrollView>(null);
   const wallet = useActiveWallet();
   const activeAccount = useActiveAccount();
+
+  const { mutate: sendTx, data: transactionResult } = useSendTransaction();
 
   // Helper function to convert USDC to KES
   const convertToKES = (usdcAmount: string): string => {
