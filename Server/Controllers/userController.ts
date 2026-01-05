@@ -574,3 +574,46 @@ export const checkHasJoinRequest = async (
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
+
+// share a chama link to user
+export const shareChamaLink = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { receiverId, message, chamaLink } = req.body;
+  try {
+    const userId: number = req.user?.userId as number;
+    if (!req.user?.userId) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+
+    if (!receiverId || !message || !chamaLink) {
+      res
+        .status(400)
+        .json({ success: false, error: "All fields are required" });
+      return;
+    }
+
+    const notification = await prisma.notification.create({
+      data:{
+        senderId: userId,
+        message: message,
+        type:"invite_link",
+        sharedLink: chamaLink,
+        userId: receiverId
+      }
+    });
+    if (!notification) {
+      res
+        .status(400)
+        .json({ success: false, error: "Unable to notify the user." });
+      return;
+    }
+
+    res.status(200).json({ success: true, notification: notification });
+  } catch (error) {
+    console.error("send invite error:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};

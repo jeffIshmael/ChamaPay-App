@@ -3,6 +3,7 @@ import { serverUrl } from "@/constants/serverUrl";
 import { formatDays, formatTimeRemaining } from "@/Utils/helperFunctions";
 import { Notification } from "@/app/(tabs)/notifications";
 import { MessageObj } from "@/hooks/useChat";
+import { checkHasSentRequest } from "./userService";
 
 // User service functions
 export const checkUsernameAvailability = async (
@@ -402,6 +403,7 @@ export const transformChamaData = (
   const nextPayoutDate = nextPayoutEntry
     ? nextPayoutEntry.payDate
     : backendChama.payDate;
+
 
   return {
     id: backendChama.id,
