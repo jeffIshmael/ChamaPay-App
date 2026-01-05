@@ -24,6 +24,15 @@ import {
   RefreshControl,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useActiveAccount } from "thirdweb/react";
+import {
+  prepareContractCall,
+  sendTransaction,
+  toUnits,
+  waitForReceipt,
+} from "thirdweb";
+import { chain, chamapayContract, client } from "@/constants/thirdweb";
+import { handleTheRequestToJoin } from "@/lib/userService";
 
 export interface Notification {
   id: string;
@@ -45,13 +54,16 @@ export interface Notification {
   requestId?: number;
   requestUserId?: number;
   requestUserName?: string;
+  requestUserAddress?: string;
+  chamaBlockchainId?: number;
+
 }
 
 export default function Notifications() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, token } = useAuth();
-
+  const activeAccount = useActiveAccount();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -132,46 +144,95 @@ export default function Notifications() {
     fetchNotifications();
   }, [token]);
 
-  // const handleJoinRequest = async (
-  //   requestId: number,
-  //   action: "approve" | "reject",
-  //   userName: string
-  // ) => {
-  //   if (!token) return;
+  // function to handle join resquest
+  const handleJoinRequest = async (
+    requestId: number,
+    action: "approve" | "reject",
+    userName: string,
+    userAddress: `0x${string}`,
+    chamaBlockchainId: number,
+    chamaId: number
+  ) => {
+    if (!token) {
+      Alert.alert("error", "Please log in.");
+      return;
+    }
 
-  //   Alert.alert(
-  //     action === "approve" ? "Approve Request" : "Reject Request",
-  //     `Are you sure you want to ${action} ${userName}'s request to join?`,
-  //     [
-  //       {
-  //         text: "Cancel",
-  //         style: "cancel",
-  //       },
-  //       {
-  //         text: action === "approve" ? "Approve" : "Reject",
-  //         style: action === "approve" ? "default" : "destructive",
-  //         onPress: async () => {
-  //           setProcessingRequestId(requestId);
-  //           const result = await handleJoinRequestAction(requestId, action, token);
-  //           setProcessingRequestId(null);
+    if (!activeAccount) {
+      Alert.alert("error", "Wallet is not connected.");
+      return;
+    }
+    if (!chamaBlockchainId || !userAddress || !chamaId) {
+      Alert.alert("error", "Some details are not defined.");
+      return;
+    }
+    setProcessingRequestId(requestId);
 
-  //           if (result.success) {
-  //             Alert.alert(
-  //               "Success",
-  //               `Request ${action === "approve" ? "approved" : "rejected"} successfully`
-  //             );
-  //             // Remove the notification from the list
-  //             setNotifications(prev =>
-  //               prev.filter(n => n.requestId !== requestId)
-  //             );
-  //           } else {
-  //             Alert.alert("Error", result.error || "Action failed");
-  //           }
-  //         },
-  //       },
-  //     ]
-  //   );
-  // };
+    try {
+      if (action === "approve") {
+        // add in blockchain
+        const addMemberTransaction = prepareContractCall({
+          contract: chamapayContract,
+          method: {
+            inputs: [
+              {
+                internalType: "address",
+                name: "_address",
+                type: "address",
+              },
+              {
+                internalType: "uint256",
+                name: "_chamaId",
+                type: "uint256",
+              },
+            ],
+            name: "addMember",
+            outputs: [],
+            stateMutability: "nonpayable",
+            type: "function",
+          },
+          params: [userAddress, BigInt(chamaBlockchainId)],
+        });
+
+        const { transactionHash: addMemberTransactionHash } =
+          await sendTransaction({
+            account: activeAccount,
+            transaction: addMemberTransaction,
+          });
+        const transactionReceipt = await waitForReceipt({
+          client: client,
+          chain: chain,
+          transactionHash: addMemberTransactionHash,
+        });
+        if (!transactionReceipt) {
+          Alert.alert("error", "Error adding member to blockchain.");
+          return;
+        }
+      }
+      const result = await handleTheRequestToJoin(
+        chamaId,
+        action,
+        requestId,
+        token
+      );
+      if (!result.success) {
+        Alert.alert("Error", "Action failed");
+        return;
+      }
+      setProcessingRequestId(null);
+
+      Alert.alert(
+        "Success",
+        `Request ${action === "approve" ? "approved" : "rejected"} successfully`
+      );
+      // Remove the notification from the list
+      setNotifications((prev) => prev.filter((n) => n.requestId !== requestId));
+    } catch (error) {
+      console.error("Error happened in handle request", error);
+    }finally{
+      setProcessingRequestId(null);
+    }
+  };
 
   // const handleNotificationPress = async (notification: Notification) => {
   //   // Mark as read if it's not a join request
@@ -359,13 +420,16 @@ export default function Notifications() {
                 {notification.actionRequired && notification.requestId && (
                   <View className="flex-row gap-2 mt-3">
                     <TouchableOpacity
-                      // onPress={() =>
-                      //   handleJoinRequest(
-                      //     notification.requestId!,
-                      //     "approve",
-                      //     notification.requestUserName || "User"
-                      //   )
-                      // }
+                      onPress={() =>
+                        handleJoinRequest(
+                          notification.requestId!,
+                          "approve",
+                          notification.requestUserName || "User",
+                          notification.requestUserAddress as `0x${string}`,
+                          notification.chamaBlockchainId!,
+                          notification.chamaId!
+                        )
+                      }
                       disabled={processingRequestId === notification.requestId}
                       className="flex-1 bg-emerald-500 py-2.5 rounded-lg flex-row items-center justify-center gap-2"
                       activeOpacity={0.7}
@@ -383,13 +447,16 @@ export default function Notifications() {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      // onPress={() =>
-                      //   handleJoinRequest(
-                      //     notification.requestId!,
-                      //     "reject",
-                      //     notification.requestUserName || "User"
-                      //   )
-                      // }
+                       onPress={() =>
+                        handleJoinRequest(
+                          notification.requestId!,
+                          "reject",
+                          notification.requestUserName || "User",
+                          notification.requestUserAddress as `0x${string}`,
+                          notification.chamaBlockchainId!,
+                          notification.chamaId!
+                        )
+                      }
                       disabled={processingRequestId === notification.requestId}
                       className="flex-1 bg-red-500 py-2.5 rounded-lg flex-row items-center justify-center gap-2"
                       activeOpacity={0.7}
