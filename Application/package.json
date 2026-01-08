@@ -26,12 +26,14 @@
     "@walletconnect/react-native-compat": "^2.21.9",
     "amazon-cognito-identity-js": "^6.3.15",
     "axios": "^1.11.0",
+    "buffer": "^6.0.3",
     "clsx": "^2.1.1",
     "expo": "~53.0.20",
     "expo-apple-authentication": "~7.2.4",
     "expo-application": "~6.1.5",
     "expo-auth-session": "~6.2.1",
     "expo-blur": "~14.1.5",
+    "expo-build-properties": "~0.14.8",
     "expo-clipboard": "~7.1.5",
     "expo-constants": "~17.1.7",
     "expo-crypto": "~14.1.5",
@@ -60,7 +62,8 @@
     "react-native-aes-gcm-crypto": "^0.2.2",
     "react-native-gesture-handler": "~2.24.0",
     "react-native-get-random-values": "~1.11.0",
-    "react-native-mmkv": "^3.3.3",
+    "react-native-mmkv": "^4.1.0",
+    "react-native-nitro-modules": "^0.32.0",
     "react-native-passkey": "^3.1.0",
     "react-native-qrcode-svg": "^6.3.15",
     "react-native-quick-crypto": "^0.7.17",
@@ -70,9 +73,15 @@
     "react-native-svg": "15.11.2",
     "react-native-web": "~0.20.0",
     "react-native-webview": "13.13.5",
+    "readable-stream": "^4.7.0",
     "socket.io-client": "^4.8.1",
     "tailwindcss": "^3.4.17",
     "thirdweb": "^5.112.3"
+  },
+  "overrides": {
+    "@coinbase/wallet-mobile-sdk": {
+      "react-native-mmkv": "$react-native-mmkv"
+    }
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
