@@ -7,7 +7,7 @@ import { storage } from "@/Utils/storage";
 import * as Google from "expo-auth-session/providers/google";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { Shield, Users } from "lucide-react-native";
+import { Shield } from "lucide-react-native";
 import { useState } from "react";
 import {
   Image,
@@ -16,6 +16,7 @@ import {
   StyleSheet,
   Text,
   View,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
@@ -26,6 +27,8 @@ import {
   getUserEmail,
   inAppWallet,
 } from "thirdweb/wallets/in-app";
+
+const { width } = Dimensions.get("window");
 
 const GoogleIcon = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24">
@@ -47,6 +50,7 @@ const GoogleIcon = () => (
     />
   </Svg>
 );
+
 const AppleIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24">
     <Path
@@ -55,6 +59,8 @@ const AppleIcon = () => (
     />
   </Svg>
 );
+
+const chamapayLogo = require("@/assets/images/chamapay-logo.png");
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -70,7 +76,6 @@ export default function AuthScreen() {
   const { connect, isConnecting } = useConnect();
   const account = useActiveAccount();
 
-  // thirdweb google auth
   const handleThirdwebAuth = async (type: "google" | "apple") => {
     setErrorText("");
     try {
@@ -86,11 +91,9 @@ export default function AuthScreen() {
         chain: celo,
         strategy: type,
       });
-      // Register wallet with connection manager so it persists across app
-      
+
       try {
         await connect(wallet);
-        // Store wallet connection data
         const walletData = {
           address: account.address,
           connected: true,
@@ -101,10 +104,7 @@ export default function AuthScreen() {
       } catch (error) {
         console.log("connecting error", error);
       }
-      console.log("auth account", account);
-      console.log("auth wallet", wallet);
 
-      // Get thirdweb profile + email
       const profiles = await getProfiles({ client });
       const primaryProfile: any = Array.isArray(profiles)
         ? profiles[0]
@@ -125,7 +125,6 @@ export default function AuthScreen() {
         return;
       }
 
-      // Check backend for existing user
       const userDetails = await checkUserDetails(email);
       if (userDetails.success) {
         const resp = await fetch(`${serverUrl}/auth/authenticate`, {
@@ -140,7 +139,6 @@ export default function AuthScreen() {
 
         router.replace("/(tabs)");
       } else {
-        // Not in backend; send to wallet setup to choose username
         router.replace({
           pathname: "/wallet-setup",
           params: {
@@ -159,113 +157,207 @@ export default function AuthScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gradient-to-b from-green-50 to-white">
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ flexGrow: 1 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View className="flex-1 px-6">
-          {/* Header */}
-          <View className="items-center mb-12" style={{ paddingTop: 60 }}>
+    <View className="flex-1 bg-white">
+      {/* Gradient Background using your Downy colors with rounded bottom */}
+      <View
+        className="absolute top-0 left-0 right-0 overflow-hidden"
+        style={{
+          height: "75%",
+          backgroundColor: "#d1f6f1", // downy-100
+          borderBottomLeftRadius: 30,
+          borderBottomRightRadius: 30,
+        }}
+      />
+
+      {/* Decorative circles using Downy palette */}
+      <View
+        className="absolute rounded-full"
+        style={{
+          top: -120,
+          right: -90,
+          width: 280,
+          height: 280,
+          backgroundColor: "#a3ece4", // downy-200
+          opacity: 0.4,
+        }}
+      />
+      <View
+        className="absolute rounded-full"
+        style={{
+          top: 80,
+          left: -120,
+          width: 200,
+          height: 200,
+          backgroundColor: "#66d9d0", // downy-300
+          opacity: 0.3,
+        }}
+      />
+      {/* <View
+        className="absolute rounded-full"
+        style={{
+          top: 300,
+          right: 40,
+          width: 150,
+          height: 150,
+          backgroundColor: "#3fc2bb", // downy-400
+          opacity: 0.2,
+        }}
+      /> */}
+
+      <SafeAreaView className="flex-1">
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="flex-1 px-6 justify-between">
+            {/* Header with Logo */}
             <View
-              className="w-24 h-24 rounded-full items-center justify-center mb-8 shadow-lg"
-              style={{
-                backgroundColor: "#059669",
-                shadowColor: "#059669",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 12,
-                elevation: 8,
-              }}
+              className="items-center flex-1 justify-center"
+              style={{ paddingTop: 60 }}
             >
-              <Users color="white" size={36} />
-            </View>
-            <Text className="text-4xl mb-3 text-gray-900 font-bold text-center">
-              Welcome to ChamaPay
-            </Text>
-            <Text className="text-gray-600 text-center text-lg">
-              Sign in to continue your journey
-            </Text>
-          </View>
-          {/* Messages */}
-          {errorText ? (
-            <View
-              className="flex-row items-center bg-red-50 p-4 rounded-xl mb-8 mx-2 border border-red-200"
-              style={styles.card}
-            >
-              <Shield color="#ef4444" size={20} />
-              <Text className="text-red-600 ml-3 text-sm font-medium">
-                {errorText}
-              </Text>
-            </View>
-          ) : null}
-
-          {/* spacer to push footer to bottom */}
-          <View style={{ flexGrow: 1 }} />
-
-          {/* Footer with buttons at bottom */}
-          <View className="pb-8">
-            {/* Secondary in two columns */}
-            <View className="flex-row mb-6" style={{ gap: 12 }}>
-              <Pressable
-                onPress={() => handleThirdwebAuth("google")}
-                className="flex-1 bg-white border border-gray-200 py-4 rounded-xl flex-row items-center justify-center"
-                style={[styles.card, { shadowOpacity: 0.08 }]}
+              {/* Logo */}
+              <View
+                className="mb-8 rounded-full overflow-hidden"
+                style={{
+                  width: 120,
+                  height: 120,
+                  backgroundColor: "white",
+                  shadowColor: "#26a6a2", // downy-500
+                  shadowOffset: { width: 0, height: 10 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 20,
+                  elevation: 12,
+                }}
               >
-                <GoogleIcon />
-                <View className="ml-3 items-start justify-center">
-                  <Text className="text-gray-500 text-xs">Continue with</Text>
-                  <Text className="text-gray-800 font-semibold text-sm">
-                    Google
-                  </Text>
-                </View>
-              </Pressable>
-
-              <Pressable
-                onPress={() => handleThirdwebAuth("apple")}
-                className="flex-1 bg-black py-4 rounded-xl flex-row items-center justify-center"
-                style={[styles.card, { shadowOpacity: 0.15 }]}
-              >
-                <AppleIcon />
-                <View className="ml-3 items-start justify-center">
-                  <Text className="text-gray-300 text-xs">Continue with</Text>
-                  <Text className="text-white font-semibold text-sm">
-                    Apple
-                  </Text>
-                </View>
-              </Pressable>
-            </View>
-
-            <Text className="text-xs text-gray-500 text-center px-4 leading-relaxed">
-              By continuing, you agree to our{" "}
-              <Text className="text-green-600 font-medium">
-                Terms of Service
-              </Text>{" "}
-              and{" "}
-              <Text className="text-green-600 font-medium">Privacy Policy</Text>
-            </Text>
-
-            {/* Powered by section */}
-            <View className="items-center mt-8">
-              <View className="flex-row items-center bg-gray-50 px-5 py-4 rounded-xl border border-gray-100">
-                <Text className="text-xs text-gray-500 mr-2 font-medium">
-                  Powered by
-                </Text>
                 <Image
-                  source={require("@/assets/images/thirdweb.png")}
-                  className="w-7 h-7 mr-2 rounded-full"
+                  source={chamapayLogo}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                  }}
                   resizeMode="contain"
                 />
-                <Text className="text-sm font-semibold text-gray-800">
-                  Thirdweb
+              </View>
+
+              <Text className="text-5xl mb-4 text-gray-900 font-bold text-center">
+                ChamaPay
+              </Text>
+              <Text
+                className="text-center text-xl font-medium px-8"
+                style={{ color: "#1c8584" }} // downy-600
+              >
+                The circular savings app
+              </Text>
+            </View>
+
+            {/* Error Message */}
+            {errorText ? (
+              <View
+                className="flex-row items-center bg-red-50 p-4 rounded-2xl mb-6 border border-red-200"
+                style={styles.card}
+              >
+                <Shield color="#ef4444" size={20} />
+                <Text className="text-red-600 ml-3 text-sm font-medium flex-1">
+                  {errorText}
                 </Text>
+              </View>
+            ) : null}
+
+            {/* Auth Buttons Section */}
+            <View className="pb-8">
+              {/* CTA Buttons in Row */}
+              <View className="flex-row mb-6" style={{ gap: 12 }}>
+                {/* Google Button */}
+                <Pressable
+                  onPress={() => handleThirdwebAuth("google")}
+                  className="flex-1 bg-white p-2 rounded-2xl flex-row items-center justify-center"
+                  style={[
+                    styles.authButton,
+                    {
+                      borderWidth: 2,
+                      borderColor: "#a3ece4", // downy-200
+                    },
+                  ]}
+                >
+                  <GoogleIcon />
+                  <View className="ml-3 items-start justify-center">
+                    <Text className="text-gray-800 font-semibold text-xs mt-2">
+                      Continue with
+                    </Text>
+                    <Text className="text-gray-900 font-bold text-sm">
+                      Google
+                    </Text>
+                  </View>
+                </Pressable>
+
+                {/* Apple Button */}
+                <Pressable
+                  onPress={() => handleThirdwebAuth("apple")}
+                  className="flex-1 p-2 rounded-2xl flex-row items-center justify-center"
+                  style={[
+                    styles.authButton,
+                    { backgroundColor: "black" }, // downy-800
+                  ]}
+                >
+                  <AppleIcon />
+                  <View className="ml-3 items-start justify-center">
+                    <Text className="text-gray-300 font-semibold text-xs mt-2">
+                      Continue with
+                    </Text>
+                    <Text className="text-white font-bold text-sm">Apple</Text>
+                  </View>
+                </Pressable>
+              </View>
+
+              {/* Terms */}
+              <Text className="text-xs text-gray-500 text-center px-8 leading-relaxed mb-6">
+                By continuing, you agree to our{" "}
+                <Text
+                  className="font-semibold"
+                  style={{ color: "#26a6a2" }} // downy-500
+                >
+                  Terms of Service
+                </Text>{" "}
+                and{" "}
+                <Text
+                  className="font-semibold"
+                  style={{ color: "#26a6a2" }} // downy-500
+                >
+                  Privacy Policy
+                </Text>
+              </Text>
+
+              {/* Powered by */}
+              <View className="items-center">
+                <View
+                  className="flex-row items-center bg-white px-6 py-3 rounded-full"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: "#d1f6f1", // downy-100
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 8,
+                    elevation: 2,
+                  }}
+                >
+                  <Text className="text-xs text-gray-500 mr-2">Powered by</Text>
+                  <Image
+                    source={require("@/assets/images/thirdweb.png")}
+                    className="w-6 h-6 mr-2 rounded-full"
+                    resizeMode="contain"
+                  />
+                  <Text className="text-sm font-bold text-gray-800">
+                    Thirdweb
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -276,5 +368,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 5,
+  },
+  authButton: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
   },
 });
