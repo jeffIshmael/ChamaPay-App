@@ -79,7 +79,9 @@
       "expo-secure-store",
       "expo-apple-authentication",
       "expo-web-browser",
-      "expo-notifications"
+      "expo-notifications",
+      "@react-native-community/datetimepicker",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

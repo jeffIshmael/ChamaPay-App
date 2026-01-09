@@ -135,7 +135,7 @@ const MembersTab: FC<Props> = ({ members = [], eachMemberBalances, isPublic = fa
                           </View>
                           
                           {/* Locked Balance (only for public chamas) */}
-                          {isPublic && memberBalance.locked > 0 && (
+                          {isPublic  && (
                             <View className="flex-row items-center gap-2">
                               <Lock size={14} color="#f59e0b" />
                               <Text className="text-sm text-amber-600">

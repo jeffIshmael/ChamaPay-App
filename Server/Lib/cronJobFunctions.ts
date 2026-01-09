@@ -23,6 +23,7 @@ const prisma = new PrismaClient();
 export interface PayoutOrder {
   userAddress: string;
   payDate: Date;
+  amount: string;
   paid: boolean;
 }
 
@@ -61,6 +62,7 @@ export const checkStartDate = async () => {
               chama.cycleTime * 24 * 60 * 60 * 1000 * index
           ),
           paid: false,
+          amount: "0",
         })
       );
 
@@ -141,25 +143,45 @@ export const checkPaydate = async () => {
             userId: user.id,
           },
         });
+        let finalPayoutOrder = [];
 
         // update the payout order in the chama
-        const payoutOrder: PayoutOrder[] = JSON.parse(
-          chama.payOutOrder as string
-        );
-        const updatedPayoutOrder = payoutOrder.map((order: PayoutOrder) => {
-          if (order.userAddress === payoutResult.recipient) {
-            return {
+        const payoutOrder: PayoutOrder[] = chama.payOutOrder
+          ? JSON.parse(chama.payOutOrder as string)
+          : [];
+
+        // Check if this is the last round of the cycle
+        if (chama.round === payoutOrder.length) {
+          // Reset all members to unpaid for the new cycle and update their payDates
+          finalPayoutOrder = payoutOrder.map(
+            (order: PayoutOrder, index: number) => ({
               ...order,
-              paid: true,
-              amount: displayableAmount,
-            };
-          }
-          return order;
-        });
+              paid: false,
+              amount: "0",
+              payDate: new Date(
+                chama.payDate.getTime() +
+                  (index + 1) * chama.cycleTime * 24 * 60 * 60 * 1000
+              ),
+            })
+          );
+        } else {
+          // Mark only the current recipient as paid
+          finalPayoutOrder = payoutOrder.map((order: PayoutOrder) => {
+            if (order.userAddress === payoutResult.recipient) {
+              return {
+                ...order,
+                paid: true,
+                amount: displayableAmount,
+              };
+            }
+            return order;
+          });
+        }
+
         await prisma.chama.update({
           where: { id: chama.id },
           data: {
-            payOutOrder: JSON.stringify(updatedPayoutOrder),
+            payOutOrder: JSON.stringify(finalPayoutOrder),
             round: chama.round === chama.members.length ? 1 : chama.round + 1,
             cycle:
               chama.round === chama.members.length
