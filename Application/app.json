@@ -4,23 +4,33 @@
     "slug": "chamapay-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/chamapay-logo.png",
     "scheme": "chamapayapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/2048.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f1fcfa"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jeff.chamapay",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSFaceIDUsageDescription": "Use Face ID to securely access your wallet seed phrase",
         "ITSAppUsesNonExemptEncryption": false
-      },
-      "usesAppleSignIn": true
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/chamapay-logo.png",
+        "backgroundColor": "#f1fcfa"
+      },
+      "splash": {
+        "image": "./assets/images/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#f1fcfa"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.jeff.chamapay",
@@ -30,8 +40,7 @@
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT"
       ],
-      "softwareKeyboardLayoutMode": "pan",
-      "minSdkVersion": 26
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "bundler": "metro",
@@ -45,9 +54,8 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#f1fcfa"
         }
       ],
       [
@@ -56,10 +64,24 @@
           "faceIDPermission": "Use Face ID to securely access your wallet seed phrase"
         }
       ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "newArchEnabled": true
+          },
+          "android": {
+            "newArchEnabled": true,
+            "minSdkVersion": 26
+          }
+        }
+      ],
       "expo-secure-store",
-      ["expo-apple-authentication"],
+      "expo-apple-authentication",
       "expo-web-browser",
-      "expo-notifications"
+      "expo-notifications",
+      "@react-native-community/datetimepicker",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

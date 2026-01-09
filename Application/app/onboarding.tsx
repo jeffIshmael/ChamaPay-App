@@ -3,51 +3,56 @@ import {
   ChevronRight,
   Shield,
   Smartphone,
-  TrendingUp,
   Users,
+  Globe,
 } from "lucide-react-native";
 import React, { useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View, Image, Dimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
 import { useRouter } from "expo-router";
+
+const { width, height } = Dimensions.get('window');
 
 const onboardingSlides = [
   {
     icon: Users,
     title: "Welcome to ChamaPay",
-    subtitle: "Digital Circular Savings App",
+    subtitle: "A Better Way to Save Together",
     description:
-      "Join or create community savings groups (chamas) where members contribute regularly and receive payouts in rotating turns.",
-    color: "#059669", // emerald-600
-    bgColor: "#d1fae5", // emerald-100
+      "Create or join digital savings groups where members contribute regularly and receive payouts in a fair rotating order — just like a chama.",
+    gradientColors: ["#059669", "#10b981"],
+    bgColor: "#ecfdf5",
+    imageSource: require("@/assets/images/intro.png"),
   },
   {
     icon: Shield,
-    title: "Secure & Transparent",
-    subtitle: "Blockchain-Powered Trust",
+    title: "Your Money Is Safe",
+    subtitle: "Protected by Built-In Rules",
     description:
-      "Your contributions are secured by smart contracts. Every transaction is recorded on the blockchain for complete transparency.",
-    color: "#0d9488", // teal-600
-    bgColor: "#ccfbf1", // teal-100
-  },
-  {
-    icon: TrendingUp,
-    title: "Grow Together",
-    subtitle: "Community-Based Savings",
-    description:
-      "Build financial discipline while helping your community. Save regularly and receive larger payouts when it's your turn.",
-    color: "#059669", // emerald-600
-    bgColor: "#d1fae5", // emerald-100
+      "ChamaPay uses automated rules to protect contributions and ensure payouts happen exactly as agreed — no one can change or interfere with them.",
+    gradientColors: ["#0d9488", "#14b8a6"],
+    bgColor: "#f0fdfa",
+    imageSource: require("@/assets/images/secure.png"),
   },
   {
     icon: Smartphone,
-    title: "Simple & Modern",
-    subtitle: "Traditional Savings, Digital Experience",
+    title: "Everything Happens Automatically",
+    subtitle: "No Stress, No Follow-Ups",
     description:
-      "No more manual record-keeping or geographical limitations. Manage your chamas from anywhere, anytime.",
-    color: "#0d9488", // teal-600
-    bgColor: "#ccfbf1", // teal-100
+      "Contributions, records, and payouts are handled automatically, so there's no chasing members or manual tracking.",
+    gradientColors: ["#059669", "#10b981"],
+    bgColor: "#ecfdf5",
+    imageSource: require("@/assets/images/payoutProcessed.png"),
+  },
+  {
+    icon: Globe,
+    title: "Save Without Borders",
+    subtitle: "One Group, Any Location",
+    description:
+      "Invite friends or family from different countries. Everyone contributes and gets paid on time, wherever they are.",
+    gradientColors: ["#0d9488", "#14b8a6"],
+    bgColor: "#f0fdfa",
+    imageSource: require("@/assets/images/payout.png"),
   },
 ];
 
@@ -69,77 +74,126 @@ export default function Onboarding() {
     }
   };
 
+  const skipToEnd = () => {
+    router.push("/auth-screen");
+  };
+
   const slide = onboardingSlides[currentSlide];
   const IconComponent = slide.icon;
 
-
   return (
-  
+    <View className="flex-1 bg-white">
+      {/* Full Screen Image Background - extends to status bar */}
+      <View className="absolute top-0 left-0 right-0 bottom-0" style={{ height: height * 0.65 }}>
+        <Image
+          source={slide.imageSource}
+          style={{
+            width: "100%",
+            height: "100%",
+          }}
+          resizeMode="cover"
+        />
+      </View>
 
-      <SafeAreaView className="flex-1 bg-white ">
-        <View className="flex-1 px-6 justify-center">
-          {/* Main content */}
-          <ScrollView
-            contentContainerStyle={{
-              flexGrow: 1,
-              justifyContent: 'center',
-              paddingBottom: 40,
-            }}
-            showsVerticalScrollIndicator={false}
-          >
-            <View className="items-center">
-              <View
-                className="w-40 h-40 rounded-3xl shadow-lg items-center justify-center mb-10"
-                style={{ backgroundColor: slide.bgColor }}
-              >
-                <IconComponent color={slide.color} size={60} />
-              </View>
-
-              <Text className="text-4xl mb-4 text-gray-900 text-center font-bold max-w-xs">
-                {slide.title}
-              </Text>
-
-              <Text
-                className="text-xl mb-8 text-center font-medium max-w-sm"
-                style={{ color: "#059669" }}
-              >
-                {slide.subtitle}
-              </Text>
-
-              <Text className="text-gray-600 text-lg leading-relaxed max-w-sm mb-12 text-center">
-                {slide.description}
-              </Text>
-            </View>
-          </ScrollView>
-
-          {/* Navigation */}
-          <View className="flex-row items-center justify-between pb-6">
-            <TouchableOpacity
-              onPress={prevSlide}
-              disabled={currentSlide === 0}
-              className="p-3 flex-row items-center"
-              style={{ opacity: currentSlide === 0 ? 0.3 : 1 }}
+      {/* Skip Button */}
+      {currentSlide < onboardingSlides.length - 1 && (
+        <SafeAreaView>
+          <View className="absolute top-4 right-6 z-20">
+            <TouchableOpacity 
+              onPress={skipToEnd}
+              className="px-4 py-2 rounded-full"
+              style={{ backgroundColor: 'rgba(255, 255, 255, 0.9)' }}
             >
-              <ChevronLeft size={20} color="#6b7280" />
-              <Text className="text-gray-500 ml-2 text-lg">Back</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={nextSlide}
-              className="px-8 py-3 rounded-full flex-row items-center"
-              style={{ backgroundColor: "#059669" }}
-            >
-              <Text className="text-white mr-2 text-lg">
-                {currentSlide === onboardingSlides.length - 1
-                  ? "Get Started"
-                  : "Next"}
-              </Text>
-              <ChevronRight size={20} color="white" />
+              <Text className="text-gray-700 text-sm font-semibold">Skip</Text>
             </TouchableOpacity>
           </View>
+        </SafeAreaView>
+      )}
+
+      {/* Content Card at Bottom */}
+      <View 
+        className="absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl"
+        style={{ 
+          paddingTop: 32,
+          paddingBottom: 40,
+          paddingHorizontal: 24,
+          shadowColor: "#000",
+          shadowOffset: {
+            width: 0,
+            height: -4,
+          },
+          shadowOpacity: 0.1,
+          shadowRadius: 12,
+          elevation: 10,
+        }}
+      >
+        {/* Content */}
+        <View className="items-center mb-6">
+          <Text className="text-2xl mb-2 text-gray-900 text-center font-bold leading-tight px-4">
+            {slide.title}
+          </Text>
+
+          <Text
+            className="text-base mb-4 text-center font-semibold px-4"
+            style={{ color: slide.gradientColors[0] }}
+          >
+            {slide.subtitle}
+          </Text>
+
+          <Text className="text-gray-600 text-sm leading-6 text-center px-6 mb-6">
+            {slide.description}
+          </Text>
         </View>
-      </SafeAreaView>
-   
+
+        {/* Progress Indicators */}
+        <View className="flex-row justify-center space-x-2 mb-6 gap-1">
+          {onboardingSlides.map((_, index) => (
+            <View
+              key={index}
+              className="h-1.5 rounded-full"
+              style={{
+                width: index === currentSlide ? 24 : 8,
+                backgroundColor: index === currentSlide 
+                  ? slide.gradientColors[0]
+                  : "#d1d5db"
+              }}
+            />
+          ))}
+        </View>
+
+        {/* Navigation Buttons */}
+        <View className="flex-row items-center justify-between">
+          <TouchableOpacity
+            onPress={prevSlide}
+            disabled={currentSlide === 0}
+            className="px-6 py-3 rounded-full flex-row items-center"
+            style={{ 
+              opacity: currentSlide === 0 ? 0 : 1,
+              backgroundColor: currentSlide === 0 ? "transparent" : "#f3f4f6"
+            }}
+          >
+            <ChevronLeft size={20} color="#6b7280" />
+            <Text className="text-gray-700 ml-1 text-base font-medium">Back</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={nextSlide}
+            className="px-8 py-4 rounded-full flex-row items-center shadow-lg"
+            style={{ 
+              backgroundColor: slide.gradientColors[0],
+              minWidth: 140,
+              justifyContent: "center"
+            }}
+          >
+            <Text className="text-white text-base font-semibold mr-1">
+              {currentSlide === onboardingSlides.length - 1
+                ? "Get Started"
+                : "Next"}
+            </Text>
+            <ChevronRight size={20} color="white" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
   );
 }
-

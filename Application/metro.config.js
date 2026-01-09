@@ -10,4 +10,11 @@ config.resolver.unstable_conditionNames = [
   "require",
 ];
 
+// Add crypto polyfills
+config.resolver.extraNodeModules = {
+  crypto: require.resolve('react-native-quick-crypto'),
+  stream: require.resolve('readable-stream'),
+  buffer: require.resolve('buffer'),
+};
+
 module.exports = withNativeWind(config, { input: "./app/global.css" });
