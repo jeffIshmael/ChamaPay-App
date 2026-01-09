@@ -8,7 +8,7 @@ export default function Index() {
   useEffect(() => {
     if (isLoading) return;
     if (isAuthenticated) router.replace("/(tabs)");
-    else router.replace("/onboarding");
+    else router.replace("/auth-screen");
   }, [isLoading, isAuthenticated]);
 
   return null;
