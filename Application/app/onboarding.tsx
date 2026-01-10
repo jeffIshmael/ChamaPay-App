@@ -7,11 +7,18 @@ import {
   Globe,
 } from "lucide-react-native";
 import React, { useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View, Image, Dimensions } from "react-native";
+import {
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+  Image,
+  Dimensions,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 const onboardingSlides = [
   {
@@ -23,7 +30,7 @@ const onboardingSlides = [
     primaryColor: "#26a6a2", // downy-500
     accentColor: "#66d9d0", // downy-300
     bgColor: "#d1f6f1", // downy-100
-    imageSource: require("@/assets/images/intro.png"),
+    imageSource: require("@/assets/images/welcome.png"),
   },
   {
     icon: Shield,
@@ -88,15 +95,15 @@ export default function Onboarding() {
   return (
     <View className="flex-1 bg-white">
       {/* Colored Background Layer with decorative elements */}
-      <View 
+      <View
         className="absolute top-0 left-0 right-0 bottom-0 overflow-hidden"
-        style={{ 
+        style={{
           height: height * 0.65,
           backgroundColor: slide.bgColor,
         }}
       >
         {/* Decorative circles */}
-        <View 
+        <View
           className="absolute rounded-full"
           style={{
             top: -80,
@@ -107,7 +114,7 @@ export default function Onboarding() {
             opacity: 0.3,
           }}
         />
-        <View 
+        <View
           className="absolute rounded-full"
           style={{
             top: 150,
@@ -118,7 +125,7 @@ export default function Onboarding() {
             opacity: 0.15,
           }}
         />
-        <View 
+        <View
           className="absolute rounded-full"
           style={{
             bottom: 20,
@@ -132,7 +139,10 @@ export default function Onboarding() {
       </View>
 
       {/* Full Screen Image */}
-      <View className="absolute top-0 left-0 right-0" style={{ height: height * 0.65 }}>
+      <View
+        className="absolute top-0 left-0 right-0"
+        style={{ height: height * 0.65 }}
+      >
         <Image
           source={slide.imageSource}
           style={{
@@ -147,16 +157,16 @@ export default function Onboarding() {
       {currentSlide < onboardingSlides.length - 1 && (
         <SafeAreaView>
           <View className="absolute top-4 right-6 z-20">
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={skipToEnd}
               className="px-4 py-2 rounded-full"
-              style={{ 
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              style={{
+                backgroundColor: "rgba(255, 255, 255, 0.95)",
                 borderWidth: 1,
                 borderColor: slide.accentColor,
               }}
             >
-              <Text 
+              <Text
                 className="text-sm font-semibold"
                 style={{ color: slide.primaryColor }}
               >
@@ -168,9 +178,9 @@ export default function Onboarding() {
       )}
 
       {/* Content Card at Bottom with colored accent */}
-      <View 
+      <View
         className="absolute left-0 right-0 bottom-0 bg-white overflow-hidden"
-        style={{ 
+        style={{
           paddingTop: 40,
           paddingBottom: 40,
           paddingHorizontal: 24,
@@ -187,7 +197,7 @@ export default function Onboarding() {
         }}
       >
         {/* Colored accent line at top */}
-        <View 
+        <View
           className="absolute top-0 left-0 right-0"
           style={{
             height: 4,
@@ -221,9 +231,10 @@ export default function Onboarding() {
               className="h-1.5 rounded-full"
               style={{
                 width: index === currentSlide ? 28 : 8,
-                backgroundColor: index === currentSlide 
-                  ? slide.primaryColor
-                  : slide.accentColor,
+                backgroundColor:
+                  index === currentSlide
+                    ? slide.primaryColor
+                    : slide.accentColor,
                 opacity: index === currentSlide ? 1 : 0.3,
               }}
             />
@@ -236,15 +247,19 @@ export default function Onboarding() {
             onPress={prevSlide}
             disabled={currentSlide === 0}
             className="px-6 py-3 rounded-full flex-row items-center"
-            style={{ 
+            style={{
               opacity: currentSlide === 0 ? 0 : 1,
-              backgroundColor: currentSlide === 0 ? "transparent" : slide.bgColor,
+              backgroundColor:
+                currentSlide === 0 ? "transparent" : slide.bgColor,
               borderWidth: currentSlide === 0 ? 0 : 1,
               borderColor: slide.accentColor,
             }}
           >
-            <ChevronLeft size={20} style={{ borderColor : slide.primaryColor }} />
-            <Text 
+            <ChevronLeft
+              size={20}
+              style={{ borderColor: slide.primaryColor }}
+            />
+            <Text
               className="ml-1 text-base font-medium"
               style={{ color: slide.primaryColor }}
             >
@@ -255,7 +270,7 @@ export default function Onboarding() {
           <TouchableOpacity
             onPress={nextSlide}
             className="px-8 py-4 rounded-full flex-row items-center shadow-lg"
-            style={{ 
+            style={{
               backgroundColor: slide.primaryColor,
               minWidth: 140,
               justifyContent: "center",
