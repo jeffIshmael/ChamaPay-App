@@ -106,6 +106,7 @@ export async function addMemberToPayout(chamaId: number, userId: number) {
           payoutOrder[payoutOrder.length - 1].payDate.getTime() +
             chama.cycleTime * 24 * 60 * 60 * 1000
         ),
+        amount: "0",
         paid: false,
       };
       payoutOrder.push(newPayOut);
@@ -163,7 +164,7 @@ export async function sortRequest(
         },
       });
 
-      await addMemberToPayout(request.chamaId,request.userId);
+      await addMemberToPayout(request.chamaId, request.userId);
 
       // send members of the new member
       const message = `${userName} joined ${chamaName} chama.`;

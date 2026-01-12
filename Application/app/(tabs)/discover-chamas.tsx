@@ -224,7 +224,7 @@ export default function DiscoverChamas() {
       </View>
 
       {/* Content */}
-      <View className="flex-1 px-6">
+      <View className="flex-1 px-6 mb-20">
         {loading ? (
           <View className="flex-1 items-center justify-center">
             <View className=" p-8 items-center">

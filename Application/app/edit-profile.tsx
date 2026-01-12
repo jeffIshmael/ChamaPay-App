@@ -46,7 +46,6 @@ export default function EditProfile() {
     }
   }, [user]);
 
-  // Default avatar URLs based on user's initials or id
   const getDefaultAvatar = () => {
     const initials = (user?.userName || user?.email || 'U')
       .split(' ')
@@ -55,7 +54,6 @@ export default function EditProfile() {
       .toUpperCase()
       .slice(0, 2);
     
-    // Using a service like DiceBear Avatars for consistent default avatars
     return `https://api.dicebear.com/7.x/initials/svg?seed=${initials}&backgroundColor=10b981&textColor=ffffff`;
   };
 
@@ -67,11 +65,10 @@ export default function EditProfile() {
     const newErrors = { name: '', email: '', phoneNo: '' };
     let isValid = true;
 
-    // Only validate phone number since it's the only editable field
     if (formData.phoneNo && formData.phoneNo.trim()) {
       const phoneRegex = /^\d{10,15}$/;
       if (!phoneRegex.test(formData.phoneNo.replace(/\D/g, ''))) {
-        newErrors.phoneNo = 'Please enter a valid phone number';
+        newErrors.phoneNo = 'Please enter a valid phone number (10-15 digits)';
         isValid = false;
       }
     }
@@ -82,7 +79,6 @@ export default function EditProfile() {
 
   const pickImage = async () => {
     try {
-      // Request permission
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (permissionResult.granted === false) {
@@ -90,13 +86,11 @@ export default function EditProfile() {
         return;
       }
 
-      // Pick image
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
-        base64: true,
       });
 
       if (!result.canceled && result.assets[0]) {
@@ -110,7 +104,6 @@ export default function EditProfile() {
 
   const takePhoto = async () => {
     try {
-      // Request permission
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
       
       if (permissionResult.granted === false) {
@@ -118,12 +111,10 @@ export default function EditProfile() {
         return;
       }
 
-      // Take photo
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
-        base64: true,
       });
 
       if (!result.canceled && result.assets[0]) {
@@ -138,23 +129,47 @@ export default function EditProfile() {
   const uploadImage = async (imageAsset: any) => {
     setImageUploading(true);
     try {
-      // For demo purposes, we'll use a placeholder service
-      // In production, you'd upload to your own server or cloud storage
-      const base64Image = imageAsset.base64;
+      // Create FormData for multipart upload
+      const formData = new FormData();
       
-      // Simulate upload delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Extract filename and type from URI
+      const uriParts = imageAsset.uri.split('.');
+      const fileType = uriParts[uriParts.length - 1];
       
-      // For now, we'll store the local URI
-      // In production, this would be the URL returned from your upload service
-      const imageUrl = imageAsset.uri;
-      
-      setFormData(prev => ({ ...prev, profileImageUrl: imageUrl }));
-      
-      Alert.alert('Success', 'Profile image updated successfully!');
+      formData.append('image', {
+        uri: imageAsset.uri,
+        name: `profile_${Date.now()}.${fileType}`,
+        type: `image/${fileType}`,
+      } as any);
+
+      const response = await fetch(`${serverUrl}/user/profile/image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type - let fetch set it automatically for FormData
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Update local state with new image URL
+        setFormData(prev => ({ ...prev, profileImageUrl: data.profileImageUrl }));
+        
+        // Refresh user data to get updated profile
+        await refreshUser?.();
+        
+        Alert.alert('Success', 'Profile image updated successfully!');
+      } else {
+        throw new Error(data.error || 'Failed to upload image');
+      }
     } catch (error) {
       console.error('Error uploading image:', error);
-      Alert.alert('Error', 'Failed to upload image');
+      Alert.alert(
+        'Upload Failed', 
+        error instanceof Error ? error.message : 'Failed to upload image. Please try again.'
+      );
     } finally {
       setImageUploading(false);
     }
@@ -180,7 +195,9 @@ export default function EditProfile() {
     setLoading(true);
     try {
       const updateData = {
-        phoneNo: formData.phoneNo ? parseInt(formData.phoneNo.replace(/\D/g, '')) : null,
+        phoneNo: formData.phoneNo && formData.phoneNo.trim() 
+          ? parseInt(formData.phoneNo.replace(/\D/g, '')) 
+          : null,
       };
 
       const response = await fetch(`${serverUrl}/user/profile`, {
@@ -216,13 +233,12 @@ export default function EditProfile() {
   };
 
   const hasChanges = () => {
-    // Only check phone number since that's the only editable field
     return formData.phoneNo !== (user?.phoneNo?.toString() || '');
   };
 
   return (
     <View className="flex-1 bg-gray-50">
-      {/* Enhanced Header */}
+      {/* Header */}
       <View 
         className="bg-downy-800 px-6 pb-8 pt-4 rounded-b-md"
         style={{ paddingTop: insets.top + 16 }}
@@ -243,37 +259,6 @@ export default function EditProfile() {
           </View>
           <View className="w-10" />
         </View>
-
-        {/* Profile Preview Card */}
-        {/* <View className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
-          <View className="flex-row items-center gap-4">
-            <View className="relative">
-              <Image
-                source={{ uri: getCurrentProfileImage() }}
-                className="w-16 h-16 rounded-full border-2 border-white/30"
-              />
-              {imageUploading && (
-                <View className="absolute inset-0 bg-black/50 rounded-full items-center justify-center">
-                  <ActivityIndicator color="white" size="small" />
-                </View>
-              )}
-            </View>
-            <View className="flex-1">
-              <Text className="text-lg font-bold text-white">
-                {formData.name || user?.userName || "User"}
-              </Text>
-              <Text className="text-emerald-100 text-sm">
-                {formData.email || user?.email || "No email provided"}
-              </Text>
-              <View className="flex-row items-center gap-1 mt-1">
-                <View className="w-2 h-2 bg-emerald-300 rounded-full" />
-                <Text className="text-emerald-100 text-xs">
-                  {hasChanges() ? "Unsaved changes" : "Profile updated"}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View> */}
       </View>
 
       <ScrollView className="flex-1 -mt-8" showsVerticalScrollIndicator={false}>
@@ -281,9 +266,6 @@ export default function EditProfile() {
           {/* Profile Image Section */}
           <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
             <View className="flex-row items-center gap-3 mb-6">
-              {/* <View className="w-12 h-12 bg-purple-100 rounded-xl items-center justify-center">
-                <ImageIcon size={20} color="#7c3aed" />
-              </View> */}
               <View>
                 <Text className="text-lg font-bold text-gray-900">Profile Picture</Text>
                 <Text className="text-gray-600 text-sm">Update your profile photo</Text>
@@ -327,9 +309,6 @@ export default function EditProfile() {
           {/* Profile Form */}
           <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
             <View className="flex-row items-center gap-3 mb-6">
-              {/* <View className="w-12 h-12 bg-blue-100 rounded-xl items-center justify-center">
-                <User size={20} color="#3b82f6" />
-              </View> */}
               <View>
                 <Text className="text-lg font-bold text-gray-900">Profile Information</Text>
                 <Text className="text-gray-600 text-sm">Update your personal details</Text>
@@ -403,7 +382,7 @@ export default function EditProfile() {
               )}
             </View>
 
-            {/* Save Button - Inline */}
+            {/* Save Button */}
             <View className="mt-4">
               <TouchableOpacity
                 onPress={handleSave}
@@ -438,4 +417,4 @@ export default function EditProfile() {
       </ScrollView>
     </View>
   );
-} 
+}

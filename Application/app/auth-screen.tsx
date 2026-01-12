@@ -329,17 +329,17 @@ export default function AuthScreen() {
               </Text>
 
               {/* Powered by */}
-              <View className="items-center">
+              <View className="items-center mb-3 mt-2">
                 <View
-                  className="flex-row items-center bg-white px-6 py-3 rounded-full"
+                  className="flex-row items-center "
                   style={{
-                    borderWidth: 1,
-                    borderColor: "#d1f6f1", // downy-100
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.05,
-                    shadowRadius: 8,
-                    elevation: 2,
+                    // borderWidth: 1,
+                    // borderColor: "#d1f6f1", // downy-100
+                    // shadowColor: "#000",
+                    // shadowOffset: { width: 0, height: 2 },
+                    // shadowOpacity: 0.05,
+                    // shadowRadius: 8,
+                    // elevation: 2,
                   }}
                 >
                   <Text className="text-xs text-gray-500 mr-2">Powered by</Text>
