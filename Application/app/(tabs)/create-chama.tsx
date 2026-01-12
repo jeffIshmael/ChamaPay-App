@@ -47,9 +47,9 @@ import { chain, client } from "../../constants/thirdweb";
 import { chamapayContractAddress } from "@/constants/contractAddress";
 import { useSendTransaction } from "thirdweb/react";
 import { Quote } from "./wallet";
+import { getExchangeRate } from "@/lib/pretiumService";
 
-// Exchange rate constant (KES per 1 USDC)
-const USDC_TO_KES_RATE = 129.5;
+// Exchange rate constant (KES per 1 USDC);
 const MINIMUM_CONTRIBUTION = 0.001;
 
 interface FormData {
@@ -142,16 +142,17 @@ export default function CreateChama() {
   const [showCollateralModal, setShowCollateralModal] = useState(false);
   const [agreedToCollateral, setAgreedToCollateral] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
-  const wallet = useActiveWallet();
+  const [quote, setQuote] = useState<Quote |null>(null);
   const activeAccount = useActiveAccount();
 
   const { mutate: sendTx, data: transactionResult } = useSendTransaction();
+
 
   // Helper function to convert USDC to KES
   const convertToKES = (usdcAmount: string): string => {
     const amount = parseFloat(usdcAmount);
     if (isNaN(amount)) return "0.00";
-    return (amount * USDC_TO_KES_RATE).toFixed(2);
+    return (amount * quote?.exchangeRate.selling_rate!).toFixed(2);
   };
 
   // Helper function to get numeric contribution value
@@ -186,8 +187,12 @@ export default function CreateChama() {
   }, [formData.isPublic]);
 
   useEffect(() => {
-    console.log("the total chamas", totalChamas);
-  }, [totalChamas]);
+    const fetchQuote = async ()=>{
+      const result = await getExchangeRate("KES");
+      setQuote(result);
+    }
+    fetchQuote();
+  }, [quote]);
 
   const updateFormData = (field: keyof FormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -741,7 +746,7 @@ export default function CreateChama() {
               <View className="mt-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                 <Text className="text-blue-900 text-xs font-medium">
                   ≈ KES {convertToKES(formData.contribution)} (at 1 USDC = KES{" "}
-                  {USDC_TO_KES_RATE})
+                  {quote?.exchangeRate.selling_rate!})
                 </Text>
               </View>
             )}

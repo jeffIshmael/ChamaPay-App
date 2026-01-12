@@ -76,7 +76,6 @@ export async function getExchangeRate(currencyCode: CurrencyCode) {
       method: "GET",
     });
     const data = await response.json();
-    console.log("exchange rate data", data);
     return data;
   } catch (error) {
     console.log("Error getting exchange rate:", error);

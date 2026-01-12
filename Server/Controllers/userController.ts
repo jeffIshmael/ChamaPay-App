@@ -1,6 +1,7 @@
 // This file has all user related functions
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
+import 'multer';
 import {
   checkHasPendingRequest,
   getSentRequests,
@@ -8,6 +9,7 @@ import {
   requestToJoin,
   sortRequest,
 } from "../Lib/prismaFunctions";
+import { uploadToPinata } from "../utils/PinataUtils";
 
 const prisma = new PrismaClient();
 
@@ -29,6 +31,16 @@ interface UserResponse {
   role: string | null;
   profile: string | null;
   profileImageUrl: string | null;
+}
+
+// Extend Request type
+interface MulterRequest extends Request {
+  file?: Express.Multer.File;
+  user?: {
+    userId: number;
+    email: string;
+    userName?: string;
+  };
 }
 
 // (removed duplicate inline checkUserExists in favor of typed version below)
@@ -560,7 +572,10 @@ export const checkHasJoinRequest = async (
     }
 
     // if user has
-    const hasRequest = await checkHasPendingRequest(Number(userId), Number(chamaId));
+    const hasRequest = await checkHasPendingRequest(
+      Number(userId),
+      Number(chamaId)
+    );
     if (hasRequest === null) {
       res
         .status(400)
@@ -596,13 +611,13 @@ export const shareChamaLink = async (
     }
 
     const notification = await prisma.notification.create({
-      data:{
+      data: {
         senderId: userId,
         message: message,
-        type:"invite_link",
+        type: "invite_link",
         sharedLink: chamaLink,
-        userId: receiverId
-      }
+        userId: receiverId,
+      },
     });
     if (!notification) {
       res
@@ -617,3 +632,102 @@ export const shareChamaLink = async (
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
+
+// update phone number
+export const updatePhoneNumber = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { phoneNo } = req.body;
+    const userId: number = req.user?.userId as number;
+    if (!req.user?.userId) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+
+    if (phoneNo !== null && phoneNo !== undefined) {
+      if (!Number.isInteger(phoneNo) || phoneNo < 0) {
+        res.status(400).json({ error: "Invalid phone number" });
+      }
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { phoneNo },
+      select: {
+        id: true,
+        email: true,
+        userName: true,
+        phoneNo: true,
+        profileImageUrl: true,
+        address: true,
+        smartAddress: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      user: updatedUser,
+      message: "Profile updated successfully",
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+};
+
+export const uploadProfileImage = async (
+  req: MulterRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: 'No image provided' });
+      return;
+    }
+
+    const userId: number = req.user?.userId as number;
+    
+    if (!req.user?.userId) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+
+    // Upload to Pinata IPFS
+    const fileName = `profile_${userId}_${Date.now()}.${req.file.mimetype.split('/')[1]}`;
+    const ipfsUrl = await uploadToPinata(
+      req.file.buffer,
+      fileName,
+      req.file.mimetype
+    );
+
+    // Update user in database with IPFS URL
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { profileImageUrl: ipfsUrl },
+      select: {
+        id: true,
+        email: true,
+        userName: true,
+        phoneNo: true,
+        profileImageUrl: true,
+        address: true,
+        smartAddress: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      profileImageUrl: ipfsUrl,
+      user: updatedUser,
+      message: 'Profile image uploaded to IPFS successfully',
+    });
+  } catch (error) {
+    console.error('Image upload error:', error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Failed to upload image to IPFS',
+    });
+  }
+};
+
