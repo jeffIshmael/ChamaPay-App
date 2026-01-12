@@ -16,7 +16,7 @@ interface PinataResult {
   };
 }
 
-export async function uploadToPinata(fileBuffer, fileName, mimeType) {
+export async function uploadToPinata(fileBuffer:any, fileName:any, mimeType:any) {
   try {
     const formData = new FormData();
 
@@ -49,7 +49,7 @@ export async function uploadToPinata(fileBuffer, fileName, mimeType) {
 }
 
 // Optional: Delete file from Pinata
-export async function deleteFromPinata(fileId) {
+export async function deleteFromPinata(fileId:any) {
   try {
     const request = await fetch(`https://api.pinata.cloud/v3/files/${fileId}`, {
       method: "DELETE",
@@ -70,7 +70,7 @@ export async function deleteFromPinata(fileId) {
 }
 
 // Helper to extract file ID from IPFS URL if needed
-export function extractCidFromUrl(url) {
+export function extractCidFromUrl(url:string) {
   if (!url || !url.includes("/ipfs/")) return null;
   return url.split("/ipfs/")[1];
 }
