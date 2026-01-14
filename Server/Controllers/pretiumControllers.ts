@@ -446,8 +446,7 @@ export async function pretiumCheckMobileNoDetails(req: Request, res: Response) {
       !currencyCode ||
       !mobileNetwork ||
       !type ||
-      !shortcode ||
-      !accountNumber
+      !shortcode
     ) {
       return res.status(401).json({
         success: false,
