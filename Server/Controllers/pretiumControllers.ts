@@ -7,6 +7,8 @@ import {
   getQuote,
   pretiumOfframp,
   pretiumOnramp,
+  transferToBank,
+  transferToMobileNetwork,
   verifyMobileNetworkDetails,
   verifyNgnBankDetails,
   verifyPhoneNo,
@@ -442,12 +444,7 @@ export async function pretiumCheckMobileNoDetails(req: Request, res: Response) {
       });
     }
 
-    if (
-      !currencyCode ||
-      !mobileNetwork ||
-      !type ||
-      !shortcode
-    ) {
+    if (!currencyCode || !mobileNetwork || !type || !shortcode) {
       return res.status(401).json({
         success: false,
         error: "One details is not set.",
@@ -467,6 +464,181 @@ export async function pretiumCheckMobileNoDetails(req: Request, res: Response) {
     });
   } catch (error) {
     console.log("error in verifying mobile network details", error);
+    return res.status(500).json({
+      success: false,
+      error: error,
+    });
+  }
+}
+
+// handle transfer to bank
+export async function pretiumTransferToBank(req: Request, res: Response) {
+  const {
+    currencyCode,
+    accountNumber,
+    bankCode,
+    amount,
+    txHash,
+    usdcAmount,
+    exchangeRate,
+    bankName,
+    accountName,
+  } = req.body;
+  const userId = req.user?.userId;
+  try {
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+    }
+
+    if (!currencyCode || !bankCode || !amount || !txHash) {
+      return res.status(401).json({
+        success: false,
+        error: "One of the details is not set.",
+      });
+    }
+    // Get user
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { smartAddress: true },
+    });
+
+    if (!user || !user.smartAddress) {
+      return res.status(400).json({
+        success: false,
+        error: "User  not found.",
+      });
+    }
+
+    // the amount coming in has 0.5% fee included in it :- so we get the fee
+    const fee = Number(amount) * 0.005;
+    const txResult = await transferToBank(
+      currencyCode,
+      txHash,
+      amount,
+      fee.toString(),
+      accountNumber,
+      bankCode,
+      accountName,
+      bankName
+    );
+    console.log("the pretium bank transfer result", txResult);
+    if (!txResult) {
+      return res.status(400).json({
+        success: false,
+        error: txResult || "Failed to initiate pretium offramp.",
+      });
+    }
+    // Save offramp transaction to database
+    await prisma.pretiumTransaction.create({
+      data: {
+        userId,
+        transactionCode: txResult.transaction_code,
+        isOnramp: false,
+        shortcode: accountNumber,
+        amount: amount,
+        status: txResult.status,
+        isRealesed: false,
+        cusdAmount: usdcAmount,
+        exchangeRate: exchangeRate,
+        walletAddress: user.smartAddress,
+      },
+    });
+    return res.status(200).json({
+      success: true,
+      result: txResult,
+    });
+  } catch (error) {
+    console.log("error transferring to bank", error);
+    return res.status(500).json({
+      success: false,
+      error: error,
+    });
+  }
+}
+
+// handle transfer to bank
+export async function pretiumMobileTransfer(req: Request, res: Response) {
+  const {
+    currencyCode,
+    mobileNetwork,
+    shortCode,
+    usdcAmount,
+    exchangeRate,
+    amount,
+    txHash,
+    accountName,
+  } = req.body;
+  const userId = req.user?.userId;
+  try {
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+    }
+
+    if (!currencyCode || !mobileNetwork || !amount || !txHash || !shortCode) {
+      return res.status(401).json({
+        success: false,
+        error: "One of the details is not set.",
+      });
+    }
+
+    // Get user
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { smartAddress: true },
+    });
+
+    if (!user || !user.smartAddress) {
+      return res.status(400).json({
+        success: false,
+        error: "User  not found.",
+      });
+    }
+
+    // the amount coming in has 0.5% fee included in it :- so we get the fee
+    const fee = Number(amount) * 0.005;
+    const txResult = await transferToMobileNetwork(
+      currencyCode,
+      shortCode,
+      txHash,
+      amount,
+      fee.toString(),
+      mobileNetwork,
+      accountName
+    );
+    console.log("the pretium mobile transfer result", txResult);
+    if (!txResult) {
+      return res.status(400).json({
+        success: false,
+        error: txResult || "Failed to initiate pretium onramp.",
+      });
+    }
+    // Save offramp transaction to database
+    await prisma.pretiumTransaction.create({
+      data: {
+        userId,
+        transactionCode: txResult.transaction_code,
+        isOnramp: false,
+        shortcode: shortCode,
+        amount: amount,
+        status: txResult.status,
+        isRealesed: false,
+        cusdAmount: usdcAmount,
+        exchangeRate: exchangeRate,
+        walletAddress: user.smartAddress,
+      },
+    });
+    return res.status(200).json({
+      success: true,
+      result: txResult,
+    });
+  } catch (error) {
+    console.log("error transferring to mobile", error);
     return res.status(500).json({
       success: false,
       error: error,

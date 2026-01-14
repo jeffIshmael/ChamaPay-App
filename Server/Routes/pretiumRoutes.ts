@@ -9,7 +9,9 @@ import {
   pretiumCheckTransaction,
   pretiumCheckTriggerDepositFor,
   pretiumCheckNgnBankDetails,
-  pretiumCheckMobileNoDetails
+  pretiumCheckMobileNoDetails,
+  pretiumMobileTransfer,
+  pretiumTransferToBank
 } from "../Controllers/pretiumControllers";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -21,6 +23,10 @@ router.post("/callback", pretiumCallback);
 router.post("/onramp", authenticate, initiatePretiumOnramp);
 // Get user transaction history (protected)
 router.post("/offramp", authenticate, initiatePretiumOfframp);
+// bank transfer(offramp)
+router.post("/bankOfframp", authenticate, pretiumTransferToBank);
+// mobile transfer(offramp)
+router.post("/mobileOfframp", authenticate, pretiumMobileTransfer);
 // check trnsaction status
 router.post("/transactionStatus",authenticate, pretiumCheckTransaction);
 // trigger deposit for
@@ -36,3 +42,5 @@ router.get("/verify", pretiumVerifyNumber);
 router.get("/quote/:currencyCode", getExchangeRate);
 
 export default router;
+
+

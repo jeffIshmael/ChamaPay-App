@@ -342,3 +342,189 @@ export async function verifyMobileNetworkDetails(
     }
   }
 }
+
+// function to transfer to bank
+export async function transferToBank(
+  currencyCode: string,
+  txHash: string,
+  amount: string,
+  fee: string,
+  accountNumber: string,
+  bankCode: number,
+  accountName?: string,
+  bankName?: string
+) {
+  try {
+    let finalResponse: any;
+    if (currencyCode === "NGN" || "MWK") {
+      // ngn or mwk
+      const response = await axios.post(
+        `https://api.xwift.africa/v1/pay/${currencyCode}`,
+        {
+          type: "BANK_TRANSFER",
+          account_name: accountName,
+          account_number: accountNumber,
+          bank_name: bankName,
+          bank_code: bankCode,
+          amount: amount,
+          fee: fee,
+          chain: "CELO",
+          transaction_hash: txHash,
+          callback_url: `${serverUrl}/pretium/callback`,
+        },
+
+        {
+          headers: {
+            "x-api-key": pretiumApiKey,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (response.statusText !== "OK" || response.data.code !== 200) {
+        throw new Error("The request to check tx status did not succeed.");
+      }
+      finalResponse = response.data.data;
+    } else if (currencyCode === "KES") {
+      // KE
+      const response = await axios.post(
+        `https://api.xwift.africa/v1/pay/${currencyCode}`,
+        {
+          type: "BANK_TRANSFER",
+          account_number: accountNumber,
+          bank_code: bankCode,
+          amount: amount,
+          fee: fee,
+          chain: "CELO",
+          transaction_hash: txHash,
+          callback_url: `${serverUrl}/pretium/callback`,
+        },
+
+        {
+          headers: {
+            "x-api-key": pretiumApiKey,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (response.statusText !== "OK" || response.data.code !== 200) {
+        throw new Error("The request to check tx status did not succeed.");
+      }
+      finalResponse = response.data.data;
+    }
+
+    return finalResponse;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error("API Error:", error.response?.data);
+      console.error("Status:", error.response?.status);
+      return null;
+    } else {
+      console.error("Error:", error);
+      return null;
+    }
+  }
+}
+
+// function to transfer to mobile network
+export async function transferToMobileNetwork(
+  currencyCode: string,
+  shortCode: string,
+  txHash: string,
+  amount: string,
+  fee: string,
+  mobileNetwork: string,
+  accountName?: string,
+) {
+  try {
+    let finalResponse: any;
+    if (currencyCode === "GHS") {
+      // ngn or mwk
+      const response = await axios.post(
+        `https://api.xwift.africa/v1/pay/${currencyCode}`,
+        {
+          shortcode: shortCode,
+          account_name: accountName,
+          amount: amount,
+          fee: fee,
+          mobile_network: mobileNetwork,
+          chain: "CELO",
+          transaction_hash: txHash,
+          callback_url: `${serverUrl}/pretium/callback`,
+        },
+
+        {
+          headers: {
+            "x-api-key": pretiumApiKey,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (response.statusText !== "OK" || response.data.code !== 200) {
+        throw new Error("The request to check tx status did not succeed.");
+      }
+      finalResponse = response.data.data;
+    } else if (currencyCode === "KES") {
+      // KE
+      const response = await axios.post(
+        `https://api.xwift.africa/v1/pay/${currencyCode}`,
+        {
+          type: "MOBILE",
+          shortcode: shortCode,
+          amount: amount,
+          fee: fee,
+          mobile_network: mobileNetwork,
+          chain: "CELO",
+          transaction_hash: txHash,
+          callback_url: `${serverUrl}/pretium/callback`,
+        },
+
+        {
+          headers: {
+            "x-api-key": pretiumApiKey,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (response.statusText !== "OK" || response.data.code !== 200) {
+        throw new Error("The request to check tx status did not succeed.");
+      }
+      finalResponse = response.data.data;
+    } else {
+      // the rest
+      const response = await axios.post(
+        `https://api.xwift.africa/v1/pay/${currencyCode}`,
+        {
+          shortcode: shortCode,
+          amount: amount,
+          fee: fee,
+          mobile_network: mobileNetwork,
+          chain: "CELO",
+          transaction_hash: txHash,
+          callback_url: `${serverUrl}/pretium/callback`,
+        },
+
+        {
+          headers: {
+            "x-api-key": pretiumApiKey,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (response.statusText !== "OK" || response.data.code !== 200) {
+        throw new Error("The request to check tx status did not succeed.");
+      }
+      finalResponse = response.data.data;
+    }
+
+    return finalResponse;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error("API Error:", error.response?.data);
+      console.error("Status:", error.response?.status);
+      return null;
+    } else {
+      console.error("Error:", error);
+      return null;
+    }
+  }
+}
