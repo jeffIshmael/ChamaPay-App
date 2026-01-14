@@ -7,7 +7,10 @@ import {
   getExchangeRate,
   pretiumOfframp,
   validatePhoneNumber,
-  validateWithdrawalDetails
+  validateWithdrawalDetails,
+  pollPretiumPaymentStatus,
+  disburseToMobileNumber,
+  bankTransfer,
 } from "@/lib/pretiumService";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -237,12 +240,19 @@ export default function WithdrawCryptoScreen() {
 
     try {
       // Ethiopia and Malawi don't support shortcode verification - use user-entered details directly
-      if (selectedCountry.code === "ETB" || selectedCountry.code === "MWK" || selectedCountry.code === "CDF") {
+      if (
+        selectedCountry.code === "ETB" ||
+        selectedCountry.code === "MWK" ||
+        selectedCountry.code === "CDF"
+      ) {
         const mockValidation = {
           success: true,
           MobileDetails: {
             mobile_network: selectedMethod.id || selectedMethod.name,
-            public_name: formatPhoneNumber(selectedCountry.phoneCode, phoneNumber),
+            public_name: formatPhoneNumber(
+              selectedCountry.phoneCode,
+              phoneNumber
+            ),
             shortcode: `0${phoneNumber}`,
             status: "COMPLETE",
           },
@@ -467,53 +477,185 @@ export default function WithdrawCryptoScreen() {
     }
   };
 
+  // Updated handleConfirmedWithdraw function with polling and better UX
   const handleConfirmedWithdraw = async () => {
-    if (!token || !activeAccount)
-      throw new Error("No token or wallet connected");
+    if (!token || !activeAccount) {
+      Alert.alert("Error", "No token or wallet connected");
+      return;
+    }
+
     setShowVerificationModal(false);
     setIsProcessing(true);
     setProcessingStep("processing");
+
     try {
+      // Step 1: Transfer USDC to Pretium settlement address
       const txHash = await transferUSDC(amount, pretiumSettlementAddress);
-      if (!txHash) throw new Error("Unable to send USDC");
+      if (!txHash) {
+        throw new Error("Unable to send USDC");
+      }
+
+      // Step 2: Initiate offramp based on payment method
       let offrampResult;
+
       if (selectedMethod?.type === "mobile_money") {
-        offrampResult = await pretiumOfframp(
-          `0${phoneNumber}`,
-          parseFloat(calculateFinalAmount()),
-          currentExchangeRate,
-          amount,
+        // Mobile Money Offramp
+        offrampResult = await disburseToMobileNumber(
+          selectedCountry.currency as CurrencyCode,
+          selectedMethod.id || selectedMethod.name, // mobile network
+          `0${phoneNumber}`, // shortcode
           txHash,
-          calculateFee(),
+          calculateFinalAmount(), // amount after fees
+          amount, // USDC amount
+          currentExchangeRate.toString(),
+          token
+        );
+      } else if (selectedMethod?.type === "bank" && selectedBank) {
+        // Bank Transfer Offramp
+        const accountNameToUse = (() => {
+          if (selectedCountry.code === "KE") {
+            const md = getMobileDetails(bankValidation);
+            return md?.public_name || accountName || "";
+          }
+          const bd = getBankDetails(bankValidation);
+          return bd?.account_name || accountName || "";
+        })();
+
+        offrampResult = await bankTransfer(
+          selectedCountry.currency as CurrencyCode,
+          accountNameToUse,
+          accountNumber,
+          selectedBank.name,
+          Number(selectedBank.code),
+          txHash,
+          calculateFinalAmount(), // amount after fees
+          amount, // USDC amount
+          currentExchangeRate.toString(),
           token
         );
       } else {
-        offrampResult = { success: true }; // TODO: Implement bank API
+        throw new Error("Invalid payment method");
       }
-      if (offrampResult.success) {
+
+      // Check if offramp initiation was successful
+      if (!offrampResult.success) {
+        throw new Error(offrampResult.error || "Failed to initiate withdrawal");
+      }
+
+      // Step 3: Poll for transaction completion
+      const transactionCode = offrampResult.transactionCode;
+
+      if (!transactionCode) {
+        throw new Error("No transaction code received");
+      }
+
+      // Update UI to show polling state
+      setProcessingStep("processing");
+
+      try {
+        const finalResult = await pollPretiumPaymentStatus(
+          transactionCode,
+          token,
+          (status, data) => {
+            console.log("Withdrawal status update:", status);
+            // You can update UI here based on status if needed
+            switch (status) {
+              case "pending":
+                setProcessingStep("processing");
+                break;
+              case "processing":
+              case "pending_transfer":
+                setProcessingStep("processing");
+                break;
+              case "completed":
+              case "complete":
+                setProcessingStep("completed");
+                break;
+            }
+          },
+          60, // 60 attempts = ~2 minutes (increased for offramp)
+          2000 // Check every 2 seconds
+        );
+
+        // Step 4: Handle successful completion
         setProcessingStep("completed");
+
         setTimeout(() => {
           setIsProcessing(false);
           const recipient =
             selectedMethod?.type === "mobile_money"
               ? formatPhoneNumber(selectedCountry.phoneCode, phoneNumber)
               : selectedBank?.name;
+
           Alert.alert(
             "Success!",
             `${
               selectedCountry.currency
-            } ${calculateFinalAmount()} sent to ${recipient}`,
-            [{ text: "OK", onPress: () => router.push("/wallet") }]
+            } ${calculateFinalAmount()} has been sent to ${recipient}`,
+            [
+              {
+                text: "OK",
+                onPress: () => {
+                  // Reset form and navigate
+                  setAmount("");
+                  setPhoneNumber("");
+                  setAccountNumber("");
+                  setAccountName("");
+                  setSelectedMethod(null);
+                  setSelectedBank(null);
+                  router.push("/wallet");
+                },
+              },
+            ]
           );
         }, 2000);
-      } else {
-        throw new Error(offrampResult.error || "Failed");
+      } catch (pollError: any) {
+        // Handle polling-specific errors
+        let errorTitle = "Withdrawal Processing";
+        let errorMessage =
+          "The withdrawal was initiated but we couldn't confirm completion. Please check your account.";
+
+        if (pollError.status === "timeout") {
+          errorTitle = "Processing Timeout";
+          errorMessage =
+            "The withdrawal is still processing. It may take a few minutes to complete. Please check your account shortly.";
+        } else if (pollError.status === "cancelled") {
+          errorTitle = "Withdrawal Cancelled";
+          errorMessage = "The withdrawal was cancelled.";
+        } else if (pollError.status === "failed") {
+          errorTitle = "Withdrawal Failed";
+          errorMessage =
+            pollError.details?.message ||
+            "The withdrawal failed. Your USDC has been sent but the conversion may have failed.";
+        }
+
+        setProcessingStep("failed");
+        setTimeout(() => {
+          setIsProcessing(false);
+          Alert.alert(errorTitle, errorMessage, [
+            {
+              text: "OK",
+              onPress: () => router.push("/wallet"),
+            },
+          ]);
+        }, 2000);
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Withdrawal error:", error);
       setProcessingStep("failed");
+
       setTimeout(() => {
         setIsProcessing(false);
-        Alert.alert("Error", "Failed to process withdrawal");
+        Alert.alert(
+          "Withdrawal Failed",
+          error.message || "Failed to process withdrawal. Please try again.",
+          [
+            {
+              text: "OK",
+              onPress: () => setProcessingStep("idle"),
+            },
+          ]
+        );
       }, 2000);
     }
   };
@@ -597,7 +739,6 @@ export default function WithdrawCryptoScreen() {
           Convert crypto to mobile money or bank
         </Text>
       </View>
-
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
@@ -944,7 +1085,6 @@ export default function WithdrawCryptoScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
       {/* Reusable Modal Components */}
       <CountrySelector
         visible={showCountryModal}
@@ -952,7 +1092,6 @@ export default function WithdrawCryptoScreen() {
         onSelect={handleCountrySelect}
         onClose={() => setShowCountryModal(false)}
       />
-
       <PaymentMethodSelector
         visible={showMethodModal}
         selectedCountry={selectedCountry}
@@ -960,7 +1099,6 @@ export default function WithdrawCryptoScreen() {
         onSelect={handleMethodSelect}
         onClose={() => setShowMethodModal(false)}
       />
-
       <BankSelector
         visible={showBankModal}
         selectedCountry={selectedCountry}
@@ -968,7 +1106,6 @@ export default function WithdrawCryptoScreen() {
         onSelect={handleBankSelect}
         onClose={() => setShowBankModal(false)}
       />
-
       {/* Verification Modal - shows verified details before confirming */}
       <Modal
         visible={showVerificationModal}
@@ -1039,6 +1176,18 @@ export default function WithdrawCryptoScreen() {
                             <Text className="text-base font-semibold text-gray-900 mb-3">
                               {md.mobile_network || selectedMethod?.id || "—"}
                             </Text>
+                            <Text className="text-sm text-blue-700 mb-1">
+                              Amount
+                            </Text>
+                            <View className="flex-row items-center gap-4">
+                              <Text className="text-lg font-bold text-blue-700 mb-1">
+                                {amount} USDC
+                              </Text>
+                              <Text className="text-sm text-blue-800">
+                                ≈ {selectedCountry.currency}{" "}
+                                {formatCurrency(finalAmount)}{" "}
+                              </Text>
+                            </View>
                           </>
                         );
                       })()}
@@ -1070,10 +1219,20 @@ export default function WithdrawCryptoScreen() {
                         return bd?.account_name || accountName || "—";
                       })()}
                     </Text>
+                    <Text className="text-sm text-blue-700 mb-1">Amount</Text>
+                    <View className="flex-row items-center gap-4">
+                      <Text className="text-lg font-bold text-blue-700 mb-1">
+                        {amount} USDC
+                      </Text>
+                      <Text className="text-sm text-blue-800">
+                        ≈ {selectedCountry.currency}{" "}
+                        {formatCurrency(finalAmount)}{" "}
+                      </Text>
+                    </View>
                   </View>
                 )}
 
-                <View className="bg-blue-50 rounded-2xl p-4 mb-4 border border-blue-100">
+                {/* <View className="bg-blue-50 rounded-2xl p-4 mb-4 border border-blue-100">
                   <Text className="text-xs text-blue-600 mb-1">
                     You are about to withdraw
                   </Text>
@@ -1083,7 +1242,7 @@ export default function WithdrawCryptoScreen() {
                   <Text className="text-sm text-blue-800">
                     ≈ {selectedCountry.currency} {formatCurrency(finalAmount)}{" "}
                   </Text>
-                </View>
+                </View> */}
 
                 <View className="flex-row gap-3 mt-2">
                   <TouchableOpacity
@@ -1117,7 +1276,6 @@ export default function WithdrawCryptoScreen() {
           </View>
         </View>
       </Modal>
-
       {/* Processing Modal - Keep inline as it's specific to withdraw */}
       <Modal visible={isProcessing} transparent animationType="fade">
         <View className="flex-1 bg-black/70 items-center justify-center px-6">
@@ -1137,8 +1295,42 @@ export default function WithdrawCryptoScreen() {
                     ? formatPhoneNumber(selectedCountry.phoneCode, phoneNumber)
                     : selectedBank?.name}
                 </Text>
+                <View className="mt-4 bg-blue-50 p-3 rounded-xl">
+                  <Text className="text-xs text-blue-800 text-center">
+                    ⏱️ This may take a few moments...
+                  </Text>
+                </View>
+
+                {/* Progress indicators */}
+                <View className="mt-6 space-y-3">
+                  <View className="flex-row items-center">
+                    <View className="w-6 h-6 rounded-full bg-emerald-600 items-center justify-center mr-3">
+                      <Check size={14} color="white" strokeWidth={3} />
+                    </View>
+                    <Text className="text-sm text-gray-700">
+                      USDC transferred
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    <ActivityIndicator size="small" color="#059669" />
+                    <Text className="text-sm text-gray-700 ml-3">
+                      Converting to {selectedCountry.currency}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    <View className="w-6 h-6 rounded-full bg-gray-300 items-center justify-center mr-3">
+                      <Text className="text-xs text-gray-500">3</Text>
+                    </View>
+                    <Text className="text-sm text-gray-500">
+                      {selectedMethod?.type === "mobile_money"
+                        ? "Sending to mobile money"
+                        : "Transferring to bank"}
+                    </Text>
+                  </View>
+                </View>
               </>
             )}
+
             {processingStep === "completed" && (
               <>
                 <View className="w-20 h-20 bg-emerald-100 rounded-full items-center justify-center mx-auto">
@@ -1148,10 +1340,22 @@ export default function WithdrawCryptoScreen() {
                   Success!
                 </Text>
                 <Text className="text-sm text-gray-600 text-center mt-2">
-                  Withdrawal completed successfully
+                  {selectedCountry.currency} {finalAmount} sent successfully
                 </Text>
+                <View className="mt-4 bg-emerald-50 p-4 rounded-xl border border-emerald-200">
+                  <Text className="text-xs text-emerald-800 text-center">
+                    ✓ Withdrawal completed to{" "}
+                    {selectedMethod?.type === "mobile_money"
+                      ? formatPhoneNumber(
+                          selectedCountry.phoneCode,
+                          phoneNumber
+                        )
+                      : selectedBank?.name}
+                  </Text>
+                </View>
               </>
             )}
+
             {processingStep === "failed" && (
               <>
                 <View className="w-20 h-20 bg-red-100 rounded-full items-center justify-center mx-auto">
@@ -1163,6 +1367,11 @@ export default function WithdrawCryptoScreen() {
                 <Text className="text-sm text-gray-600 text-center mt-2">
                   Withdrawal failed. Please try again.
                 </Text>
+                <View className="mt-4 bg-red-50 p-4 rounded-xl border border-red-200">
+                  <Text className="text-xs text-red-800 text-center">
+                    If funds were deducted, please contact support
+                  </Text>
+                </View>
               </>
             )}
           </View>
