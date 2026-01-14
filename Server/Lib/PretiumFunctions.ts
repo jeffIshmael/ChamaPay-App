@@ -242,3 +242,103 @@ export async function checkPretiumTxStatus(transactionCode: string) {
     }
   }
 }
+
+// function to verify ngn bank details
+export async function verifyNgnBankDetails(
+  accountNumber: string,
+  bankCode: number
+) {
+  try {
+    const response = await axios.post(
+      "https://api.xwift.africa/v1/validation/NGN",
+      {
+        account_number: accountNumber,
+        bank_code: bankCode,
+      },
+
+      {
+        headers: {
+          "x-api-key": pretiumApiKey,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    if (response.statusText !== "OK" || response.data.code !== 200) {
+      throw new Error("The request to check tx status did not succeed.");
+    }
+    return response.data.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error("API Error:", error.response?.data);
+      console.error("Status:", error.response?.status);
+      return null;
+    } else {
+      console.error("Error:", error);
+      return null;
+    }
+  }
+}
+
+// function to verify mobile network details
+export async function verifyMobileNetworkDetails(
+  currencyCode: string,
+  shortcode: string,
+  mobile_network: string,
+  type?: string,
+  accountNumber?: string
+) {
+  try {
+    let finalResponse: any;
+    if (currencyCode === "KES") {
+      const response = await axios.post(
+        `https://api.xwift.africa/v1/validation/${currencyCode}`,
+        {
+          type: type ? type : "MOBILE",
+          shortcode: shortcode,
+          mobile_network: mobile_network,
+          accountNumber,
+        },
+        {
+          headers: {
+            "x-api-key": pretiumApiKey,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (response.statusText !== "OK" || response.data.code !== 200) {
+        throw new Error("The request to check tx status did not succeed.");
+      }
+      finalResponse = response.data.data;
+    } else {
+      const response = await axios.post(
+        `https://api.xwift.africa/v1/validation/${currencyCode}`,
+        {
+          type: "MOBILE",
+          shortcode: shortcode,
+          mobile_network: mobile_network,
+        },
+        {
+          headers: {
+            "x-api-key": pretiumApiKey,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (response.statusText !== "OK" || response.data.code !== 200) {
+        throw new Error("The request to check tx status did not succeed.");
+      }
+      finalResponse = response.data.data;
+    }
+
+    return finalResponse;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error("API Error:", error.response?.data);
+      console.error("Status:", error.response?.status);
+      return null;
+    } else {
+      console.error("Error:", error);
+      return null;
+    }
+  }
+}

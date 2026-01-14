@@ -7,7 +7,9 @@ import {
   pretiumVerifyNumber,
   pretiumCallback,
   pretiumCheckTransaction,
-  pretiumCheckTriggerDepositFor
+  pretiumCheckTriggerDepositFor,
+  pretiumCheckNgnBankDetails,
+  pretiumCheckMobileNoDetails
 } from "../Controllers/pretiumControllers";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -23,6 +25,10 @@ router.post("/offramp", authenticate, initiatePretiumOfframp);
 router.post("/transactionStatus",authenticate, pretiumCheckTransaction);
 // trigger deposit for
 router.post("/agentDeposit",authenticate, pretiumCheckTriggerDepositFor);
+// verify ngn bank details
+router.post("/validate/ngnBank",authenticate, pretiumCheckNgnBankDetails);
+// verify mobile network details
+router.post("/verify/mobileNetwork",authenticate, pretiumCheckMobileNoDetails);
 
 // validate phoneno
 router.get("/verify", pretiumVerifyNumber);

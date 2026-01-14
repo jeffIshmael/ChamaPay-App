@@ -7,6 +7,8 @@ import {
   getQuote,
   pretiumOfframp,
   pretiumOnramp,
+  verifyMobileNetworkDetails,
+  verifyNgnBankDetails,
   verifyPhoneNo,
 } from "../Lib/PretiumFunctions";
 import { pimlicoDepositForUser } from "../Lib/pimlicoAgent";
@@ -387,6 +389,85 @@ export async function pretiumCheckTriggerDepositFor(
     });
   } catch (error) {
     console.log("error in checking transaction status", error);
+    return res.status(500).json({
+      success: false,
+      error: error,
+    });
+  }
+}
+
+// check ngn bank details
+export async function pretiumCheckNgnBankDetails(req: Request, res: Response) {
+  const { accountNumber, bankCode } = req.body;
+  const userId = req.user?.userId;
+  try {
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+    }
+
+    if (!accountNumber || !bankCode) {
+      return res.status(401).json({
+        success: false,
+        error: "Unable to get account number or bakcode.",
+      });
+    }
+
+    const details = await verifyNgnBankDetails(accountNumber, Number(bankCode));
+    return res.status(200).json({
+      success: true,
+      BankDetails: details,
+    });
+  } catch (error) {
+    console.log("error in verifying ngn bank", error);
+    return res.status(500).json({
+      success: false,
+      error: error,
+    });
+  }
+}
+
+// check ngn bank details
+export async function pretiumCheckMobileNoDetails(req: Request, res: Response) {
+  const { currencyCode, mobileNetwork, type, shortcode, accountNumber } =
+    req.body;
+  const userId = req.user?.userId;
+  try {
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+    }
+
+    if (
+      !currencyCode ||
+      !mobileNetwork ||
+      !type ||
+      !shortcode ||
+      !accountNumber
+    ) {
+      return res.status(401).json({
+        success: false,
+        error: "One details is not set.",
+      });
+    }
+
+    const details = await verifyMobileNetworkDetails(
+      currencyCode,
+      shortcode,
+      mobileNetwork,
+      type,
+      accountNumber
+    );
+    return res.status(200).json({
+      success: true,
+      MobileDetails: details,
+    });
+  } catch (error) {
+    console.log("error in verifying mobile network details", error);
     return res.status(500).json({
       success: false,
       error: error,
