@@ -84,49 +84,45 @@ export const checkStartDate = async () => {
 
 // check whether the paydate has reached and process the payout
 export const checkPaydate = async () => {
-  try {
-    const chamasThatHaveReachedPaydate =
-      await getChamasThatHaveReachedPaydate();
-    if (chamasThatHaveReachedPaydate.length <= 0) {
-      return;
-    }
-    for (const chama of chamasThatHaveReachedPaydate) {
+  const chamasThatHaveReachedPaydate = await getChamasThatHaveReachedPaydate();
+
+  if (!chamasThatHaveReachedPaydate.length) return;
+
+  for (const chama of chamasThatHaveReachedPaydate) {
+    try {
       const chamaPayoutOrder = chama.payOutOrder
         ? JSON.parse(chama.payOutOrder)
         : [];
+
       if (chamaPayoutOrder.length !== chama.members.length) {
         throw new Error("Payout order length mismatch");
       }
-      // trigger the payout on the blockchain
 
-      // the pimlico requires it as an array
-      const arrayBlockchainId = [Number(chama.blockchainId)];
-      const receipt = await pimlicoProcessPayout(arrayBlockchainId);
+      // trigger the payout on the blockchain
+      const receipt = await pimlicoProcessPayout([Number(chama.blockchainId)]);
+
       if (!receipt) {
         throw new Error("Failed to trigger payout");
       }
 
-      // Check whether what happened was a disburse or refund
+      // determine disburse vs refund
       const payoutResult = await checkPayoutResult(
         Number(chama.blockchainId),
         receipt
       );
 
+      /* ======================
+         DISBURSE FLOW
+      ======================= */
       if (payoutResult.type === "disburse") {
-        // Handle disburse - update database, send notifications, etc.
-        console.log(
-          `Chama ${chama.id}: Disbursed ${payoutResult.amount} to ${payoutResult.recipient}`
-        );
-
-        // format the amount
         const displayableAmount = formatUnits(payoutResult.amount, 6);
 
-        // get the user
         const user = await prisma.user.findUnique({
           where: {
             smartAddress: payoutResult.recipient,
           },
         });
+
         if (!user) {
           throw new Error("User not found");
         }
@@ -134,7 +130,7 @@ export const checkPaydate = async () => {
         const userMessage = `You’ve received ${displayableAmount} USDC as the payout for round ${chama.round} of the ${chama.name} chama.`;
         const othersMessage = `${chama.name} chama – round ${chama.round} payout is complete! 🎉 ${user.userName} received ${displayableAmount} USDC.`;
 
-        // update a payout record in the database
+        // record payout
         await prisma.payOut.create({
           data: {
             chamaId: chama.id,
@@ -143,16 +139,15 @@ export const checkPaydate = async () => {
             userId: user.id,
           },
         });
-        let finalPayoutOrder = [];
 
-        // update the payout order in the chama
         const payoutOrder: PayoutOrder[] = chama.payOutOrder
-          ? JSON.parse(chama.payOutOrder as string)
+          ? JSON.parse(chama.payOutOrder)
           : [];
 
-        // Check if this is the last round of the cycle
+        let finalPayoutOrder: PayoutOrder[] = [];
+
+        // last round → reset cycle
         if (chama.round === payoutOrder.length) {
-          // Reset all members to unpaid for the new cycle and update their payDates
           finalPayoutOrder = payoutOrder.map(
             (order: PayoutOrder, index: number) => ({
               ...order,
@@ -165,7 +160,7 @@ export const checkPaydate = async () => {
             })
           );
         } else {
-          // Mark only the current recipient as paid
+          // mark only current recipient as paid
           finalPayoutOrder = payoutOrder.map((order: PayoutOrder) => {
             if (order.userAddress === payoutResult.recipient) {
               return {
@@ -192,9 +187,9 @@ export const checkPaydate = async () => {
             ),
           },
         });
-        // send the recipient the text
+
         await notifyUser(user.id, userMessage, "payout_received");
-        // Send notification to other members
+
         await notifyAllChamaMembers(
           chama.id,
           othersMessage,
@@ -202,15 +197,15 @@ export const checkPaydate = async () => {
           user.id
         );
       } else if (payoutResult.type === "refund") {
-        // Handle refund - notify members
-        console.log(`Chama ${chama.id}: Refund processed`);
 
-        // update the payout order in the chama
-        const payoutOrder: PayoutOrder[] = JSON.parse(
-          chama.payOutOrder as string
-        );
+      /* ======================
+         REFUND FLOW
+      ======================= */
+        const payoutOrder: PayoutOrder[] = chama.payOutOrder
+          ? JSON.parse(chama.payOutOrder)
+          : [];
+
         const updatedPayoutOrder = payoutOrder.map((order: PayoutOrder) => {
-          // Extend paydate for unpaid members by cycleTime
           if (!order.paid) {
             return {
               ...order,
@@ -223,7 +218,6 @@ export const checkPaydate = async () => {
           return order;
         });
 
-        // Update chama with extended paydate
         await prisma.chama.update({
           where: { id: chama.id },
           data: {
@@ -233,17 +227,21 @@ export const checkPaydate = async () => {
             ),
           },
         });
-        // Send notification to all members about refund
+
+        // TO DO: add how we will record the refund 
+
         await notifyAllChamaMembers(
           chama.id,
           `Round ${chama.round} of the ${chama.name} chama couldn’t proceed because not all members contributed. Your contribution has been refunded to your wallet.`
         );
       } else {
-        console.warn(`Chama ${chama.id}: Unknown payout result`);
+        throw new Error("Unknown payout result");
       }
+    } catch (error) {
+      // 🔥 IMPORTANT: isolate failure per chama
+      console.error(`checkPaydate failed for chama ${chama.id}`, error);
+      // continue processing next chama
+      continue;
     }
-  } catch (error) {
-    console.log(error);
-    return;
   }
 };
