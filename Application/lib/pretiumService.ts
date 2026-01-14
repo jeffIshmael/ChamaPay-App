@@ -197,7 +197,7 @@ export const pollPretiumPaymentStatus = async (
   });
 };
 
-// function to trigger agent deposit
+// function to trigger agent deposit(agent to send USDC to chama on behalf of user)
 export async function agentDeposit(
   transactionCode: string,
   chamaBlockchainId: number,
@@ -280,27 +280,92 @@ export async function validatePhoneNumber(
   accountNumber?: string
 ) {
   try {
-    const response = await fetch(
-      `${serverUrl}/pretium/verify/mobileNetwork`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          currencyCode,
-          mobileNetwork,
-          type,
-          shortcode,
-          accountNumber
-        })
-      }
-    );
+    const response = await fetch(`${serverUrl}/pretium/verify/mobileNetwork`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        currencyCode,
+        mobileNetwork,
+        type,
+        shortcode,
+        accountNumber,
+      }),
+    });
     const data = await response.json();
     return data;
   } catch (error) {
     console.log("Error verifying mobile network:", error);
     return { success: false, error: "Failed to verify mobile network" };
+  }
+}
+
+// function to offramp to bank account (both ngn and ke)
+export async function bankTransfer(
+  currencyCode: CurrencyCode,
+  accountName: string,
+  accountNumber: string,
+  bankName: string,
+  bankCode: number,
+  txHash: string,
+  amount: string, // be plus fees
+  token: string
+) {
+  try {
+    const response = await fetch(`${serverUrl}/pretium/offRamp/bankTransfer`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        currencyCode,
+        accountNumber,
+        bankCode,
+        amount,
+        txHash,
+        bankName,
+        accountName,
+      }),
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.log("Error transfering to ngn bank:", error);
+    return { success: false, error: "Failed to transfer to ngn bank" };
+  }
+}
+
+// function to offramp to mobile number
+export async function disburseToMobileNumber(
+  currencyCode: CurrencyCode,
+  mobileNetwork: string,
+  shortCode: string,
+  txHash: string,
+  amount: string, // be plus fees
+  token: string
+) {
+  try {
+    const response = await fetch(`${serverUrl}/pretium/offRamp/mobileTransfer`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        currencyCode,
+        mobileNetwork,
+        shortCode,
+        amount,
+        txHash,
+      }),
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.log("Error transfering to mobile network:", error);
+    return { success: false, error: "Failed to transfer to mobile network" };
   }
 }
