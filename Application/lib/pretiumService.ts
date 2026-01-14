@@ -311,10 +311,12 @@ export async function bankTransfer(
   bankCode: number,
   txHash: string,
   amount: string, // be plus fees
+  usdcAmount: string,
+  exchangeRate: string,
   token: string
 ) {
   try {
-    const response = await fetch(`${serverUrl}/pretium/offRamp/bankTransfer`, {
+    const response = await fetch(`${serverUrl}/pretium/bankOfframp`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -326,6 +328,8 @@ export async function bankTransfer(
         bankCode,
         amount,
         txHash,
+        usdcAmount,
+        exchangeRate,
         bankName,
         accountName,
       }),
@@ -345,10 +349,12 @@ export async function disburseToMobileNumber(
   shortCode: string,
   txHash: string,
   amount: string, // be plus fees
+  usdcAmount: string,
+  exchangeRate: string,
   token: string
 ) {
   try {
-    const response = await fetch(`${serverUrl}/pretium/offRamp/mobileTransfer`, {
+    const response = await fetch(`${serverUrl}/pretium/mobileOfframp`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -358,6 +364,8 @@ export async function disburseToMobileNumber(
         currencyCode,
         mobileNetwork,
         shortCode,
+        usdcAmount,
+        exchangeRate,
         amount,
         txHash,
       }),
