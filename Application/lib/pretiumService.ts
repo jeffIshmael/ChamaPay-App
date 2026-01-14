@@ -1,6 +1,13 @@
 import { serverUrl } from "@/constants/serverUrl";
 
-export type CurrencyCode = "KES" | "UGX" | "CDF" | "MWK" | "ETB" | "GHS";
+export type CurrencyCode =
+  | "KES"
+  | "UGX"
+  | "CDF"
+  | "MWK"
+  | "ETB"
+  | "GHS"
+  | "NGN";
 
 // function to onramp through pretium
 export async function pretiumOnramp(
@@ -191,7 +198,13 @@ export const pollPretiumPaymentStatus = async (
 };
 
 // function to trigger agent deposit
-export async function agentDeposit(transactionCode: string,chamaBlockchainId:number, usdcAmount: string, chamaId:number, token:string) {
+export async function agentDeposit(
+  transactionCode: string,
+  chamaBlockchainId: number,
+  usdcAmount: string,
+  chamaId: number,
+  token: string
+) {
   try {
     const response = await fetch(`${serverUrl}/pretium/agentDeposit`, {
       method: "POST",
@@ -203,7 +216,7 @@ export async function agentDeposit(transactionCode: string,chamaBlockchainId:num
         transactionCode,
         chamaBlockchainId,
         chamaId,
-        amount: usdcAmount
+        amount: usdcAmount,
       }),
     });
     const data = await response.json();
@@ -226,7 +239,68 @@ export async function verifyPhoneNumber(phoneNumber: string) {
     const data = await response.json();
     return data;
   } catch (error) {
-    console.log("Error getting exchange rate:", error);
-    return { success: false, error: "Failed to get the exchange rate" };
+    console.log("Error verifying phone no:", error);
+    return { success: false, error: "Failed to verify phone no" };
+  }
+}
+
+// function to validate withdrawals :- NGN
+export async function validateWithdrawalDetails(
+  accountNumber: string,
+  bankCode: number,
+  token: string
+) {
+  try {
+    const response = await fetch(`${serverUrl}/pretium/validate/ngnBank`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        accountNumber,
+        bankCode,
+      }),
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.log("Error validating ngn bank:", error);
+    return { success: false, error: "Failed to validate ngn bank" };
+  }
+}
+
+// function to validate the mobile network number
+export async function validatePhoneNumber(
+  currencyCode: CurrencyCode,
+  type: string,
+  mobileNetwork: string,
+  shortcode: string,
+  token: string,
+  accountNumber?: string
+) {
+  try {
+    const response = await fetch(
+      `${serverUrl}/pretium/verify/mobileNetwork`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          currencyCode,
+          mobileNetwork,
+          type,
+          shortcode,
+          accountNumber
+        })
+      }
+    );
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.log("Error verifying mobile network:", error);
+    return { success: false, error: "Failed to verify mobile network" };
   }
 }

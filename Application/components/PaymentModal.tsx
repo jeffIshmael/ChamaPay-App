@@ -4,7 +4,7 @@ import { Image, Modal, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "@/Contexts/AuthContext";
 import { getAllBalances } from "@/constants/thirdweb";
 import USDCPay from "./USDCPay";
-import MPesaPay from "./Mpesapay";
+import MobileMoneyPay from "./MobileMoneyPay";
 
 interface PaymentModalProps {
   visible: boolean;
@@ -33,7 +33,6 @@ const PaymentModal = ({
 }: PaymentModalProps) => {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [showUSDCPay, setShowUSDCPay] = useState(false);
-  const [showMPesaPay, setShowMPesaPay] = useState(false);
   const [USDCBalance, setUSDCBalance] = useState<string | null>(null);
   const { user } = useAuth();
 
@@ -99,23 +98,23 @@ const PaymentModal = ({
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    onPress={() => handlePaymentMethod("mpesa")}
-                    className="flex-row justify-between items-center py-3 px-5 bg-gray-50 rounded-lg w-full my-2"
+                    onPress={() => handlePaymentMethod("mobileMoney")}
+                    className="flex-row justify-between items-center py-4 px-5 bg-gray-50 rounded-lg w-full my-2"
                   >
                     <View className="flex-row items-center">
                       <Image
-                        source={require("../assets/images/mpesa.png")}
-                        className="w-10 h-10 mr-4"
+                        source={require("../assets/images/mobilemoney.png")}
+                        className="w-8 h-8 mr-4"
                       />
-                      <Text className="text-lg font-medium">M-Pesa</Text>
+                      <Text className="text-lg font-medium">Mobile Money</Text>
                     </View>
                     <Text className="text-2xl text-gray-500">➔</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             </>
-          ) : paymentMethod === "mpesa" ? (
-            <MPesaPay
+          ) : paymentMethod === "mobileMoney" ? (
+            <MobileMoneyPay
               chamaName={chamaName}
               chamaBlockchainId={chamaBlockchainId}
               chamaId={chamaId}
@@ -123,7 +122,7 @@ const PaymentModal = ({
               onBack={()=>setPaymentMethod("")}
               remainingAmount={remainingAmount}
               contributionAmount={paymentAmount}
-            /> // MPesaPay component
+            /> // MobileMoney Pay component
           ) : (
             <USDCPay
               visible={showUSDCPay}

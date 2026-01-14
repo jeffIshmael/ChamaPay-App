@@ -36,3 +36,5 @@ router.get("/verify", pretiumVerifyNumber);
 router.get("/quote/:currencyCode", getExchangeRate);
 
 export default router;
+
+

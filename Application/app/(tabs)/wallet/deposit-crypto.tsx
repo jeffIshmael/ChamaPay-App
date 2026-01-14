@@ -1,8 +1,11 @@
 // File: app/(tabs)/deposit.tsx - Updated with reusable components
-import { useRouter, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, Smartphone, ChevronDown, Check } from "lucide-react-native";
+import { useAuth } from "@/Contexts/AuthContext";
+import { pollPretiumPaymentStatus, pretiumOnramp } from "@/lib/pretiumService";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { ArrowLeft, Check, ChevronDown, Smartphone } from "lucide-react-native";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
@@ -12,11 +15,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth } from "@/Contexts/AuthContext";
-import { pretiumOnramp, pollPretiumPaymentStatus } from "@/lib/pretiumService";
 
 // Import reusable components
 import CountrySelector from "@/components/CountrySelector";
@@ -25,9 +25,9 @@ import PaymentMethodSelector from "@/components/PaymentMethodSelector";
 // Import utilities
 import {
   PRETIUM_COUNTRIES,
+  formatCurrency,
   formatPhoneNumber,
   isValidPhoneNumber,
-  formatCurrency,
   type Country,
   type PaymentMethod,
 } from "@/Utils/pretiumUtils";
@@ -459,6 +459,7 @@ export default function DepositCryptoScreen() {
         selectedMethod={selectedMethod}
         onSelect={handleMethodSelect}
         onClose={() => setShowMethodModal(false)}
+        excludeBankMethods={true}
       />
 
       {/* Processing Modal */}
