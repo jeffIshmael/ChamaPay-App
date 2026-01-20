@@ -29,12 +29,7 @@ interface AuthContextType {
   registerUser: (userData: {
     email: string;
     userName: string;
-    phoneNo?: string;
     profileImageUrl?: string;
-    walletAddress: string;
-    smartAddress: string;
-    hashedPrivkey: string;
-    hashedPassphrase: string;
   }) => Promise<{ success: boolean; error?: string }>;
   loginWithRefreshToken: () => Promise<{ success: boolean; error?: string }>;
   setAuth: (

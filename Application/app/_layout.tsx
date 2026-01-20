@@ -21,6 +21,7 @@ export default function RootLayout() {
               <Stack.Screen name="auth-form-screen" />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="edit-profile" />
+              <Stack.Screen name="verify-email" />
               <Stack.Screen name="wallet-setup" />
               <Stack.Screen name="chama/[encryptedSlug]" />
             </Stack>
