@@ -377,3 +377,6 @@ export async function disburseToMobileNumber(
     return { success: false, error: "Failed to transfer to mobile network" };
   }
 }
+
+// function to onramp (handles both payment and depositing to wallet)
+

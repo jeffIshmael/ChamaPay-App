@@ -198,17 +198,13 @@ contract ChamaPay is
             "Token transfer failed"
         );
 
-        // 0.5% fee
-        uint txFees = _amount / 200;      // 0.5%
-        uint netAmount = _amount - txFees;
 
-        chama.balances[msg.sender] += netAmount;
+        chama.balances[msg.sender] += _amount;
 
         if (chama.balances[msg.sender] >= chama.amount) {
             chama.hasSent[msg.sender] = true;
         }
 
-        totalFees += txFees;
         emit CashDeposited(_chamaId, msg.sender, _amount);
     }
 

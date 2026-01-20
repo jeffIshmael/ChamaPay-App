@@ -2,8 +2,6 @@
 import { getAgentSmartWallet } from "../Blockchain/AgentWallet";
 import { contractAddress, contractABI, USDCAddress } from "../Blockchain/Constants";
 import { getAddress, createPublicClient, http, erc20Abi } from "viem";
-
-
 import { celo } from "viem/chains";
 
 const publicClient = createPublicClient({

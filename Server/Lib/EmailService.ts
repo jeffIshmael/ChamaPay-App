@@ -1,4 +1,5 @@
-import nodemailer, { SendMailOptions, Transporter } from 'nodemailer';
+import nodemailer, { SendMailOptions, Transporter } from "nodemailer";
+import crypto from "crypto";
 
 // Interface for email send result
 interface EmailResult {
@@ -14,7 +15,7 @@ class EmailService {
     // Configure your email service here
     // For development, you can use Gmail or SendGrid
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
+      service: "gmail",
       auth: {
         user: process.env.EMAIL_USERNAME,
         pass: process.env.EMAIL_PASSWORD, // Use app password for Gmail
@@ -24,25 +25,30 @@ class EmailService {
 
   // Generate 6-digit OTP
   generateOTP(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    return crypto.randomInt(100000, 999999).toString();
   }
 
   // Send OTP email
-  async sendOTPEmail(email: string, otp: string, name: string = 'User'): Promise<EmailResult> {
+  async sendOTPEmail(
+    email: string,
+    otp: string,
+    name: string = "User"
+  ): Promise<EmailResult> {
     const mailOptions: SendMailOptions = {
-      from: process.env.EMAIL_FROM || 'noreply@chamapay.com',
+      from: process.env.EMAIL_FROM || "chamapay37@gmail.com",
       to: email,
-      subject: 'ChamaPay - Email Verification Code',
-      html: this.getOTPEmailTemplate(otp, name),
+      subject: "ChamaPay - Email Verification Code",
+      html: this.getAnotherOTPEmailTemplate(otp),
     };
 
     try {
       const result = await this.transporter.sendMail(mailOptions);
-      console.log('OTP email sent successfully:', result.messageId);
+      console.log("OTP email sent successfully:", result.messageId);
       return { success: true, messageId: result.messageId };
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Error sending OTP email:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      console.error("Error sending OTP email:", error);
       return { success: false, error: errorMessage };
     }
   }
@@ -88,7 +94,7 @@ class EmailService {
             <p>Once verified, you'll receive your secure blockchain wallet and can start creating or joining chamas!</p>
           </div>
           <div class="footer">
-            <p>© 2024 ChamaPay. All rights reserved.</p>
+            <p>© ${new Date().getFullYear()} ChamaPay. All rights reserved.</p>
             <p>This is an automated email, please do not reply.</p>
           </div>
         </div>
@@ -96,6 +102,18 @@ class EmailService {
       </html>
     `;
   }
+
+  private getAnotherOTPEmailTemplate(otp: string): string {
+    return `  <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #26a6a2;">Welcome to ChamaPay!</h2>
+            <p>Your verification code is:</p>
+            <div style="background-color: #d1f6f1; padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0;">
+              <h1 style="color: #26a6a2; font-size: 36px; margin: 0; letter-spacing: 8px;">${otp}</h1>
+            </div>
+            <p>This code will expire in 10 minutes.</p>
+            <p style="color: #666; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
+          </div>`;
+  }
 }
 
-export default new EmailService(); 
+export default new EmailService();

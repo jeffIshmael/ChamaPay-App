@@ -16,6 +16,7 @@ export default function RootLayout() {
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" />
               <Stack.Screen name="auth-screen" />
+              <Stack.Screen name="new-auth-screen" />
               <Stack.Screen name="animatedSplash" />
               <Stack.Screen name="auth-form-screen" />
               <Stack.Screen name="(tabs)" />

@@ -116,7 +116,6 @@ export const bcDeleteChama = async (privateKey: `0x${string}`, chamaBlockchainId
     }
 }
 
-
 // agent functions
 // function to set payout order
 export const bcSetPayoutOrder = async (chamaBlockchainId: number, memberAddresses: string[]) => {

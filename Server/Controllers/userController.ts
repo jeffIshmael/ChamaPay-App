@@ -43,7 +43,6 @@ interface MulterRequest extends Request {
   };
 }
 
-// (removed duplicate inline checkUserExists in favor of typed version below)
 
 // Function to get a user
 export const getUser = async (req: Request, res: Response): Promise<void> => {
