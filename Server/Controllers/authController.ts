@@ -5,6 +5,9 @@ import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import emailService from "../Lib/EmailService";
 import { sendWhatsAppOTP } from "../Lib/WhatsAppService";
+import { createUserWallet } from "../Lib/walletService";
+import Encryption from "../Lib/Encryption";
+import crypto from "crypto";
 
 const prisma = new PrismaClient();
 
@@ -74,6 +77,158 @@ interface MnemonicResponse {
   mnemonic: string;
 }
 
+// In-memory store for verification codes (use Redis in production)
+const verificationCodes = new Map<
+  string,
+  { code: string; expiresAt: number }
+>();
+
+// Helper to exclude sensitive fields from user object
+const excludeSensitiveData = (user: any) => {
+  const { hashedPrivkey, hashedPassphrase, ...userResponse } = user;
+  return userResponse;
+};
+
+// Send verification code to email
+export const sendVerificationCode = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+      return;
+    }
+
+    const formattedEmail = email.toLowerCase().trim();
+
+    // Generate 6-digit code
+    const code = await emailService.generateOTP();
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    // Store code
+    verificationCodes.set(formattedEmail, { code, expiresAt });
+
+    const sendingResult = await emailService.sendOTPEmail(formattedEmail, code);
+    if (!sendingResult.success) {
+      res.status(500).json({
+        success: false,
+        message: "Unable to send verification email.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Verification code sent to email",
+    });
+  } catch (error) {
+    console.error("Send code error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to send verification code",
+    });
+  }
+};
+
+// Verify email code
+export const verifyEmailCode = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      res.status(400).json({
+        success: false,
+        message: "Email and code are required",
+      });
+      return;
+    }
+
+    const formattedEmail = email.toLowerCase().trim();
+    const storedData = verificationCodes.get(formattedEmail);
+
+    if (!storedData) {
+      res.status(400).json({
+        success: false,
+        message: "No verification code found. Please request a new one.",
+      });
+      return;
+    }
+
+    if (Date.now() > storedData.expiresAt) {
+      verificationCodes.delete(formattedEmail);
+      res.status(400).json({
+        success: false,
+        message: "Verification code expired. Please request a new one.",
+      });
+      return;
+    }
+
+    if (storedData.code !== code) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid verification code",
+      });
+      return;
+    }
+
+    // Code is valid, remove it
+    verificationCodes.delete(formattedEmail);
+
+    // Check if user exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: formattedEmail },
+    });
+
+    if (existingUser) {
+      // User exists, authenticate them
+      if (!process.env.JWT_SECRET) {
+        throw new Error("JWT_SECRET not configured");
+      }
+
+      const token = jwt.sign(
+        { userId: existingUser.id, email: existingUser.email },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      const refreshToken = jwt.sign(
+        { userId: existingUser.id, email: existingUser.email },
+        process.env.JWT_SECRET,
+        { expiresIn: "30d" }
+      );
+
+      res.status(200).json({
+        success: true,
+        message: "Email verified successfully",
+        token,
+        refreshToken,
+        user: excludeSensitiveData(existingUser),
+        isNewUser: false,
+      });
+    } else {
+      // New user - they'll need to complete registration
+      res.status(200).json({
+        success: true,
+        message: "Email verified successfully",
+        isNewUser: true,
+      });
+    }
+  } catch (error) {
+    console.error("Verify code error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to verify code",
+    });
+  }
+};
 
 // Public endpoint: Send OTP via WhatsApp for phone verification flows
 export const sendWhatsAppCode = async (
@@ -95,12 +250,10 @@ export const sendWhatsAppCode = async (
     // Send via WhatsApp Cloud API
     const result = await sendWhatsAppOTP(phone, otp);
     if (!result.success) {
-      res
-        .status(500)
-        .json({
-          success: false,
-          error: result.error || "Failed to send WhatsApp message",
-        });
+      res.status(500).json({
+        success: false,
+        error: result.error || "Failed to send WhatsApp message",
+      });
       return;
     }
 
@@ -116,105 +269,23 @@ export const sendWhatsAppCode = async (
   }
 };
 
-// thirdweb auth
-export const thirdwebAuth = async (
+// Google/Apple OAuth authentication for existing users
+export const oauthAuthenticate = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const {
-      email,
-      name,
-      profileImageUrl,
-      walletAddress,
-    }: {
-      email: string;
-      name?: string;
-      profileImageUrl?: string;
-      walletAddress: string;
-    } = req.body;
-
-    if (!email || !walletAddress) {
-      res.status(400).json({ error: "Email is required" });
-      return;
-    }
-
-    const formattedEmail: string = email.toLowerCase();
-
-    // Try to find existing user
-    let user = await prisma.user.findUnique({
-      where: { email: formattedEmail },
-    });
-
-    if (!process.env.JWT_SECRET) {
-      throw new Error("JWT_SECRET not configured");
-    }
-    // Create a random password hash placeholder
-    const randomPassword = await bcrypt.hash(
-      jwt.sign({ e: formattedEmail }, process.env.JWT_SECRET),
-      12
-    );
-
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          email: formattedEmail,
-          userName: name || "",
-          address: walletAddress,
-          smartAddress: walletAddress,
-          profileImageUrl: profileImageUrl || null,
-        },
-      });
-    } else if (!user.profileImageUrl && profileImageUrl) {
-      // Optionally update profile image for existing user
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: { profileImageUrl },
-      });
-    }
-
-    if (!process.env.JWT_SECRET) {
-      throw new Error("JWT_SECRET not configured");
-    }
-
-    const token: string = jwt.sign(
-      { userId: user.id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    const { password, privKey, mnemonics, ...userResponse } = user as any;
-
-    res.status(200).json({
-      success: true,
-      message: "Authenticated via Google",
-      token,
-      user: userResponse,
-      isNew: !user.userName, // prompt for username if missing
-    });
-  } catch (error: unknown) {
-    console.error("Thirdweb auth error:", error);
-    res.status(500).json({ error: "Google authentication failed" });
-  }
-};
-
-// Google auth complete - for existing users who already have accounts
-export const googleAuthComplete = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    const { email }: GoogleCompleteRequest = req.body;
+    const { email, provider, identityToken } = req.body;
 
     if (!email) {
-      res.status(400).json({ 
-        success: false, 
-        error: "Email is required" 
+      res.status(400).json({
+        success: false,
+        message: "Email is required",
       });
       return;
     }
 
-    const formattedEmail: string = email.toLowerCase();
+    const formattedEmail = email.toLowerCase().trim();
 
     // Find existing user
     const user = await prisma.user.findUnique({
@@ -222,9 +293,9 @@ export const googleAuthComplete = async (
     });
 
     if (!user) {
-      res.status(404).json({ 
-        success: false, 
-        error: "User not found. Please sign up first." 
+      res.status(404).json({
+        success: false,
+        message: "User not found. Please complete registration first.",
       });
       return;
     }
@@ -233,144 +304,158 @@ export const googleAuthComplete = async (
       throw new Error("JWT_SECRET not configured");
     }
 
-    // Generate JWT token
-    const token: string = jwt.sign(
+    // Generate tokens
+    const token = jwt.sign(
       { userId: user.id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    // Generate refresh token
-    const refreshToken: string = jwt.sign(
+    const refreshToken = jwt.sign(
       { userId: user.id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "30d" }
     );
 
-    const { password, privKey, mnemonics, ...userResponse } = user as any;
-
     res.status(200).json({
       success: true,
-      message: "Google authentication completed",
+      message: `${provider} authentication successful`,
       token,
       refreshToken,
-      user: userResponse,
+      user: excludeSensitiveData(user),
     });
-  } catch (error: unknown) {
-    console.error("Google auth complete error:", error);
-    res.status(500).json({ 
-      success: false, 
-      error: "Google authentication completion failed" 
+  } catch (error) {
+    console.error("OAuth authenticate error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Authentication failed",
     });
   }
 };
 
-// Register user with username and wallet address
+// Register new user (with username and wallet setup)
 export const registerUser = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const { username, walletAddress }: RegisterRequest = req.body;
+    const { email, userName, profileImageUrl } = req.body;
 
-    if (!username || !walletAddress) {
-      res.status(400).json({ 
-        success: false, 
-        error: "Username and wallet address are required" 
+    if (!email || !userName) {
+      res.status(400).json({
+        success: false,
+        message: "Missing required fields",
       });
       return;
     }
 
-    // Check if username already exists
+    const formattedEmail = email.toLowerCase().trim();
+
+    // Check if user already exists
     const existingUser = await prisma.user.findFirst({
-      where: { userName: username }
+      where: {
+        OR: [{ email: formattedEmail }, { userName }],
+      },
     });
 
     if (existingUser) {
-      res.status(400).json({ 
-        success: false, 
-        error: "Username already taken" 
-      });
-      return;
-    }
-
-    // Check if wallet address already exists
-    const existingWallet = await prisma.user.findFirst({
-      where: { 
-        OR: [
-          { address: walletAddress },
-          { smartAddress: walletAddress }
-        ]
+      if (existingUser.email === formattedEmail) {
+        res.status(409).json({
+          success: false,
+          message: "Email already registered",
+        });
+      } else if (existingUser.userName === userName) {
+        res.status(409).json({
+          success: false,
+          message: "Username already taken",
+        });
+      } else {
+        res.status(409).json({
+          success: false,
+          message: "Wallet address already registered",
+        });
       }
-    });
-
-    if (existingWallet) {
-      res.status(400).json({ 
-        success: false, 
-        error: "Wallet address already registered" 
-      });
       return;
     }
+
+    // create the wallet
+    const newWallet = await createUserWallet();
+
+    const masterKey = process.env.ENCRYPTION_SECRET;
+    if (!masterKey) {
+      throw new Error("ENCRYPTION_MASTER_KEY not configured");
+    }
+
+    // Create composite encryption key: hash(email + masterKey)
+    const encryptionKey = crypto
+      .createHash("sha256")
+      .update(`${formattedEmail}:${masterKey}`)
+      .digest("hex");
+    const passphrase = newWallet.mnemonic?.phrase ?? "";
+    const hashedPassphrase = Encryption.encrypt(passphrase, encryptionKey);
+    const hashedPrivkey = Encryption.encrypt(
+      newWallet.privateKey,
+      encryptionKey
+    );
+
+    // Create new user
+    const newUser = await prisma.user.create({
+      data: {
+        email: formattedEmail,
+        userName,
+        address: newWallet.address,
+        smartAddress: newWallet.address,
+        profileImageUrl: profileImageUrl || null,
+        hashedPrivkey: JSON.stringify(hashedPrivkey),
+        hashedPassphrase: JSON.stringify(hashedPassphrase),
+      },
+    });
 
     if (!process.env.JWT_SECRET) {
       throw new Error("JWT_SECRET not configured");
     }
 
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        userName: username,
-        address: walletAddress,
-        smartAddress: walletAddress,
-        email: `user_${Date.now()}@temp.com`, // Temporary email, can be updated later
-        profileImageUrl: null,
-      },
-    });
-
-    // Generate access token (24 hours)
-    const token: string = jwt.sign(
-      { userId: user.id, email: user.email },
+    // Generate tokens
+    const token = jwt.sign(
+      { userId: newUser.id, email: newUser.email },
       process.env.JWT_SECRET,
-      { expiresIn: "24h" }
+      { expiresIn: "7d" }
     );
 
-    // Generate refresh token (30 days)
-    const refreshToken: string = jwt.sign(
-      { userId: user.id, email: user.email },
+    const refreshToken = jwt.sign(
+      { userId: newUser.id, email: newUser.email },
       process.env.JWT_SECRET,
       { expiresIn: "30d" }
     );
-
-    const { password, privKey, mnemonics, ...userResponse } = user as any;
 
     res.status(201).json({
       success: true,
       message: "User registered successfully",
       token,
       refreshToken,
-      user: userResponse,
+      user: excludeSensitiveData(newUser),
     });
-  } catch (error: unknown) {
-    console.error("User registration error:", error);
-    res.status(500).json({ 
-      success: false, 
-      error: "Registration failed" 
+  } catch (error) {
+    console.error("Registration error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Registration failed",
     });
   }
 };
 
-// Refresh access token using refresh token
+// Refresh access token
 export const refreshToken = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const { refreshToken }: RefreshTokenRequest = req.body;
+    const { refreshToken: token } = req.body;
 
-    if (!refreshToken) {
-      res.status(400).json({ 
-        success: false, 
-        error: "Refresh token is required" 
+    if (!token) {
+      res.status(400).json({
+        success: false,
+        message: "Refresh token is required",
       });
       return;
     }
@@ -380,49 +465,48 @@ export const refreshToken = async (
     }
 
     // Verify refresh token
-    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET) as JWTPayload;
-    
-    // Find user
+    const decoded = jwt.verify(token, process.env.JWT_SECRET) as {
+      userId: number;
+      email: string;
+    };
+
+    // Get user
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId }
+      where: { id: decoded.userId },
     });
 
     if (!user) {
-      res.status(404).json({ 
-        success: false, 
-        error: "User not found" 
+      res.status(404).json({
+        success: false,
+        message: "User not found",
       });
       return;
     }
 
-    // Generate new access token (24 hours)
-    const newToken: string = jwt.sign(
+    // Generate new tokens
+    const newToken = jwt.sign(
       { userId: user.id, email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: "24h" }
+      { expiresIn: "7d" }
     );
 
-    // Generate new refresh token (30 days)
-    const newRefreshToken: string = jwt.sign(
+    const newRefreshToken = jwt.sign(
       { userId: user.id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "30d" }
     );
 
-    const { password, privKey, mnemonics, ...userResponse } = user as any;
-
     res.status(200).json({
       success: true,
-      message: "Token refreshed successfully",
       token: newToken,
       refreshToken: newRefreshToken,
-      user: userResponse,
+      user: excludeSensitiveData(user),
     });
-  } catch (error: unknown) {
-    console.error("Token refresh error:", error);
-    res.status(401).json({ 
-      success: false, 
-      error: "Invalid or expired refresh token" 
+  } catch (error) {
+    console.error("Refresh token error:", error);
+    res.status(401).json({
+      success: false,
+      message: "Invalid or expired refresh token",
     });
   }
 };

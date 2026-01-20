@@ -1,5 +1,4 @@
 import { serverUrl } from "@/constants/serverUrl";
-import { chain, client } from "@/constants/thirdweb";
 import React, {
   createContext,
   ReactNode,
@@ -8,8 +7,6 @@ import React, {
   useState,
   useRef,
 } from "react";
-import { useActiveWallet, useAutoConnect, useConnect } from "thirdweb/react";
-import { inAppWallet } from "thirdweb/wallets";
 import { storage } from "../Utils/storage";
 import { connectSocket, disconnectSocket } from "@/socket/socket";
 
@@ -29,13 +26,16 @@ interface AuthContextType {
   refreshToken: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  isWalletConnected: boolean;
-  connectWallet: () => Promise<{ success: boolean; error?: string }>;
-  disconnectWallet: () => Promise<void>;
-  forceDisconnectWallet: () => Promise<void>;
-  registerUser: (
-    username: string
-  ) => Promise<{ success: boolean; error?: string }>;
+  registerUser: (userData: {
+    email: string;
+    userName: string;
+    phoneNo?: string;
+    profileImageUrl?: string;
+    walletAddress: string;
+    smartAddress: string;
+    hashedPrivkey: string;
+    hashedPassphrase: string;
+  }) => Promise<{ success: boolean; error?: string }>;
   loginWithRefreshToken: () => Promise<{ success: boolean; error?: string }>;
   setAuth: (
     newToken: string,
@@ -60,42 +60,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [token, setToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Refs to prevent race conditions
   const isInitialized = useRef(false);
   const isRefreshingToken = useRef(false);
 
-  const { connect } = useConnect();
-  const activeWallet = useActiveWallet();
-
-  // Auto-connect wallet on app start
-  const { data: autoConnected, isLoading: isAutoConnecting } = useAutoConnect({
-    client,
-    wallets: [inAppWallet()],
-    onConnect: async (wallet) => {
-      console.log("Auto-connected wallet:", wallet);
-      await storeWalletConnection(wallet);
-    },
-    timeout: 10000,
-  });
-
   const isAuthenticated = !!token && !!user;
-  const isWalletConnected = !!activeWallet;
 
   // Load stored token and user data on app start (only once)
   useEffect(() => {
-    if (!isInitialized.current && !isAutoConnecting) {
+    if (!isInitialized.current) {
       isInitialized.current = true;
       loadStoredAuth();
     }
-  }, [isAutoConnecting]);
-
-  // Update loading state
-  useEffect(() => {
-    if (!isAutoConnecting && isInitialized.current) {
-      setIsLoading(false);
-    }
-  }, [isAutoConnecting]);
+  }, []);
 
   const loadStoredAuth = async () => {
     try {
@@ -129,17 +107,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     } catch (error) {
       console.error("Error loading stored auth:", error);
-      // Only clear auth data, not wallet connection
-      await clearAuthOnly();
+      await clearAuth();
+    } finally {
+      setIsLoading(false);
     }
   };
-
-  // Monitor wallet connection changes
-  useEffect(() => {
-    if (activeWallet) {
-      storeWalletConnection(activeWallet);
-    }
-  }, [activeWallet]);
 
   const fetchUserData = async (authToken: string) => {
     try {
@@ -157,77 +129,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(userData);
         await storage.setUser(userData);
       } else if (response.status === 401) {
-        // Token expired - don't clear everything, let refresh token handle it
+        // Token expired
         throw new Error("Token expired");
       } else {
         throw new Error("Failed to fetch user data");
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
-      throw error; // Re-throw to let caller handle
+      throw error;
     }
   };
 
-  const connectWallet = async (): Promise<{
-    success: boolean;
-    error?: string;
-  }> => {
+  const registerUser = async (userData: {
+    email: string;
+    userName: string;
+    profileImageUrl?: string;
+  }): Promise<{ success: boolean; error?: string }> => {
     try {
-      const wallet = inAppWallet({
-        executionMode: {
-          mode: "EIP7702",
-          sponsorGas: false,
-        },
-      });
-      await connect(wallet);
-      await storeWalletConnection(wallet);
-      return { success: true };
-    } catch (error) {
-      console.error("Wallet connection error:", error);
-      return {
-        success: false,
-        error: "Failed to connect wallet. Please try again.",
-      };
-    }
-  };
-
-  const disconnectWallet = async () => {
-    try {
-      // Only disconnect if user is not authenticated
-      if (isAuthenticated) {
-        console.warn("Cannot disconnect wallet while user is authenticated");
-        return;
-      }
-
-      if (activeWallet) {
-        await activeWallet.disconnect();
-      }
-      await storage.removeWalletConnection();
-    } catch (error) {
-      console.error("Wallet disconnection error:", error);
-    }
-  };
-
-  const registerUser = async (
-    username: string
-  ): Promise<{ success: boolean; error?: string }> => {
-    try {
-      if (!activeWallet) {
-        return { success: false, error: "Wallet not connected" };
-      }
-
-      const walletAddress = activeWallet.getAccount()?.address;
-      if (!walletAddress) {
-        return { success: false, error: "Could not get wallet address" };
-      }
-
       const response = await fetch(`${serverUrl}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username,
-          walletAddress,
-        }),
+        body: JSON.stringify(userData),
       });
 
       const data = await response.json();
@@ -235,23 +157,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (response.ok) {
         const {
           token: newToken,
-          user: userData,
+          user: newUser,
           refreshToken: newRefreshToken,
         } = data;
 
         await storage.setToken(newToken);
-        await storage.setUser(userData);
+        await storage.setUser(newUser);
         if (newRefreshToken) await storage.setRefreshToken?.(newRefreshToken);
+        await connectSocket(newToken);
 
         setToken(newToken);
-        setUser(userData);
+        setUser(newUser);
         if (newRefreshToken) setRefreshToken(newRefreshToken);
 
         return { success: true };
       } else {
         return {
           success: false,
-          error: data.error || "Registration failed. Please try again.",
+          error: data.message || "Registration failed. Please try again.",
         };
       }
     } catch (error) {
@@ -306,8 +229,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         return { success: true };
       } else {
-        // Refresh token invalid - clear auth but keep wallet
-        await clearAuthOnly();
+        // Refresh token invalid - clear auth
+        await clearAuth();
         return {
           success: false,
           error: "Session expired. Please sign in again.",
@@ -324,8 +247,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Helper to clear only auth data, keeping wallet connected
-  const clearAuthOnly = async () => {
+  const clearAuth = async () => {
     await storage.removeToken();
     await storage.removeRefreshToken?.();
     await storage.removeUser();
@@ -337,25 +259,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async () => {
     try {
-      await clearAuthOnly();
-      // Wallet stays connected for re-authentication
+      await clearAuth();
     } catch (error) {
       console.error("Logout error:", error);
-    }
-  };
-
-  const forceDisconnectWallet = async () => {
-    try {
-      // First clear auth
-      await clearAuthOnly();
-      
-      // Then disconnect wallet
-      if (activeWallet) {
-        await activeWallet.disconnect();
-      }
-      await storage.removeWalletConnection();
-    } catch (error) {
-      console.error("Force wallet disconnection error:", error);
     }
   };
 
@@ -389,7 +295,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await storage.setUser(userData);
     await connectSocket(newToken);
     if (newRefreshToken) await storage.setRefreshToken?.(newRefreshToken);
-    
+
     setToken(newToken);
     setUser(userData);
     if (newRefreshToken) setRefreshToken(newRefreshToken);
@@ -409,35 +315,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return null;
   };
 
-  const storeWalletConnection = async (wallet: any) => {
-    try {
-      if (wallet) {
-        const walletAddress = wallet.getAccount()?.address;
-        if (walletAddress) {
-          const walletData = {
-            address: walletAddress,
-            connected: true,
-            timestamp: Date.now(),
-          };
-          await storage.setWalletConnection(walletData);
-          console.log("Wallet connection stored:", walletData);
-        }
-      }
-    } catch (error) {
-      console.error("Error storing wallet connection:", error);
-    }
-  };
-
   const value: AuthContextType = {
     user,
     token,
     refreshToken,
     isLoading,
     isAuthenticated,
-    isWalletConnected,
-    connectWallet,
-    disconnectWallet,
-    forceDisconnectWallet,
     registerUser,
     loginWithRefreshToken,
     setAuth,

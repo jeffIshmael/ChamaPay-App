@@ -5,7 +5,6 @@ import { useAuth } from "@/Contexts/AuthContext";
 import {
   CurrencyCode,
   getExchangeRate,
-  pretiumOfframp,
   validatePhoneNumber,
   validateWithdrawalDetails,
   pollPretiumPaymentStatus,

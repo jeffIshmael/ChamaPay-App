@@ -16,6 +16,8 @@ model User {
   address             String?
   smartAddress        String               @unique
   profileImageUrl     String?
+  hashedPrivkey       String
+  hashedPassphrase    String
   createdChamas       Chama[]              @relation("AdminChamas")
   chamas              ChamaMember[]
   joinRequests        ChamaRequest[]
@@ -81,18 +83,18 @@ model Payment {
 }
 
 model Notification {
-  id        Int      @id @default(autoincrement())
-  type      String?
-  message   String
+  id         Int      @id @default(autoincrement())
+  type       String?
+  message    String
   sharedLink String?
-  senderId  Int?
-  requestId Int?
-  userId    Int
-  chamaId   Int?
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
-  chama     Chama?   @relation(fields: [chamaId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
+  senderId   Int?
+  requestId  Int?
+  userId     Int
+  chamaId    Int?
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  chama      Chama?   @relation(fields: [chamaId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
 }
 
 model ChamaRequest {
