@@ -221,6 +221,7 @@ export default function AuthScreen() {
       setErrorText("Please enter your email address");
       return;
     }
+    console.log("the email", email);
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -233,6 +234,7 @@ export default function AuthScreen() {
     setErrorText("");
 
     try {
+      console.log("calling the api,");
       // Send verification code to email
       const resp = await fetch(`${serverUrl}/auth/send-code`, {
         method: "POST",
@@ -241,6 +243,7 @@ export default function AuthScreen() {
       });
 
       const data = await resp.json();
+      console.log("the data", data);
 
       if (resp.ok) {
         // Navigate to verification screen

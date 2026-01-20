@@ -96,6 +96,7 @@ export const sendVerificationCode = async (
 ): Promise<void> => {
   try {
     const { email } = req.body;
+    console.log("the email received", email);
 
     if (!email) {
       res.status(400).json({

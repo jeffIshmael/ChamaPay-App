@@ -82,7 +82,7 @@ export default function CryptoWallet() {
   const fetchBalances = async () => {
     if (wallet && activeAccount) {
       const balances = await getAllBalances(
-        activeAccount.address as `0x${string}`
+        user?.address as `0x${string}`
       );
       console.log("the balances", balances);
       setUserBalance(balances);
@@ -694,8 +694,8 @@ export default function CryptoWallet() {
                   numberOfLines={1}
                   ellipsizeMode="middle"
                 >
-                  {activeAccount?.address
-                    ? shortenAddress(activeAccount.address)
+                  {user?.address
+                    ? shortenAddress(user?.address)
                     : "0x0000000000000000000000"}
                 </Text>
               </View>
