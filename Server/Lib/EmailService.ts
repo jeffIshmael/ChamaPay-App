@@ -1,5 +1,8 @@
 import nodemailer, { SendMailOptions, Transporter } from "nodemailer";
 import crypto from "crypto";
+import { configDotenv } from "dotenv";
+configDotenv();
+
 
 // Interface for email send result
 interface EmailResult {
@@ -18,7 +21,7 @@ class EmailService {
       service: "gmail",
       auth: {
         user: process.env.EMAIL_USERNAME,
-        pass: process.env.EMAIL_PASSWORD, // Use app password for Gmail
+        pass: process.env.EMAIL_PASSWORD, 
       },
     });
   }
@@ -107,11 +110,11 @@ class EmailService {
     return `  <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #26a6a2;">Welcome to ChamaPay!</h2>
             <p>Your verification code is:</p>
-            <div style="background-color: #d1f6f1; padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0;">
+            <div style="background-color: #ffffff; padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0;">
               <h1 style="color: #26a6a2; font-size: 36px; margin: 0; letter-spacing: 8px;">${otp}</h1>
             </div>
             <p>This code will expire in 10 minutes.</p>
-            <p style="color: #666; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
+            <p style="color: #ƒ666; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
           </div>`;
   }
 }
