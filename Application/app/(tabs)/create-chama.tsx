@@ -126,11 +126,6 @@ export default function CreateChama() {
     collateralRequired: false,
   });
   const [newTerm, setNewTerm] = useState("");
-  const { data: totalChamas, isLoading } = useReadContract({
-    contract: chamapayContract,
-    method: "function totalChamas() view returns (uint256)",
-  });
-
   // Date/Time picker states
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -142,10 +137,9 @@ export default function CreateChama() {
   const [showCollateralModal, setShowCollateralModal] = useState(false);
   const [agreedToCollateral, setAgreedToCollateral] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
-  const [quote, setQuote] = useState<Quote |null>(null);
-  const activeAccount = useActiveAccount();
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [tempDate, setTempDate] = useState(new Date());
 
-  const { mutate: sendTx, data: transactionResult } = useSendTransaction();
 
 
   // Helper function to convert USDC to KES
@@ -187,7 +181,7 @@ export default function CreateChama() {
   }, [formData.isPublic]);
 
   useEffect(() => {
-    const fetchQuote = async ()=>{
+    const fetchQuote = async () => {
       const result = await getExchangeRate("KES");
       setQuote(result);
     }
@@ -212,21 +206,38 @@ export default function CreateChama() {
     );
   };
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    if (selectedDate) {
-      setSelectedDate(selectedDate);
-      const dateString = selectedDate.toISOString().slice(0, 10);
-      updateFormData("startDate", dateString);
+   const handleDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+      if (event.type === 'set' && selectedDate) {
+        const dateString = selectedDate.toISOString().slice(0, 10);
+        updateFormData("startDate", dateString);
+      }
+    } else {
+      if (selectedDate) {
+        setTempDate(selectedDate);
+        const dateString = selectedDate.toISOString().slice(0, 10);
+        updateFormData("startDate", dateString);
+      }
     }
   };
 
-  const handleTimeChange = (event: any, selectedTime?: Date) => {
-    if (selectedTime) {
-      setSelectedDate(selectedTime);
-      const timeString = selectedTime.toTimeString().slice(0, 5);
-      updateFormData("startTime", timeString);
+    const handleTimeChange = (event: any, selectedTime?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowTimePicker(false);
+      if (event.type === 'set' && selectedTime) {
+        const timeString = selectedTime.toTimeString().slice(0, 5);
+        updateFormData("startTime", timeString);
+      }
+    } else {
+      if (selectedTime) {
+        setTempDate(selectedTime);
+        const timeString = selectedTime.toTimeString().slice(0, 5);
+        updateFormData("startTime", timeString);
+      }
     }
   };
+
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "Select date";
@@ -270,10 +281,6 @@ export default function CreateChama() {
       Alert.alert("Error", "Please log in to create a chama");
       return;
     }
-    if (!activeAccount) {
-      Alert.alert("Error", "No active account.");
-      return;
-    }
 
     const contributionValue = getContributionValue();
     if (contributionValue < MINIMUM_CONTRIBUTION) {
@@ -293,44 +300,6 @@ export default function CreateChama() {
       const startDateTime = new Date(
         `${formData.startDate}T${formData.startTime}:00`
       );
-      const startDateTimeTimestamp = Math.floor(startDateTime.getTime() / 1000);
-      const durationDays = BigInt(formData.frequency);
-      const contributionInWei = toUnits(contributionValue.toString(), 6);
-      const totalCollateralRequired = contributionValue * getMaxMembersValue();
-      const totalCollateralRequiredInWei = toUnits(
-        totalCollateralRequired.toString(),
-        6
-      );
-      const blockchainId = Number(totalChamas).toString();
-
-      if (formData.isPublic) {
-        setLoadingState("Checking payment...");
-
-        const approveTransaction = prepareContractCall({
-          contract: usdcContract,
-          method: "function approve(address spender, uint256 amount)",
-          params: [chamapayContract.address, totalCollateralRequiredInWei],
-        });
-        const { transactionHash: approveTransactionHash } =
-          await sendTransaction({
-            account: activeAccount,
-            transaction: approveTransaction,
-          });
-        const approveTransactionReceipt = await waitForReceipt({
-          client: client,
-          chain: chain,
-          transactionHash: approveTransactionHash,
-        });
-
-        if (!approveTransactionReceipt) {
-          setLoadingState("");
-          Alert.alert(
-            "Error",
-            `Failed. ensure you have ${totalCollateralRequired} USDC in your wallet.`
-          );
-          return;
-        }
-      }
 
       if (formData.isPublic) {
         setLoadingState("Creating...");
@@ -338,71 +307,10 @@ export default function CreateChama() {
         setLoadingState("Checking details...");
       }
 
-      const createChamaTransaction = prepareContractCall({
-        contract: chamapayContract,
-        method: {
-          inputs: [
-            {
-              internalType: "uint256",
-              name: "_amount",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "_duration",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "_startDate",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "_maxMembers",
-              type: "uint256",
-            },
-            {
-              internalType: "bool",
-              name: "_isPublic",
-              type: "bool",
-            },
-          ],
-          name: "registerChama",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        params: [
-          contributionInWei,
-          durationDays,
-          BigInt(startDateTimeTimestamp),
-          BigInt(getMaxMembersValue()),
-          formData.isPublic,
-        ],
-      });
-
-      const { transactionHash: createChamaTransactionHash } =
-        await sendTransaction({
-          account: activeAccount,
-          transaction: createChamaTransaction,
-        });
       if (!formData.isPublic) {
         setTimeout(() => {
           setLoadingState("Creating...");
         }, 2000);
-      }
-
-      const transactionReceipt = await waitForReceipt({
-        client: client,
-        chain: chain,
-        transactionHash: createChamaTransactionHash,
-      });
-
-      if (!transactionReceipt) {
-        setLoadingState("");
-        Alert.alert("Error", "Failed to create chama");
-        return;
       }
 
       const registerChamaToDatabaseResponse = await registerChamaToDatabase(
@@ -424,7 +332,7 @@ export default function CreateChama() {
         Alert.alert(
           "Error",
           registerChamaToDatabaseResponse.error ||
-            "Failed to register chama to database"
+          "Failed to register chama to database"
         );
         return;
       }
@@ -636,11 +544,10 @@ export default function CreateChama() {
                   setShowDatePicker(true);
                   setPickerMode("date");
                 }}
-                className={`bg-gray-50 border rounded-xl px-4 py-3 flex-row items-center justify-between active:bg-gray-100 ${
-                  !isStartDateTimeInFuture() && formData.startDate.trim() !== ""
-                    ? "border-red-300 bg-red-50"
-                    : "border-gray-200"
-                }`}
+                className={`bg-gray-50 border rounded-xl px-4 py-3 flex-row items-center justify-between active:bg-gray-100 ${!isStartDateTimeInFuture() && formData.startDate.trim() !== ""
+                  ? "border-red-300 bg-red-50"
+                  : "border-gray-200"
+                  }`}
                 activeOpacity={0.7}
               >
                 <Text
@@ -675,11 +582,10 @@ export default function CreateChama() {
                   setShowTimePicker(true);
                   setPickerMode("time");
                 }}
-                className={`bg-gray-50 border rounded-xl px-4 py-3 flex-row items-center justify-between active:bg-gray-100 ${
-                  !isStartDateTimeInFuture() && formData.startTime.trim() !== ""
-                    ? "border-red-300 bg-red-50"
-                    : "border-gray-200"
-                }`}
+                className={`bg-gray-50 border rounded-xl px-4 py-3 flex-row items-center justify-between active:bg-gray-100 ${!isStartDateTimeInFuture() && formData.startTime.trim() !== ""
+                  ? "border-red-300 bg-red-50"
+                  : "border-gray-200"
+                  }`}
                 activeOpacity={0.7}
               >
                 <Text
@@ -730,12 +636,11 @@ export default function CreateChama() {
               value={formData.contribution}
               onChangeText={handleContributionChange}
               keyboardType="decimal-pad"
-              className={`bg-gray-50 border rounded-xl px-4 py-3 text-gray-900 ${
-                getContributionValue() < MINIMUM_CONTRIBUTION &&
+              className={`bg-gray-50 border rounded-xl px-4 py-3 text-gray-900 ${getContributionValue() < MINIMUM_CONTRIBUTION &&
                 formData.contribution !== ""
-                  ? "border-red-300 bg-red-50"
-                  : "border-gray-200"
-              }`}
+                ? "border-red-300 bg-red-50"
+                : "border-gray-200"
+                }`}
               placeholderTextColor="#9ca3af"
             />
             {formData.contribution !== "" && getContributionValue() > 0 && (
@@ -1052,9 +957,8 @@ export default function CreateChama() {
           {[1, 2].map((stepNumber) => (
             <View
               key={stepNumber}
-              className={`flex-1 h-2 rounded-full ${
-                stepNumber <= step ? "bg-white" : "bg-white/30"
-              }`}
+              className={`flex-1 h-2 rounded-full ${stepNumber <= step ? "bg-white" : "bg-white/30"
+                }`}
             />
           ))}
         </View>
@@ -1080,18 +984,16 @@ export default function CreateChama() {
             <View className="flex-row gap-3 mt-6 mb-4">
               <TouchableOpacity
                 onPress={handleBack}
-                className={`flex-1 py-4 border-2 rounded-xl items-center justify-center ${
-                  step === 1
-                    ? "border-gray-200 bg-gray-50 opacity-50"
-                    : "border-gray-300 bg-white active:bg-gray-50"
-                }`}
+                className={`flex-1 py-4 border-2 rounded-xl items-center justify-center ${step === 1
+                  ? "border-gray-200 bg-gray-50 opacity-50"
+                  : "border-gray-300 bg-white active:bg-gray-50"
+                  }`}
                 disabled={step === 1}
                 activeOpacity={0.7}
               >
                 <Text
-                  className={`font-semibold text-base ${
-                    step === 1 ? "text-gray-400" : "text-gray-700"
-                  }`}
+                  className={`font-semibold text-base ${step === 1 ? "text-gray-400" : "text-gray-700"
+                    }`}
                 >
                   {step === 1 ? "Cancel" : "←   Previous"}
                 </Text>
@@ -1113,11 +1015,10 @@ export default function CreateChama() {
                   <View className="absolute left-0 top-0 bottom-0 right-0 bg-gray-300" />
                 )}
                 <Text
-                  className={`font-semibold text-base relative z-10 ${
-                    (step === 1 && !isStep1Valid) || loading
-                      ? "text-gray-200"
-                      : "text-white"
-                  }`}
+                  className={`font-semibold text-base relative z-10 ${(step === 1 && !isStep1Valid) || loading
+                    ? "text-gray-200"
+                    : "text-white"
+                    }`}
                 >
                   {loading
                     ? loadingState || "Creating..."
@@ -1484,7 +1385,7 @@ export default function CreateChama() {
                   borderColor: "gray",
                   alignItems: "center",
                 }}
-                // className="bg-gray-400"
+              // className="bg-gray-400"
               >
                 <Text
                   style={{

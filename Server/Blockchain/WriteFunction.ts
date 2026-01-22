@@ -13,7 +13,7 @@ const publicClient = createPublicClient({
 
 // users functions
 // function to create a chama
-export const bcCreateChama = async (privateKey: `0x${string}`, chamaAmount: string, duration: number, startDate: number, maxMembers: number, isPublic: boolean) => {
+export const bcCreateChama = async (privateKey: `0x${string}`, chamaAmount: string, duration: bigint, startDate: bigint, maxMembers: bigint, isPublic: boolean) => {
     try {
         //change amount to wei
         const amountInWei = parseUnits(chamaAmount, 6);
@@ -101,7 +101,7 @@ export const bcAddMemberToPrivateChama = async (privateKey: `0x${string}`, chama
 }
 
 // function to deposit funds to a chama
-export const bcDepositFundsToChama = async (privateKey: `0x${string}`, chamaBlockchainId: number, amount: string) => {
+export const bcDepositFundsToChama = async (privateKey: `0x${string}`, chamaBlockchainId: bigint, amount: string) => {
     try {
         // change amount to wei
         const amountInWei = parseUnits(amount, 6);

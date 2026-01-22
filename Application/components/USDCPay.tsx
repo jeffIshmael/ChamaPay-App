@@ -76,68 +76,18 @@ const USDCPay = ({
         return;
       }
 
-      const totalAmount = paymentAmount + transactionFee;
-      if (totalAmount > Number(USDCBalance)) {
+      if (paymentAmount > Number(USDCBalance)) {
         setError(
-          `Insufficient balance. Total required: ${totalAmount.toFixed(4)} USDC (including 0.5% fee)`
+          `Insufficient balance. Total required: ${paymentAmount.toFixed(4)} USDC (including 0.5% fee)`
         );
         return;
       }
 
-      if (!activeAccount) {
-        setError("Wallet not connected");
-        return;
-      }
 
       if (!token) {
         setError("Authentication required");
         return;
       }
-
-      const amountInWei = toUnits(totalAmount.toString(), 6);
-
-      // Approve transaction
-      const approveTransaction = prepareContractCall({
-        contract: usdcContract,
-        method: "function approve(address spender, uint256 amount)",
-        params: [chamapayContract.address, amountInWei],
-      });
-
-      const { transactionHash: approveTransactionHash } = await sendTransaction(
-        {
-          account: activeAccount,
-          transaction: approveTransaction,
-        }
-      );
-
-      const approveTransactionReceipt = await waitForReceipt({
-        client: client,
-        chain: chain,
-        transactionHash: approveTransactionHash,
-      });
-
-      if (!approveTransactionReceipt) {
-        setError("Failed to approve transaction");
-        return;
-      }
-
-      // Deposit transaction
-      const depositTransaction = prepareContractCall({
-        contract: chamapayContract,
-        method: "function depositCash(uint256 _chamaId, uint256 _amount)",
-        params: [BigInt(chamaBlockchainId), amountInWei],
-      });
-
-      const { transactionHash } = await sendTransaction({
-        account: activeAccount,
-        transaction: depositTransaction,
-      });
-
-      const receipt = await waitForReceipt({
-        client: client,
-        chain: chain,
-        transactionHash: transactionHash,
-      });
 
       // Record transaction on server
       const response = await axios.post(
@@ -145,7 +95,6 @@ const USDCPay = ({
         {
           amount: amount.toString(),
           blockchainId: chamaBlockchainId,
-          txHash: receipt.transactionHash,
           chamaId: chamaId,
         },
         {
@@ -153,12 +102,14 @@ const USDCPay = ({
         }
       );
 
+      console.log("deposit response",response);
+
       if (response.data.error) {
         setError(response.data.error);
         return;
       }
 
-      setTxHash(transactionHash);
+      // setTxHash(response.data);
       setSuccessMessage(
         `Successfully deposited ${amount} USDC to ${chamaName}`
       );
@@ -242,7 +193,7 @@ const USDCPay = ({
               >
                 <Text className="text-gray-700 text-xl">←</Text>
               </TouchableOpacity>
-              
+
               <Image
                 source={require("../assets/images/usdclogo.png")}
                 className="w-12 h-12 mr-4"
@@ -327,9 +278,8 @@ const USDCPay = ({
               )}
 
               <TouchableOpacity
-                className={`py-4 rounded-xl shadow-md ${
-                  loading ? "bg-blue-200" : "bg-downy-800"
-                }`}
+                className={`py-4 rounded-xl shadow-md ${loading ? "bg-blue-200" : "bg-downy-800"
+                  }`}
                 onPress={handlePayment}
                 disabled={loading}
               >
