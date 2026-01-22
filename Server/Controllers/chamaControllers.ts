@@ -44,17 +44,15 @@ export const createChama = async (
     if (!userId) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
-    console.log("the userId", userId);
 
     // get the private key of user
     const result = await getPrivateKey(userId);
-    console.log("private key result", result);
     if (!result.success || result.privateKey == null) {
       return res.status(401).json({ success: false, error: "Unable to get private key." });
     }
 
 
-    const startDateInSecs = Math.floor(startDate.getTime() / 1000);
+    const startDateInSecs = new Date(startDate).getTime() / 1000;
     // the blockchain Id
     const blockchainId = await bcGetTotalChamas();
 
