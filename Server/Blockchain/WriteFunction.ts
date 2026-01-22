@@ -22,26 +22,37 @@ export const bcCreateChama = async (privateKey: `0x${string}`, chamaAmount: stri
         console.log("the start date", startDate);
         console.log("the max members", maxMembers);
         console.log("the is public", isPublic);
+
         // create a smart account client
         const { smartAccountClient, eoa7702, isSmartAccountDeployed } = await createSmartAccount(privateKey);
-        // We only have to add the authorization field if the EOA does not have the authorization code set
-        const txHash = await smartAccountClient.writeContract({
+
+        // Build the base transaction parameters
+        const txParams: any = {
             address: contractAddress,
             abi: contractABI,
             functionName: 'registerChama',
             args: [amountInWei, duration, startDate, maxMembers, isPublic],
-            authorization: !isSmartAccountDeployed ? await eoa7702.signAuthorization({
+        };
+
+        // Only add authorization if the smart account is not deployed
+        if (!isSmartAccountDeployed) {
+            txParams.authorization = await eoa7702.signAuthorization({
                 contractAddress: "0xe6Cae83BdE06E4c305530e199D7217f42808555B",
                 chainId: celo.id,
-            }) : undefined,
-        });
-        // we need to make sure that the tx has been added to the bockchain
+            });
+        }
+
+        const txHash = await smartAccountClient.writeContract(txParams);
+
+        // we need to make sure that the tx has been added to the blockchain
         const transaction = await publicClient.waitForTransactionReceipt({
             hash: txHash,
         });
+
         if (!transaction) {
             throw new Error("unable to get the set payout order transaction");
         }
+
         return transaction.transactionHash;
     } catch (error) {
         console.error("Error creating chama:", error);
