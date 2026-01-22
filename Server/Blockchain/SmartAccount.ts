@@ -35,11 +35,8 @@ const client = createPublicClient({
 const pimlicoUrl = `https://api.pimlico.io/v2/42220/rpc?apikey=${apiKey}`;
 
 const pimlicoClient = createPimlicoClient({
+    chain: celo,
     transport: http(pimlicoUrl),
-    entryPoint: {
-        address: entryPoint07Address,
-        version: "0.7",
-    },
 })
 
 
