@@ -1,6 +1,6 @@
 // This file contains all the blockchain write functions
 
-import { parseUnits, createPublicClient, http } from "viem";
+import { parseUnits, createPublicClient, http, encodeFunctionData } from "viem";
 import { contractABI, contractAddress } from "./Constants";
 import { createSmartAccount } from "./SmartAccount";
 import { celo } from "viem/chains";
@@ -26,23 +26,54 @@ export const bcCreateChama = async (privateKey: `0x${string}`, chamaAmount: stri
         // create a smart account client
         const { smartAccountClient, eoa7702, isSmartAccountDeployed } = await createSmartAccount(privateKey);
 
-        // Build the base transaction parameters
-        const txParams: any = {
-            address: contractAddress,
+        // Encode the function call
+        const callData = encodeFunctionData({
             abi: contractABI,
             functionName: 'registerChama',
             args: [amountInWei, duration, startDate, maxMembers, isPublic],
-        };
+        });
 
-        // Only add authorization if the smart account is not deployed
+        let txHash: `0x${string}`;
+
+        // If not deployed, we need to include the authorization in the first transaction
         if (!isSmartAccountDeployed) {
-            txParams.authorization = await eoa7702.signAuthorization({
+            console.log("First transaction - signing authorization...");
+
+            // Get the current transaction count (nonce) for the EOA
+            const nonce = await publicClient.getTransactionCount({
+                address: eoa7702.address,
+            });
+
+            console.log("EOA nonce:", nonce);
+
+            // Sign the authorization
+            const authorization = await eoa7702.signAuthorization({
                 contractAddress: "0xe6Cae83BdE06E4c305530e199D7217f42808555B",
                 chainId: celo.id,
+                nonce,
+            });
+
+            console.log("Authorization signed:", authorization);
+
+            // Send transaction WITH authorization
+            txHash = await smartAccountClient.sendTransaction({
+                to: contractAddress as `0x${string}`,
+                data: callData,
+                value: BigInt(0),
+                authorization, // Include the signed authorization
+            });
+        } else {
+            console.log("Subsequent transaction - no authorization needed");
+
+            // Send transaction WITHOUT authorization (already deployed)
+            txHash = await smartAccountClient.sendTransaction({
+                to: contractAddress as `0x${string}`,
+                data: callData,
+                value: BigInt(0),
             });
         }
 
-        const txHash = await smartAccountClient.writeContract(txParams);
+        console.log("Transaction Hash:", txHash);
 
         // we need to make sure that the tx has been added to the blockchain
         const transaction = await publicClient.waitForTransactionReceipt({
