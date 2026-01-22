@@ -1,7 +1,11 @@
 // This file has all chama related functions
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-import { generateUniqueSlug } from "../Lib/HelperFunctions";
+import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
+import { bcCreateChama } from "../Blockchain/WriteFunction";
+import { approveTx } from "../Blockchain/erc20Functions";
+import { contractAddress } from "../Blockchain/Constants";
+import { bcGetTotalChamas } from "../Blockchain/ReadFunctions";
 
 const prisma = new PrismaClient();
 
@@ -14,11 +18,7 @@ interface CreateChamaRequestBody {
   cycleTime: number;
   maxNo: number;
   startDate: Date;
-  promoCode: string;
   collateralRequired: boolean;
-  blockchainId: string;
-  adminId: number;
-  txHash: string;
 }
 
 // create a chama
@@ -37,12 +37,38 @@ export const createChama = async (
       cycleTime,
       maxNo,
       startDate,
-      promoCode,
       collateralRequired,
-      blockchainId,
-      adminId,
-      txHash,
     } = chamaData;
+
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
+    // get the private key of user
+    const result = await getPrivateKey(userId);
+    if (!result.success || result.privateKey == null) {
+      return res.status(401).json({ success: false, error: "User not found." });
+    }
+
+    const startDateInMilliSecs = new Date(startDate).getTime();
+    const startDateInSecs = startDateInMilliSecs / 1000;
+    // the blockchain Id
+    const blockchainId = await bcGetTotalChamas();
+
+    // if its a public we need to first approve spending
+    if (collateralRequired) {
+      const approveTxHash = await approveTx(result.privateKey, (Number(amount) * maxNo).toString(), contractAddress as `0x${string}`);
+      if (!approveTxHash) {
+        return res.status(401).json({ success: false, error: "Approve transaction failed." });
+      }
+    }
+
+    // register in the blockchain
+    const creationTxHash = await bcCreateChama(result.privateKey, amount, Number(cycleTime), startDateInSecs, Number(maxNo), collateralRequired);
+    if (!creationTxHash) {
+      return res.status(401).json({ success: false, error: "Failed to register onchain." });
+    }
 
     // Generate unique slug from name
     const uniqueSlug = await generateUniqueSlug(name);
@@ -64,42 +90,42 @@ export const createChama = async (
         blockchainId: blockchainId,
         round: 1,
         cycle: 1,
-        // Note: admin connection needs proper implementation based on your auth system
-        admin: { connect: { id: req.user?.userId } },
+        admin: { connect: { id: userId } },
+      },
+    });
+    if (!chama) {
+      return res.status(401).json({ success: false, error: "Failed to save chama to database." });
+    }
+
+    // Then, make the admin a member
+    await prisma.chamaMember.create({
+      data: {
+        user: {
+          connect: {
+            id: userId,
+          },
+        },
+        chama: {
+          connect: { id: chama.id },
+        },
+        payDate: new Date(),
       },
     });
 
-    if (chama) {
-      // Then, make the admin a member
-      await prisma.chamaMember.create({
+    // Handle collateral payment for public chamas that require it
+    if (type === "Public" && collateralRequired) {
+      await prisma.payment.create({
         data: {
-          user: {
-            connect: {
-              id: req.user?.userId,
-            },
-          },
-          chama: {
-            connect: { id: chama.id },
-          },
-          payDate: new Date(),
+          amount: (parseFloat(amount) * maxNo).toString(), // amount in string
+          txHash: creationTxHash,
+          description: "Locked.",
+          chamaId: chama.id,
+          userId: userId,
         },
       });
-
-      // Handle collateral payment for public chamas that require it
-      if (type === "Public" && collateralRequired && txHash) {
-        await prisma.payment.create({
-          data: {
-            amount: (parseFloat(amount) * maxNo).toString(), // amount in string
-            txHash: txHash,
-            description: "Locked.",
-            chamaId: chama.id,
-            userId: req.user?.userId || 0,
-          },
-        });
-      }
     }
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       chama: {
         chama,
@@ -107,7 +133,7 @@ export const createChama = async (
     });
   } catch (error) {
     console.log(error);
-    res.status(500).json({ success: false, error: "Failed to create chama" });
+    return res.status(500).json({ success: false, error: "Failed to create chama" });
   }
 };
 

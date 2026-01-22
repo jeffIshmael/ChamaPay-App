@@ -1,9 +1,8 @@
 // This file contains all the blockchain write functions
 
-import { Hex, parseEther, parseUnits, createPublicClient, http } from "viem";
+import { parseUnits, createPublicClient, http } from "viem";
 import { contractABI, contractAddress } from "./Constants";
 import { createSmartAccount } from "./SmartAccount";
-import { getAgentSmartWallet } from "./AgentWallet";
 import { celo } from "viem/chains";
 
 // create a public client

@@ -165,11 +165,7 @@ interface RegisterChamaRequestBody {
   cycleTime: number;
   maxNo: number;
   startDate: Date;
-  promoCode: string;
   collateralRequired: boolean;
-  blockchainId: string;
-  adminId: number;
-  txHash: string;
 }
 
 export interface UserDetails {

@@ -415,11 +415,7 @@ export default function CreateChama() {
           cycleTime: getFrequencyValue(),
           maxNo: getMaxMembersValue(),
           startDate: startDateTime,
-          promoCode: "",
           collateralRequired: formData.isPublic,
-          blockchainId: blockchainId,
-          adminId: user.id,
-          txHash: transactionReceipt.transactionHash,
         },
         token
       );
