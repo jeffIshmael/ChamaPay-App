@@ -1,7 +1,7 @@
 // This file has all chama related functions
 import { PrismaClient } from "@prisma/client";
-import encryptionService from "./Encryption";
 import dotenv from "dotenv";
+import Encryption from "./Encryption";
 import { randomBytes } from "crypto";
 
 dotenv.config();
@@ -103,9 +103,21 @@ export function shuffleArray(array: any[]) {
   return array;
 }
 
-// Generates a unique OriginatorConversationID for M-Pesa B2C transactions
-export function generateOriginatorConversationID(shortcode: string): string {
-  const timestamp = Date.now();
-  const randomString = randomBytes(8).toString("hex");
-  return `${shortcode}_${timestamp}_${randomString}`;
+// function to get the private key from user Id
+export async function getPrivateKey(userId: number): Promise<{ success: boolean, privateKey: `0x${string}` | null }> {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (user) {
+      const encryptedPrivateKey = Encryption.decodeEncryptedText(user.hashedPrivkey);
+      const encryptedData = JSON.parse(encryptedPrivateKey);
+      const privateKey = Encryption.decrypt(encryptedData, encryptionSecret!);
+      return { success: true, privateKey: privateKey as `0x${string}` };
+    }
+    return { success: false, privateKey: null };
+  } catch (error) {
+    console.log(error);
+    return { success: false, privateKey: null };
+  }
 }

@@ -1,4 +1,4 @@
-// This file contains functio to get a smart account from private key
+// This file contains functions to get a eip7702 smart account from private key
 import dotenv from "dotenv";
 // Use runtime requires and 'any' types to avoid compiling third-party TS sources
 // which were causing build-time type conflicts.
@@ -15,6 +15,8 @@ const { entryPoint07Address } = require("viem/account-abstraction") as any;
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { privateKeyToAccount } = require("viem/accounts") as any;
 // eslint-disable-next-line @typescript-eslint/no-var-requires
+const { to7702SimpleSmartAccount } = require("permissionless/accounts") as any;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { celo } = require("viem/chains") as any;
 
 dotenv.config()
@@ -25,53 +27,54 @@ if (!apiKey) {
 }
 
 // create a public client
-const publicClient = createPublicClient({
+const client = createPublicClient({
     chain: celo,
-    transport: http()
+    transport: http("https://celo.drpc.org")
 })
 
 const pimlicoUrl = `https://api.pimlico.io/v2/42220/rpc?apikey=${apiKey}`;
 
 const pimlicoClient = createPimlicoClient({
-	transport: http(pimlicoUrl),
-	entryPoint: {
-		address: entryPoint07Address,
-		version: "0.7",
-	},
+    transport: http(pimlicoUrl),
+    entryPoint: {
+        address: entryPoint07Address,
+        version: "0.7",
+    },
 })
 
 
 // create a smart account from private key
 export const createSmartAccount = async (privateKey: string) => {
-    try{
-    // create an owner from the private key
-    const owner = privateKeyToAccount(privateKey);
-    // create a safe smart account
-    const safeSmartAccount = await toSafeSmartAccount({
-        client: publicClient,
-        owners: [owner],
-        entryPoint: {
-            address: entryPoint07Address,
-            version: "0.7"
-        }, // global entrypoint
-        version: "1.4.1",
-    })
+    try {
+        // create an owner from the private key
+        const eoa7702 = privateKeyToAccount(privateKey);
+        // create a safe smart account
+        const simple7702Account = await to7702SimpleSmartAccount({
+            client,
+            owner: eoa7702,
+        });
 
-    // create a smart account client
-    const smartAccountClient = createSmartAccountClient({
-        account: safeSmartAccount,
-        chain: celo,
-        bundlerTransport: http(pimlicoUrl),
-        paymaster: pimlicoClient,
-        userOperation: {
-            estimateFeesPerGas: async () => {
-                return (await pimlicoClient.getUserOperationGasPrice()).fast
+        // create a smart account client
+        const smartAccountClient = createSmartAccountClient({
+            client,
+            chain: celo,
+            account: simple7702Account,
+            paymaster: pimlicoClient,
+            bundlerTransport: http(
+                `https://api.pimlico.io/v2/42220/rpc?apikey=${apiKey}`,
+            ),
+            userOperation: {
+                estimateFeesPerGas: async () => {
+                    return (await pimlicoClient.getUserOperationGasPrice()).fast;
+                },
             },
-        },
-    })
+        });
 
-    // return the smart account client & smart account address
-    return { smartAccountClient, safeSmartAccount }
+        // checking if its deployed
+        const isSmartAccountDeployed = await smartAccountClient.account.isDeployed();
+
+        // return the smart account client & smart account address
+        return { smartAccountClient, simple7702Account, eoa7702, isSmartAccountDeployed }
     } catch (error) {
         console.error("Error creating smart account:", error);
         throw error;

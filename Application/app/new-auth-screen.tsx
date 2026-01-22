@@ -1,22 +1,23 @@
 import { serverUrl } from "@/constants/serverUrl";
 import { useAuth } from "@/Contexts/AuthContext";
 import { checkUserDetails } from "@/lib/chamaService";
-import { useRouter } from "expo-router";
 import * as AppleAuthentication from "expo-apple-authentication";
+import { makeRedirectUri } from "expo-auth-session";
 import * as Google from "expo-auth-session/providers/google";
+import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { Shield, Mail } from "lucide-react-native";
-import { useState, useEffect } from "react";
+import { Mail, Shield } from "lucide-react-native";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
-  ActivityIndicator,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
@@ -53,6 +54,7 @@ const AppleIcon = () => (
 
 const chamapayLogo = require("@/assets/images/chamapay-logo.png");
 
+// CRITICAL: Complete the auth session so the browser can redirect back to the app
 WebBrowser.maybeCompleteAuthSession();
 
 export default function AuthScreen() {
@@ -60,6 +62,7 @@ export default function AuthScreen() {
   const [email, setEmail] = useState("");
   const [showEmailInput, setShowEmailInput] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
   const router = useRouter();
   const { setAuth } = useAuth();
   
@@ -67,23 +70,36 @@ export default function AuthScreen() {
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    redirectUri: makeRedirectUri({
+      scheme: "com.jeff.chamapay",
+    }),
   });
 
   // Handle Google OAuth response
   useEffect(() => {
     if (response?.type === "success") {
       const { authentication } = response;
+      console.log("Authentication successful", authentication);
       handleGoogleAuth(authentication?.accessToken);
+    } else if (response?.type === "error") {
+      console.error("Authentication error:", response.error);
+      setErrorText("Authentication failed. Please try again.");
+      setIsLoading(false);
+    } else if (response?.type === "dismiss" || response?.type === "cancel") {
+      console.log("Authentication cancelled by user");
+      setIsLoading(false);
     }
   }, [response]);
 
   const handleGoogleAuth = async (accessToken: string | undefined) => {
     if (!accessToken) {
       setErrorText("Failed to get access token from Google");
+      setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
+    setLoadingMessage("Signing in...");
     setErrorText("");
 
     try {
@@ -108,7 +124,8 @@ export default function AuthScreen() {
 
       // Check if user exists
       const userDetails = await checkUserDetails(email);
-      
+      console.log("User details:", userDetails);
+
       if (userDetails.success) {
         // User exists, authenticate
         const resp = await fetch(`${serverUrl}/auth/authenticate`, {
@@ -116,9 +133,9 @@ export default function AuthScreen() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, provider: "google" }),
         });
-        
+
         const data = await resp.json();
-        
+
         if (resp.ok && data?.token && data?.user) {
           await setAuth(data.token, data.user, data.refreshToken || null);
           router.replace("/(tabs)");
@@ -127,7 +144,8 @@ export default function AuthScreen() {
         }
       } else {
         // New user, redirect to setup
-        router.replace({
+        console.log("New user, redirecting to setup...");
+        router.push({
           pathname: "/wallet-setup",
           params: {
             mode: "google",
@@ -135,12 +153,25 @@ export default function AuthScreen() {
             name: name || "",
             picture: picture || "",
           },
-        } as any);
+        });
       }
     } catch (error) {
       console.error("Google auth error:", error);
       setErrorText("Failed to sign in with Google. Please try again.");
     } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    setErrorText("");
+    try {
+      await promptAsync();
+    } catch (error) {
+      console.error("Error prompting Google auth:", error);
+      setErrorText("Failed to start Google sign in");
       setIsLoading(false);
     }
   };
@@ -171,21 +202,21 @@ export default function AuthScreen() {
 
       // Check if user exists
       const userDetails = await checkUserDetails(email);
-      
+
       if (userDetails.success) {
         // User exists, authenticate
         const resp = await fetch(`${serverUrl}/auth/authenticate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            email, 
+          body: JSON.stringify({
+            email,
             provider: "apple",
-            identityToken 
+            identityToken,
           }),
         });
-        
+
         const data = await resp.json();
-        
+
         if (resp.ok && data?.token && data?.user) {
           await setAuth(data.token, data.user, data.refreshToken || null);
           router.replace("/(tabs)");
@@ -194,14 +225,14 @@ export default function AuthScreen() {
         }
       } else {
         // New user, redirect to setup
-        router.replace({
+        router.push({
           pathname: "/wallet-setup",
           params: {
             mode: "apple",
             email,
             name,
           },
-        } as any);
+        });
       }
     } catch (error: any) {
       if (error.code === "ERR_REQUEST_CANCELED") {
@@ -221,7 +252,6 @@ export default function AuthScreen() {
       setErrorText("Please enter your email address");
       return;
     }
-    console.log("the email", email);
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -234,7 +264,6 @@ export default function AuthScreen() {
     setErrorText("");
 
     try {
-      console.log("calling the api,");
       // Send verification code to email
       const resp = await fetch(`${serverUrl}/auth/send-code`, {
         method: "POST",
@@ -243,14 +272,13 @@ export default function AuthScreen() {
       });
 
       const data = await resp.json();
-      console.log("the data", data);
 
       if (resp.ok) {
         // Navigate to verification screen
         router.push({
           pathname: "/verify-email",
           params: { email: email.toLowerCase().trim() },
-        } as any);
+        });
       } else {
         setErrorText(data?.message || "Failed to send verification code");
       }
@@ -421,7 +449,7 @@ export default function AuthScreen() {
                   <View className="flex-row mb-4" style={{ gap: 12 }}>
                     {/* Google Button */}
                     <Pressable
-                      onPress={() => promptAsync()}
+                      onPress={handleGoogleSignIn}
                       disabled={isLoading || !request}
                       className="flex-1 bg-white p-2 rounded-2xl flex-row items-center justify-center"
                       style={[
@@ -430,7 +458,7 @@ export default function AuthScreen() {
                           borderWidth: 2,
                           borderColor: "#a3ece4",
                         },
-                        isLoading && { opacity: 0.6 },
+                        (isLoading || !request) && { opacity: 0.6 },
                       ]}
                     >
                       <GoogleIcon />
@@ -523,8 +551,13 @@ export default function AuthScreen() {
           className="absolute inset-0 bg-black/20 items-center justify-center"
           style={{ zIndex: 999 }}
         >
-          <View className="bg-white p-6 rounded-3xl" style={styles.card}>
+          <View className="bg-white p-6 rounded-3xl items-center" style={styles.card}>
             <ActivityIndicator size="large" color="#26a6a2" />
+            {loadingMessage ? (
+              <Text className="text-gray-600 font-medium mt-4 text-center">
+                {loadingMessage}
+              </Text>
+            ) : null}
           </View>
         </View>
       )}

@@ -1,7 +1,7 @@
 // This file has all user related functions
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-import 'multer';
+import "multer";
 import {
   checkHasPendingRequest,
   getSentRequests,
@@ -42,7 +42,6 @@ interface MulterRequest extends Request {
     userName?: string;
   };
 }
-
 
 // Function to get a user
 export const getUser = async (req: Request, res: Response): Promise<void> => {
@@ -261,7 +260,7 @@ export const checkUserExists = async (
       res.status(200).json({ success: false });
       return;
     }
-    const { ...safeUser } = user as any;
+    const { hashedPassphrase, hashedPrivkey, ...safeUser } = user as any;
     res.status(200).json({ success: true, user: safeUser });
   } catch (error: unknown) {
     console.error("Check user exists error:", error);
@@ -283,7 +282,8 @@ export const getUserById = async (
       res.status(404).json({ success: false, error: "User not found" });
       return;
     }
-    res.status(200).json({ user: user });
+    const { hashedPassphrase, hashedPrivkey, ...safeUser } = user as any;
+    res.status(200).json({ user: safeUser });
   } catch (error: unknown) {
     console.error("Get user by userId error:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
@@ -682,19 +682,21 @@ export const uploadProfileImage = async (
 ): Promise<void> => {
   try {
     if (!req.file) {
-      res.status(400).json({ error: 'No image provided' });
+      res.status(400).json({ error: "No image provided" });
       return;
     }
 
     const userId: number = req.user?.userId as number;
-    
+
     if (!req.user?.userId) {
       res.status(401).json({ message: "User not authenticated" });
       return;
     }
 
     // Upload to Pinata IPFS
-    const fileName = `profile_${userId}_${Date.now()}.${req.file.mimetype.split('/')[1]}`;
+    const fileName = `profile_${userId}_${Date.now()}.${
+      req.file.mimetype.split("/")[1]
+    }`;
     const ipfsUrl = await uploadToPinata(
       req.file.buffer,
       fileName,
@@ -720,13 +722,15 @@ export const uploadProfileImage = async (
       success: true,
       profileImageUrl: ipfsUrl,
       user: updatedUser,
-      message: 'Profile image uploaded to IPFS successfully',
+      message: "Profile image uploaded to IPFS successfully",
     });
   } catch (error) {
-    console.error('Image upload error:', error);
+    console.error("Image upload error:", error);
     res.status(500).json({
-      error: error instanceof Error ? error.message : 'Failed to upload image to IPFS',
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to upload image to IPFS",
     });
   }
 };
-

@@ -17,12 +17,13 @@ export default function RootLayout() {
               <Stack.Screen name="index" />
               <Stack.Screen name="auth-screen" />
               <Stack.Screen name="new-auth-screen" />
-              <Stack.Screen name="animatedSplash" />
+              <Stack.Screen name="animated-splash" />
+              <Stack.Screen name="oauth-redirect" />
               <Stack.Screen name="auth-form-screen" />
+              <Stack.Screen name="wallet-setup" />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="edit-profile" />
               <Stack.Screen name="verify-email" />
-              <Stack.Screen name="wallet-setup" />
               <Stack.Screen name="chama/[encryptedSlug]" />
             </Stack>
           </SafeAreaProvider>
