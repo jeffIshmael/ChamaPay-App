@@ -41,7 +41,7 @@ export const createSmartAccount = async (privateKey: string) => {
     try {
         // create an owner from the private key
         const eoa7702 = privateKeyToAccount(privateKey);
-        
+
         // create a 7702 simple smart account
         const simple7702Account = await to7702SimpleSmartAccount({
             client: publicClient,
@@ -50,11 +50,13 @@ export const createSmartAccount = async (privateKey: string) => {
 
         // create a smart account client
         const smartAccountClient = createSmartAccountClient({
-            account: simple7702Account,
-            client: publicClient, // ADD THIS - pass the public client
+            client: publicClient,
             chain: celo,
-            bundlerTransport: http(pimlicoUrl),
+            account: simple7702Account,
             paymaster: pimlicoClient,
+            bundlerTransport: http(
+                `https://api.pimlico.io/v2/42220/rpc?apikey=${apiKey}`,
+            ),
             userOperation: {
                 estimateFeesPerGas: async () => {
                     return (await pimlicoClient.getUserOperationGasPrice()).fast;
