@@ -24,7 +24,7 @@ export const bcCreateChama = async (privateKey: `0x${string}`, chamaAmount: stri
         console.log("the is public", isPublic);
 
         // create a smart account client
-        const { smartAccountClient, eoa7702, isSmartAccountDeployed } = await createSmartAccount(privateKey);
+        const { smartAccountClient, eoa7702, isSmartAccountDeployed, publicClient } = await createSmartAccount(privateKey);
 
         // Encode the function call
         const callData = encodeFunctionData({
