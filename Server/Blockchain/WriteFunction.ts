@@ -17,6 +17,11 @@ export const bcCreateChama = async (privateKey: `0x${string}`, chamaAmount: stri
     try {
         //change amount to wei
         const amountInWei = parseUnits(chamaAmount, 6);
+        console.log("the amount in wei", amountInWei);
+        console.log("the duration", duration);
+        console.log("the start date", startDate);
+        console.log("the max members", maxMembers);
+        console.log("the is public", isPublic);
         // create a smart account client
         const { smartAccountClient, eoa7702, isSmartAccountDeployed } = await createSmartAccount(privateKey);
         // We only have to add the authorization field if the EOA does not have the authorization code set
