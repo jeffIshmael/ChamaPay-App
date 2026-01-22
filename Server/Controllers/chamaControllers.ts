@@ -39,6 +39,7 @@ export const createChama = async (
       startDate,
       collateralRequired,
     } = chamaData;
+    console.log("the chama data", chamaData);
 
     const userId = req.user?.userId;
     if (!userId) {
