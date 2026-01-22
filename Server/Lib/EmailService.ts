@@ -1,8 +1,15 @@
 import nodemailer, { SendMailOptions, Transporter } from "nodemailer";
 import crypto from "crypto";
 import { configDotenv } from "dotenv";
+import { Resend } from "resend";
 configDotenv();
 
+const resendApi = process.env.RESEND_API_KEY;
+
+if (!resendApi) {
+  throw new Error("The resend api is not set.");
+}
+const resend = new Resend(resendApi);
 
 // Interface for email send result
 interface EmailResult {
@@ -21,7 +28,7 @@ class EmailService {
       service: "gmail",
       auth: {
         user: process.env.EMAIL_USERNAME,
-        pass: process.env.EMAIL_PASSWORD, 
+        pass: process.env.EMAIL_PASSWORD,
       },
     });
   }
@@ -110,12 +117,43 @@ class EmailService {
     return `  <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #26a6a2;">Welcome to ChamaPay!</h2>
             <p>Your verification code is:</p>
-            <div style="background-color: #ffffff; padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0;">
+            <div style=" background-color: #f0fafa; padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0;">
               <h1 style="color: #26a6a2; font-size: 36px; margin: 0; letter-spacing: 8px;">${otp}</h1>
             </div>
             <p>This code will expire in 10 minutes.</p>
             <p style="color: #ƒ666; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
           </div>`;
+  }
+
+  async sendResendOTPEmail(email: string, code: string) {
+    try {
+      const { data, error } = await resend.emails.send({
+        from: "ChamaPay <onboarding@resend.dev>", // Use your domain later
+        to: email,
+        subject: "ChamaPay - Your Verification Code",
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #26a6a2;">Welcome to ChamaPay!</h2>
+            <p>Your verification code is:</p>
+            <div style="background-color: #d1f6f1; padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0;">
+              <h1 style="color: #26a6a2; font-size: 36px; margin: 0; letter-spacing: 8px;">${code}</h1>
+            </div>
+            <p>This code will expire in 10 minutes.</p>
+            <p style="color: #666; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
+          </div>
+        `,
+      });
+
+      if (error) {
+        console.error("Resend error:", error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      console.error("Error sending OTP email:", error);
+      return { success: false, error: "Failed to send email" };
+    }
   }
 }
 

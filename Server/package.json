@@ -37,6 +37,7 @@
     "nodemailer": "^7.0.5",
     "nodemon": "^3.1.10",
     "permissionless": "^0.2.53",
+    "resend": "^6.8.0",
     "socket.io": "^4.8.1",
     "thirdweb": "^5.108.3",
     "toformat": "^2.0.0",

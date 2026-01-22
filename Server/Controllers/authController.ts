@@ -111,6 +111,8 @@ export const sendVerificationCode = async (
     // Generate 6-digit code
     const code = await emailService.generateOTP();
     const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+    console.log("the code", code);
+    console.log("the formatted email", email);
 
     // Store code
     verificationCodes.set(formattedEmail, { code, expiresAt });
@@ -276,7 +278,7 @@ export const oauthAuthenticate = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { email, provider, identityToken } = req.body;
+    const { email, provider } = req.body;
 
     if (!email) {
       res.status(400).json({
@@ -393,11 +395,14 @@ export const registerUser = async (
       .update(`${formattedEmail}:${masterKey}`)
       .digest("hex");
     const passphrase = newWallet.mnemonic?.phrase ?? "";
-    const hashedPassphrase = Encryption.encrypt(passphrase, encryptionKey);
-    const hashedPrivkey = Encryption.encrypt(
+    const encryptedPassphrase = Encryption.encrypt(passphrase, encryptionKey);
+    const encryptedPrivkey = Encryption.encrypt(
       newWallet.privateKey,
       encryptionKey
     );
+
+    const hashedPassphrase = Encryption.encodeEncryptedText(JSON.stringify(encryptedPassphrase));
+    const hashedPrivkey = Encryption.encodeEncryptedText(JSON.stringify(encryptedPrivkey));
 
     // Create new user
     const newUser = await prisma.user.create({
@@ -407,8 +412,8 @@ export const registerUser = async (
         address: newWallet.address,
         smartAddress: newWallet.address,
         profileImageUrl: profileImageUrl || null,
-        hashedPrivkey: JSON.stringify(hashedPrivkey),
-        hashedPassphrase: JSON.stringify(hashedPassphrase),
+        hashedPrivkey: hashedPrivkey,
+        hashedPassphrase: hashedPassphrase,
       },
     });
 
