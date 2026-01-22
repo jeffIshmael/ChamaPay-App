@@ -2,7 +2,7 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
-import { bcCreateChama } from "../Blockchain/WriteFunction";
+import { bcCreateChama, bcDepositFundsToChama } from "../Blockchain/WriteFunction";
 import { approveTx } from "../Blockchain/erc20Functions";
 import { contractAddress } from "../Blockchain/Constants";
 import { bcGetTotalChamas } from "../Blockchain/ReadFunctions";
@@ -44,15 +44,17 @@ export const createChama = async (
     if (!userId) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
+    console.log("the userId", userId);
 
     // get the private key of user
     const result = await getPrivateKey(userId);
+    console.log("private key result", result);
     if (!result.success || result.privateKey == null) {
-      return res.status(401).json({ success: false, error: "User not found." });
+      return res.status(401).json({ success: false, error: "Unable to get private key." });
     }
 
-    const startDateInMilliSecs = new Date(startDate).getTime();
-    const startDateInSecs = startDateInMilliSecs / 1000;
+
+    const startDateInSecs = Math.floor(startDate.getTime() / 1000);
     // the blockchain Id
     const blockchainId = await bcGetTotalChamas();
 
@@ -65,7 +67,7 @@ export const createChama = async (
     }
 
     // register in the blockchain
-    const creationTxHash = await bcCreateChama(result.privateKey, amount, Number(cycleTime), startDateInSecs, Number(maxNo), collateralRequired);
+    const creationTxHash = await bcCreateChama(result.privateKey, amount, BigInt(Number(cycleTime)), BigInt(startDateInSecs), BigInt(Number(maxNo)), collateralRequired);
     if (!creationTxHash) {
       return res.status(401).json({ success: false, error: "Failed to register onchain." });
     }
@@ -254,8 +256,9 @@ export const getPublicChamasUserIsNotMemberOf = async (
 // deposit funds to a chama
 export const depositToChama = async (req: Request, res: Response) => {
   try {
-    const { amount, blockchainId, txHash, chamaId } = req.body;
+    const { amount, blockchainId, chamaId } = req.body;
     const userId = req.user?.userId;
+
 
     if (!userId) {
       return res.status(401).json({
@@ -264,10 +267,10 @@ export const depositToChama = async (req: Request, res: Response) => {
       });
     }
 
-    if (!amount || !blockchainId || !txHash) {
+    if (!amount || !blockchainId || !chamaId) {
       return res.status(400).json({
         success: false,
-        error: "Amount, blockchainId, and txHash are required",
+        error: "All fields are required.",
       });
     }
 
@@ -298,17 +301,30 @@ export const depositToChama = async (req: Request, res: Response) => {
       });
     }
 
-    // Calculate 2% transaction fee
-    const paymentAmount = parseFloat(amount);
-    const transactionFee = paymentAmount * 0.02; // 2% fee
-    const totalAmount = paymentAmount + transactionFee;
+    // get the private key of user
+    const result = await getPrivateKey(userId);
+    if (!result.success || result.privateKey == null) {
+      return res.status(401).json({ success: false, error: "Unable to get private key." });
+    }
+
+    // approve transaction
+    const approveTxHash = await approveTx(result.privateKey, amount, contractAddress as `0x${string}`);
+    if (!approveTxHash) {
+      return res.status(401).json({ success: false, error: "deposit approve transaction failed." });
+    }
+
+    // do the deposit onchain
+    const depositTxHash = await bcDepositFundsToChama(result.privateKey, BigInt(Number(blockchainId)), amount);
+    if (!depositTxHash) {
+      return res.status(401).json({ success: false, error: "Failed to deposit for chama." });
+    }
 
     // Record the payment in the database
     await prisma.payment.create({
       data: {
         amount: amount,
         description: `deposited`,
-        txHash: txHash,
+        txHash: depositTxHash,
         chamaId: parseInt(chamaId),
         userId: userId,
       },
@@ -317,10 +333,8 @@ export const depositToChama = async (req: Request, res: Response) => {
     return res.status(200).json({
       success: true,
       message: "Deposit successful",
-      txHash: txHash,
+      txHash: depositTxHash,
       amount: amount,
-      transactionFee: transactionFee.toFixed(3),
-      totalAmount: totalAmount.toFixed(3),
     });
   } catch (error) {
     console.error("Deposit error:", error);

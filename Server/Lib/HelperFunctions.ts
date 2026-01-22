@@ -2,7 +2,7 @@
 import { PrismaClient } from "@prisma/client";
 import dotenv from "dotenv";
 import Encryption from "./Encryption";
-import { randomBytes } from "crypto";
+import crypto from "crypto";
 
 dotenv.config();
 
@@ -109,13 +109,22 @@ export async function getPrivateKey(userId: number): Promise<{ success: boolean,
     const user = await prisma.user.findUnique({
       where: { id: userId },
     });
-    if (user) {
-      const encryptedPrivateKey = Encryption.decodeEncryptedText(user.hashedPrivkey);
-      const encryptedData = JSON.parse(encryptedPrivateKey);
-      const privateKey = Encryption.decrypt(encryptedData, encryptionSecret!);
-      return { success: true, privateKey: privateKey as `0x${string}` };
+    if (!user) {
+      throw new Error("User not found");
     }
-    return { success: false, privateKey: null };
+
+    const encryptedPrivateKey = Encryption.decodeEncryptedText(user.hashedPrivkey);
+    console.log("encryptedpriv", encryptedPrivateKey);
+    const encryptedData = JSON.parse(encryptedPrivateKey);
+    console.log("encrypteddata", encryptedData);
+    const decryptionKey = crypto
+      .createHash("sha256")
+      .update(`${user.email}:${encryptionSecret}`)
+      .digest("hex");
+    const privateKey = Encryption.decrypt(encryptedData, decryptionKey);
+    console.log("privatekey", privateKey);
+    return { success: true, privateKey: privateKey as `0x${string}` };
+
   } catch (error) {
     console.log(error);
     return { success: false, privateKey: null };
