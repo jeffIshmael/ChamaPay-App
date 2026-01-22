@@ -112,17 +112,13 @@ export async function getPrivateKey(userId: number): Promise<{ success: boolean,
     if (!user) {
       throw new Error("User not found");
     }
-
     const encryptedPrivateKey = Encryption.decodeEncryptedText(user.hashedPrivkey);
-    console.log("encryptedpriv", encryptedPrivateKey);
     const encryptedData = JSON.parse(encryptedPrivateKey);
-    console.log("encrypteddata", encryptedData);
     const decryptionKey = crypto
       .createHash("sha256")
       .update(`${user.email}:${encryptionSecret}`)
       .digest("hex");
     const privateKey = Encryption.decrypt(encryptedData, decryptionKey);
-    console.log("privatekey", privateKey);
     return { success: true, privateKey: privateKey as `0x${string}` };
 
   } catch (error) {
