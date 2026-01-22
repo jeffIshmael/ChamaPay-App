@@ -1,5 +1,4 @@
 import moment from "moment";
-import { generateOriginatorConversationID } from "./HelperFunctions";
 
 interface TokenResponse {
   access_token: string;
@@ -168,62 +167,62 @@ export async function checkPushStatus(
 }
 
 // initiate a b2c transaction(from business to phone number)
-export async function B2CMpesaTx(
-  amount: string,
-  userPhoneNo: number,
-  remarks: string
-): Promise<PushResponse | null> {
+// export async function B2CMpesaTx(
+//   amount: string,
+//   userPhoneNo: number,
+//   remarks: string
+// ): Promise<PushResponse | null> {
 
-  try {
-    const tokenResponse = await getAccessToken();
-    if (!tokenResponse) {
-      console.error("Failed to get access token");
-      return null;
-    }
+//   try {
+//     const tokenResponse = await getAccessToken();
+//     if (!tokenResponse) {
+//       console.error("Failed to get access token");
+//       return null;
+//     }
 
-    const accessToken = tokenResponse.access_token;
-    // Generate unique OriginatorConversationID
-    const originatorConversationID = generateOriginatorConversationID("600997");
-    const headers = new Headers();
-    headers.append("Authorization", `Bearer ${accessToken}`);
-    headers.append("Content-Type", "application/json");
+//     const accessToken = tokenResponse.access_token;
+//     // Generate unique OriginatorConversationID
+//     const originatorConversationID = generateOriginatorConversationID("600997");
+//     const headers = new Headers();
+//     headers.append("Authorization", `Bearer ${accessToken}`);
+//     headers.append("Content-Type", "application/json");
 
-    const requestBody = {
-      OriginatorConversationID:originatorConversationID,
-      InitiatorName: "testapi",
-      SecurityCredential: SecurityCredential,
-      CommandID: "BusinessPayment",
-      Amount: amount,
-      PartyA: chamapayTillNumber,
-      PartyB: userPhoneNo,
-      Remarks: remarks,
-      QueueTimeOutURL: "https://mydomain.com/path", // incase of a timeout
-      ResultURL: "https://mydomain.com/path", // callback
-      Occassion: "Withdrawal",
-    };
+//     const requestBody = {
+//       OriginatorConversationID:originatorConversationID,
+//       InitiatorName: "testapi",
+//       SecurityCredential: SecurityCredential,
+//       CommandID: "BusinessPayment",
+//       Amount: amount,
+//       PartyA: chamapayTillNumber,
+//       PartyB: userPhoneNo,
+//       Remarks: remarks,
+//       QueueTimeOutURL: "https://mydomain.com/path", // incase of a timeout
+//       ResultURL: "https://mydomain.com/path", // callback
+//       Occassion: "Withdrawal",
+//     };
 
-    console.log(" STK B2C Push Request:", {
-      ...requestBody,
-      Password: "***HIDDEN***",
-    });
+//     console.log(" STK B2C Push Request:", {
+//       ...requestBody,
+//       Password: "***HIDDEN***",
+//     });
 
-    const response = await fetch(
-      "https://sandbox.safaricom.co.ke/mpesa/b2c/v3/paymentrequest",
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify(requestBody),
-      }
-    );
+//     const response = await fetch(
+//       "https://sandbox.safaricom.co.ke/mpesa/b2c/v3/paymentrequest",
+//       {
+//         method: "POST",
+//         headers,
+//         body: JSON.stringify(requestBody),
+//       }
+//     );
 
-    const result = await response.json();
-    console.log("STK B2C Push Response:", result);
-    return result as unknown as PushResponse;
-  } catch (error) {
-    console.error("STK Push Error:", error);
-    return null;
-  }
-}
+//     const result = await response.json();
+//     console.log("STK B2C Push Response:", result);
+//     return result as unknown as PushResponse;
+//   } catch (error) {
+//     console.error("STK Push Error:", error);
+//     return null;
+//   }
+// }
 
 // Check transaction status (for debugging)
 export async function checkMpesaTxStatus(
