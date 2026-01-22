@@ -38,6 +38,7 @@ export const bcCreateChama = async (privateKey: `0x${string}`, chamaAmount: stri
         // If not deployed, we need to include the authorization in the first transaction
         if (!isSmartAccountDeployed) {
             console.log("First transaction - signing authorization...");
+            console.log("the eoa7702", eoa7702.address);
 
             // Get the current transaction count (nonce) for the EOA
             const nonce = await publicClient.getTransactionCount({
