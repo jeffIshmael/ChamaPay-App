@@ -16,8 +16,8 @@ export async function pretiumOnramp(
   exchangeRate: number,
   usdcAmount: number,
   isDeposit: boolean,
-  chamaId: number,
   token: string,
+  chamaId?: number,
 ) {
   try {
     const response = await fetch(`${serverUrl}/pretium/onramp`, {
