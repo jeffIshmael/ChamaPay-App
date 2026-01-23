@@ -202,22 +202,25 @@ export default function CryptoWallet() {
     onPress,
     icon,
     title,
-    bgColor,
-    textColor,
+    gradient,
   }: {
     onPress: () => void;
     icon: React.ReactNode;
     title: string;
-    bgColor: string;
-    textColor: string;
+    gradient: string;
   }) => (
     <TouchableOpacity
       onPress={onPress}
-      className={`flex-1 items-center py-3 px-1 rounded-2xl ${bgColor} ${textColor}`}
-      style={styles.actionButton}
+      className="items-center flex-1"
+      activeOpacity={0.7}
     >
-      <View className="bg-white p-3 rounded-full mb-2 shadow-sm">{icon}</View>
-      <Text className={`text-sm font-semibold ${textColor}`}>{title}</Text>
+      <View
+        className={`w-14 h-14 rounded-2xl items-center justify-center mb-2 bg-transparent`}
+        style={styles.actionButtonIcon}
+      >
+        {icon}
+      </View>
+      <Text className="text-white text-xs font-medium">{title}</Text>
     </TouchableOpacity>
   );
 
@@ -642,37 +645,30 @@ export default function CryptoWallet() {
       <View className="flex-1 bg-gray-50">
         {/* Header - Fixed */}
         <View
-          className="bg-downy-800 px-6 pb-4 rounded-b-3xl shadow-md"
-          style={{ paddingTop: insets.top + 24 }}
+          className="bg-downy-800 px-6 pb-8 rounded-b-3xl"
+          style={[styles.headerShadow, { paddingTop: insets.top + 24 }]}
         >
-          {/* USDC Balance */}
-          <View className="mb- items-center">
+          {/* Balance Section */}
+          <View className="mb-6 items-center">
             <View className="flex-row items-center gap-4 mb-4">
-              <Text className="text-2xl text-emerald-100">Total Balance</Text>
+              <Text className="text-lg text-emerald-100 font-medium">Available Balance</Text>
             </View>
 
-            <View className="items-center mb-3">
+            <View className="items-center mb-2">
               <View className="flex-row items-baseline justify-center mb-1">
                 <Text className="text-5xl text-white font-extrabold tracking-tight">
-                  {/* {balanceVisible
-                    ? usdcBalance.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })
-                    : "••••••"} */}
                   {balanceVisible && theExhangeQuote?.exchangeRate.selling_rate
                     ? (usdcBalance * theExhangeQuote?.exchangeRate.selling_rate).toFixed(2)
                     : "••••••"}
-
                 </Text>
 
-                <Text className="text-3xl ml-2 text-white font-bold tracking-tight">
+                <Text className="text-2xl ml-2 text-white/90 font-semibold tracking-tight">
                   {theExhangeQuote?.currencyCode}
                 </Text>
               </View>
 
               {balanceVisible && (
-                <Text className="text-emerald-100 text-lg font-semibold">
+                <Text className="text-emerald-100 text-base font-medium">
                   ≈{" "}
                   {balanceVisible
                     ? usdcBalance.toLocaleString(undefined, {
@@ -685,110 +681,74 @@ export default function CryptoWallet() {
             </View>
           </View>
 
-          {/* Wallet Address Card */}
-          {/* <View className="bg-white/10 backdrop-blur-md rounded-2xl p-4 mb-8 w-full border border-white/20 shadow-sm">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1">
-                <Text className="text-emerald-100 text-xs mb-1">
-                  Wallet Address
-                </Text>
-                <Text
-                  className="text-white text-sm font-mono"
-                  numberOfLines={1}
-                  ellipsizeMode="middle"
-                >
-                  {user?.smartAddress
-                    ? shortenAddress(user?.smartAddress)
-                    : "0x0000000000000000000000"}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={copyAddress}
-                className="p-2 rounded-full bg-emerald-500/80 shadow-md"
-                activeOpacity={0.7}
-              >
-                <Copy size={16} color="white" />
-              </TouchableOpacity>
-            </View>
-          </View> */}
-        </View>
-
-        {/* Quick Actions - Fixed */}
-        <View className="px-6 py-4 mt-2">
-          <View
-            className="bg-white rounded-2xl p-5 shadow-md"
-            style={styles.card}
-          >
-            <View className="flex-row gap-4">
-              <ActionButton
-                onPress={() =>
-                  router.push({
-                    pathname: "/wallet/send-crypto",
-                    params: {
-                      USDCBalance: usdcBalance,
-                      totalBalance: usdcBalance,
-                      address: activeAccount?.address,
-                    },
-                  })
-                }
-                icon={<Send size={20} color="#059669" />}
-                title="Send"
-                bgColor="bg-emerald-50"
-                textColor="text-emerald-700"
-              />
-              <ActionButton
-                onPress={() => router.push("/wallet/receive-crypto")}
-                icon={<QrCode size={20} color="#2563eb" />}
-                title="Receive"
-                bgColor="bg-blue-50"
-                textColor="text-blue-700"
-              />
-              <ActionButton
-                onPress={() =>
-                  router.push({
-                    pathname: "/wallet/deposit-crypto",
-                    params: {
-                      currencyCode: theExhangeQuote?.currencyCode,
-                      onramp: theExhangeQuote?.exchangeRate.selling_rate,
-                      USDCBalance: usdcBalance,
-                    },
-                  })
-                }
-                icon={<Download size={20} color="#15803d" />}
-                title="Deposit"
-                bgColor="bg-green-50"
-                textColor="text-green-700"
-              />
-              <ActionButton
-                onPress={() =>
-                  router.push({
-                    pathname: "/wallet/withdrawal-crypto",
-                    params: {
-                      USDCBalance: usdcBalance,
-                      totalBalance: usdcBalance,
-                      address: activeAccount?.address,
-                      currencyCode: theExhangeQuote?.currencyCode,
-                      offramp: theExhangeQuote?.exchangeRate.buying_rate,
-                    },
-                  })
-                }
-                icon={<Upload size={20} color="#c2410c" />}
-                title="Withdraw"
-                bgColor="bg-orange-50"
-                textColor="text-orange-700"
-              />
-            </View>
+          {/* Action Buttons - Inside Header */}
+          <View className="flex-row justify-between px-4">
+            <ActionButton
+              onPress={() =>
+                router.push({
+                  pathname: "/wallet/send-crypto",
+                  params: {
+                    USDCBalance: usdcBalance,
+                    totalBalance: usdcBalance,
+                    address: activeAccount?.address,
+                  },
+                })
+              }
+              icon={<Send size={22} color="white" />}
+              title="Send"
+              gradient="bg-gradient-to-br from-violet-500 to-purple-600"
+            />
+            <ActionButton
+              onPress={() => router.push("/wallet/receive-crypto")}
+              icon={<QrCode size={22} color="white" />}
+              title="Receive"
+              gradient="bg-gradient-to-br from-blue-500 to-indigo-600"
+            />
+            <ActionButton
+              onPress={() =>
+                router.push({
+                  pathname: "/wallet/deposit-crypto",
+                  params: {
+                    currencyCode: theExhangeQuote?.currencyCode,
+                    onramp: theExhangeQuote?.exchangeRate.selling_rate,
+                    USDCBalance: usdcBalance,
+                  },
+                })
+              }
+              icon={<Download size={22} color="white" className="bg-transparent" />}
+              title="Deposit"
+              gradient="bg-gradient-to-br from-emerald-500 to-green-600"
+            />
+            <ActionButton
+              onPress={() =>
+                router.push({
+                  pathname: "/wallet/withdrawal-crypto",
+                  params: {
+                    USDCBalance: usdcBalance,
+                    totalBalance: usdcBalance,
+                    address: activeAccount?.address,
+                    currencyCode: theExhangeQuote?.currencyCode,
+                    offramp: theExhangeQuote?.exchangeRate.buying_rate,
+                  },
+                })
+              }
+              icon={<Upload size={22} color="white" />}
+              title="Withdraw"
+              gradient="bg-gradient-to-br from-amber-500 to-orange-600"
+            />
           </View>
         </View>
-        <View className="flex-1 px-6 mt-2">
+
+        {/* Transaction History Section */}
+        <View className="flex-1 px-6 mt-6">
           <View className="flex-row items-center justify-between mb-4">
             <Text className="text-2xl font-bold text-gray-900">
-              Transaction History
+              Recent Activity
             </Text>
             {theTransaction && theTransaction.length > 3 && (
               <TouchableOpacity
                 onPress={() => router.push("/wallet/all-transactions")}
-                className=" px-4 py-2 rounded-full"
+                className="px-4 py-2 rounded-full"
                 activeOpacity={0.8}
               >
                 <Text className="text-downy-600 text-sm font-semibold">
@@ -856,7 +816,6 @@ export default function CryptoWallet() {
               />
             )}
         </View>
-
       </View>
 
       {/* Transaction Details Modal */}
@@ -876,15 +835,25 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  actionButton: {
+  actionButtonIcon: {
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 3,
     },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  headerShadow: {
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
   },
   modalCard: {
     shadowColor: "#000",

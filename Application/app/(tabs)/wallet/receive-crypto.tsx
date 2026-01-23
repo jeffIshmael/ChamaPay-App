@@ -13,14 +13,15 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useActiveAccount, useActiveWallet } from "thirdweb/react";
+import { useAuth } from "@/Contexts/AuthContext";
 
 export default function ReceiveCryptoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const activeAccount = useActiveAccount();
+  const { user } = useAuth();
 
-  const walletAddress = activeAccount?.address;
+
+  const walletAddress = user?.smartAddress;
 
   const copyAddress = async () => {
     await Clipboard.setStringAsync(walletAddress!);
