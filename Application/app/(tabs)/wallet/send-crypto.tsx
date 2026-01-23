@@ -1,3 +1,4 @@
+import { serverUrl } from "@/constants/serverUrl";
 import { chain, client, usdcContract } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
 import { searchUsers } from "@/lib/chamaService";
@@ -128,10 +129,6 @@ export default function SendCryptoScreen() {
   };
 
   const handleSend = async () => {
-    if (!activeAccount) {
-      Alert.alert("Error", "Please connect your wallet");
-      return;
-    }
     if (!token) {
       Alert.alert("Error", "Please login to send transactions");
       return;
@@ -158,43 +155,27 @@ export default function SendCryptoScreen() {
     }
     setIsProcessing(true);
     try {
-      const amountInWei = toUnits(amount, 6);
-      const transferTransaction = prepareContractCall({
-        contract: usdcContract,
-        method: "function transfer(address to, uint256 amount)",
-        params: [receiver, amountInWei],
+      // the api endpoint to send 
+      const response = await fetch(`${serverUrl}/user/sendUSDC`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          receiver,
+          amount,
+        }),
       });
-      const { transactionHash: transferTransactionHash } =
-        await sendTransaction({
-          account: activeAccount,
-          transaction: transferTransaction,
-        });
-      const transferTransactionReceipt = await waitForReceipt({
-        client: client,
-        chain: chain,
-        transactionHash: transferTransactionHash,
-      });
-      if (!transferTransactionReceipt) {
-        Alert.alert("Error", "Failed to send transaction");
+      const data = await response.json();
+      if (!data.success) {
+        Alert.alert("Error", data.message);
         return;
       }
-      console.log("transferTransactionReceipt", transferTransactionReceipt);
-      // a function to register the payment to the database
-      const paymentResponse = await registerPayment(
-        receiver,
-        amount,
-        "Transfer",
-        transferTransactionHash,
-        token
-      );
-      if (paymentResponse.success && paymentResponse.payment) {
-        Alert.alert("Success", "Transaction sent successfully", [
-          { text: "OK", onPress: () => router.push("/wallet") },
-        ]);
-      } else {
-        Alert.alert("Error", "Failed to register payment");
-        return;
-      }
+      Alert.alert("Success", "Transaction sent successfully", [
+        { text: "OK", onPress: () => router.push("/wallet") },
+      ]);
+
     } catch (error) {
       console.error("Error sending transaction:", error);
       Alert.alert("Error", "Failed to send transaction");
@@ -244,11 +225,10 @@ export default function SendCryptoScreen() {
                   setRecipient("");
                   setAmount("");
                 }}
-                className={`flex-1 py-4 px-4 rounded-2xl flex-row items-center justify-center gap-2 ${
-                  sendMode === "chamapay"
+                className={`flex-1 py-4 px-4 rounded-2xl flex-row items-center justify-center gap-2 ${sendMode === "chamapay"
                     ? "bg-downy-600 shadow-md"
                     : "bg-white border-2 border-gray-200"
-                }`}
+                  }`}
                 activeOpacity={0.7}
               >
                 <Image
@@ -259,9 +239,8 @@ export default function SendCryptoScreen() {
                   }}
                 />
                 <Text
-                  className={`font-bold text-sm ${
-                    sendMode === "chamapay" ? "text-white" : "text-gray-700"
-                  }`}
+                  className={`font-bold text-sm ${sendMode === "chamapay" ? "text-white" : "text-gray-700"
+                    }`}
                 >
                   ChamaPay User
                 </Text>
@@ -273,11 +252,10 @@ export default function SendCryptoScreen() {
                   setRecipient("");
                   setAmount("");
                 }}
-                className={`flex-1 py-4 px-4 rounded-xl flex-row items-center justify-center gap-2 ${
-                  sendMode === "external"
+                className={`flex-1 py-4 px-4 rounded-xl flex-row items-center justify-center gap-2 ${sendMode === "external"
                     ? "bg-downy-600"
                     : "bg-white border-2 border-gray-200"
-                }`}
+                  }`}
                 activeOpacity={0.7}
               >
                 <WalletMinimal
@@ -285,9 +263,8 @@ export default function SendCryptoScreen() {
                   size={20}
                 />
                 <Text
-                  className={`text-center font-semibold ${
-                    sendMode === "external" ? "text-white" : "text-gray-600"
-                  }`}
+                  className={`text-center font-semibold ${sendMode === "external" ? "text-white" : "text-gray-600"
+                    }`}
                 >
                   External Wallet
                 </Text>
@@ -460,27 +437,25 @@ export default function SendCryptoScreen() {
               (sendMode === "external" && !isValidAddress(recipient)) ||
               isProcessing
             }
-            className={`w-full py-4 rounded-2xl shadow-lg ${
-              !recipient.trim() ||
-              !isValidAmount(amount) ||
-              (sendMode === "chamapay" && !selectedUser) ||
-              (sendMode === "external" && !isValidAddress(recipient)) ||
-              isProcessing
-                ? "bg-gray-300"
-                : "bg-downy-600"
-            }`}
-            activeOpacity={0.8}
-          >
-            <Text
-              className={`text-center text-lg font-bold ${
-                !recipient.trim() ||
+            className={`w-full py-4 rounded-2xl shadow-lg ${!recipient.trim() ||
                 !isValidAmount(amount) ||
                 (sendMode === "chamapay" && !selectedUser) ||
                 (sendMode === "external" && !isValidAddress(recipient)) ||
                 isProcessing
+                ? "bg-gray-300"
+                : "bg-downy-600"
+              }`}
+            activeOpacity={0.8}
+          >
+            <Text
+              className={`text-center text-lg font-bold ${!recipient.trim() ||
+                  !isValidAmount(amount) ||
+                  (sendMode === "chamapay" && !selectedUser) ||
+                  (sendMode === "external" && !isValidAddress(recipient)) ||
+                  isProcessing
                   ? "text-gray-500"
                   : "text-white"
-              }`}
+                }`}
             >
               {isProcessing ? "Sending..." : "Send USDC"}
             </Text>

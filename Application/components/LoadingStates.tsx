@@ -12,13 +12,19 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Beautiful Loading State Component
 export const ChamaDetailsLoadingState = () => {
+  const insets = useSafeAreaInsets();
   return (
     <View className="flex-1 bg-gray-50">
       {/* Header Skeleton */}
-      <SafeAreaView className="bg-downy-800 rounded-b-2xl">
+      <View className="bg-downy-800 rounded-b-2xl" style={{
+        paddingTop: insets.top,
+        paddingBottom: 5,
+        paddingHorizontal: 5,
+      }}>
         <View className="p-6 pb-4">
           {/* Top bar with back button */}
           <View className="flex-row items-center justify-between mb-4">
@@ -40,7 +46,7 @@ export const ChamaDetailsLoadingState = () => {
             ))}
           </View>
         </View>
-      </SafeAreaView>
+      </View>
 
       {/* Tabs Skeleton */}
       <View className="px-6 pt-4">

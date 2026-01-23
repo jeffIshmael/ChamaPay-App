@@ -37,7 +37,7 @@ export const pimlicoSetPayoutOrder = async (
       throw new Error("unable to get the set payout order transaction");
     }
 
-    return transaction.transactionHash;
+    return transaction;
   } catch (error) {
     console.error("Error setting payout order:", error);
     throw error;
@@ -111,7 +111,7 @@ export const pimlicoProcessPayout = async (chamaBlockchainIds: number[]) => {
       throw new Error("unable to get the check paydate transaction");
     }
 
-    return checkPayDateTransaction.transactionHash;
+    return checkPayDateTransaction;
   } catch (error) {
     console.error("Error checking paydate:", error);
     throw error;

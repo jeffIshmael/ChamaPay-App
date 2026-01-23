@@ -1,6 +1,7 @@
 // This file has all user related functions
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
+import { isAddress } from "viem";
 import "multer";
 import {
   checkHasPendingRequest,
@@ -10,6 +11,8 @@ import {
   sortRequest,
 } from "../Lib/prismaFunctions";
 import { uploadToPinata } from "../utils/PinataUtils";
+import { getPrivateKey } from "../Lib/HelperFunctions";
+import { transferTx } from "../Blockchain/erc20Functions";
 
 const prisma = new PrismaClient();
 
@@ -694,9 +697,8 @@ export const uploadProfileImage = async (
     }
 
     // Upload to Pinata IPFS
-    const fileName = `profile_${userId}_${Date.now()}.${
-      req.file.mimetype.split("/")[1]
-    }`;
+    const fileName = `profile_${userId}_${Date.now()}.${req.file.mimetype.split("/")[1]
+      }`;
     const ipfsUrl = await uploadToPinata(
       req.file.buffer,
       fileName,
@@ -732,5 +734,71 @@ export const uploadProfileImage = async (
           ? error.message
           : "Failed to upload image to IPFS",
     });
+  }
+};
+
+// transfer USDC
+export const transferUSDC = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const userId: number = req.user?.userId as number;
+    if (!req.user?.userId) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+    const { receiver, amount } = req.body;
+    if (!receiver || !amount) {
+      res
+        .status(400)
+        .json({ success: false, error: "All fields are required" });
+      return;
+    }
+
+    // check if receiver is a valid address
+    if (!isAddress(receiver)) {
+      res.status(400).json({ success: false, error: "Invalid receiver address" });
+      return;
+    }
+    // get the private key
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      res.status(400).json({ success: false, error: "User not found" });
+      return;
+    }
+
+    const privateKey = await getPrivateKey(user.id);
+    if (!privateKey.success || privateKey.privateKey === null) {
+      res.status(400).json({ success: false, error: "Failed to get private key" });
+      return;
+    }
+
+    const txHash = await transferTx(privateKey.privateKey, amount, receiver as `0x${string}`);
+
+    if (!txHash.success) {
+      res.status(400).json({ success: false, error: "Failed to transfer USDC" });
+      return;
+    }
+
+    const payment = await registerUserPayment(
+      userId,
+      receiver,
+      amount,
+      "Transfer",
+      txHash
+    );
+    if (payment === null) {
+      res
+        .status(400)
+        .json({ success: false, error: "Failed to register payment" });
+      return;
+    }
+    res.status(200).json({ success: true, payment: payment });
+  } catch (error) {
+    console.error("Transfer USDC error:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
   }
 };

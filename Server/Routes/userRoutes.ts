@@ -14,7 +14,8 @@ import {
     sendJoinRequest,
     shareChamaLink,
     updatePhoneNumber,
-    uploadProfileImage
+    uploadProfileImage,
+    transferUSDC
 } from "../Controllers/userController";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -38,6 +39,7 @@ router.post("/checkUsernameAvailability", checkUsernameAvailability);
 router.post("/registerPayment", authenticate, registerPayment);
 router.post("/confirmRequest", authenticate, confirmJoinRequest);
 router.post("/shareLink", authenticate, shareChamaLink);
+router.post("/sendUSDC", authenticate, transferUSDC);
 router.post('/profile/image', authenticate, upload.single('image'), uploadProfileImage);
 
 
