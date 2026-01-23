@@ -37,15 +37,15 @@ import { handleTheRequestToJoin } from "@/lib/userService";
 export interface Notification {
   id: string;
   type:
-    | "contribution_due"
-    | "payout_received"
-    | "new_message"
-    | "member_joined"
-    | "payout_scheduled"
-    | "join_request"
-    | "invite_link"
-    | "chama_started"
-    | "other";
+  | "contribution_due"
+  | "payout_received"
+  | "new_message"
+  | "member_joined"
+  | "payout_scheduled"
+  | "join_request"
+  | "invite_link"
+  | "chama_started"
+  | "other";
   title: string;
   message: string;
   timestamp: string;
@@ -119,16 +119,11 @@ export default function Notifications() {
     try {
       setLoading(true);
       const details = await getUserDetails(token);
-      console.log("Raw notifications:", details.user.notifications);
-      console.log("Raw join requests:", details.user.joinRequests);
-      console.log("Raw sent requests:", details.user.sentRequests);
 
       const transformedNotifications = await transformNotification(
         details.user.notifications,
         details.user.sentRequests
       );
-
-      console.log("Transformed notifications:", transformedNotifications);
       setNotifications(transformedNotifications);
     } catch (error) {
       console.error("Error fetching notifications:", error);
@@ -174,50 +169,11 @@ export default function Notifications() {
     setProcessingRequestId(requestId);
 
     try {
-      if (action === "approve") {
-        if (!canAdd) {
-          Alert.alert("error", "Member can't be added in the middle of cycle.");
-          return;
-        }
-        // add in blockchain
-        const addMemberTransaction = prepareContractCall({
-          contract: chamapayContract,
-          method: {
-            inputs: [
-              {
-                internalType: "address",
-                name: "_address",
-                type: "address",
-              },
-              {
-                internalType: "uint256",
-                name: "_chamaId",
-                type: "uint256",
-              },
-            ],
-            name: "addMember",
-            outputs: [],
-            stateMutability: "nonpayable",
-            type: "function",
-          },
-          params: [userAddress, BigInt(chamaBlockchainId)],
-        });
-
-        const { transactionHash: addMemberTransactionHash } =
-          await sendTransaction({
-            account: activeAccount,
-            transaction: addMemberTransaction,
-          });
-        const transactionReceipt = await waitForReceipt({
-          client: client,
-          chain: chain,
-          transactionHash: addMemberTransactionHash,
-        });
-        if (!transactionReceipt) {
-          Alert.alert("error", "Error adding member to blockchain.");
-          return;
-        }
+      if (!canAdd && action === "approve") {
+        Alert.alert("error", "Member can't be added in the middle of cycle.");
+        return;
       }
+
       const result = await handleTheRequestToJoin(
         chamaId,
         action,
@@ -428,11 +384,10 @@ export default function Notifications() {
           <TouchableOpacity
             key={notification.id}
             onPress={() => handleNotificationPress(notification)}
-            className={`mb-3 p-4 bg-white rounded-xl border border-gray-200 ${
-              !notification.read
+            className={`mb-3 p-4 bg-white rounded-xl border border-gray-200 ${!notification.read
                 ? "border-l-4 border-l-emerald-500 bg-emerald-50"
                 : ""
-            }`}
+              }`}
             activeOpacity={0.7}
             disabled={notification.actionRequired && processingRequestId !== null}
           >
@@ -442,9 +397,8 @@ export default function Notifications() {
               <View className="flex-1">
                 <View className="flex-row items-center justify-between mb-1">
                   <Text
-                    className={`font-medium flex-1 ${
-                      !notification.read ? "text-gray-900" : "text-gray-700"
-                    }`}
+                    className={`font-medium flex-1 ${!notification.read ? "text-gray-900" : "text-gray-700"
+                      }`}
                   >
                     {notification.title}
                   </Text>
@@ -457,9 +411,8 @@ export default function Notifications() {
                 </View>
 
                 <Text
-                  className={`text-sm mb-2 ${
-                    !notification.read ? "text-gray-700" : "text-gray-600"
-                  }`}
+                  className={`text-sm mb-2 ${!notification.read ? "text-gray-700" : "text-gray-600"
+                    }`}
                 >
                   {notification.message}
                 </Text>

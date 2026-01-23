@@ -64,7 +64,7 @@ export const bcJoinPublicChama = async (privateKey: `0x${string}`, chamaBlockcha
 }
 
 // function to add member to private chama
-export const bcAddMemberToPrivateChama = async (privateKey: `0x${string}`, chamaBlockchainId: number, memberAddress: string) => {
+export const bcAddMemberToPrivateChama = async (privateKey: `0x${string}`, chamaBlockchainId: bigint, memberAddress: string) => {
     try {
         const { smartAccountClient, safeSmartAccount } = await createSmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({

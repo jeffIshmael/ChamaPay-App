@@ -136,7 +136,7 @@ export async function requestToJoin(userId: number, chamaId: number) {
 }
 
 // approve/ reject  request
-export async function sortRequest(
+export async function handleRequest(
   requestId: number,
   chamaName: string,
   userName: string,
