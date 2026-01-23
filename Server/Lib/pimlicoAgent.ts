@@ -1,13 +1,8 @@
 // the blockchain functions of interest are :- setting payout order, triggering payout function
+import { erc20Abi } from "viem";
 import { getAgentSmartWallet } from "../Blockchain/AgentWallet";
-import { contractAddress, contractABI, USDCAddress } from "../Blockchain/Constants";
-import { getAddress, createPublicClient, http, erc20Abi } from "viem";
-import { celo } from "viem/chains";
-
-const publicClient = createPublicClient({
-  chain: celo,
-  transport: http(),
-});
+import { contractABI, contractAddress, USDCAddress } from "../Blockchain/Constants";
+import { EIP7702Client } from "../Blockchain/EIP7702Client";
 
 // function to set payout order
 export const pimlicoSetPayoutOrder = async (
@@ -15,26 +10,29 @@ export const pimlicoSetPayoutOrder = async (
   memberAddresses: string[]
 ) => {
   try {
-    const { smartAccountClient: agentSmartAccountClient, eoa7702, isSmartAccountDeployed } = await getAgentSmartWallet();
+    const { client } = await getAgentSmartWallet();
+
     // we need to map the string array to make it 0x..
     const bcAddresses = memberAddresses.map((addr) => addr as `0x${string}`);
-    const hash = await agentSmartAccountClient.writeContract({
-      address: contractAddress,
-      abi: contractABI,
-      functionName: "setPayoutOrder",
-      args: [BigInt(chamaBlockchainId), bcAddresses],
-      authorization: !isSmartAccountDeployed ? await eoa7702.signAuthorization({
-        contractAddress: "0xe6Cae83BdE06E4c305530e199D7217f42808555B",
-        chainId: celo.id,
-      }) : undefined,
+
+    const callData = EIP7702Client.encodeCallData(
+      contractABI,
+      "setPayoutOrder",
+      [BigInt(chamaBlockchainId), bcAddresses]
+    );
+
+    const hash = await client.sendTransaction({
+      to: contractAddress as `0x${string}`,
+      data: callData,
     });
-    // we need to make sure that the tx has been added to the bockchain
-    const transaction = await publicClient.waitForTransactionReceipt({
-      hash: hash,
-    });
+
+    // we need to make sure that the tx has been added to the blockchain
+    const transaction = await client.waitForTransaction(hash);
+
     if (!transaction) {
       throw new Error("unable to get the set payout order transaction");
     }
+
     return transaction.transactionHash;
   } catch (error) {
     console.error("Error setting payout order:", error);
@@ -48,22 +46,21 @@ export const pimlicoAddMemberToPayoutOrder = async (
   memberAddress: string
 ) => {
   try {
-    const { smartAccountClient, eoa7702, isSmartAccountDeployed } = await getAgentSmartWallet();
+    const { client } = await getAgentSmartWallet();
 
-    const hash = await smartAccountClient.writeContract({
-      address: contractAddress,
-      abi: contractABI,
-      functionName: "addMemberToPayoutOrder",
-      args: [chamaBlockchainId, memberAddress as `0x${string}`],
-      authorization: !isSmartAccountDeployed ? await eoa7702.signAuthorization({
-        contractAddress: "0xe6Cae83BdE06E4c305530e199D7217f42808555B",
-        chainId: celo.id,
-      }) : undefined,
+    const callData = EIP7702Client.encodeCallData(
+      contractABI,
+      "addMemberToPayoutOrder",
+      [chamaBlockchainId, memberAddress as `0x${string}`]
+    );
+
+    const hash = await client.sendTransaction({
+      to: contractAddress as `0x${string}`,
+      data: callData,
     });
-    // we need to make sure that the tx has been added to the bockchain
-    const transaction = await publicClient.waitForTransactionReceipt({
-      hash: hash,
-    });
+
+    // we need to make sure that the tx has been added to the blockchain
+    const transaction = await client.waitForTransaction(hash);
 
     if (!transaction) {
       throw new Error(
@@ -81,23 +78,24 @@ export const pimlicoAddMemberToPayoutOrder = async (
 // function to process payout
 export const pimlicoProcessPayout = async (chamaBlockchainIds: number[]) => {
   try {
-    const { smartAccountClient, eoa7702, isSmartAccountDeployed } = await getAgentSmartWallet();
+    const { client } = await getAgentSmartWallet();
+
     // map the numbers to change them to bigint
     const blockchainIds = chamaBlockchainIds.map((num) => BigInt(num));
-    const hash = await smartAccountClient.writeContract({
-      address: contractAddress,
-      abi: contractABI,
-      functionName: "checkPayDate",
-      args: [blockchainIds],
-      authorization: !isSmartAccountDeployed ? await eoa7702.signAuthorization({
-        contractAddress: "0xe6Cae83BdE06E4c305530e199D7217f42808555B",
-        chainId: celo.id,
-      }) : undefined,
+
+    const callData = EIP7702Client.encodeCallData(
+      contractABI,
+      "checkPayDate",
+      [blockchainIds]
+    );
+
+    const hash = await client.sendTransaction({
+      to: contractAddress as `0x${string}`,
+      data: callData,
     });
-    // we need to make sure that the tx has been added to the bockchain
-    const transaction = await publicClient.waitForTransactionReceipt({
-      hash: hash,
-    });
+
+    // we need to make sure that the tx has been added to the blockchain
+    const transaction = await client.waitForTransaction(hash);
 
     if (!transaction) {
       throw new Error("unable to get the process payout transaction");
@@ -117,43 +115,46 @@ export const pimlicoDepositForUser = async (
   amount: bigint
 ) => {
   try {
-    const { smartAccountClient, eoa7702, isSmartAccountDeployed } = await getAgentSmartWallet();
-    // I need to first send approve fnctn
-    const approveHash = await smartAccountClient.writeContract({
-      address: USDCAddress,
-      abi: erc20Abi,
-      functionName: "approve",
-      args: [contractAddress, amount],
-      authorization: !isSmartAccountDeployed ? await eoa7702.signAuthorization({
-        contractAddress: "0xe6Cae83BdE06E4c305530e199D7217f42808555B",
-        chainId: celo.id,
-      }) : undefined,
+    const { client } = await getAgentSmartWallet();
+
+    // I need to first send approve function
+    const approveCallData = EIP7702Client.encodeCallData(
+      erc20Abi,
+      "approve",
+      [contractAddress, amount]
+    );
+
+    const approveHash = await client.sendTransaction({
+      to: USDCAddress,
+      data: approveCallData,
     });
+
     // we need to make sure that the tx has been added to the blockchain
-    const approveTransaction = await publicClient.waitForTransactionReceipt({
-      hash: approveHash,
-    });
+    const approveTransaction = await client.waitForTransaction(approveHash);
+
     if (!approveTransaction) {
       throw new Error("unable to get the process approve agent transaction");
     }
-    const hash = await smartAccountClient.writeContract({
-      address: contractAddress,
-      abi: contractABI,
-      functionName: "depositForMember",
-      args: [memberAddress, BigInt(chamaBlockchainId), amount],
-      authorization: !isSmartAccountDeployed ? await eoa7702.signAuthorization({
-        contractAddress: "0xe6Cae83BdE06E4c305530e199D7217f42808555B",
-        chainId: celo.id,
-      }) : undefined,
+
+    // Now deposit for member
+    const depositCallData = EIP7702Client.encodeCallData(
+      contractABI,
+      "depositForMember",
+      [memberAddress, BigInt(chamaBlockchainId), amount]
+    );
+
+    const hash = await client.sendTransaction({
+      to: contractAddress as `0x${string}`,
+      data: depositCallData,
     });
+
     // we need to make sure that the tx has been added to the blockchain
-    const transaction = await publicClient.waitForTransactionReceipt({
-      hash: hash,
-    });
+    const transaction = await client.waitForTransaction(hash);
 
     if (!transaction) {
       throw new Error("unable to get the process deposit for user agent transaction");
     }
+
     return transaction;
   } catch (error) {
     console.error("Error processing agent deposit user tx:", error);
