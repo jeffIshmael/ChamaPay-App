@@ -1,4 +1,4 @@
-// File: components/MobileMoneyPay.tsx - Updated with reusable components
+// File: components/MobileMoneyPay.tsx - Simplified M-Pesa Only
 import { Quote } from "@/app/(tabs)/wallet";
 import { useAuth } from "@/Contexts/AuthContext";
 import { useExchangeRate } from "@/hooks/useExchangeRate";
@@ -9,31 +9,21 @@ import {
   pollPretiumPaymentStatus,
   pretiumOnramp,
 } from "@/lib/pretiumService";
-import { Check, ChevronDown, Smartphone } from "lucide-react-native";
+import { Smartphone } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
-  Image,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  Image
 } from "react-native";
-
-// Import reusable components
-import CountrySelector from "@/components/CountrySelector";
-import PaymentMethodSelector from "@/components/PaymentMethodSelector";
-
-// Import utilities
-import {
-  isValidPhoneNumber,
-  PRETIUM_COUNTRIES,
-  type Country,
-  type PaymentMethod
-} from "@/Utils/pretiumUtils";
+import { PRETIUM_TRANSACTION_LIMIT } from "@/Utils/pretiumUtils";
+import { ArrowLeft } from "lucide-react-native";
 
 interface MobileMoneyPayProps {
   chamaName: string;
@@ -66,18 +56,10 @@ const MobileMoneyPay = ({
   const [statusMessage, setStatusMessage] = useState("");
   const [txHash, setTxHash] = useState("");
 
-  // Modal states
-  const [showCountryModal, setShowCountryModal] = useState(false);
-  const [showMethodModal, setShowMethodModal] = useState(false);
-
-  // Selection states
-  const [selectedCountry, setSelectedCountry] = useState<Country>(PRETIUM_COUNTRIES[0]);
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
-
   const { token } = useAuth();
   const [exchangeRate, setExchangeRate] = useState<Quote | null>(null);
   const [loadingRate, setLoadingRate] = useState(true);
-  const { data: exchangeRateData } = useExchangeRate(selectedCountry.currency as CurrencyCode);
+  const { data: exchangeRateData } = useExchangeRate("KES" as CurrencyCode);
 
   // Animation values
   const [fadeAnim] = useState(new Animated.Value(1));
@@ -85,51 +67,25 @@ const MobileMoneyPay = ({
   const [slideAnim] = useState(new Animated.Value(0));
   const [scaleAnim] = useState(new Animated.Value(1));
 
-  // Event handlers
-  const handleCountrySelect = (country: Country) => {
-    setSelectedCountry(country);
-    setShowCountryModal(false);
-    // Clear method selection when switching countries, especially for ROW
-    if (country.code === "ROW" || country.code !== selectedCountry.code) {
-      setSelectedMethod(null);
-      setPhoneNumber("");
-      setAmount("");
-      setUsdcAmount("0.00");
-    }
+  // Validate Kenyan phone number (starts with 7 or 1, 9 digits total)
+  const isValidPhoneNumber = (phone: string): boolean => {
+    return /^[71]\d{8}$/.test(phone);
   };
 
-  const handleMethodSelect = (method: PaymentMethod) => {
-    console.log("Selected payment method:", method);
-    // Only allow mobile money for payments
-    if (method.type !== 'mobile_money') {
-      Alert.alert("Not Available", "Bank payments are not currently supported. Please use mobile money.");
-      return;
-    }
-    setSelectedMethod(method);
-    setShowMethodModal(false);
-  };
-
-  // Check if "Rest of the World" is selected
-  const isRestOfWorld = selectedCountry.code === "ROW";
-
-  // Calculate remaining amount in local currency
-  const remainingInLocalCurrency = exchangeRate?.exchangeRate?.selling_rate
+  // Calculate remaining amount in KES
+  const remainingInKES = exchangeRate?.exchangeRate?.selling_rate
     ? (remainingAmount * exchangeRate.exchangeRate.selling_rate).toFixed(2)
     : "0";
 
-  // Fetch exchange rate based on selected country
-  useEffect(() => {
-    // Skip fetching if "Rest of the World" is selected
-    if (isRestOfWorld) {
-      setExchangeRate(null);
-      setLoadingRate(false);
-      return;
-    }
+  const minimumKES = PRETIUM_TRANSACTION_LIMIT.KE.min; // Minimum KES amount
+  const maximumKES = PRETIUM_TRANSACTION_LIMIT.KE.max; // Maximum KES amount
 
+  // Fetch exchange rate for KES
+  useEffect(() => {
     const fetchRate = async () => {
       setLoadingRate(true);
       try {
-        const rate = await getExchangeRate(selectedCountry.currency as CurrencyCode);
+        const rate = await getExchangeRate("KES" as CurrencyCode);
         if (rate && rate.success && rate.exchangeRate) {
           setExchangeRate(rate);
         } else if (exchangeRateData && exchangeRateData.exchangeRate) {
@@ -152,7 +108,7 @@ const MobileMoneyPay = ({
     fetchRate();
     const interval = setInterval(fetchRate, 30000);
     return () => clearInterval(interval);
-  }, [selectedCountry.currency, isRestOfWorld]);
+  }, []);
 
   useEffect(() => {
     if (!exchangeRate && exchangeRateData && !loadingRate) {
@@ -160,17 +116,15 @@ const MobileMoneyPay = ({
     }
   }, [exchangeRateData, exchangeRate, loadingRate]);
 
-  // Calculate USDC amount when local currency amount changes
+  // Calculate USDC amount when KES amount changes
   useEffect(() => {
     if (!exchangeRate?.exchangeRate?.selling_rate) {
       setUsdcAmount("0.00");
       return;
     }
     if (amount && parseFloat(amount) > 0) {
-      const txFee = parseFloat(amount) * 0.005;
-      const amountAfterFee = parseFloat(amount) - txFee;
       const sellingRate = exchangeRate.exchangeRate.selling_rate;
-      const usdc = amountAfterFee / sellingRate;
+      const usdc = parseFloat(amount) / sellingRate;
       setUsdcAmount(usdc.toFixed(3));
     } else {
       setUsdcAmount("0.00");
@@ -224,49 +178,77 @@ const MobileMoneyPay = ({
   };
 
   const handlePayment = async () => {
-    if (isRestOfWorld) {
-      Alert.alert("Coming Soon", "Payments for Rest of the World are not yet available.");
-      return;
-    }
-
-    if (!selectedMethod) {
-      Alert.alert("Error", "Please select a payment method");
+    // Validate phone number
+    if (!phoneNumber) {
+      Alert.alert("Missing Information", "Please enter your M-Pesa number");
       return;
     }
 
     if (!isValidPhoneNumber(phoneNumber)) {
-      Alert.alert("Error", "Please enter a valid phone number");
+      Alert.alert(
+        "Invalid Phone Number",
+        "Please enter a valid M-Pesa number starting with 7 or 1 (e.g., 712345678)"
+      );
       return;
     }
 
-    if (!amount || parseFloat(amount) <= 0) {
-      Alert.alert("Invalid Amount", "Please enter a valid amount");
+    // Validate amount
+    if (!amount || amount.trim() === "") {
+      Alert.alert("Missing Amount", "Please enter an amount to pay");
       return;
     }
 
-    if (parseFloat(amount) < 10) {
-      Alert.alert("Amount Too Low", `Minimum amount is 10 ${selectedCountry.currency}`);
+    const parsedAmount = parseFloat(amount);
+
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      Alert.alert("Invalid Amount", "Please enter a valid amount greater than 0");
+      return;
+    }
+
+    if (parsedAmount < minimumKES) {
+      Alert.alert(
+        "Amount Too Low",
+        `Minimum amount is ${minimumKES} KES\n\nPlease enter at least ${minimumKES} KES`
+      );
+      return;
+    }
+
+    if (parsedAmount > maximumKES) {
+      Alert.alert(
+        "Amount Too High",
+        `Maximum amount is ${maximumKES} KES\n\nPlease enter at most ${maximumKES} KES`
+      );
+      return;
+    }
+
+    // Check if USDC amount is valid
+    if (!usdcAmount || parseFloat(usdcAmount) <= 0) {
+      Alert.alert(
+        "Conversion Error",
+        "Unable to calculate USDC amount. Please check the amount entered."
+      );
       return;
     }
 
     if (!token) {
-      Alert.alert("Error", "Authentication required");
+      Alert.alert("Authentication Error", "You need to be logged in to make a payment");
       return;
     }
 
     if (!exchangeRate?.exchangeRate?.selling_rate) {
-      Alert.alert("Exchange Rate Unavailable", "Unable to fetch current exchange rate. Please try again.");
+      Alert.alert(
+        "Exchange Rate Unavailable",
+        "Unable to fetch current exchange rate. Please check your internet connection and try again."
+      );
       return;
     }
 
     setLoading(true);
     setCurrentStep("payment_sent");
-    setStatusMessage("Initiating payment request...");
+    setStatusMessage("Initiating M-Pesa payment request...");
 
     try {
       const fullPhoneNumber = `0${phoneNumber}`;
-      const txFee = Number(amount) * 0.005;
-      const amountAfterFee = Number(amount) - txFee;
 
       const result = await pretiumOnramp(
         fullPhoneNumber,
@@ -274,15 +256,15 @@ const MobileMoneyPay = ({
         exchangeRate.exchangeRate!.selling_rate,
         Number(usdcAmount),
         false,
+        chamaId,
         token,
-        txFee
       );
 
       if (!result.success) {
         throw new Error(result.error || "Failed to initiate payment.");
       }
 
-      setStatusMessage(`Check your phone for ${selectedMethod.name} prompt...`);
+      setStatusMessage("Check your phone for M-Pesa prompt...");
 
       const onrampResult = await pollPretiumPaymentStatus(
         result.transactionCode,
@@ -382,20 +364,18 @@ const MobileMoneyPay = ({
   };
 
   const isFormValid =
-    !isRestOfWorld &&
-    selectedMethod &&
-    selectedMethod.type === 'mobile_money' &&
     isValidPhoneNumber(phoneNumber) &&
     amount &&
-    parseFloat(amount) >= 10 &&
+    parseFloat(amount) >= minimumKES &&
     !loadingRate &&
-    exchangeRate?.exchangeRate?.selling_rate !== undefined;
+    exchangeRate?.exchangeRate?.selling_rate !== undefined &&
+    parseFloat(usdcAmount) > 0;
 
   const renderStatusIndicator = () => {
     if (currentStep === "input") return null;
 
     const steps = [
-      { id: "payment_sent", label: selectedMethod?.name || "Payment", icon: "📱" },
+      { id: "payment_sent", label: "M-Pesa", icon: "📱" },
       { id: "payment_received", label: "Received", icon: "✓" },
       { id: "sending_usdc", label: "Sending", icon: "💸" },
     ];
@@ -431,9 +411,8 @@ const MobileMoneyPay = ({
                       style={{
                         transform: [{ scale: isActive ? pulseAnim : isCompleted ? 1.05 : 1 }],
                       }}
-                      className={`w-12 h-12 rounded-full items-center justify-center shadow-md ${
-                        isCompleted ? "bg-green-500" : isActive ? "bg-blue-500" : "bg-gray-200"
-                      }`}
+                      className={`w-12 h-12 rounded-full items-center justify-center shadow-md ${isCompleted ? "bg-green-500" : isActive ? "bg-blue-500" : "bg-gray-200"
+                        }`}
                     >
                       {isCompleted ? (
                         <Text className="text-xl">✓</Text>
@@ -442,9 +421,8 @@ const MobileMoneyPay = ({
                       )}
                     </Animated.View>
                     <Text
-                      className={`text-xs mt-1.5 font-medium ${
-                        isActive || isCompleted ? "text-gray-800" : "text-gray-400"
-                      }`}
+                      className={`text-xs mt-1.5 font-medium ${isActive || isCompleted ? "text-gray-800" : "text-gray-400"
+                        }`}
                     >
                       {step.label}
                     </Text>
@@ -453,11 +431,10 @@ const MobileMoneyPay = ({
                   {index < steps.length - 1 && (
                     <View className="flex-1 items-center" style={{ marginTop: -20 }}>
                       <View
-                        className={`h-1 w-full ${
-                          index < completedStepIndex || currentStep === "completed"
-                            ? "bg-green-500"
-                            : "bg-gray-200"
-                        }`}
+                        className={`h-1 w-full ${index < completedStepIndex || currentStep === "completed"
+                          ? "bg-green-500"
+                          : "bg-gray-200"
+                          }`}
                       />
                     </View>
                   )}
@@ -487,7 +464,7 @@ const MobileMoneyPay = ({
           {currentStep === "payment_sent" && (
             <View className="mt-2 bg-blue-50 rounded-lg p-2.5 w-full">
               <Text className="text-xs text-blue-800 text-center font-medium">
-                📲 Enter your PIN on your phone
+                📲 Enter your M-Pesa PIN on your phone
               </Text>
             </View>
           )}
@@ -523,27 +500,33 @@ const MobileMoneyPay = ({
 
   return (
     <View className="bg-white rounded-t-3xl shadow-2xl w-full max-h-[70vh]">
-      <ScrollView className="px-6 py-6 " showsVerticalScrollIndicator={false} bounces={false}>
+      <ScrollView className="px-6 py-6" showsVerticalScrollIndicator={false} bounces={false}>
         {/* Header with Back Button */}
         <View className="mb-4">
-          <View className="flex-row items-center justify-between mb-2">
+          <View className="flex-row items-center mb-4">
             <TouchableOpacity
               onPress={onBack}
-              className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center mr-2"
+              className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center mr-3"
               activeOpacity={0.7}
             >
-              <Text className="text-gray-700 text-xl">←</Text>
+               <ArrowLeft size={20} color="black" />
             </TouchableOpacity>
 
+            <Image
+              source={require("../assets/images/mpesa.png")}
+              className="w-14 h-14 mr-4"
+              resizeMode="contain"
+            />
             <View className="flex-1">
-              <Text className="text-xl font-bold text-gray-800">
-                Pay to {chamaName} chama
+              <Text className="text-xl font-semibold text-gray-900">
+                Pay with M-Pesa
               </Text>
+              <Text className="text-xs text-gray-500">To {chamaName} chama</Text>
             </View>
           </View>
 
           {/* Remaining Amount Alert */}
-          {remainingAmount > 0 && !loading && currentStep === "input" && (
+          {remainingAmount > 0 && !loading && currentStep === "input" && Number(amount) < remainingAmount && (
             <View className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-2">
               <View className="flex-row items-center justify-between">
                 <View className="flex-1">
@@ -551,10 +534,10 @@ const MobileMoneyPay = ({
                     Contribution Due
                   </Text>
                   <Text className="text-sm font-semibold text-amber-900">
-                    {remainingAmount.toFixed(3)} {currency} remaining
+                    {remainingInKES} KES remaining
                   </Text>
                   <Text className="text-xs text-amber-700 mt-0.5">
-                    ≈ {remainingInLocalCurrency} {exchangeRate?.currencyCode || selectedCountry.currency}
+                    ≈ {remainingAmount.toFixed(3)} {currency}
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -578,181 +561,76 @@ const MobileMoneyPay = ({
         {/* Form - Only show when in input state */}
         {currentStep === "input" && (
           <View className="w-full gap-4">
-            {/* Country Selection */}
+
+            {/* Phone Number Input */}
             <View>
               <Text className="text-xs font-semibold text-gray-700 mb-2">
-                Select Country
+                M-Pesa Number
               </Text>
-              <TouchableOpacity
-                onPress={() => setShowCountryModal(true)}
-                className="flex-row items-center justify-between p-4 rounded-xl border-2 border-gray-200 bg-gray-50"
-                activeOpacity={0.7}
-              >
-                <View className="flex-row items-center flex-1">
-                  <Text className="text-2xl mr-3">{selectedCountry.flag}</Text>
-                  <View className="flex-1">
-                    <Text className="text-base font-semibold text-gray-900">
-                      {selectedCountry.name}
-                    </Text>
-                    <Text className="text-xs text-gray-600">
-                      {selectedCountry.currency}
-                    </Text>
-                  </View>
+              <View className="flex-row items-center border-2 border-gray-200 rounded-xl overflow-hidden bg-white">
+                <View className="bg-green-600 px-3 py-3">
+                  <Text className="text-white font-bold text-sm">+254</Text>
                 </View>
-                <ChevronDown size={20} color="#6B7280" />
-              </TouchableOpacity>
+                <TextInput
+                  className="flex-1 px-3 py-3 text-sm text-gray-800"
+                  placeholder="712345678"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="phone-pad"
+                  maxLength={9}
+                  value={phoneNumber}
+                  onChangeText={(text) => setPhoneNumber(text.replace(/[^0-9]/g, "").slice(0, 9))}
+                  editable={!loading}
+                />
+              </View>
             </View>
 
-            {/* Coming Soon Overlay for Rest of the World */}
-            {isRestOfWorld && (
-              <View className="bg-white p-8 rounded-2xl shadow-sm items-center justify-center border-2 border-gray-200">
-                <Image
-                  source={require("@/assets/images/coming-soon.png")}
-                  className="w-40 h-40 mb-4"
-                  resizeMode="contain"
+            {/* Amount Input */}
+            <View>
+              <View className="flex-row justify-between items-center mb-2">
+                <Text className="text-xs font-semibold text-gray-700">
+                  Amount (KES)
+                </Text>
+                {loadingRate ? (
+                  <Text className="text-xs text-gray-600">Loading rate...</Text>
+                ) : exchangeRate?.exchangeRate?.selling_rate ? (
+                  <Text className="text-xs text-gray-600">
+                    1 USDC = {exchangeRate.exchangeRate.selling_rate} KES
+                  </Text>
+                ) : null}
+              </View>
+
+              <View className="flex-row items-center border-2 border-gray-200 rounded-xl overflow-hidden bg-white">
+                <View className="px-3 py-3 bg-gray-50">
+                  <Text className="text-gray-700 font-bold text-sm">KES</Text>
+                </View>
+                <TextInput
+                  className="flex-1 px-3 py-3 text-sm text-gray-800"
+                  placeholder="0.00"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="decimal-pad"
+                  value={amount}
+                  onChangeText={setAmount}
+                  editable={!loading && !loadingRate}
                 />
-                <Text className="text-xl font-bold text-gray-900 mb-2 text-center">
-                  Coming Soon
-                </Text>
-                <Text className="text-base text-gray-600 text-center">
-                  Payments for {selectedCountry.name} are not yet available.
-                </Text>
-                <Text className="text-sm text-gray-500 text-center mt-2">
-                  We're working on expanding our services. Stay tuned!
-                </Text>
               </View>
-            )}
-
-            {/* Payment Method Selection - Hide if Rest of World */}
-            {!isRestOfWorld && (
-              <View>
-              <Text className="text-xs font-semibold text-gray-700 mb-2">
-                Payment Method
-              </Text>
-              {selectedMethod ? (
-                <TouchableOpacity
-                  onPress={() => setShowMethodModal(true)}
-                  className="flex-row items-center justify-between p-4 rounded-xl border-2 border-emerald-500 bg-emerald-50"
-                  activeOpacity={0.7}
-                >
-                  <View className="flex-row items-center flex-1">
-                    <View className="w-10 h-10 rounded-full items-center justify-center mr-3 bg-white">
-                      <Smartphone size={20} color="#10b981" />
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-base font-semibold text-gray-900">
-                        {selectedMethod.name}
-                      </Text>
-                      <Text className="text-xs text-gray-600">Instant</Text>
-                    </View>
-                  </View>
-                  <View className="flex-row items-center gap-2">
-                    <View className="w-6 h-6 rounded-full bg-emerald-600 items-center justify-center">
-                      <Check size={14} color="white" strokeWidth={3} />
-                    </View>
-                    <ChevronDown size={18} color="#10b981" />
-                  </View>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  onPress={() => setShowMethodModal(true)}
-                  className="flex-row items-center justify-between p-4 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50"
-                  activeOpacity={0.7}
-                >
-                  <Text className="text-gray-500 font-medium">
-                    Tap to select mobile money
+              <View className="flex-row justify-between items-center mt-1">
+                <Text className="text-xs text-gray-500">
+                  💰 Minimum: {minimumKES} KES
+                </Text>
+                {amount && parseFloat(amount) < minimumKES && (
+                  <Text className="text-xs text-red-600 font-medium">
+                    Below minimum
                   </Text>
-                  <ChevronDown size={20} color="#9CA3AF" />
-                </TouchableOpacity>
-              )}
+                )}
               </View>
-            )}
+            </View>
 
-            {/* Phone Number Input - Hide if Rest of World */}
-            {!isRestOfWorld && selectedMethod && (
-              <View>
-                <Text className="text-xs font-semibold text-gray-700 mb-2">
-                  Mobile Money Number
-                </Text>
-                <View className="flex-row items-center border-2 border-gray-200 rounded-xl overflow-hidden bg-white">
-                  <View className="bg-green-600 px-3 py-3">
-                    <Text className="text-white font-bold text-sm">
-                      +{selectedCountry.phoneCode}
-                    </Text>
-                  </View>
-                  <TextInput
-                    className="flex-1 px-3 py-3 text-sm text-gray-800"
-                    placeholder="712345678"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="phone-pad"
-                    maxLength={12}
-                    value={phoneNumber}
-                    onChangeText={(text) => setPhoneNumber(text.replace(/[^0-9]/g, "").slice(0, 12))}
-                    editable={!loading}
-                  />
-                </View>
-              </View>
-            )}
-
-            {/* Amount Input - Hide if Rest of World */}
-            {!isRestOfWorld && selectedMethod && (
-              <View>
-                <View className="flex-row justify-between items-center mb-2">
-                  <Text className="text-xs font-semibold text-gray-700">
-                    Amount ({selectedCountry.currency})
-                  </Text>
-                  {loadingRate ? (
-                    <Text className="text-xs text-gray-600">Loading rate...</Text>
-                  ) : exchangeRate?.exchangeRate?.selling_rate ? (
-                    <Text className="text-xs text-gray-600">
-                      1 USDC = {exchangeRate.exchangeRate.selling_rate} {selectedCountry.currency}
-                    </Text>
-                  ) : null}
-                </View>
-
-                <View className="flex-row items-center border-2 border-gray-200 rounded-xl overflow-hidden bg-white">
-                  <View className="px-3 py-3 bg-gray-50">
-                    <Text className="text-gray-700 font-bold text-sm">
-                      {selectedCountry.currency}
-                    </Text>
-                  </View>
-                  <TextInput
-                    className="flex-1 px-3 py-3 text-sm text-gray-800"
-                    placeholder="0.00"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="decimal-pad"
-                    value={amount}
-                    onChangeText={setAmount}
-                    editable={!loading && !loadingRate}
-                  />
-                </View>
-                <Text className="text-xs text-gray-500 mt-1">
-                  💰 Minimum: 10 {selectedCountry.currency}
-                </Text>
-              </View>
-            )}
-
-            {/* USDC Preview - Hide if Rest of World */}
-            {!isRestOfWorld && parseFloat(usdcAmount) > 0 && exchangeRate?.exchangeRate?.selling_rate && (
+            {/* USDC Preview */}
+            {parseFloat(usdcAmount) > 0 && exchangeRate?.exchangeRate?.selling_rate && (
               <Animated.View
                 style={{ opacity: fadeAnim }}
                 className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border-2 border-green-200"
               >
-                <View className="mb-2">
-                  <View className="flex-row justify-between items-center mb-1">
-                    <Text className="text-xs text-gray-600">Amount</Text>
-                    <Text className="text-xs font-semibold text-gray-800">
-                      {amount} {selectedCountry.currency}
-                    </Text>
-                  </View>
-                  <View className="flex-row justify-between items-center">
-                    <Text className="text-xs text-gray-600">Fee (0.5%)</Text>
-                    <Text className="text-xs font-semibold text-red-600">
-                      -{(Number(amount) * 0.005).toFixed(2)} {selectedCountry.currency}
-                    </Text>
-                  </View>
-                </View>
-
                 <View className="bg-white/70 rounded-lg p-2.5">
                   <Text className="text-xl font-bold text-green-600 text-center">
                     {usdcAmount} USDC
@@ -761,61 +639,33 @@ const MobileMoneyPay = ({
                     will be paid to {chamaName}
                   </Text>
                 </View>
-
-                {/* {remainingAmount > 0 && parseFloat(usdcAmount) >= remainingAmount && (
-                  <View className="bg-green-100 rounded-lg p-2 mt-2">
-                    <Text className="text-xs text-green-800 text-center font-medium">
-                      ✓ This payment will complete your contribution
-                    </Text>
-                  </View>
-                )} */}
               </Animated.View>
             )}
 
-            {/* Submit Button - Hide if Rest of World */}
-            {!isRestOfWorld && selectedMethod && (
-              <TouchableOpacity
-                className={`py-4 rounded-xl items-center justify-center mb-6 ${
-                  isFormValid && !loading ? "bg-downy-800" : "bg-gray-300"
+            {/* Submit Button */}
+            <TouchableOpacity
+              className={`py-4 rounded-xl items-center justify-center mb-6 ${isFormValid && !loading ? "bg-downy-800" : "bg-gray-300"
                 }`}
-                disabled={!isFormValid || loading}
-                onPress={handlePayment}
-                activeOpacity={0.8}
-              >
-                {loading ? (
-                  <View className="flex-row items-center">
-                    <ActivityIndicator size="small" color="#ffffff" />
-                    <Text className="text-white font-bold text-base ml-2">
-                      Processing...
-                    </Text>
-                  </View>
-                ) : (
-                  <Text className="text-white font-bold text-base">
-                    {isFormValid ? "Make Payment" : loadingRate ? "Loading..." : "Enter Details"}
+              disabled={!isFormValid || loading}
+              onPress={handlePayment}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <View className="flex-row items-center">
+                  <ActivityIndicator size="small" color="#ffffff" />
+                  <Text className="text-white font-bold text-base ml-2">
+                    Processing...
                   </Text>
-                )}
-              </TouchableOpacity>
-            )}
+                </View>
+              ) : (
+                <Text className="text-white font-bold text-base">
+                  {isFormValid ? "Make Payment" : loadingRate ? "Loading..." : "Enter Details"}
+                </Text>
+              )}
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
-
-      {/* Reusable Modal Components */}
-      <CountrySelector
-        visible={showCountryModal}
-        selectedCountry={selectedCountry}
-        onSelect={handleCountrySelect}
-        onClose={() => setShowCountryModal(false)}
-      />
-
-      <PaymentMethodSelector
-        visible={showMethodModal}
-        selectedCountry={selectedCountry}
-        selectedMethod={selectedMethod}
-        onSelect={handleMethodSelect}
-        onClose={() => setShowMethodModal(false)}
-        excludeBankMethods={true}
-      />
     </View>
   );
 };

@@ -103,10 +103,11 @@ const PaymentModal = ({
                   >
                     <View className="flex-row items-center">
                       <Image
-                        source={require("../assets/images/mobilemoney.png")}
-                        className="w-8 h-8 mr-4"
+                        source={require("../assets/images/mpesa.png")}
+                        className="w-10 h-10 mr-2"
+                        resizeMode="contain"
                       />
-                      <Text className="text-lg font-medium">Mobile Money</Text>
+                      <Text className="text-lg font-medium">M-Pesa</Text>
                     </View>
                     <Text className="text-2xl text-gray-500">➔</Text>
                   </TouchableOpacity>

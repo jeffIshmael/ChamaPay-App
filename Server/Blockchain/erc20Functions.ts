@@ -9,25 +9,16 @@ export const approveTx = async (privateKey: `0x${string}`, amount: string, spend
     try {
         //change amount to wei
         const amountInWei = parseUnits(amount, 6);
-
-        // create EIP-7702 smart account client
-        const { smartAccountClient } = await createSmartAccount(privateKey);
-
-        // Encode the approve call
-        const callData = EIP7702Client.encodeCallData(
-            erc20Abi,
-            'approve',
-            [spender, amountInWei]
-        );
-
-        // Send transaction (authorization handled automatically)
-        const txHash = await smartAccountClient.sendTransaction({
-            to: USDCAddress,
-            data: callData,
-        });
+        const { smartAccountClient, safeSmartAccount } = await createSmartAccount(privateKey);
+        const hash = await smartAccountClient.writeContract({
+            address: USDCAddress,
+            abi: erc20Abi,
+            functionName: 'approve',
+            args: [spender, amountInWei],
+        })
 
         // Wait for transaction to be mined
-        const transaction = await smartAccountClient.waitForTransaction(txHash);
+        const transaction = await smartAccountClient.waitForTransaction(hash);
 
         if (!transaction) {
             throw new Error("unable to approve spending.");
@@ -46,24 +37,17 @@ export const transferTx = async (privateKey: `0x${string}`, amount: string, reci
         //change amount to wei
         const amountInWei = parseUnits(amount, 6);
 
-        // create EIP-7702 smart account client
-        const { smartAccountClient } = await createSmartAccount(privateKey);
+        const { smartAccountClient, safeSmartAccount } = await createSmartAccount(privateKey);
+        const hash = await smartAccountClient.writeContract({
+            address: USDCAddress,
+            abi: erc20Abi,
+            functionName: 'transfer',
+            args: [recipient, amountInWei],
+        })
 
-        // Encode the transfer call
-        const callData = EIP7702Client.encodeCallData(
-            erc20Abi,
-            'transfer',
-            [recipient, amountInWei]
-        );
-
-        // Send transaction (authorization handled automatically)
-        const txHash = await smartAccountClient.sendTransaction({
-            to: USDCAddress,
-            data: callData,
-        });
 
         // Wait for transaction to be mined
-        const transaction = await smartAccountClient.waitForTransaction(txHash);
+        const transaction = await smartAccountClient.waitForTransaction(hash);
 
         if (!transaction) {
             throw new Error("unable to transfer.");

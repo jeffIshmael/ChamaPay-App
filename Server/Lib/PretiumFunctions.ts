@@ -69,59 +69,33 @@ export async function getQuote(currencyCode: string): Promise<Quote | null> {
 export async function pretiumOnramp(
   phoneNumber: string,
   amount: number,
-  userAddress: string,
-  additionalFee?: number
+  userAddress: string
 ): Promise<OnrampResult | null> {
   try {
-    if (additionalFee) {
-      // payment has a 0.5% fee
-      const response = await axios.post(
-        "https://api.xwift.africa/v1/onramp/KES",
-        {
-          shortcode: phoneNumber,
-          amount: amount,
-          mobile_network: "Safaricom",
-          chain: "CELO",
-          fee: additionalFee,
-          asset: "USDC",
-          address: userAddress,
-          callback_url: `${serverUrl}/pretium/callback`,
+
+    const response = await axios.post(
+      "https://api.xwift.africa/v1/onramp/KES",
+      {
+        shortcode: phoneNumber,
+        amount: amount,
+        mobile_network: "Safaricom",
+        chain: "CELO",
+        asset: "USDC",
+        address: userAddress,
+        callback_url: `${serverUrl}/pretium/callback`,
+      },
+      {
+        headers: {
+          "x-api-key": pretiumApiKey,
+          "Content-Type": "application/json",
         },
-        {
-          headers: {
-            "x-api-key": pretiumApiKey,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      if (response.statusText !== "OK") {
-        throw new Error("The request to onramp did not succeed.");
       }
-      return response.data.data;
-    } else {
-      const response = await axios.post(
-        "https://api.xwift.africa/v1/onramp/KES",
-        {
-          shortcode: phoneNumber,
-          amount: amount,
-          mobile_network: "Safaricom",
-          chain: "CELO",
-          asset: "USDC",
-          address: userAddress,
-          callback_url: `${serverUrl}/pretium/callback`,
-        },
-        {
-          headers: {
-            "x-api-key": pretiumApiKey,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      if (response.statusText !== "OK") {
-        throw new Error("The request to onramp did not succeed.");
-      }
-      return response.data.data;
+    );
+    if (response.statusText !== "OK") {
+      throw new Error("The request to onramp did not succeed.");
     }
+    return response.data.data;
+
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.error("API Error:", error.response?.data);

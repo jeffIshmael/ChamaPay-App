@@ -43,10 +43,8 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
     exchangeRate,
     usdcAmount,
     isDeposit,
-    additionalFee,
     chamaId,
   } = req.body;
-  console.log("the additional fee received for the onramp", additionalFee);
   const userId = req.user?.userId;
   try {
     if (!userId) {
@@ -69,6 +67,18 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
       });
     }
 
+    // Get the chama
+    const chama = await prisma.chama.findUnique({
+      where: { id: Number(chamaId) },
+    });
+
+    if (!chama) {
+      return res.status(400).json({
+        success: false,
+        error: "Chama not found",
+      });
+    }
+
     // Note: the phone number should be '07....'
     if (!amount || !phoneNo) {
       return res.status(400).json({
@@ -80,12 +90,11 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
     // No additional fee while depositing
     const receivingAddress = isDeposit
       ? user.smartAddress
-      : "0x9bC7e0C7020242DE044c9211b5887F41E683719E"; // update to agent wallet
+      : "0x9bC7e0C7020242DE044c9211b5887F41E683719E";
     const result = await pretiumOnramp(
       phoneNo,
       amount,
-      receivingAddress,
-      additionalFee
+      receivingAddress
     );
     if (!result) {
       return res.status(400).json({
@@ -347,6 +356,27 @@ export async function pretiumCheckTriggerDepositFor(
       select: { smartAddress: true },
     });
 
+    // get pretium the transaction
+    const pretiumTransaction = await prisma.pretiumTransaction.findUnique({
+      where: {
+        transactionCode: transactionCode,
+      }
+    })
+
+    if (!pretiumTransaction) {
+      return res.status(400).json({
+        success: false,
+        details: `Cannot get the status of ${transactionCode}`,
+      });
+    }
+
+    if (pretiumTransaction.type !== "payment") {
+      return res.status(400).json({
+        success: false,
+        details: `This is not a payment transaction`,
+      });
+    }
+
     const statusResult = await checkPretiumTxStatus(transactionCode);
     if (!statusResult) {
       return res.status(400).json({
@@ -363,8 +393,9 @@ export async function pretiumCheckTriggerDepositFor(
     }
     // we will trigger the agent to deposit for the user
     const bigintAmount = toUnits(amount, 6);
+    const bigintBlockchainId = Number(chamaBlockchainId);
     const txResult = await pimlicoDepositForUser(
-      chamaBlockchainId,
+      bigintBlockchainId,
       user?.smartAddress as `0x${string}`,
       bigintAmount
     );
@@ -381,13 +412,13 @@ export async function pretiumCheckTriggerDepositFor(
         amount: amount,
         description: "deposited",
         chamaId: chamaId,
-        txHash: txResult.transactionHash,
+        txHash: txResult,
         userId: userId,
       },
     });
     return res.status(200).json({
       success: true,
-      details: txResult.transactionHash,
+      details: txResult,
     });
   } catch (error) {
     console.log("error in checking transaction status", error);
