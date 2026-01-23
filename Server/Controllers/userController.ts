@@ -8,11 +8,12 @@ import {
   getSentRequests,
   registerUserPayment,
   requestToJoin,
-  sortRequest,
+  handleRequest,
 } from "../Lib/prismaFunctions";
 import { uploadToPinata } from "../utils/PinataUtils";
 import { getPrivateKey } from "../Lib/HelperFunctions";
 import { transferTx } from "../Blockchain/erc20Functions";
+import { bcAddMemberToPrivateChama } from "../Blockchain/WriteFunction";
 
 const prisma = new PrismaClient();
 
@@ -507,6 +508,19 @@ export const confirmJoinRequest = async (
       return;
     }
 
+    // get the request
+    const request = await prisma.chamaRequest.findUnique({
+      where: {
+        id: Number(requestId),
+      }
+    });
+    if (!request) {
+      res
+        .status(400)
+        .json({ success: false, error: "Unable to get request." });
+      return;
+    };
+
     // get admin
     const chama = await prisma.chama.findUnique({
       where: {
@@ -516,10 +530,14 @@ export const confirmJoinRequest = async (
         adminId: true,
         name: true,
         payOutOrder: true,
+        blockchainId: true
       },
     });
     if (!chama) {
-      throw new Error("Unable to get admin.");
+      res
+        .status(400)
+        .json({ success: false, error: "Unable to get chama." });
+      return;
     }
     if (userId !== chama.adminId) {
       res
@@ -527,9 +545,39 @@ export const confirmJoinRequest = async (
         .json({ success: false, error: "Only admin can approve." });
       return;
     }
-    const toBeDone = decision === "approve";
-    // make it
-    const result = await sortRequest(requestId, chama.name, userName, toBeDone);
+    const isApproved = decision === "approve"; // boolean of whether approved
+    // if approved add the member onchain
+    if (isApproved) {
+      // get the requesting User 
+      const requestingUser = await prisma.user.findUnique({
+        where: {
+          id: request.userId,
+        }
+      });
+      if (!requestingUser) {
+        res
+          .status(400)
+          .json({ success: false, error: `${userName} not found.` });
+        return;
+      };
+      const privateKeyResponse = await getPrivateKey(userId);
+      if (!privateKeyResponse.success || privateKeyResponse.privateKey === null) {
+        res
+          .status(400)
+          .json({ success: false, error: `unable to get signing client.` });
+        return;
+      }
+      const chamaBlockchainId = BigInt(Number(chama.blockchainId));
+      const addingMemberTx = await bcAddMemberToPrivateChama(privateKeyResponse.privateKey, chamaBlockchainId, requestingUser.smartAddress);
+      if (!addingMemberTx) {
+        res
+          .status(400)
+          .json({ success: false, error: `unable to add ${userName} to ${chama.name} onchain.` });
+        return;
+      }
+    }
+
+    const result = await handleRequest(requestId, chama.name, userName, isApproved);
 
     if (!result) {
       res
