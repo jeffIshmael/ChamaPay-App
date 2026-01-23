@@ -8,6 +8,7 @@ import { sendWhatsAppOTP } from "../Lib/WhatsAppService";
 import { createUserWallet } from "../Lib/walletService";
 import Encryption from "../Lib/Encryption";
 import crypto from "crypto";
+import { createSmartAccount } from "../Blockchain/SmartAccount";
 
 const prisma = new PrismaClient();
 
@@ -384,6 +385,18 @@ export const registerUser = async (
     // create the wallet
     const newWallet = await createUserWallet();
 
+    const { safeSmartAccount } = await createSmartAccount(newWallet.privateKey);
+
+    if (!safeSmartAccount) {
+      res.status(500).json({
+        success: false,
+        message: "Failed to create smart account",
+      });
+      return;
+    }
+
+
+
     const masterKey = process.env.ENCRYPTION_SECRET;
     if (!masterKey) {
       throw new Error("ENCRYPTION_MASTER_KEY not configured");
@@ -410,7 +423,7 @@ export const registerUser = async (
         email: formattedEmail,
         userName,
         address: newWallet.address,
-        smartAddress: newWallet.address,
+        smartAddress: safeSmartAccount.address,
         profileImageUrl: profileImageUrl || null,
         hashedPrivkey: hashedPrivkey,
         hashedPassphrase: hashedPassphrase,
