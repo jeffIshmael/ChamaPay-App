@@ -252,111 +252,7 @@ export default function ChamaDetails() {
         return;
       }
 
-      if (!activeAccount) {
-        Alert.alert("Error", "Oops!! You are not connected to a wallet.");
-        return;
-      }
-
       setIsJoining(true);
-
-      // collateral amount in wei
-      const collateralAmountInWei = toUnits(
-        chama.collateralAmount.toString(),
-        6
-      );
-      const blockchainId = BigInt(Number(chama.blockchainId));
-
-      // Approve transaction since we will use a function that will transferFrom the user's wallet to the chama's wallet
-      const approveTransaction = prepareContractCall({
-        contract: usdcContract,
-        method: {
-          inputs: [
-            {
-              internalType: "address",
-              name: "spender",
-              type: "address",
-            },
-            {
-              internalType: "uint256",
-              name: "amount",
-              type: "uint256",
-            },
-          ],
-          name: "approve",
-          outputs: [
-            {
-              internalType: "bool",
-              name: "",
-              type: "bool",
-            },
-          ],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        params: [chamapayContract.address, collateralAmountInWei],
-      });
-      const { transactionHash: approveTransactionHash } = await sendTransaction(
-        {
-          account: activeAccount,
-          transaction: approveTransaction,
-        }
-      );
-      const approveTransactionReceipt = await waitForReceipt({
-        client: client,
-        chain: chain,
-        transactionHash: approveTransactionHash,
-      });
-
-      if (!approveTransactionReceipt) {
-        Alert.alert(
-          "Error",
-          "Failed to approve transaction. Please try again."
-        );
-        setIsJoining(false);
-        return;
-      }
-
-      console.log("now running the function");
-
-      // join chama transaction
-      const joinChamaTransaction = prepareContractCall({
-        contract: chamapayContract,
-        method: {
-          inputs: [
-            {
-              internalType: "uint256",
-              name: "_chamaId",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "_amount",
-              type: "uint256",
-            },
-          ],
-          name: "addPublicMember",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        params: [blockchainId, collateralAmountInWei],
-      });
-      const { transactionHash: joinChamaTransactionHash } =
-        await sendTransaction({
-          account: activeAccount,
-          transaction: joinChamaTransaction,
-        });
-      const joinChamaTransactionReceipt = await waitForReceipt({
-        client: client,
-        chain: chain,
-        transactionHash: joinChamaTransactionHash,
-      });
-
-      if (!joinChamaTransactionReceipt) {
-        Alert.alert("Error", "Failed to join chama. Please try again.");
-        setIsJoining(false);
-        return;
-      }
 
       // Lets update the backend
       const response = await addMemberToChama(
@@ -364,7 +260,6 @@ export default function ChamaDetails() {
         true,
         user.id,
         chama.collateralAmount.toString(),
-        joinChamaTransactionHash,
         token
       );
 
@@ -423,6 +318,7 @@ export default function ChamaDetails() {
       setIsJoining(false);
     }
   };
+
   const handleJoinChama = async () => {
     if (!chama) {
       Alert.alert("Error", "Chama not found");
@@ -445,16 +341,14 @@ export default function ChamaDetails() {
     active: boolean;
   }) => (
     <TouchableOpacity
-      className={`flex-1 py-3 px-4 items-center justify-center rounded-xl ${
-        active ? "bg-emerald-600 shadow-sm" : "bg-transparent"
-      }`}
+      className={`flex-1 py-3 px-4 items-center justify-center rounded-xl ${active ? "bg-emerald-600 shadow-sm" : "bg-transparent"
+        }`}
       onPress={() => setActiveTab(id)}
       activeOpacity={0.7}
     >
       <Text
-        className={`text-sm font-semibold ${
-          active ? "text-white" : "text-gray-600"
-        }`}
+        className={`text-sm font-semibold ${active ? "text-white" : "text-gray-600"
+          }`}
       >
         {title}
       </Text>
@@ -501,22 +395,22 @@ export default function ChamaDetails() {
             {[
               chama.isPublic
                 ? {
-                    step: "1",
-                    title: "Join & Lock Collateral",
-                    description: `Lock ${chama.collateralAmount} cUSD as collateral to serve as security in case of default.`,
-                    icon: "🔒",
-                    bgColor: "bg-emerald-50",
-                    borderColor: "border-emerald-100",
-                  }
+                  step: "1",
+                  title: "Join & Lock Collateral",
+                  description: `Lock ${chama.collateralAmount} cUSD as collateral to serve as security in case of default.`,
+                  icon: "🔒",
+                  bgColor: "bg-emerald-50",
+                  borderColor: "border-emerald-100",
+                }
                 : {
-                    step: "1",
-                    title: "Request to Join",
-                    description:
-                      "Send a request to the admin to join the chama. Once approved, you'll be added to the chama.",
-                    icon: "📝",
-                    bgColor: "bg-emerald-50",
-                    borderColor: "border-emerald-100",
-                  },
+                  step: "1",
+                  title: "Request to Join",
+                  description:
+                    "Send a request to the admin to join the chama. Once approved, you'll be added to the chama.",
+                  icon: "📝",
+                  bgColor: "bg-emerald-50",
+                  borderColor: "border-emerald-100",
+                },
               {
                 step: "2",
                 title: "Monthly Contributions",
@@ -770,9 +664,8 @@ export default function ChamaDetails() {
                   {chama.name}
                 </Text>
                 <View
-                  className={`px-3 py-1.5 rounded-full flex-row items-center gap-1.5 ${
-                    chama.isPublic ? "bg-emerald-500/30" : "bg-gray-500/30"
-                  }`}
+                  className={`px-3 py-1.5 rounded-full flex-row items-center gap-1.5 ${chama.isPublic ? "bg-emerald-500/30" : "bg-gray-500/30"
+                    }`}
                 >
                   <Text className="text-base">
                     {chama.isPublic ? "🌍" : "🔒"}
@@ -932,9 +825,8 @@ export default function ChamaDetails() {
                   <TouchableOpacity
                     onPress={handleJoinChama}
                     disabled={isJoining || hasRequest}
-                    className={`w-full py-4 rounded-2xl items-center justify-center flex-row gap-3 shadow-md ${
-                      isJoining || hasRequest ? "bg-gray-400" : "bg-emerald-600"
-                    }`}
+                    className={`w-full py-4 rounded-2xl items-center justify-center flex-row gap-3 shadow-md ${isJoining || hasRequest ? "bg-gray-400" : "bg-emerald-600"
+                      }`}
                     activeOpacity={0.85}
                   >
                     {isJoining && (
@@ -1023,15 +915,13 @@ export default function ChamaDetails() {
               <TouchableOpacity
                 onPress={() => setShowCollateralModal(false)}
                 disabled={isJoining}
-                className={`flex-1 py-4 rounded-xl ${
-                  isJoining ? "bg-gray-200" : "bg-gray-100"
-                }`}
+                className={`flex-1 py-4 rounded-xl ${isJoining ? "bg-gray-200" : "bg-gray-100"
+                  }`}
                 activeOpacity={0.8}
               >
                 <Text
-                  className={`font-bold text-center text-base ${
-                    isJoining ? "text-gray-400" : "text-gray-700"
-                  }`}
+                  className={`font-bold text-center text-base ${isJoining ? "text-gray-400" : "text-gray-700"
+                    }`}
                 >
                   Cancel
                 </Text>
@@ -1039,9 +929,8 @@ export default function ChamaDetails() {
               <TouchableOpacity
                 onPress={handleProceedJoin}
                 disabled={isJoining}
-                className={`flex-1 py-4 rounded-xl shadow-lg flex-row items-center justify-center gap-2 ${
-                  isJoining ? "bg-emerald-400" : "bg-emerald-600"
-                }`}
+                className={`flex-1 py-4 rounded-xl shadow-lg flex-row items-center justify-center gap-2 ${isJoining ? "bg-emerald-400" : "bg-emerald-600"
+                  }`}
                 activeOpacity={0.8}
               >
                 {isJoining && <ActivityIndicator size="small" color="white" />}
@@ -1202,14 +1091,12 @@ export default function ChamaDetails() {
                   onPress={() => shareToUser(chama?.slug!)}
                   disabled={!selectedShareUser || sendingLink}
                   activeOpacity={0.7}
-                  className={`py-3.5 rounded-xl flex-row items-center justify-center shadow-lg ${
-                    selectedShareUser ? "bg-emerald-600" : "bg-gray-300"
-                  }`}
+                  className={`py-3.5 rounded-xl flex-row items-center justify-center shadow-lg ${selectedShareUser ? "bg-emerald-600" : "bg-gray-300"
+                    }`}
                 >
                   <Text
-                    className={`font-bold text-base ${
-                      selectedShareUser ? "text-white" : "text-gray-500"
-                    }`}
+                    className={`font-bold text-base ${selectedShareUser ? "text-white" : "text-gray-500"
+                      }`}
                   >
                     {sendingLink ? "Sending..." : "  Send Invite"}
                   </Text>

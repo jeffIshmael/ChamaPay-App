@@ -2,7 +2,7 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
-import { bcCreateChama, bcDepositFundsToChama } from "../Blockchain/WriteFunction";
+import { bcCreateChama, bcDepositFundsToChama, bcJoinPublicChama } from "../Blockchain/WriteFunction";
 import { approveTx } from "../Blockchain/erc20Functions";
 import { contractAddress } from "../Blockchain/Constants";
 import { bcGetTotalChamas } from "../Blockchain/ReadFunctions";
@@ -352,10 +352,67 @@ export const addMemberToChama = async (req: Request, res: Response) => {
     if (!userId) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
-    if (!chamaId || !isPublic || !memberId || !txHash) {
+    if (!chamaId || !isPublic || !memberId) {
       return res
         .status(400)
         .json({ success: false, error: "All fields are required" });
+    }
+
+    // ensure user exists
+    const user = await prisma.user.findUnique({
+      where: {
+        id: Number(userId)
+      }
+    });
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ success: false, error: "User not found." });
+
+    }
+    const chama = await prisma.chama.findUnique({
+      where: {
+        id: Number(chamaId)
+      }
+    });
+    if (!chama) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Chama not found." });
+    }
+
+    if (isPublic) {
+      // we need to approve spending because there is collateral required
+      const privateKey = await getPrivateKey(user.id);
+      if (!privateKey.success || privateKey.privateKey === null) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Unable to get signing client." });
+      }
+      const approveTxHash = await approveTx(privateKey.privateKey, amount, contractAddress);
+      if (!approveTxHash) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Unable to approve transaction." });
+      }
+      // the main function of joining
+      const chamaBlockchainId = BigInt(Number(chama.blockchainId));
+      const joinTxHash = await bcJoinPublicChama(privateKey.privateKey, chamaBlockchainId, amount);
+      if (!joinTxHash) {
+        return res
+          .status(400)
+          .json({ success: false, error: `Unable to join ${chama.name} chama onchain.` });
+      }
+      await prisma.payment.create({
+        data: {
+          amount: amount,
+          description: `Joining collateral`,
+          txHash: joinTxHash,
+          chamaId: parseInt(chamaId),
+          userId: memberId,
+        },
+      });
     }
 
     const chamaMember = await prisma.chamaMember.create({
@@ -371,19 +428,6 @@ export const addMemberToChama = async (req: Request, res: Response) => {
         .status(400)
         .json({ success: false, error: "Failed to add member" });
     }
-
-    if (isPublic) {
-      await prisma.payment.create({
-        data: {
-          amount: amount,
-          description: `Joining collateral`,
-          txHash: txHash,
-          chamaId: parseInt(chamaId),
-          userId: memberId,
-        },
-      });
-    }
-
     return res
       .status(200)
       .json({ success: true, message: "Member added successfully" });

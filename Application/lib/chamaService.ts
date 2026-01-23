@@ -534,7 +534,6 @@ export const addMemberToChama = async (
   isPublic: boolean,
   memberId: number,
   amount: string,
-  txHash: string,
   token: string
 ): Promise<ChamaResponse> => {
   try {
@@ -544,7 +543,7 @@ export const addMemberToChama = async (
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ chamaId, isPublic, memberId, amount, txHash }),
+      body: JSON.stringify({ chamaId, isPublic, memberId, amount }),
     });
     const data = await response.json();
     return data;
