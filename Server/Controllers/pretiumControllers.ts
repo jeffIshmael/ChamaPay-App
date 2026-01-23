@@ -67,18 +67,6 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
       });
     }
 
-    // Get the chama
-    const chama = await prisma.chama.findUnique({
-      where: { id: Number(chamaId) },
-    });
-
-    if (!chama) {
-      return res.status(400).json({
-        success: false,
-        error: "Chama not found",
-      });
-    }
-
     // Note: the phone number should be '07....'
     if (!amount || !phoneNo) {
       return res.status(400).json({
@@ -117,7 +105,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
         cusdAmount: usdcAmount,
         exchangeRate: exchangeRate,
         walletAddress: user.smartAddress,
-        chamaId: chamaId,
+        chamaId: chamaId ? Number(chamaId) : null,
       },
     });
 
