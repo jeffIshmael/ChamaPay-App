@@ -73,7 +73,7 @@ export default function ProfileSettings() {
         style: "destructive",
         onPress: async () => {
           try {
-            router.replace("/auth-screen");
+            router.replace("/new-auth-screen");
             await logout();
           } catch (error) {
             console.error("Sign out error:", error);

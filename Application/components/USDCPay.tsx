@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import {ArrowLeft } from "lucide-react-native"
 import {
   prepareContractCall,
   sendTransaction,
@@ -56,14 +57,11 @@ const USDCPay = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState("");
-  const [transactionFee, setTransactionFee] = useState<number>(0);
   const [error, setError] = useState("");
   const [txHash, setTxHash] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const router = useRouter();
-  const activeAccount = useActiveAccount();
-  const { user, token } = useAuth();
+  const { token } = useAuth();
 
   const handlePayment = async () => {
     setLoading(true);
@@ -78,11 +76,10 @@ const USDCPay = ({
 
       if (paymentAmount > Number(USDCBalance)) {
         setError(
-          `Insufficient balance. Total required: ${paymentAmount.toFixed(4)} USDC (including 0.5% fee)`
+          `Insufficient balance. You have ${Number(USDCBalance).toFixed(3)} USDC available`
         );
         return;
       }
-
 
       if (!token) {
         setError("Authentication required");
@@ -102,14 +99,13 @@ const USDCPay = ({
         }
       );
 
-      console.log("deposit response",response);
+      console.log("deposit response", response);
 
       if (response.data.error) {
         setError(response.data.error);
         return;
       }
 
-      // setTxHash(response.data);
       setSuccessMessage(
         `Successfully deposited ${amount} USDC to ${chamaName}`
       );
@@ -125,14 +121,6 @@ const USDCPay = ({
   const handleAmountChange = (text: string) => {
     setAmount(text);
     setError("");
-    if (Number(text) <= 0) {
-      setTransactionFee(0);
-      return;
-    }
-
-    const amountValue = Number(text);
-    const fee = amountValue * 0.005;
-    setTransactionFee(fee);
   };
 
   const fillRemainingAmount = () => {
@@ -144,7 +132,6 @@ const USDCPay = ({
 
   const handleClose = () => {
     setAmount("");
-    setTransactionFee(0);
     setShowSuccessModal(false);
     onClose();
   };
@@ -152,21 +139,10 @@ const USDCPay = ({
   const handleSuccessClose = () => {
     setShowSuccessModal(false);
     setAmount("");
-    setTransactionFee(0);
     setError("");
     setTxHash("");
     setSuccessMessage("");
     onClose();
-  };
-
-  const formatGasFee = (gasFee: number) => {
-    if (gasFee > 0.01) {
-      return `${gasFee.toFixed(3)}`;
-    } else if (gasFee > 0.001) {
-      return `${gasFee.toFixed(4)}`;
-    } else {
-      return `< 0.001`;
-    }
   };
 
   return (
@@ -191,7 +167,7 @@ const USDCPay = ({
                 className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center mr-3"
                 activeOpacity={0.7}
               >
-                <Text className="text-gray-700 text-xl">←</Text>
+                <ArrowLeft size={20} color="black" />
               </TouchableOpacity>
 
               <Image
@@ -207,7 +183,7 @@ const USDCPay = ({
             </View>
 
             {/* Remaining Amount Alert */}
-            {remainingAmount > 0 && !loading && (
+            {remainingAmount > 0 && !loading && Number(amount) < remainingAmount && (
               <View className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
                 <View className="flex-row items-center justify-between">
                   <View className="flex-1">
@@ -257,12 +233,8 @@ const USDCPay = ({
 
               {Number(amount) > 0 && (
                 <View className="mb-6">
-                  <Text className="text-black font-light text-base mb-2">
-                    Transaction fee (0.5%): {formatGasFee(transactionFee)} USDC
-                  </Text>
-
                   <Text className="text-black font-semibold text-base">
-                    Total: {(Number(amount) + transactionFee).toFixed(3)} USDC
+                    Total: {Number(amount).toFixed(3)} USDC
                   </Text>
 
                   {/* Show if payment covers remaining amount */}

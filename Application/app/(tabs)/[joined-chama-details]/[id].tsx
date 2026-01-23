@@ -36,6 +36,7 @@ import {
 import { useReadContract } from "thirdweb/react";
 import { toEther, toTokens } from "thirdweb/utils";
 import { shareChamaLink } from "@/lib/userService";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Loading Skeleton Component
 const SkeletonBox = ({
@@ -64,7 +65,7 @@ export default function JoinedChamaDetails() {
   const [activeTab, setActiveTab] = useState(
     tab === "chat" ? "chat" : tab === "schedule" ? "schedule" : "overview"
   );
-
+  const insets = useSafeAreaInsets();
   const [paymentAmount, setPaymentAmount] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
   const [chama, setChama] = useState<JoinedChama | null>(null);
@@ -387,7 +388,11 @@ export default function JoinedChamaDetails() {
   return (
     <View className="flex-1 bg-gray-50">
       {/* Header */}
-      <SafeAreaView className=" bg-downy-800 rounded-b-2xl">
+      <View className=" bg-downy-800 rounded-b-2xl" style={{
+        paddingTop: insets.top,
+        paddingBottom: 5,
+        paddingHorizontal: 5,
+      }}>
         <View className="p-6 pb-4">
           <View className="flex-row items-center justify-between mb-4">
             <TouchableOpacity
@@ -402,9 +407,8 @@ export default function JoinedChamaDetails() {
                 {chama.name}
               </Text>
               <View
-                className={`mt-1 px-2 py-0.5 rounded-full flex-row items-center gap-1 ${
-                  chama.isPublic ? "bg-emerald-500/30" : "bg-gray-500/30"
-                }`}
+                className={`mt-1 px-2 py-0.5 rounded-full flex-row items-center gap-1 ${chama.isPublic ? "bg-emerald-500/30" : "bg-gray-500/30"
+                  }`}
               >
                 <Text className="text-xs">{chama.isPublic ? "🌍" : "🔒"}</Text>
                 <Text className="text-xs text-white font-semibold">
@@ -444,7 +448,7 @@ export default function JoinedChamaDetails() {
             </View>
           </View>
         </View>
-      </SafeAreaView>
+      </View>
 
       {/* Tabs */}
       <KeyboardAvoidingView
@@ -455,9 +459,8 @@ export default function JoinedChamaDetails() {
         <View className={`flex-1 pt-4 ${activeTab === "chat" ? "" : "px-6"}`}>
           {/* Tab Navigation */}
           <View
-            className={`flex-row bg-gray-100 rounded-lg p-1 mb-4 ${
-              activeTab === "chat" ? "mx-6" : ""
-            }`}
+            className={`flex-row bg-gray-100 rounded-lg p-1 mb-4 ${activeTab === "chat" ? "mx-6" : ""
+              }`}
           >
             <TabButton
               label="Overview"
@@ -470,7 +473,7 @@ export default function JoinedChamaDetails() {
               value="chat"
               isActive={activeTab === "chat"}
               onPress={() => setActiveTab("chat")}
-              // badge={unreadMessages}
+            // badge={unreadMessages}
             />
             <TabButton
               label="Schedule"
@@ -654,14 +657,12 @@ export default function JoinedChamaDetails() {
                   onPress={() => shareToUser(chama.slug)}
                   disabled={!selectedShareUser || sendingLink}
                   activeOpacity={0.7}
-                  className={`py-3.5 rounded-xl flex-row items-center justify-center shadow-lg ${
-                    selectedShareUser ? "bg-emerald-600" : "bg-gray-300"
-                  }`}
+                  className={`py-3.5 rounded-xl flex-row items-center justify-center shadow-lg ${selectedShareUser ? "bg-emerald-600" : "bg-gray-300"
+                    }`}
                 >
                   <Text
-                    className={`font-bold text-base ${
-                      selectedShareUser ? "text-white" : "text-gray-500"
-                    }`}
+                    className={`font-bold text-base ${selectedShareUser ? "text-white" : "text-gray-500"
+                      }`}
                   >
                     {sendingLink ? "Sending..." : "  Send Invite"}
                   </Text>

@@ -694,8 +694,8 @@ export default function CryptoWallet() {
                   numberOfLines={1}
                   ellipsizeMode="middle"
                 >
-                  {user?.address
-                    ? shortenAddress(user?.address)
+                  {user?.smartAddress
+                    ? shortenAddress(user?.smartAddress)
                     : "0x0000000000000000000000"}
                 </Text>
               </View>

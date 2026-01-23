@@ -16,8 +16,8 @@ export async function pretiumOnramp(
   exchangeRate: number,
   usdcAmount: number,
   isDeposit: boolean,
+  chamaId: number,
   token: string,
-  additionalFee?: number
 ) {
   try {
     const response = await fetch(`${serverUrl}/pretium/onramp`, {
@@ -32,7 +32,7 @@ export async function pretiumOnramp(
         exchangeRate,
         usdcAmount,
         isDeposit,
-        additionalFee,
+        chamaId,
       }),
     });
     const data = await response.json();
