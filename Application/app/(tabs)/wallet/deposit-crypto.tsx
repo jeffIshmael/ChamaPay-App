@@ -1,12 +1,13 @@
-// File: app/(tabs)/deposit.tsx - M-Pesa focused version
 import { useAuth } from "@/Contexts/AuthContext";
 import { pollPretiumPaymentStatus, pretiumOnramp } from "@/lib/pretiumService";
+import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Check, Smartphone } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,8 +15,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  Image
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -42,7 +42,11 @@ export default function DepositCryptoScreen() {
   >("idle");
 
   const { token } = useAuth();
-  const { currencyCode, onramp, USDCBalance } = useLocalSearchParams();
+  const { USDCBalance } = useLocalSearchParams();
+  const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
+
+  const theExhangeQuote = rates["KES"]?.data || null;
+  const onrampRate = theExhangeQuote?.exchangeRate.selling_rate || 0;
 
   const MINIMUM_DEPOSIT = 10;
   const KENYA_PHONE_CODE = "254";
@@ -51,15 +55,19 @@ export default function DepositCryptoScreen() {
   // Calculate amounts
   const calculateAmounts = () => {
     const depositAmount = parseFloat(amount) || 0;
-    if (depositAmount < MINIMUM_DEPOSIT) {
+    if (depositAmount < MINIMUM_DEPOSIT || onrampRate === 0) {
       return { depositAmount: 0, cryptoAmount: "0.0000" };
     }
-    const cryptoAmount = depositAmount / Number(onramp);
+    const cryptoAmount = depositAmount / onrampRate;
     return {
       depositAmount,
       cryptoAmount: cryptoAmount.toFixed(4),
     };
   };
+
+  useEffect(() => {
+    globalFetchRate("KES");
+  }, []);
 
   const emptyInputs = () => {
     setAmount("");
@@ -99,7 +107,7 @@ export default function DepositCryptoScreen() {
       const result = await pretiumOnramp(
         fullPhoneNumber,
         Number(amount),
-        Number(onramp),
+        onrampRate,
         Number(cryptoAmount),
         true,
         token
@@ -315,7 +323,7 @@ export default function DepositCryptoScreen() {
                 Exchange Rate
               </Text>
               <Text className="text-sm font-bold text-gray-500">
-                1 USDC = {onramp} {CURRENCY}
+                1 USDC = {onrampRate.toFixed(2)} {CURRENCY}
               </Text>
             </View>
 

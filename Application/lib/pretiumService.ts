@@ -378,5 +378,3 @@ export async function disburseToMobileNumber(
   }
 }
 
-// function to onramp (handles both payment and depositing to wallet)
-

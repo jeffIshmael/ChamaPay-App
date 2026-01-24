@@ -77,7 +77,8 @@
     "readable-stream": "^4.7.0",
     "socket.io-client": "^4.8.1",
     "tailwindcss": "^3.4.17",
-    "thirdweb": "^5.112.3"
+    "thirdweb": "^5.112.3",
+    "zustand": "^5.0.10"
   },
   "overrides": {
     "@coinbase/wallet-mobile-sdk": {

@@ -32,6 +32,7 @@ type Props = {
   chamaStatus: "active" | "not started";
   chamaStartDate?: Date;
   currency: string;
+  kesRate?: number;
 };
 
 const ChamaOverviewTab: FC<Props> = ({
@@ -51,6 +52,7 @@ const ChamaOverviewTab: FC<Props> = ({
   chamaStatus,
   chamaStartDate,
   currency,
+  kesRate = 0,
 }) => {
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
@@ -100,7 +102,10 @@ const ChamaOverviewTab: FC<Props> = ({
                 Required
               </Text>
               <Text className="text-lg font-semibold text-gray-900">
-                {contribution.toLocaleString()} {currency}
+                {kesRate > 0
+                  ? `${(contribution * kesRate).toLocaleString()} KES`
+                  : `${contribution.toLocaleString()} ${currency}`}
+                {kesRate > 0 && <Text className="text-sm font-medium text-gray-500"> ({contribution.toLocaleString()} {currency})</Text>}
               </Text>
             </View>
             <View className="flex-row justify-between items-center mb-3">
@@ -108,7 +113,10 @@ const ChamaOverviewTab: FC<Props> = ({
                 Contributed
               </Text>
               <Text className="text-lg font-semibold text-emerald-600">
-                {myContributions.toLocaleString()} {currency}
+                {kesRate > 0
+                  ? `${(myContributions * kesRate).toLocaleString()} KES`
+                  : `${myContributions.toLocaleString()} ${currency}`}
+                {kesRate > 0 && <Text className="text-sm font-medium text-emerald-400"> ({myContributions.toLocaleString()} {currency})</Text>}
               </Text>
             </View>
             <ProgressBar
@@ -147,14 +155,18 @@ const ChamaOverviewTab: FC<Props> = ({
                 </Text>
               </View>
               <Text className="text-sm text-orange-700 mb-3">
-                {remainingAmount} {currency} remaining • Due:{" "}
-               { new Date(contributionDueDate).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                {kesRate > 0
+                  ? `${(remainingAmount * kesRate).toLocaleString()} KES`
+                  : `${remainingAmount} ${currency}`} remaining
+                {kesRate > 0 && <Text className="font-semibold"> ({remainingAmount} {currency})</Text>}
+                • Due:{" "}
+                {new Date(contributionDueDate).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               </Text>
             </View>
           )}
@@ -192,12 +204,12 @@ const ChamaOverviewTab: FC<Props> = ({
                 ? `Starts in ${formatTimeRemaining(chamaStartDate!)}`
                 : chamaStatus === "active"
                   ? `${new Date(nextPayoutDate).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}`
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}`
                   : "Cycle complete"}
             </Text>
           </View>
@@ -235,7 +247,10 @@ const ChamaOverviewTab: FC<Props> = ({
                   Amount
                 </Text>
                 <Text className="text-lg font-bold text-emerald-600">
-                  {nextPayoutAmount.toLocaleString()} {currency}
+                  {kesRate > 0
+                    ? `${(nextPayoutAmount * kesRate).toLocaleString()} KES`
+                    : `${nextPayoutAmount.toLocaleString()} ${currency}`}
+                  {kesRate > 0 && <Text className="text-sm font-medium text-emerald-400"> ({nextPayoutAmount.toLocaleString()} {currency})</Text>}
                 </Text>
               </View>
             </View>
@@ -262,11 +277,10 @@ const ChamaOverviewTab: FC<Props> = ({
                 <TouchableOpacity
                   key={transaction.id}
                   onPress={() => handleTransactionPress(transaction)}
-                  className={`flex-row items-center justify-between py-3 px-4 rounded-xl ${
-                    isMyTransaction
-                      ? "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200"
-                      : "bg-gray-50"
-                  }`}
+                  className={`flex-row items-center justify-between py-3 px-4 rounded-xl ${isMyTransaction
+                    ? "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200"
+                    : "bg-gray-50"
+                    }`}
                   activeOpacity={0.7}
                 >
                   <View className="flex-row items-center gap-2">
@@ -314,7 +328,10 @@ const ChamaOverviewTab: FC<Props> = ({
                   </View>
                   <View className="items-end">
                     <Text className="text-sm  font-semibold text-emerald-700">
-                      {(transaction.amount || 0).toString()} {currency}
+                      {kesRate > 0
+                        ? `${(Number(transaction.amount) * kesRate).toLocaleString()} KES`
+                        : `${(transaction.amount || 0).toString()} ${currency}`}
+                      {kesRate > 0 && <Text className="text-xs font-medium text-emerald-600"> ({Number(transaction.amount).toLocaleString()} {currency})</Text>}
                     </Text>
                     {/* <View
                       className={`px-2 py-1 rounded-full ${
@@ -406,10 +423,15 @@ const ChamaOverviewTab: FC<Props> = ({
                   <View className="bg-gray-50 rounded-xl p-4">
                     <Text className="text-sm text-gray-600 mb-1">Amount</Text>
                     <Text className="text-xl font-bold text-gray-900">
-                      {parseFloat(
-                        selectedTransaction.amount?.toString() || "0"
-                      ).toLocaleString()}{" "}
-                      {currency}
+                      {kesRate > 0
+                        ? `${(parseFloat(selectedTransaction.amount?.toString() || "0") * kesRate).toLocaleString()} KES`
+                        : `${parseFloat(selectedTransaction.amount?.toString() || "0").toLocaleString()} ${currency}`}
+                      {kesRate > 0 && (
+                        <Text className="text-sm font-medium text-gray-500">
+                          {" "}
+                          ({parseFloat(selectedTransaction.amount?.toString() || "0").toLocaleString()} {currency})
+                        </Text>
+                      )}
                     </Text>
                   </View>
 
@@ -440,7 +462,7 @@ const ChamaOverviewTab: FC<Props> = ({
                           day: "numeric",
                           hour: "2-digit",
                           minute: "2-digit",
-                        
+
                         }
                       )}
                     </Text>

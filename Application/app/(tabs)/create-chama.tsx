@@ -1,4 +1,4 @@
-import { usdcContract } from "@/constants/thirdweb";
+import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import {
@@ -6,11 +6,10 @@ import {
   Calendar,
   ChevronDown,
   Clock,
-  Info,
   Plus,
   Shield,
   Users,
-  X,
+  X
 } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -27,27 +26,14 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  prepareContractCall,
-  sendTransaction,
-  toUnits,
-  waitForReceipt,
-  getContract,
+  getContract
 } from "thirdweb";
-import {
-  useActiveAccount,
-  useActiveWallet,
-  useReadContract,
-} from "thirdweb/react";
-import { toWei } from "thirdweb/utils";
 import { celo } from "thirdweb/chains";
 import { useAuth } from "../../Contexts/AuthContext";
 
-import { registerChamaToDatabase } from "@/lib/chamaService";
-import { chain, client } from "../../constants/thirdweb";
 import { chamapayContractAddress } from "@/constants/contractAddress";
-import { useSendTransaction } from "thirdweb/react";
-import { Quote } from "./wallet";
-import { getExchangeRate } from "@/lib/pretiumService";
+import { registerChamaToDatabase } from "@/lib/chamaService";
+import { client } from "../../constants/thirdweb";
 
 // Exchange rate constant (KES per 1 USDC);
 const MINIMUM_CONTRIBUTION = 0.001;
@@ -57,7 +43,8 @@ interface FormData {
   description: string;
   isPublic: boolean;
   maxMembers: string; // Changed to string to show empty state
-  contribution: string;
+  contribution: string; // USDC amount (backend)
+  contributionKES: string; // KES amount (frontend entry)
   frequency: string; // Changed to string to show empty state
   duration: number;
   startDate: string;
@@ -124,6 +111,7 @@ export default function CreateChama() {
     startTime: "", // No default
     adminTerms: [],
     collateralRequired: false,
+    contributionKES: "",
   });
   const [newTerm, setNewTerm] = useState("");
   // Date/Time picker states
@@ -137,16 +125,18 @@ export default function CreateChama() {
   const [showCollateralModal, setShowCollateralModal] = useState(false);
   const [agreedToCollateral, setAgreedToCollateral] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
-  const [quote, setQuote] = useState<Quote | null>(null);
   const [tempDate, setTempDate] = useState(new Date());
 
+  const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
+  const kesRate = rates["KES"]?.rate || 0;
 
 
-  // Helper function to convert USDC to KES
-  const convertToKES = (usdcAmount: string): string => {
-    const amount = parseFloat(usdcAmount);
-    if (isNaN(amount)) return "0.00";
-    return (amount * quote?.exchangeRate.selling_rate!).toFixed(2);
+
+  // Helper function to convert KES to USDC
+  const convertToUSDC = (kesAmount: string): string => {
+    const amount = parseFloat(kesAmount);
+    if (isNaN(amount) || kesRate === 0) return "0.00";
+    return (amount / kesRate).toFixed(3);
   };
 
   // Helper function to get numeric contribution value
@@ -181,12 +171,8 @@ export default function CreateChama() {
   }, [formData.isPublic]);
 
   useEffect(() => {
-    const fetchQuote = async () => {
-      const result = await getExchangeRate("KES");
-      setQuote(result);
-    }
-    fetchQuote();
-  }, [quote]);
+    globalFetchRate("KES");
+  }, []);
 
   const updateFormData = (field: keyof FormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -206,7 +192,7 @@ export default function CreateChama() {
     );
   };
 
-   const handleDateChange = (event: any, selectedDate?: Date) => {
+  const handleDateChange = (event: any, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
       if (event.type === 'set' && selectedDate) {
@@ -222,7 +208,7 @@ export default function CreateChama() {
     }
   };
 
-    const handleTimeChange = (event: any, selectedTime?: Date) => {
+  const handleTimeChange = (event: any, selectedTime?: Date) => {
     if (Platform.OS === 'android') {
       setShowTimePicker(false);
       if (event.type === 'set' && selectedTime) {
@@ -261,11 +247,18 @@ export default function CreateChama() {
     });
   };
 
-  const handleContributionChange = (text: string) => {
+  const handleContributionKESChange = (text: string) => {
     if (text === "" || /^\d*\.?\d*$/.test(text)) {
       const decimalCount = (text.match(/\./g) || []).length;
       if (decimalCount <= 1) {
-        updateFormData("contribution", text);
+        setFormData((prev) => {
+          const usdcValue = text ? (parseFloat(text) / kesRate).toFixed(3) : "";
+          return {
+            ...prev,
+            contributionKES: text,
+            contribution: usdcValue,
+          };
+        });
       }
     }
   };
@@ -349,6 +342,7 @@ export default function CreateChama() {
         startTime: "",
         adminTerms: [],
         collateralRequired: false,
+        contributionKES: "",
       });
       setStep(1);
       setLoadingState("");
@@ -624,37 +618,40 @@ export default function CreateChama() {
           <View>
             <View className="flex-row justify-between items-center mb-2">
               <Text className="text-sm font-medium text-gray-700">
-                Contribution Amount (USDC){" "}
+                Contribution Amount (KES){" "}
                 <Text className="text-red-500">*</Text>
               </Text>
-              <Text className="text-xs text-gray-500">
-                Min: {MINIMUM_CONTRIBUTION} USDC
-              </Text>
+              {kesRate > 0 && (
+                <Text className="text-xs text-gray-500">
+                  Min: {(MINIMUM_CONTRIBUTION * kesRate).toFixed(0)} KES
+                </Text>
+              )}
             </View>
             <TextInput
-              placeholder="e.g., 5.00"
-              value={formData.contribution}
-              onChangeText={handleContributionChange}
+              placeholder="e.g., 500"
+              value={formData.contributionKES}
+              onChangeText={handleContributionKESChange}
               keyboardType="decimal-pad"
               className={`bg-gray-50 border rounded-xl px-4 py-3 text-gray-900 ${getContributionValue() < MINIMUM_CONTRIBUTION &&
-                formData.contribution !== ""
+                formData.contributionKES !== ""
                 ? "border-red-300 bg-red-50"
                 : "border-gray-200"
                 }`}
               placeholderTextColor="#9ca3af"
             />
-            {formData.contribution !== "" && getContributionValue() > 0 && (
+            {formData.contributionKES !== "" && getContributionValue() > 0 && (
               <View className="mt-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                 <Text className="text-blue-900 text-xs font-medium">
-                  ≈ KES {convertToKES(formData.contribution)} (at 1 USDC = KES{" "}
-                  {quote?.exchangeRate.selling_rate!})
+                  ≈ {formData.contribution} USDC (at 1 USDC = KES{" "}
+                  {kesRate.toFixed(2)})
                 </Text>
               </View>
             )}
             {getContributionValue() < MINIMUM_CONTRIBUTION &&
-              formData.contribution !== "" && (
+              formData.contributionKES !== "" && (
                 <Text className="text-red-600 text-xs mt-1">
-                  Minimum contribution is {MINIMUM_CONTRIBUTION} USDC
+                  Minimum contribution is {MINIMUM_CONTRIBUTION} USDC (≈{" "}
+                  {(MINIMUM_CONTRIBUTION * kesRate).toFixed(0)} KES)
                 </Text>
               )}
           </View>
@@ -672,17 +669,11 @@ export default function CreateChama() {
                     </Text>
                     <Text className="text-blue-800 text-sm">
                       • Total pool per payout:{" "}
-                      {(getContributionValue() * getMaxMembersValue()).toFixed(
-                        2
-                      )}{" "}
-                      USDC (≈ KES{" "}
-                      {convertToKES(
-                        (
-                          getContributionValue() * getMaxMembersValue()
-                        ).toString()
-                      )}
-                      ){"\n"}• Each contribution:{" "}
-                      {getContributionValue().toFixed(2)} USDC
+                      {Math.ceil(getContributionValue() * getMaxMembersValue() * kesRate).toLocaleString()} KES (≈{" "}
+                      {(getContributionValue() * getMaxMembersValue()).toFixed(2)} USDC)
+                      {"\n"}• Each contribution:{" "}
+                      {Math.ceil(getContributionValue() * kesRate).toLocaleString()} KES (≈{" "}
+                      {getContributionValue().toFixed(3)} USDC)
                       {"\n"}• Frequency: {formData.frequency} days
                       {"\n"}• Starts: {formatDate(formData.startDate)} at{" "}
                       {formatTime(formData.startTime)}
@@ -835,8 +826,8 @@ export default function CreateChama() {
             <Text className="text-emerald-800 text-sm font-medium">
               • Contribution:{" "}
               <Text className="font-normal">
-                {formData.contribution
-                  ? `${formData.contribution} USDC`
+                {formData.contributionKES
+                  ? `${Math.ceil(parseFloat(formData.contributionKES)).toLocaleString()} KES (${formData.contribution} USDC)`
                   : "Not set"}
               </Text>
             </Text>
@@ -874,11 +865,9 @@ export default function CreateChama() {
                 <Text className="text-emerald-800 text-sm font-medium">
                   • Collateral Required:{" "}
                   <Text className="font-normal">
-                    {(
-                      Number(formData.contribution) *
-                      Number(formData.maxMembers)
-                    ).toFixed(3)}{" "}
-                    USDC
+                    {kesRate > 0
+                      ? `${Math.ceil(Number(formData.contribution) * Number(formData.maxMembers) * kesRate).toLocaleString()} KES (${(Number(formData.contribution) * Number(formData.maxMembers)).toFixed(3)} USDC)`
+                      : `${(Number(formData.contribution) * Number(formData.maxMembers)).toFixed(3)} USDC`}
                   </Text>
                 </Text>
               )}

@@ -6,6 +6,7 @@ import {
   transformChamaData,
 } from "@/lib/chamaService";
 import { decryptChamaSlug, parseChamaShareUrl } from "@/lib/encryption";
+import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { formatDays, formatTimeRemaining } from "@/Utils/helperFunctions";
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -44,6 +45,8 @@ export default function HomeScreen() {
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [pasteLink, setPasteLink] = useState("");
   const [isProcessingLink, setIsProcessingLink] = useState(false);
+  const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
+  const kesRate = rates["KES"]?.rate || 0;
 
   // Fetch user's chamas function
   const fetchChamas = useCallback(async () => {
@@ -73,9 +76,10 @@ export default function HomeScreen() {
     }
   }, [token, user]);
 
-  // Fetch chamas on component mount
+  // Fetch chamas and update rates on component mount
   useEffect(() => {
     fetchChamas();
+    globalFetchRate("KES");
   }, [fetchChamas]);
 
   // Refresh chamas when screen comes into focus
@@ -324,17 +328,15 @@ export default function HomeScreen() {
                       {chama.name}
                     </Text>
                     <View
-                      className={`px-2 py-1 rounded-full flex-row items-center gap-1 ${
-                        chama.isPublic ? "bg-emerald-100" : "bg-gray-100"
-                      }`}
+                      className={`px-2 py-1 rounded-full flex-row items-center gap-1 ${chama.isPublic ? "bg-emerald-100" : "bg-gray-100"
+                        }`}
                     >
                       <Text className="text-xs">
                         {chama.isPublic ? "🌍" : "🔒"}
                       </Text>
                       <Text
-                        className={`text-xs font-semibold ${
-                          chama.isPublic ? "text-emerald-700" : "text-gray-700"
-                        }`}
+                        className={`text-xs font-semibold ${chama.isPublic ? "text-emerald-700" : "text-gray-700"
+                          }`}
                       >
                         {chama.isPublic ? "Public" : "Private"}
                       </Text>
@@ -349,9 +351,11 @@ export default function HomeScreen() {
                     </View>
                     <View className="flex-row items-center bg-blue-50 px-3 py-1.5 rounded-lg">
                       <HandCoins color="#3b82f6" size={16} />
-                      <Text className="text-sm font-semibold text-blue-700 ml-1.5">
-                        {chama.contribution?.toLocaleString() || "0"}{" "}
-                        {chama.currency} / {formatDays(Number(chama.duration))}
+                      <Text className="text-sm font-semibold text-blue-700 ml-1.5" numberOfLines={1}>
+                        {kesRate > 0
+                          ? `${(Number(chama.contribution) * kesRate).toLocaleString()} KES (${chama.contribution?.toLocaleString()} ${chama.currency})`
+                          : `${chama.contribution?.toLocaleString()} ${chama.currency}`}
+                        / {formatDays(Number(chama.duration))}
                       </Text>
                     </View>
                   </View>
@@ -511,11 +515,10 @@ export default function HomeScreen() {
               <TouchableOpacity
                 onPress={() => handleProcessLink(pasteLink)}
                 disabled={!pasteLink.trim() || isProcessingLink}
-                className={`flex-1 py-3 rounded-xl ${
-                  !pasteLink.trim() || isProcessingLink
-                    ? "bg-gray-300"
-                    : "bg-emerald-600"
-                }`}
+                className={`flex-1 py-3 rounded-xl ${!pasteLink.trim() || isProcessingLink
+                  ? "bg-gray-300"
+                  : "bg-emerald-600"
+                  }`}
                 activeOpacity={0.7}
               >
                 {isProcessingLink ? (
