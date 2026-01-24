@@ -17,6 +17,8 @@ import {
   transformChamaData,
 } from "@/lib/chamaService";
 import { generateChamaShareUrl } from "@/lib/encryption";
+import { shareChamaLink } from "@/lib/userService";
+import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { formatTimeRemaining } from "@/Utils/helperFunctions";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Share, Share2, User } from "lucide-react-native";
@@ -27,16 +29,14 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  SafeAreaView,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useReadContract } from "thirdweb/react";
 import { toEther, toTokens } from "thirdweb/utils";
-import { shareChamaLink } from "@/lib/userService";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Loading Skeleton Component
 const SkeletonBox = ({
@@ -69,6 +69,8 @@ export default function JoinedChamaDetails() {
   const [paymentAmount, setPaymentAmount] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
   const [chama, setChama] = useState<JoinedChama | null>(null);
+  const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
+  const kesRate = rates["KES"]?.rate || 0;
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareUsername, setShareUsername] = useState("");
@@ -177,6 +179,7 @@ export default function JoinedChamaDetails() {
 
   useEffect(() => {
     fetchChama();
+    globalFetchRate("KES");
   }, [id, token]);
 
   const makePayment = () => {
@@ -344,6 +347,7 @@ export default function JoinedChamaDetails() {
       chamaStatus={chama.status}
       chamaStartDate={chama.startDate}
       currency={chama.currency}
+      kesRate={kesRate}
     />
   );
 

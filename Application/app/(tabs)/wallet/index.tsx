@@ -1,19 +1,19 @@
 import { AllBalances, getAllBalances } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
-import { CurrencyCode, getExchangeRate } from "@/lib/pretiumService";
+import { CurrencyCode } from "@/lib/pretiumService";
 import { getTheUserTx } from "@/lib/walletServices";
+import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   ArrowDownRight,
   ArrowUpRight,
-  Copy,
   DollarSign,
   Download,
   ExternalLink,
   History,
   QrCode,
   Send,
-  Upload,
+  Upload
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -26,16 +26,14 @@ import {
   Modal,
   Platform,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useActiveAccount, useActiveWallet } from "thirdweb/react";
-import { shortenAddress } from "thirdweb/utils";
 
 interface Transaction {
   id: number;
@@ -67,7 +65,6 @@ export default function CryptoWallet() {
   const [theTransaction, setTheTransaction] = useState<Transaction[] | null>(
     null
   );
-  const [theExhangeQuote, setTheExchangeQuote] = useState<Quote | null>(null);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [transactionError, setTransactionError] = useState<string | null>(null);
   const [selectedTransaction, setSelectedTransaction] =
@@ -113,9 +110,11 @@ export default function CryptoWallet() {
     }
   };
 
+  const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
+  const theExhangeQuote = rates["KES"]?.data || null;
+
   const fetchRate = async () => {
-    const rate = await getExchangeRate("KES");
-    setTheExchangeQuote(rate);
+    await globalFetchRate("KES");
   };
 
   // Refresh all data when screen comes into focus

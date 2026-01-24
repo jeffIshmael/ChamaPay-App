@@ -1,16 +1,15 @@
-// File: app/(tabs)/withdraw.tsx - M-Pesa focused version
 import { pretiumSettlementAddress } from "@/constants/contractAddress";
 import { chain, client, usdcContract } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
 import {
   CurrencyCode,
-  getExchangeRate,
-  validatePhoneNumber,
-  pollPretiumPaymentStatus,
   disburseToMobileNumber,
+  pollPretiumPaymentStatus,
+  validatePhoneNumber
 } from "@/lib/pretiumService";
+import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Check, Smartphone } from "lucide-react-native";
+import { ArrowLeft, Check } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -76,8 +75,11 @@ export default function WithdrawCryptoScreen() {
     useState<Verification | null>(null);
   const [verificationError, setVerificationError] = useState("");
 
-  const { USDCBalance, offramp } = useLocalSearchParams();
+  const { USDCBalance } = useLocalSearchParams();
   const { token } = useAuth();
+  const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
+
+  const theExhangeQuote = rates["KES"]?.data || null;
   const activeAccount = useActiveAccount();
 
   const KENYA_PHONE_CODE = "254";
@@ -105,22 +107,11 @@ export default function WithdrawCryptoScreen() {
 
   // Fetch exchange rate on mount
   useEffect(() => {
-    const fetchRate = async () => {
-      try {
-        const rate = await getExchangeRate("KES" as CurrencyCode);
-        if (rate && rate.success) {
-          setExchangeRate(rate);
-        }
-      } catch (error) {
-        console.error("Error fetching exchange rate:", error);
-      }
-    };
-    fetchRate();
+    globalFetchRate("KES");
   }, []);
 
-  // Get current exchange rate (use fetched rate or fallback to param)
-  const currentExchangeRate =
-    exchangeRate?.exchangeRate?.buying_rate || Number(offramp) || 0;
+  // Get current exchange rate
+  const currentExchangeRate = theExhangeQuote?.exchangeRate?.buying_rate || 0;
 
   // Calculations
   const calculateTotalAmount = () =>

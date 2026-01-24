@@ -1,29 +1,25 @@
 // File: components/MobileMoneyPay.tsx - Simplified M-Pesa Only
-import { Quote } from "@/app/(tabs)/wallet";
 import { useAuth } from "@/Contexts/AuthContext";
-import { useExchangeRate } from "@/hooks/useExchangeRate";
 import {
   agentDeposit,
-  CurrencyCode,
-  getExchangeRate,
   pollPretiumPaymentStatus,
-  pretiumOnramp,
+  pretiumOnramp
 } from "@/lib/pretiumService";
-import { Smartphone } from "lucide-react-native";
+import { useExchangeRateStore } from "@/store/useExchangeRateStore";
+import { PRETIUM_TRANSACTION_LIMIT } from "@/Utils/pretiumUtils";
+import { ArrowLeft } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
+  Image,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  Image
+  View
 } from "react-native";
-import { PRETIUM_TRANSACTION_LIMIT } from "@/Utils/pretiumUtils";
-import { ArrowLeft } from "lucide-react-native";
 
 interface MobileMoneyPayProps {
   chamaName: string;
@@ -57,9 +53,10 @@ const MobileMoneyPay = ({
   const [txHash, setTxHash] = useState("");
 
   const { token } = useAuth();
-  const [exchangeRate, setExchangeRate] = useState<Quote | null>(null);
-  const [loadingRate, setLoadingRate] = useState(true);
-  const { data: exchangeRateData } = useExchangeRate("KES" as CurrencyCode);
+  const { fetchRate: globalFetchRate, rates, loading: loadingRates } = useExchangeRateStore();
+
+  const theExhangeQuote = rates["KES"]?.data || null;
+  const loadingRate = loadingRates["KES"] || false;
 
   // Animation values
   const [fadeAnim] = useState(new Animated.Value(1));
@@ -73,8 +70,8 @@ const MobileMoneyPay = ({
   };
 
   // Calculate remaining amount in KES
-  const remainingInKES = exchangeRate?.exchangeRate?.selling_rate
-    ? (remainingAmount * exchangeRate.exchangeRate.selling_rate).toFixed(2)
+  const remainingInKES = theExhangeQuote?.exchangeRate?.selling_rate
+    ? (remainingAmount * theExhangeQuote.exchangeRate.selling_rate).toFixed(2)
     : "0";
 
   const minimumKES = PRETIUM_TRANSACTION_LIMIT.KE.min; // Minimum KES amount
@@ -82,54 +79,25 @@ const MobileMoneyPay = ({
 
   // Fetch exchange rate for KES
   useEffect(() => {
-    const fetchRate = async () => {
-      setLoadingRate(true);
-      try {
-        const rate = await getExchangeRate("KES" as CurrencyCode);
-        if (rate && rate.success && rate.exchangeRate) {
-          setExchangeRate(rate);
-        } else if (exchangeRateData && exchangeRateData.exchangeRate) {
-          setExchangeRate(exchangeRateData);
-        } else {
-          setExchangeRate(null);
-        }
-      } catch (error) {
-        console.error("Error fetching exchange rate:", error);
-        if (exchangeRateData && exchangeRateData.exchangeRate) {
-          setExchangeRate(exchangeRateData);
-        } else {
-          setExchangeRate(null);
-        }
-      } finally {
-        setLoadingRate(false);
-      }
-    };
-
-    fetchRate();
-    const interval = setInterval(fetchRate, 30000);
+    globalFetchRate("KES");
+    const interval = setInterval(() => globalFetchRate("KES"), 60000);
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (!exchangeRate && exchangeRateData && !loadingRate) {
-      setExchangeRate(exchangeRateData);
-    }
-  }, [exchangeRateData, exchangeRate, loadingRate]);
-
   // Calculate USDC amount when KES amount changes
   useEffect(() => {
-    if (!exchangeRate?.exchangeRate?.selling_rate) {
+    if (!theExhangeQuote?.exchangeRate?.selling_rate) {
       setUsdcAmount("0.00");
       return;
     }
     if (amount && parseFloat(amount) > 0) {
-      const sellingRate = exchangeRate.exchangeRate.selling_rate;
+      const sellingRate = theExhangeQuote.exchangeRate.selling_rate;
       const usdc = parseFloat(amount) / sellingRate;
       setUsdcAmount(usdc.toFixed(3));
     } else {
       setUsdcAmount("0.00");
     }
-  }, [amount, exchangeRate]);
+  }, [amount, theExhangeQuote]);
 
   // Pulse animation for loading states
   useEffect(() => {
@@ -169,9 +137,9 @@ const MobileMoneyPay = ({
 
   // Quick fill function for remaining amount
   const fillRemainingAmount = () => {
-    if (exchangeRate?.exchangeRate?.selling_rate && remainingAmount > 0) {
+    if (theExhangeQuote?.exchangeRate?.selling_rate && remainingAmount > 0) {
       const localValue = (
-        remainingAmount * exchangeRate.exchangeRate.selling_rate
+        remainingAmount * theExhangeQuote.exchangeRate.selling_rate
       ).toFixed(2);
       setAmount(localValue);
     }
@@ -235,7 +203,7 @@ const MobileMoneyPay = ({
       return;
     }
 
-    if (!exchangeRate?.exchangeRate?.selling_rate) {
+    if (!theExhangeQuote?.exchangeRate?.selling_rate) {
       Alert.alert(
         "Exchange Rate Unavailable",
         "Unable to fetch current exchange rate. Please check your internet connection and try again."
@@ -253,11 +221,11 @@ const MobileMoneyPay = ({
       const result = await pretiumOnramp(
         fullPhoneNumber,
         Number(amount),
-        exchangeRate.exchangeRate!.selling_rate,
+        theExhangeQuote.exchangeRate.selling_rate,
         Number(usdcAmount),
         false,
-        chamaId,
         token,
+        chamaId
       );
 
       if (!result.success) {
@@ -368,7 +336,7 @@ const MobileMoneyPay = ({
     amount &&
     parseFloat(amount) >= minimumKES &&
     !loadingRate &&
-    exchangeRate?.exchangeRate?.selling_rate !== undefined &&
+    theExhangeQuote?.exchangeRate?.selling_rate !== undefined &&
     parseFloat(usdcAmount) > 0;
 
   const renderStatusIndicator = () => {
@@ -509,7 +477,7 @@ const MobileMoneyPay = ({
               className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center mr-3"
               activeOpacity={0.7}
             >
-               <ArrowLeft size={20} color="black" />
+              <ArrowLeft size={20} color="black" />
             </TouchableOpacity>
 
             <Image
@@ -592,9 +560,9 @@ const MobileMoneyPay = ({
                 </Text>
                 {loadingRate ? (
                   <Text className="text-xs text-gray-600">Loading rate...</Text>
-                ) : exchangeRate?.exchangeRate?.selling_rate ? (
+                ) : theExhangeQuote?.exchangeRate?.selling_rate ? (
                   <Text className="text-xs text-gray-600">
-                    1 USDC = {exchangeRate.exchangeRate.selling_rate} KES
+                    1 USDC = {theExhangeQuote.exchangeRate.selling_rate} KES
                   </Text>
                 ) : null}
               </View>
@@ -626,7 +594,7 @@ const MobileMoneyPay = ({
             </View>
 
             {/* USDC Preview */}
-            {parseFloat(usdcAmount) > 0 && exchangeRate?.exchangeRate?.selling_rate && (
+            {parseFloat(usdcAmount) > 0 && theExhangeQuote?.exchangeRate?.selling_rate && (
               <Animated.View
                 style={{ opacity: fadeAnim }}
                 className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border-2 border-green-200"

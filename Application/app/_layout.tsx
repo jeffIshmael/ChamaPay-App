@@ -1,13 +1,22 @@
 import { AuthProvider } from "@/Contexts/AuthContext";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ThirdwebProvider } from "thirdweb/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./global.css";
+
+import { useExchangeRateStore } from "@/store/useExchangeRateStore";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
 export default function RootLayout() {
+  const hydrateRates = useExchangeRateStore((state) => state.hydrate);
+
+  useEffect(() => {
+    hydrateRates();
+  }, [hydrateRates]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThirdwebProvider>

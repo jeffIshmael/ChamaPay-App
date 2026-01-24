@@ -1,16 +1,17 @@
 import { useAuth } from "@/Contexts/AuthContext";
 import { BackendChama, getPublicChamas } from "@/lib/chamaService";
+import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { useRouter } from "expo-router";
-import { Calendar, Search, Star, TrendingUp, Users, Zap, Sparkles } from "lucide-react-native";
+import { Calendar, Search, Star, TrendingUp, Users, Zap } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  Image
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -22,6 +23,8 @@ export default function DiscoverChamas() {
   const [backendChamas, setBackendChamas] = useState<BackendChama[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
+  const kesRate = rates["KES"]?.rate || 0;
 
   React.useEffect(() => {
     const fetchPublic = async () => {
@@ -47,6 +50,7 @@ export default function DiscoverChamas() {
       }
     };
     fetchPublic();
+    globalFetchRate("KES");
   }, [token]);
 
   const filteredChamas = backendChamas.filter((chama) => {
@@ -61,10 +65,10 @@ export default function DiscoverChamas() {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const dateStr = date.toLocaleDateString('en-US', {
-      month: 'short', 
+      month: 'short',
       day: 'numeric',
     });
-   
+
     return dateStr;
   };
 
@@ -106,15 +110,13 @@ export default function DiscoverChamas() {
               <Text className="text-lg font-bold text-gray-900">
                 {chama.name}
               </Text>
-              <View className={`px-2.5 py-1 rounded-full flex-row items-center gap-1 ${
-                chama.type === "Public" ? "bg-emerald-50 border border-emerald-200" : "bg-gray-100 border border-gray-200"
-              }`}>
+              <View className={`px-2.5 py-1 rounded-full flex-row items-center gap-1 ${chama.type === "Public" ? "bg-emerald-50 border border-emerald-200" : "bg-gray-100 border border-gray-200"
+                }`}>
                 <Text className="text-xs">
                   {chama.type === "Public" ? "🌍" : "🔒"}
                 </Text>
-                <Text className={`text-xs font-semibold ${
-                  chama.type === "Public" ? "text-emerald-700" : "text-gray-700"
-                }`}>
+                <Text className={`text-xs font-semibold ${chama.type === "Public" ? "text-emerald-700" : "text-gray-700"
+                  }`}>
                   {chama.type}
                 </Text>
               </View>
@@ -135,7 +137,7 @@ export default function DiscoverChamas() {
               </Text>
             </View>
           </View>
-          
+
           {isFilling && (
             <View className="bg-amber-50 px-3 py-1.5 rounded-full flex-row items-center gap-1.5 border border-amber-200">
               <Zap size={14} color="#f59e0b" fill="#f59e0b" />
@@ -150,7 +152,10 @@ export default function DiscoverChamas() {
             Contribution Amount
           </Text>
           <Text className="text-3xl font-bold text-emerald-800">
-            {parseFloat(chama.amount).toLocaleString()} <Text className="text-lg font-semibold text-emerald-600">cUSD</Text>
+            {kesRate > 0
+              ? `${(parseFloat(chama.amount) * kesRate).toLocaleString()} KES`
+              : `${parseFloat(chama.amount).toLocaleString()} cUSD`}
+            {kesRate > 0 && <Text className="text-sm font-medium text-emerald-600 ml-2"> ({parseFloat(chama.amount).toLocaleString()} cUSD)</Text>}
           </Text>
         </View>
 
@@ -193,8 +198,8 @@ export default function DiscoverChamas() {
   return (
     <View className="flex-1 bg-gray-50">
       {/* Enhanced Header */}
-      <View 
-        className="bg-downy-800 px-6 pb-6 rounded-b-3xl shadow-lg" 
+      <View
+        className="bg-downy-800 px-6 pb-6 rounded-b-3xl shadow-lg"
         style={{ paddingTop: insets.top + 16 }}
       >
         <View className="flex-row items-center justify-between mb-4">
@@ -251,7 +256,7 @@ export default function DiscoverChamas() {
               <Text className="text-sm text-gray-600 text-center mb-4">
                 {error}
               </Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 className="bg-emerald-600 px-6 py-3 rounded-full"
                 onPress={() => {
                   setLoading(true);
@@ -283,12 +288,12 @@ export default function DiscoverChamas() {
                 {searchTerm ? "No Matches Found" : "No Chamas Available"}
               </Text>
               <Text className="text-sm text-gray-600 text-center mb-6 leading-5">
-                {searchTerm 
-                  ? "We couldn't find any chamas matching your search. Try different keywords." 
+                {searchTerm
+                  ? "We couldn't find any chamas matching your search. Try different keywords."
                   : "There are no public chamas at the moment. Check back soon or create your own!"}
               </Text>
               {searchTerm && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   className="bg-emerald-600 px-6 py-3 rounded-full flex-row items-center gap-2"
                   onPress={() => setSearchTerm("")}
                 >
