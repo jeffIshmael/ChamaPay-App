@@ -23,6 +23,10 @@ interface shareLinkResponse {
   success: boolean;
   notification: {};
 }
+interface balanceResponse {
+  success: boolean;
+  balance: string;
+}
 // function to register a payment to the database
 export async function registerPayment(
   receiver: string,
@@ -155,7 +159,7 @@ export async function shareChamaLink(
 // function to get User Balance
 export async function getUserBalance(
   token: string
-): Promise<shareLinkResponse> {
+): Promise<balanceResponse> {
   try {
     const response = await fetch(`${serverUrl}/user/balance`, {
       method: "GET",
@@ -168,7 +172,7 @@ export async function getUserBalance(
     console.log(data);
     return data;
   } catch (error) {
-    console.error("Error sending sharing link:", error);
-    return { success: false, notification: {} };
+    console.error("Error getting balance:", error);
+    return { success: false, balance: "" };
   }
 }

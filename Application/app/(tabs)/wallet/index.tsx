@@ -1,6 +1,7 @@
 import { AllBalances, getAllBalances } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
 import { CurrencyCode } from "@/lib/pretiumService";
+import { getUserBalance } from "@/lib/userService";
 import { getTheUserTx } from "@/lib/walletServices";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -57,7 +58,7 @@ export default function CryptoWallet() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [balanceVisible, setBalanceVisible] = useState(true);
-  const [userBalance, setUserBalance] = useState<AllBalances | null>(null);
+  const [userBalance, setUserBalance] = useState<string | null>(null);
   const [theTransaction, setTheTransaction] = useState<Transaction[] | null>(
     null
   );
@@ -71,12 +72,9 @@ export default function CryptoWallet() {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchBalances = async () => {
-      const balances = await getAllBalances(
-        user?.smartAddress as `0x${string}`
-      );
-      console.log("the balances", balances);
-      setUserBalance(balances);
-    
+    const balances = await getUserBalance(token as string);
+    console.log("the balances", balances);
+    setUserBalance(balances.balance);
   };
 
   const getTx = async () => {
@@ -169,7 +167,7 @@ export default function CryptoWallet() {
     Linking.openURL(explorerUrl);
   };
 
-  const usdcBalance = parseFloat(userBalance?.USDC.displayValue || "0");
+  const usdcBalance = parseFloat(userBalance || "0").toFixed(3);
 
   const ActionButton = ({
     onPress,
@@ -559,8 +557,8 @@ export default function CryptoWallet() {
             <View className="items-center mb-2">
               <View className="flex-row items-baseline justify-center mb-1">
                 <Text className="text-5xl text-white font-extrabold tracking-tight">
-                  {balanceVisible && theExhangeQuote?.exchangeRate.selling_rate
-                    ? (usdcBalance * theExhangeQuote?.exchangeRate.selling_rate).toFixed(2)
+                  {balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance
+                    ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toFixed(2)
                     : "••••••"}
                 </Text>
 
@@ -573,10 +571,7 @@ export default function CryptoWallet() {
                 <Text className="text-emerald-100 text-base font-medium">
                   ≈{" "}
                   {balanceVisible
-                    ? usdcBalance.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })
+                    ? usdcBalance
                     : "••••••"} USDC
                 </Text>
               )}
