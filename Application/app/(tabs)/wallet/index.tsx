@@ -73,7 +73,6 @@ export default function CryptoWallet() {
 
   const fetchBalances = async () => {
     const balances = await getUserBalance(token as string);
-    console.log("the balances", balances);
     setUserBalance(balances.balance);
   };
 
@@ -559,7 +558,7 @@ export default function CryptoWallet() {
                 <Text className="text-5xl text-white font-extrabold tracking-tight">
                   {balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance
                     ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toFixed(2)
-                    : "••••••"}
+                    : "---"}
                 </Text>
 
                 <Text className="text-2xl ml-2 text-white/90 font-semibold tracking-tight">
@@ -570,9 +569,9 @@ export default function CryptoWallet() {
               {balanceVisible && (
                 <Text className="text-emerald-100 text-base font-medium">
                   ≈{" "}
-                  {balanceVisible
+                  {balanceVisible && userBalance
                     ? usdcBalance
-                    : "••••••"} USDC
+                    : "----"} USDC
                 </Text>
               )}
             </View>

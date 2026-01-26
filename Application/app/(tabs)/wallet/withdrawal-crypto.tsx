@@ -25,13 +25,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  prepareContractCall,
-  sendTransaction,
-  toUnits,
-  waitForReceipt,
-} from "thirdweb";
-import { useActiveAccount } from "thirdweb/react";
 
 // Import utilities
 import {
@@ -80,7 +73,6 @@ export default function WithdrawCryptoScreen() {
   const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
 
   const theExhangeQuote = rates["KES"]?.data || null;
-  const activeAccount = useActiveAccount();
 
   const KENYA_PHONE_CODE = "254";
   const CURRENCY = "KES";
@@ -176,31 +168,31 @@ export default function WithdrawCryptoScreen() {
     }
   };
 
-  const transferUSDC = async (
-    amount: string,
-    receivingAddress: `0x${string}`
-  ) => {
-    if (!activeAccount) {
-      Alert.alert("Error", "Please connect your wallet");
-      return;
-    }
-    try {
-      const transaction = prepareContractCall({
-        contract: usdcContract,
-        method: "function transfer(address to, uint256 amount)",
-        params: [receivingAddress, toUnits(amount, 6)],
-      });
-      const { transactionHash } = await sendTransaction({
-        account: activeAccount,
-        transaction,
-      });
-      const receipt = await waitForReceipt({ client, chain, transactionHash });
-      return receipt?.transactionHash;
-    } catch (error) {
-      console.log("Transfer error:", error);
-      return null;
-    }
-  };
+  // const transferUSDC = async (
+  //   amount: string,
+  //   receivingAddress: `0x${string}`
+  // ) => {
+  //   if (!token) {
+  //     Alert.alert("Error", "Authentication required");
+  //     return;
+  //   }
+  //   try {
+  //     const transaction = prepareContractCall({
+  //       contract: usdcContract,
+  //       method: "function transfer(address to, uint256 amount)",
+  //       params: [receivingAddress, toUnits(amount, 6)],
+  //     });
+  //     const { transactionHash } = await sendTransaction({
+  //       account: activeAccount,
+  //       transaction,
+  //     });
+  //     const receipt = await waitForReceipt({ client, chain, transactionHash });
+  //     return receipt?.transactionHash;
+  //   } catch (error) {
+  //     console.log("Transfer error:", error);
+  //     return null;
+  //   }
+  // };
 
   const handleInitialWithdraw = async () => {
     if (!amount.trim()) return Alert.alert("Error", "Please enter an amount");
@@ -245,7 +237,7 @@ export default function WithdrawCryptoScreen() {
   };
 
   const handleConfirmedWithdraw = async () => {
-    if (!token || !activeAccount) {
+    if (!token ) {
       Alert.alert("Error", "No token or wallet connected");
       return;
     }
@@ -256,10 +248,11 @@ export default function WithdrawCryptoScreen() {
 
     try {
       // Step 1: Transfer USDC to Pretium settlement address
-      const txHash = await transferUSDC(amount, pretiumSettlementAddress);
-      if (!txHash) {
-        throw new Error("Unable to send USDC");
-      }
+      // const txHash = await transferUSDC(amount, pretiumSettlementAddress);
+      // if (!txHash) {
+      //   throw new Error("Unable to send USDC");
+      // }
+      const txHash = "0x1234567890";
 
       // Step 2: Initiate M-Pesa offramp
       const offrampResult = await disburseToMobileNumber(

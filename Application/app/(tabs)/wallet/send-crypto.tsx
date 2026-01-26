@@ -1,8 +1,6 @@
 import { serverUrl } from "@/constants/serverUrl";
-import { chain, client, usdcContract } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
 import { searchUsers } from "@/lib/chamaService";
-import { registerPayment } from "@/lib/userService";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, User, WalletMinimal } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
@@ -19,13 +17,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
-import {
-  prepareContractCall,
-  sendTransaction,
-  toUnits,
-  waitForReceipt,
-} from "thirdweb";
-import { useActiveAccount } from "thirdweb/react";
 
 export default function SendCryptoScreen() {
   const [sendMode, setSendMode] = useState<"chamapay" | "external">("chamapay");
@@ -52,7 +43,6 @@ export default function SendCryptoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { USDCBalance, totalBalance, address } = useLocalSearchParams();
-  const activeAccount = useActiveAccount();
   const { token } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   // Fixed to USDC only - no need to display
