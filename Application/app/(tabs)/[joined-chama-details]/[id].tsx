@@ -92,54 +92,54 @@ export default function JoinedChamaDetails() {
     address: string;
     profileImageUrl: string | null;
   } | null>(null);
-  const {
-    data: chamaBalance,
-    isLoading: isChamaBalanceLoading,
-    error: chamaBalanceError,
-  } = useReadContract({
-    contract: chamapayContract,
-    method:
-      "function getEachMemberBalance(uint256 _chamaId) view returns (address[] memory, uint256[][] memory)",
-    params: [BigInt(Number(chama?.blockchainId) || 0) as bigint],
-  });
-  const {
-    data: individualBalance,
-    isLoading: isIndividualBalanceLoading,
-    refetch: refetchBalance,
-    error: individualBalanceError,
-  } = useReadContract({
-    contract: chamapayContract,
-    method:
-      "function getBalance(uint256 _chamaId, address _member) view returns (uint256[] memory)",
-    params: [
-      BigInt(Number(chama?.blockchainId) || 0) as bigint,
-      user?.address as `0x${string}`,
-    ],
-  });
-  const {
-    data: eachMemberBalances,
-    isLoading: isEachMemberBalancesLoading,
-    refetch: refetchEachMemberBalance,
-    error: eachMemberBalancesError,
-  } = useReadContract({
-    contract: chamapayContract,
-    method:
-      "function getEachMemberBalance(uint256 _chamaId) view returns (address[] memory, uint256[][] memory)",
-    params: [BigInt(Number(chama?.blockchainId) || 0) as bigint],
-  });
+  // const {
+  //   data: chamaBalance,
+  //   isLoading: isChamaBalanceLoading,
+  //   error: chamaBalanceError,
+  // } = useReadContract({
+  //   contract: chamapayContract,
+  //   method:
+  //     "function getEachMemberBalance(uint256 _chamaId) view returns (address[] memory, uint256[][] memory)",
+  //   params: [BigInt(Number(chama?.blockchainId) || 0) as bigint],
+  // });
+  // const {
+  //   data: individualBalance,
+  //   isLoading: isIndividualBalanceLoading,
+  //   refetch: refetchBalance,
+  //   error: individualBalanceError,
+  // } = useReadContract({
+  //   contract: chamapayContract,
+  //   method:
+  //     "function getBalance(uint256 _chamaId, address _member) view returns (uint256[] memory)",
+  //   params: [
+  //     BigInt(Number(chama?.blockchainId) || 0) as bigint,
+  //     user?.address as `0x${string}`,
+  //   ],
+  // });
+  // const {
+  //   data: eachMemberBalances,
+  //   isLoading: isEachMemberBalancesLoading,
+  //   refetch: refetchEachMemberBalance,
+  //   error: eachMemberBalancesError,
+  // } = useReadContract({
+  //   contract: chamapayContract,
+  //   method:
+  //     "function getEachMemberBalance(uint256 _chamaId) view returns (address[] memory, uint256[][] memory)",
+  //   params: [BigInt(Number(chama?.blockchainId) || 0) as bigint],
+  // });
   const [myBalance, setMyBalance] = useState<bigint[] | undefined>();
   const [sendingLink, setSendingLink] = useState(false);
 
-  useEffect(() => {
-    // Handle individualBalance which comes as an array of BigInt values
-    if (individualBalance) {
-      const balanceArray = Array.isArray(individualBalance)
-        ? individualBalance
-        : [individualBalance];
-      setMyBalance(balanceArray as bigint[]);
-      console.log("the individual balance", balanceArray);
-    }
-  }, [individualBalance]);
+  // useEffect(() => {
+  //   // Handle individualBalance which comes as an array of BigInt values
+  //   if (individualBalance) {
+  //     const balanceArray = Array.isArray(individualBalance)
+  //       ? individualBalance
+  //       : [individualBalance];
+  //     setMyBalance(balanceArray as bigint[]);
+  //     console.log("the individual balance", balanceArray);
+  //   }
+  // }, [individualBalance]);
 
   const fetchChama = async () => {
     if (!token || !user) {
@@ -157,8 +157,7 @@ export default function JoinedChamaDetails() {
       setChama(transformedChama);
 
       // get my chama balance - use individualBalance directly if myBalance is not set yet
-      const balanceToUse =
-        myBalance || (individualBalance as unknown as bigint[]);
+      const balanceToUse = myBalance;
       const firstBalance = Array.isArray(balanceToUse)
         ? balanceToUse[0]
         : balanceToUse;
@@ -195,13 +194,13 @@ export default function JoinedChamaDetails() {
   const handlePaymentSuccess = () => {
     // Close payment modal and reload page data
     setShowPaymentModal(false);
-    refetchBalance();
+    // refetchBalance();
     fetchChama();
-    refetchEachMemberBalance();
+    // refetchEachMemberBalance();
   };
 
   const handlePaymentClose = () => {
-    refetchBalance();
+    // refetchBalance();
     setShowPaymentModal(false);
   };
 
@@ -320,7 +319,7 @@ export default function JoinedChamaDetails() {
 
   const contribution = chama.contribution || 0;
   // Handle balance - use individualBalance directly if myBalance is not set yet
-  const balanceToUse = myBalance || (individualBalance as unknown as bigint[]);
+  const balanceToUse = myBalance;
   const firstBalance = Array.isArray(balanceToUse)
     ? balanceToUse[0]
     : balanceToUse;
@@ -369,7 +368,7 @@ export default function JoinedChamaDetails() {
   const renderMembersTab = () => (
     <MembersTab
       members={chama.members}
-      eachMemberBalances={eachMemberBalances}
+      eachMemberBalances={null}
       isPublic={chama.isPublic}
     />
   );

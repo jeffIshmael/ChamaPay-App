@@ -70,20 +70,17 @@ export default function CryptoWallet() {
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const wallet = useActiveWallet();
-  const activeAccount = useActiveAccount();
   const { user, token } = useAuth();
 
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchBalances = async () => {
-    if (wallet && activeAccount) {
       const balances = await getAllBalances(
-        user?.address as `0x${string}`
+        user?.smartAddress as `0x${string}`
       );
       console.log("the balances", balances);
       setUserBalance(balances);
-    }
+    
   };
 
   const getTx = async () => {
@@ -124,13 +121,13 @@ export default function CryptoWallet() {
       fetchBalances();
       getTx();
       fetchRate();
-    }, [wallet, activeAccount, token])
+    }, [token])
   );
 
   // Initial load
   useEffect(() => {
     fetchBalances();
-  }, [wallet, activeAccount]);
+  }, [token]);
 
   useEffect(() => {
     getTx();
@@ -181,7 +178,7 @@ export default function CryptoWallet() {
   const usdcBalance = parseFloat(userBalance?.USDC.displayValue || "0");
 
   const walletData = {
-    address: activeAccount?.address,
+    address: user?.smartAddress,
     balances: [
       {
         symbol: userBalance?.USDC.symbol || "USDC",
@@ -689,7 +686,7 @@ export default function CryptoWallet() {
                   params: {
                     USDCBalance: usdcBalance,
                     totalBalance: usdcBalance,
-                    address: activeAccount?.address,
+                    address: user?.smartAddress,
                   },
                 })
               }
@@ -725,7 +722,7 @@ export default function CryptoWallet() {
                   params: {
                     USDCBalance: usdcBalance,
                     totalBalance: usdcBalance,
-                    address: activeAccount?.address,
+                    address: user?.smartAddress,
                     currencyCode: theExhangeQuote?.currencyCode,
                     offramp: theExhangeQuote?.exchangeRate.buying_rate,
                   },
