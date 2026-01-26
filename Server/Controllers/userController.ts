@@ -1,7 +1,7 @@
 // This file has all user related functions
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-import { isAddress } from "viem";
+import { formatUnits, isAddress } from "viem";
 import "multer";
 import {
   checkHasPendingRequest,
@@ -14,6 +14,7 @@ import { uploadToPinata } from "../utils/PinataUtils";
 import { getPrivateKey } from "../Lib/HelperFunctions";
 import { transferTx } from "../Blockchain/erc20Functions";
 import { bcAddMemberToPrivateChama } from "../Blockchain/WriteFunction";
+import { getUserBalance } from "../Blockchain/ReadFunctions";
 
 const prisma = new PrismaClient();
 
@@ -847,6 +848,42 @@ export const transferUSDC = async (
     res.status(200).json({ success: true, payment: payment });
   } catch (error) {
     console.error("Transfer USDC error:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};
+
+// transfer USDC
+export const getUserUsdcBalance = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const userId: number = req.user?.userId as number;
+    if (!req.user?.userId) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+    // get the user
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      res.status(400).json({ success: false, error: "User not found" });
+      return;
+    }
+
+    const balance = await getUserBalance(user.smartAddress);
+
+    if (!balance) {
+      res.status(400).json({ success: false, error: "Failed to get balance" });
+      return;
+    }
+
+    const formattedBalance = formatUnits(balance, 6);
+
+    res.status(200).json({ success: true, balance: formattedBalance });
+  } catch (error) {
+    console.error("Get User USDC balance error:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };

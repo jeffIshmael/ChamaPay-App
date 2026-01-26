@@ -9,7 +9,6 @@ import PaymentModal from "@/components/PaymentModal";
 import ScheduleTab from "@/components/ScheduleTab";
 import { TabButton } from "@/components/ui/TabButton";
 import { JoinedChama } from "@/constants/mockData";
-import { chamapayContract } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
 import {
   getChamaBySlug,
@@ -35,7 +34,6 @@ import {
   View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useReadContract } from "thirdweb/react";
 import { toEther, toTokens } from "thirdweb/utils";
 
 // Loading Skeleton Component
@@ -128,6 +126,9 @@ export default function JoinedChamaDetails() {
   //   params: [BigInt(Number(chama?.blockchainId) || 0) as bigint],
   // });
   const [myBalance, setMyBalance] = useState<bigint[] | undefined>();
+  const [memberBalances, setMemberBalances] = useState<
+    readonly [readonly string[], readonly (readonly bigint[])[]] | null
+  >(null);
   const [sendingLink, setSendingLink] = useState(false);
 
   // useEffect(() => {
@@ -148,6 +149,7 @@ export default function JoinedChamaDetails() {
     }
     setIsLoading(true);
     const response = await getChamaBySlug(id as string, token);
+    console.log("the response", response);
     if (response.success && response.chama) {
       const transformedChama = transformChamaData(
         response.chama,
@@ -156,13 +158,45 @@ export default function JoinedChamaDetails() {
       console.log(transformedChama);
       setChama(transformedChama);
 
-      // get my chama balance - use individualBalance directly if myBalance is not set yet
-      const balanceToUse = myBalance;
+      let currentMyBalance = myBalance;
+
+      // Parse user balance (arrives as string[] from backend)
+      if (transformedChama.userChamaBalance) {
+        try {
+          const balanceStrings =
+            transformedChama.userChamaBalance as unknown as string[];
+          const balanceBigInts = balanceStrings.map((b) => BigInt(b));
+          setMyBalance(balanceBigInts);
+          currentMyBalance = balanceBigInts;
+        } catch (e) {
+          console.error("Error parsing user balances", e);
+        }
+      }
+
+      // Parse each member balance (arrives as [string[], string[][]] from backend)
+      if (transformedChama.eachMemberBalance) {
+        try {
+          const rawData = transformedChama.eachMemberBalance as unknown as [
+            string[],
+            string[][]
+          ];
+          const addresses = rawData[0];
+          const balancesStr = rawData[1];
+          const balancesBigInt = balancesStr.map((arr) =>
+            arr.map((b) => BigInt(b))
+          );
+          setMemberBalances([addresses, balancesBigInt]);
+        } catch (e) {
+          console.error("Error parsing member balances", e);
+        }
+      }
+
+      // get my chama balance
+      const balanceToUse = currentMyBalance;
       const firstBalance = Array.isArray(balanceToUse)
         ? balanceToUse[0]
         : balanceToUse;
       const myChamaBalance = toEther(firstBalance || BigInt(0)) || 0;
-      console.log("the my chama balance", myChamaBalance);
       // Set payment amount for the payment modal
       const remainingAmount =
         Number(transformedChama?.contribution) - Number(myChamaBalance);
@@ -368,7 +402,7 @@ export default function JoinedChamaDetails() {
   const renderMembersTab = () => (
     <MembersTab
       members={chama.members}
-      eachMemberBalances={null}
+      eachMemberBalances={memberBalances}
       isPublic={chama.isPublic}
     />
   );

@@ -103,9 +103,9 @@ const ChamaOverviewTab: FC<Props> = ({
               </Text>
               <Text className="text-lg font-semibold text-gray-900">
                 {kesRate > 0
-                  ? `${(contribution * kesRate).toLocaleString()} KES`
-                  : `${contribution.toLocaleString()} ${currency}`}
-                {kesRate > 0 && <Text className="text-sm font-medium text-gray-500"> ({contribution.toLocaleString()} {currency})</Text>}
+                  ? `${(contribution * kesRate).toFixed(2)} KES`
+                  : `${contribution.toFixed(3)} ${currency}`}
+                {kesRate > 0 && <Text className="text-sm font-medium text-gray-500"> ({contribution.toFixed(2)} {currency})</Text>}
               </Text>
             </View>
             <View className="flex-row justify-between items-center mb-3">
@@ -114,9 +114,9 @@ const ChamaOverviewTab: FC<Props> = ({
               </Text>
               <Text className="text-lg font-semibold text-emerald-600">
                 {kesRate > 0
-                  ? `${(myContributions * kesRate).toLocaleString()} KES`
-                  : `${myContributions.toLocaleString()} ${currency}`}
-                {kesRate > 0 && <Text className="text-sm font-medium text-emerald-400"> ({myContributions.toLocaleString()} {currency})</Text>}
+                  ? `${(myContributions * kesRate).toFixed(2)} KES`
+                  : `${myContributions.toFixed(3)} ${currency}`}
+                {kesRate > 0 && <Text className="text-sm font-medium text-emerald-400"> ({myContributions.toFixed(3)} {currency})</Text>}
               </Text>
             </View>
             <ProgressBar

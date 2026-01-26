@@ -130,6 +130,8 @@ export interface BackendChama {
   _count?: {
     members: number;
   };
+  userBalance?: [];
+  eachMemberBalance?: [];
 }
 
 interface allUserDetails {
@@ -503,6 +505,8 @@ export const transformChamaData = (
           address: payment.user.smartAddress,
         },
       })) || [],
+      userChamaBalance: backendChama.userBalance,
+      eachMemberBalance: backendChama.eachMemberBalance,
   };
 };
 

@@ -82,3 +82,14 @@ export const bcGetTotalChamas = async () => {
     }) as bigint;
     return totalChamas.toString();
 }
+
+// function to get user balance
+export const getUserBalance = async (memberAddress: string) => {
+    const balance = await publicClient.readContract({
+        address: USDCAddress,
+        abi: erc20Abi,
+        functionName: 'balanceOf',
+        args: [memberAddress as `0x${string}`]
+    });
+    return balance;
+}
