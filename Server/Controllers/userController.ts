@@ -873,6 +873,7 @@ export const getUserUsdcBalance = async (
     }
 
     const balance = await getUserBalance(user.smartAddress);
+    console.log("the user's wallet balance", balance);
 
     if (!balance) {
       res.status(400).json({ success: false, error: "Failed to get balance" });
