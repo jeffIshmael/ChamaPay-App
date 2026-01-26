@@ -304,6 +304,7 @@ export const getChamaBySlug = async (
     }
 
     const data = await response.json();
+    console.log("get chama by slug", data);
     return data;
   } catch (error) {
     console.error("Error fetching chama:", error);

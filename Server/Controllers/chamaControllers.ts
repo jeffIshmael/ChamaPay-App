@@ -1,11 +1,11 @@
 // This file has all chama related functions
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
+import { contractAddress } from "../Blockchain/Constants";
+import { bcGetTotalChamas, getEachMemberBalance, getUserChamaBalance } from "../Blockchain/ReadFunctions";
 import { bcCreateChama, bcDepositFundsToChama, bcJoinPublicChama } from "../Blockchain/WriteFunction";
 import { approveTx } from "../Blockchain/erc20Functions";
-import { contractAddress } from "../Blockchain/Constants";
-import { bcGetTotalChamas, getUserChamaBalance, getEachMemberBalance } from "../Blockchain/ReadFunctions";
+import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
 
 const prisma = new PrismaClient();
 
@@ -138,6 +138,10 @@ export const createChama = async (
   }
 };
 
+// Helper for BigInt serialization
+const bigIntReplacer = (_key: string, value: any) =>
+  typeof value === "bigint" ? value.toString() : value;
+
 // get chama by slug
 export const getChamaBySlug = async (req: Request, res: Response) => {
   try {
@@ -186,8 +190,10 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
 
     const finalChama = {
       ...chama,
-      userBalance: JSON.stringify(userBalance),
-      eachMemberBalance: JSON.stringify(eachMemberBalance),
+      userBalance: JSON.parse(JSON.stringify(userBalance, bigIntReplacer)),
+      eachMemberBalance: JSON.parse(
+        JSON.stringify(eachMemberBalance, bigIntReplacer)
+      ),
     };
 
     return res.status(200).json({ success: true, chama: finalChama });
