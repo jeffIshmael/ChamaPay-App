@@ -151,3 +151,24 @@ export async function shareChamaLink(
     return { success: false, notification: {} };
   }
 }
+
+// function to get User Balance
+export async function getUserBalance(
+  token: string
+): Promise<shareLinkResponse> {
+  try {
+    const response = await fetch(`${serverUrl}/user/balance`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const data = await response.json();
+    console.log(data);
+    return data;
+  } catch (error) {
+    console.error("Error sending sharing link:", error);
+    return { success: false, notification: {} };
+  }
+}

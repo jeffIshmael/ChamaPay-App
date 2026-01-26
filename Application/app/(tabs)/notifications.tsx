@@ -24,14 +24,6 @@ import {
   RefreshControl,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useActiveAccount } from "thirdweb/react";
-import {
-  prepareContractCall,
-  sendTransaction,
-  toUnits,
-  waitForReceipt,
-} from "thirdweb";
-import { chain, chamapayContract, client } from "@/constants/thirdweb";
 import { handleTheRequestToJoin } from "@/lib/userService";
 
 export interface Notification {
@@ -66,7 +58,6 @@ export default function Notifications() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, token } = useAuth();
-  const activeAccount = useActiveAccount();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -155,11 +146,6 @@ export default function Notifications() {
   ) => {
     if (!token) {
       Alert.alert("error", "Please log in.");
-      return;
-    }
-
-    if (!activeAccount) {
-      Alert.alert("error", "Wallet is not connected.");
       return;
     }
     if (!chamaBlockchainId || !userAddress || !chamaId) {

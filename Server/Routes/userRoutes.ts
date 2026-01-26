@@ -15,7 +15,8 @@ import {
     shareChamaLink,
     updatePhoneNumber,
     uploadProfileImage,
-    transferUSDC
+    transferUSDC,
+    getUserUsdcBalance
 } from "../Controllers/userController";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -49,6 +50,7 @@ router.get("/details", authenticate, getUserDetails);
 router.get("/hasRequest", authenticate, checkHasJoinRequest);
 // router.put("/profile", authenticate, updateUserProfile);
 router.get("/search", searchUsers);
+router.get("/balance", authenticate, getUserUsdcBalance);
 
 // put routes
 router.put("/profile", authenticate, updatePhoneNumber);

@@ -33,7 +33,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
-import { useActiveAccount, useActiveWallet } from "thirdweb/react";
 
 interface Transaction {
   id: number;
@@ -57,9 +56,6 @@ export interface Quote {
 export default function CryptoWallet() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState<"overview" | "history">(
-    "overview"
-  );
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [userBalance, setUserBalance] = useState<AllBalances | null>(null);
   const [theTransaction, setTheTransaction] = useState<Transaction[] | null>(
@@ -173,26 +169,7 @@ export default function CryptoWallet() {
     Linking.openURL(explorerUrl);
   };
 
-  const celoLogo = require("@/assets/images/celoLogo.jpg");
-
   const usdcBalance = parseFloat(userBalance?.USDC.displayValue || "0");
-
-  const walletData = {
-    address: user?.smartAddress,
-    balances: [
-      {
-        symbol: userBalance?.USDC.symbol || "USDC",
-        name: userBalance?.USDC.name || "USD Coin",
-        amount: parseFloat(userBalance?.USDC.displayValue || "0"),
-        usdValue: parseFloat(userBalance?.USDC.displayValue || "0"),
-        change24h: 0.01,
-        icon: "💎",
-        image: require("@/assets/images/usdclogo.png"),
-      },
-    ],
-    totalUsdValue: parseFloat(userBalance?.USDC.displayValue || "0"),
-    recentTransactions: theTransaction as Transaction[],
-  };
 
   const ActionButton = ({
     onPress,
@@ -218,54 +195,6 @@ export default function CryptoWallet() {
       </View>
       <Text className="text-white text-xs font-medium">{title}</Text>
     </TouchableOpacity>
-  );
-
-  const TokenCard = ({ token }: { token: (typeof walletData.balances)[0] }) => (
-    <View
-      className="bg-white p-5 rounded-2xl shadow-sm mb-4"
-      style={styles.card}
-    >
-      <View className="flex-row items-center justify-between">
-        <View className="flex-row items-center">
-          <View className="relative mr-4">
-            <Image
-              source={token.image || celoLogo}
-              className="w-12 h-12 rounded-full"
-              resizeMode="cover"
-            />
-            <View className="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-full items-center justify-center border-2 border-white">
-              <Svg viewBox="0 0 2500 2500" width={12} height={12}>
-                <Circle fill="#FCFF52" cx="1250" cy="1250" r="1250" />
-                <Path
-                  fill="#000000"
-                  d="M1949.3,546.2H550.7v1407.7h1398.7v-491.4h-232.1c-80,179.3-260.1,304.1-466.2,304.1
-                c-284.1,0-514.2-233.6-514.2-517.5c0-284,230.1-515.6,514.2-515.6c210.1,0,390.2,128.9,470.2,312.1h228.1V546.2z"
-                />
-              </Svg>
-            </View>
-          </View>
-
-          <View>
-            <Text className="text-gray-900 font-semibold text-lg">
-              {token.symbol}
-            </Text>
-            <Text className="text-sm text-gray-500">{token.name}</Text>
-          </View>
-        </View>
-        <View className="items-end">
-          <Text className="text-gray-900 font-bold text-lg">
-            {token.amount.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}{" "}
-            {token.symbol}
-          </Text>
-          <Text className="text-lg text-gray-500 font-medium mb-1">
-            {formatCurrency(token.usdValue)}
-          </Text>
-        </View>
-      </View>
-    </View>
   );
 
   const TransactionCard = ({ tx }: { tx: Transaction }) => (
@@ -608,29 +537,6 @@ export default function CryptoWallet() {
         return "text-gray-600";
     }
   };
-
-  const TabButton = ({
-    tabKey,
-    title,
-    isActive,
-  }: {
-    tabKey: "overview" | "history";
-    title: string;
-    isActive: boolean;
-  }) => (
-    <TouchableOpacity
-      onPress={() => setActiveTab(tabKey)}
-      className={`flex-1 py-3.5 px-4 rounded-xl ${isActive ? "bg-downy-600 shadow-sm" : "bg-transparent"
-        }`}
-    >
-      <Text
-        className={`text-center font-semibold ${isActive ? "text-white" : "text-gray-600"
-          }`}
-      >
-        {title}
-      </Text>
-    </TouchableOpacity>
-  );
 
   return (
     <KeyboardAvoidingView
