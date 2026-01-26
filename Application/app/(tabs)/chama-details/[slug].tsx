@@ -610,7 +610,7 @@ export default function ChamaDetails() {
       {isLoading ? (
         <ChamaDetailsLoader />
       ) : !chama ? (
-        <SafeAreaView
+        <View
           className="flex-1 items-center justify-center px-6"
           style={{ paddingTop: insets.top }}
         >
@@ -628,7 +628,7 @@ export default function ChamaDetails() {
           >
             <Text className="text-white font-bold">Back to Discover</Text>
           </TouchableOpacity>
-        </SafeAreaView>
+        </View>
       ) : (
         <View className="flex-1">
           {/* Status Bar Background Color Extension */}

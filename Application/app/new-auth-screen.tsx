@@ -19,7 +19,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
 
 const GoogleIcon = () => (
@@ -65,6 +65,7 @@ export default function AuthScreen() {
   const [loadingMessage, setLoadingMessage] = useState("");
   const router = useRouter();
   const { setAuth } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
@@ -104,6 +105,7 @@ export default function AuthScreen() {
 
     try {
       // Get user info from Google
+      setLoadingMessage("Getting profile...");
       const userInfoResponse = await fetch(
         "https://www.googleapis.com/userinfo/v2/me",
         {
@@ -111,6 +113,7 @@ export default function AuthScreen() {
         }
       );
 
+      setLoadingMessage("Verifying details...");
       const userInfo = await userInfoResponse.json();
       const email = userInfo.email;
       const name = userInfo.name;
@@ -122,11 +125,13 @@ export default function AuthScreen() {
         return;
       }
 
+      setLoadingMessage("Checking account...");
       // Check if user exists
       const userDetails = await checkUserDetails(email);
       console.log("User details:", userDetails);
 
       if (userDetails.success) {
+        setLoadingMessage("Logging in...");
         // User exists, authenticate
         const resp = await fetch(`${serverUrl}/auth/authenticate`, {
           method: "POST",
@@ -137,6 +142,7 @@ export default function AuthScreen() {
         const data = await resp.json();
 
         if (resp.ok && data?.token && data?.user) {
+          setLoadingMessage("Finalizing...");
           await setAuth(data.token, data.user, data.refreshToken || null);
           router.replace("/(tabs)");
         } else {
@@ -200,10 +206,12 @@ export default function AuthScreen() {
         ? `${fullName.givenName || ""} ${fullName.familyName || ""}`.trim()
         : "";
 
+      setLoadingMessage("Checking account...");
       // Check if user exists
       const userDetails = await checkUserDetails(email);
 
       if (userDetails.success) {
+        setLoadingMessage("Logging in...");
         // User exists, authenticate
         const resp = await fetch(`${serverUrl}/auth/authenticate`, {
           method: "POST",
@@ -218,6 +226,7 @@ export default function AuthScreen() {
         const data = await resp.json();
 
         if (resp.ok && data?.token && data?.user) {
+          setLoadingMessage("Finalizing...");
           await setAuth(data.token, data.user, data.refreshToken || null);
           router.replace("/(tabs)");
         } else {
@@ -292,6 +301,7 @@ export default function AuthScreen() {
 
   return (
     <View className="flex-1 bg-white">
+      {/* <StatusBar style="dark" translucent backgroundColor="transparent" /> */}
       {/* Gradient Background */}
       <View
         className="absolute top-0 left-0 right-0 overflow-hidden"
@@ -451,7 +461,7 @@ export default function AuthScreen() {
                     <Pressable
                       onPress={handleGoogleSignIn}
                       disabled={isLoading || !request}
-                      className="flex-1 bg-white p-2 rounded-2xl flex-row items-center justify-center"
+                      className="flex-1 bg-white p-4 rounded-2xl flex-row items-center justify-center"
                       style={[
                         styles.authButton,
                         {
@@ -463,12 +473,20 @@ export default function AuthScreen() {
                     >
                       <GoogleIcon />
                       <View className="ml-3 items-start justify-center">
-                        <Text className="text-gray-800 font-semibold text-xs mt-2">
-                          Continue with
-                        </Text>
-                        <Text className="text-gray-900 font-bold text-sm">
-                          Google
-                        </Text>
+                        {Platform.OS === "android" ? (
+                          <Text className="text-gray-900 font-bold text-sm">
+                            Continue with Google
+                          </Text>
+                        ) : (
+                          <>
+                            <Text className="text-gray-800 font-semibold text-xs mt-2">
+                              Continue with
+                            </Text>
+                            <Text className="text-gray-900 font-bold text-sm">
+                              Google
+                            </Text>
+                          </>
+                        )}
                       </View>
                     </Pressable>
 

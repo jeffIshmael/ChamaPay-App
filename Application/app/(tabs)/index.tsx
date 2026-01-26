@@ -10,6 +10,7 @@ import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { formatDays, formatTimeRemaining } from "@/Utils/helperFunctions";
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import {
   ArrowRight,
   Bell,
@@ -214,6 +215,7 @@ export default function HomeScreen() {
 
   return (
     <View className="flex-1 bg-gray-50">
+      <StatusBar style="light" backgroundColor="#195556" />
       {/* Header */}
       <View
         className="bg-downy-800 rounded-b-3xl px-5 pb-5 flex-row items-center justify-between"

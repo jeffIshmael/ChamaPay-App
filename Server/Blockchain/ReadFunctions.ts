@@ -28,8 +28,8 @@ export const getTokenBalance = async (address: string) => {
     return { cUSDBalance, USDCBalance };
 }
 
-// function to get a member's balance
-export const getMemberChamaBalance = async (memberAddress: string, chamaBlockchainId: number) => {
+// function to get a user's balance
+export const getUserChamaBalance = async (memberAddress: string, chamaBlockchainId: bigint) => {
     const balance = await publicClient.readContract({
         address: contractAddress,
         abi: contractABI,
@@ -40,7 +40,7 @@ export const getMemberChamaBalance = async (memberAddress: string, chamaBlockcha
 }
 
 // function to get the balance of all the members in a chama
-export const getChamaMembersBalance = async (chamaBlockchainId: number) => {
+export const getEachMemberBalance = async (chamaBlockchainId: bigint) => {
     const membersBalance = await publicClient.readContract({
         address: contractAddress,
         abi: contractABI,
