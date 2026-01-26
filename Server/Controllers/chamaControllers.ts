@@ -5,7 +5,7 @@ import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
 import { bcCreateChama, bcDepositFundsToChama, bcJoinPublicChama } from "../Blockchain/WriteFunction";
 import { approveTx } from "../Blockchain/erc20Functions";
 import { contractAddress } from "../Blockchain/Constants";
-import { bcGetTotalChamas } from "../Blockchain/ReadFunctions";
+import { bcGetTotalChamas, getUserChamaBalance, getEachMemberBalance } from "../Blockchain/ReadFunctions";
 
 const prisma = new PrismaClient();
 
@@ -142,6 +142,17 @@ export const createChama = async (
 export const getChamaBySlug = async (req: Request, res: Response) => {
   try {
     const { slug } = req.params;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+    const user = await prisma.user.findUnique({
+      where: { id: Number(userId) },
+    });
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
     const chama = await prisma.chama.findUnique({
       where: { slug: slug },
       include: {
@@ -169,7 +180,17 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
     if (!chama) {
       return res.status(404).json({ success: false, error: "Chama not found" });
     }
-    return res.status(200).json({ success: true, chama: chama });
+    // add the blockchain details
+    const userBalance = await getUserChamaBalance(user.smartAddress, BigInt(Number(chama.blockchainId)));
+    const eachMemberBalance = await getEachMemberBalance(BigInt(Number(chama.blockchainId)));
+
+    const finalChama = {
+      ...chama,
+      userBalance: JSON.stringify(userBalance),
+      eachMemberBalance: JSON.stringify(eachMemberBalance),
+    };
+
+    return res.status(200).json({ success: true, chama: finalChama });
   } catch (error) {
     console.log(error);
     return res
@@ -397,7 +418,7 @@ export const addMemberToChama = async (req: Request, res: Response) => {
           .json({ success: false, error: "Unable to approve transaction." });
       }
       // the main function of joining
-      const chamaBlockchainId = BigInt(Number(chama.blockchainId));
+      const chamaBlockchainId = BigInt(Number(Number(chama.blockchainId)));
       const joinTxHash = await bcJoinPublicChama(privateKey.privateKey, chamaBlockchainId, amount);
       if (!joinTxHash) {
         return res

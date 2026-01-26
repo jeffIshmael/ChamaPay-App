@@ -1,14 +1,14 @@
 import { serverUrl } from "@/constants/serverUrl";
+import { connectSocket, disconnectSocket } from "@/socket/socket";
 import React, {
   createContext,
   ReactNode,
   useContext,
   useEffect,
-  useState,
   useRef,
+  useState,
 } from "react";
 import { storage } from "../Utils/storage";
-import { connectSocket, disconnectSocket } from "@/socket/socket";
 
 export interface User {
   id: number;
@@ -65,6 +65,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Load stored token and user data on app start (only once)
   useEffect(() => {
     if (!isInitialized.current) {
+      console.log("[Auth] Starting initialization...");
       isInitialized.current = true;
       loadStoredAuth();
     }
@@ -72,39 +73,60 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const loadStoredAuth = async () => {
     try {
+      console.log("[Auth] Loading tokens from storage...");
       const storedToken = await storage.getToken();
       const storedRefreshToken = await storage.getRefreshToken?.();
       const storedUser = await storage.getUser();
 
       if (storedToken) {
+        console.log("[Auth] Token found. Hydrating state.");
         setToken(storedToken);
         if (storedRefreshToken) setRefreshToken(storedRefreshToken);
 
         if (storedUser) {
+          console.log("[Auth] User found in storage.");
           setUser(storedUser);
-          // Silently refresh user data in background
+          // Set loading to false IMMEDIATELY since we have user data
+          setIsLoading(false);
+
+          // Background refresh (don't await)
+          console.log("[Auth] Background refreshing user data...");
           fetchUserData(storedToken).catch(async (error) => {
-            console.log("Token expired, attempting refresh");
+            console.log("[Auth] Token expired or fetch failed, trying refresh token...");
             if (storedRefreshToken && !isRefreshingToken.current) {
               await loginWithRefreshToken();
             }
           });
         } else {
-          // Token exists but no user data
+          console.log("[Auth] Token exists but no user data. Fetching profile...");
           try {
             await fetchUserData(storedToken);
-          } catch {
+          } catch (e) {
+            console.error("[Auth] Failed to fetch profile with existing token:", e);
             if (storedRefreshToken && !isRefreshingToken.current) {
               await loginWithRefreshToken();
             }
           }
+          // Set loading false after fetch attempt
+          setIsLoading(false);
         }
+      } else {
+        console.log("[Auth] No token found in storage.");
+        setIsLoading(false);
       }
     } catch (error) {
-      console.error("Error loading stored auth:", error);
-      await clearAuth();
-    } finally {
+      console.error("[Auth] Critical error during storage load:", error);
+      // Don't await clearAuth - just set loading false to unblock the app
+      clearAuth().catch(() => {});
       setIsLoading(false);
+    } finally {
+      // Safety net: ALWAYS set loading to false after 3 seconds max
+      setTimeout(() => {
+        if (isLoading) {
+          console.warn("[Auth] Safety timeout - forcing isLoading to false");
+          setIsLoading(false);
+        }
+      }, 3000);
     }
   };
 
