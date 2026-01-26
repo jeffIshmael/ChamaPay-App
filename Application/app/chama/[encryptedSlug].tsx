@@ -22,7 +22,7 @@ export default function ChamaRedirect() {
 
       try {
         setIsProcessing(true);
-        
+
         const originalSlug = decryptChamaSlug(encryptedSlug);
         if (!originalSlug) {
           router.replace("/discover-chamas");
@@ -33,10 +33,10 @@ export default function ChamaRedirect() {
         const response = await getChamaBySlug(originalSlug, token);
         if (response.success && response.chama) {
           const chama = response.chama;
-          
+
           // Check if user is already a member of this chama
-          const isMember = chama.members?.some(member => 
-            member.user?.id === user?.id || 
+          const isMember = chama.members?.some(member =>
+            member.user?.id === user?.id ||
             member.user?.email === user?.email ||
             member.user?.userName === user?.userName
           );

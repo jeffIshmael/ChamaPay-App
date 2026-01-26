@@ -1,22 +1,21 @@
+import { useRouter } from "expo-router";
 import {
   ChevronLeft,
   ChevronRight,
+  Globe,
   Shield,
   Smartphone,
   Users,
-  Globe,
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
-  ScrollView,
+  Dimensions,
+  Image,
   Text,
   TouchableOpacity,
-  View,
-  Image,
-  Dimensions,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 
 const { width, height } = Dimensions.get("window");
 

@@ -65,7 +65,7 @@ export default function AuthScreen() {
   const [loadingMessage, setLoadingMessage] = useState("");
   const router = useRouter();
   const { setAuth } = useAuth();
-  
+
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
@@ -343,14 +343,14 @@ export default function AuthScreen() {
               <View
                 className="mb-8 rounded-full overflow-hidden"
                 style={{
-                  width: 120,
-                  height: 120,
-                  backgroundColor: "white",
+                  width: 140,
+                  height: 140,
+                  backgroundColor: "transparent",
                   shadowColor: "#26a6a2",
-                  shadowOffset: { width: 0, height: 10 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 20,
-                  elevation: 12,
+                  // shadowOffset: { width: 0, height: 10 },
+                  // shadowOpacity: 0.25,
+                  // shadowRadius: 20,
+                  // elevation: 8,
                 }}
               >
                 <Image
@@ -361,7 +361,7 @@ export default function AuthScreen() {
               </View>
 
               <Text className="text-5xl mb-4 text-gray-900 font-bold text-center">
-                ChamaPay
+                Chamapay
               </Text>
               <Text
                 className="text-center text-xl font-medium px-8"

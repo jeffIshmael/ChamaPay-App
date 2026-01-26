@@ -1,6 +1,6 @@
 {
   "name": "chamapay-app",
-  "main": "./index.js",
+  "main": "index.js",
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",

@@ -4,19 +4,14 @@ import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
-  Bell,
   Check,
   ChevronRight,
   Copy,
   Edit,
-  Eye,
   FileText,
-  HelpCircle,
-  Key,
-  LogOut,
-  LucideFingerprint,
   Fingerprint,
-  FingerprintIcon
+  HelpCircle,
+  LogOut
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -136,7 +131,7 @@ export default function ProfileSettings() {
     <View className="flex-1 bg-gray-50">
       {/* Enhanced Header */}
       <View
-        className="bg-downy-800 px-6 pb-8 pt-4"
+        className="bg-downy-800 px-6 pb-4 pt-4"
         style={{ paddingTop: insets.top + 16 }}
       >
         <View className="flex-row items-center justify-between mb-6">
@@ -181,7 +176,7 @@ export default function ProfileSettings() {
         </View>
       </View>
 
-      <ScrollView className="flex-1 -mt-4" showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1 mt-2" showsVerticalScrollIndicator={false}>
         <View className="px-6">
           {/* Edit Profile Card */}
           <TouchableOpacity onPress={() => router.push("/edit-profile")}>
@@ -223,7 +218,7 @@ export default function ProfileSettings() {
                     Wallet Information
                   </Text>
                   <Text className="text-gray-600 text-sm">
-                    Your blockchain wallet details
+                    Your onchain wallet details
                   </Text>
                 </View>
               </View>

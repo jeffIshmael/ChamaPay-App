@@ -67,8 +67,8 @@ export default function AuthScreen() {
       if (response.ok) {
         await AsyncStorage.setItem("token", data.token);
         Alert.alert("Success", `Login successful.`, [
-          { 
-            text: "OK", 
+          {
+            text: "OK",
             onPress: () => {
               if (router) {
                 router.push("/(tabs)");
@@ -107,11 +107,11 @@ export default function AuthScreen() {
         userName,
       });
       console.log(response);
-      if(response.status !== 200 && response.status !== 201){
+      if (response.status !== 200 && response.status !== 201) {
         setErrorText(
           "Registration failed. Try again."
-       );
-       return;
+        );
+        return;
       }
       Alert.alert(
         "Success",
@@ -127,7 +127,7 @@ export default function AuthScreen() {
       );
     } catch (error) {
       setErrorText(
-         "Registration failed. Try again."
+        "Registration failed. Try again."
       );
     } finally {
       setLoading(false);
@@ -176,7 +176,7 @@ export default function AuthScreen() {
             {activeSection === "login" ? "Welcome Back" : "Join ChamaPay"}
           </Text>
           <Text className="text-gray-600 text-center">
-            {activeSection === "login" 
+            {activeSection === "login"
               ? "Sign in to continue to your account"
               : "Create your account to get started"}
           </Text>
@@ -186,7 +186,7 @@ export default function AuthScreen() {
         <View className="flex-row bg-gray-100 rounded-xl p-1 mb-6">
           <TabButton label="Log In" value="login" isActive={activeSection === "login"} onPress={() => setActiveSection("login")} />
           <TouchableOpacity
-            className={`flex-1 py-3 rounded-lg ${activeSection !== "login"  ? "bg-white shadow-sm" : ""}`}
+            className={`flex-1 py-3 rounded-lg ${activeSection !== "login" ? "bg-white shadow-sm" : ""}`}
             onPress={() => {
               resetFormFields();
               setActiveSection("signup");

@@ -6,33 +6,45 @@
     "orientation": "portrait",
     "icon": "./assets/images/chamapay-logo.png",
     "scheme": "chamapayapp",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#d1f6f1",
     "newArchEnabled": true,
+
     "splash": {
-      "image": "./assets/images/2048.png",
+      "image": "./assets/images/chamapay-logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#f1fcfa"
+      "backgroundColor": "#d1f6f1"
     },
+
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jeff.chamapay",
       "usesAppleSignIn": true,
+      "backgroundColor": "#d1f6f1",
       "infoPlist": {
         "NSFaceIDUsageDescription": "Use Face ID to securely access your wallet seed phrase",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
+
     "android": {
+      "backgroundColor": "#d1f6f1",
+      "windowSoftInputMode": "adjustResize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/chamapay-logo.png",
-        "backgroundColor": "#f1fcfa"
+        "backgroundColor": "#d1f6f1"
       },
       "splash": {
-        "image": "./assets/images/splash-icon.png",
+        "image": "./assets/images/chamapay-logo.png",
         "resizeMode": "contain",
-        "backgroundColor": "#f1fcfa"
+        "backgroundColor": "#d1f6f1",
+        "mdpi": "./assets/images/chamapay-logo.png",
+        "hdpi": "./assets/images/chamapay-logo.png",
+        "xhdpi": "./assets/images/chamapay-logo.png",
+        "xxhdpi": "./assets/images/chamapay-logo.png",
+        "xxxhdpi": "./assets/images/chamapay-logo.png"
       },
-      "edgeToEdgeEnabled": true,
+      "edgeToEdgeEnabled": false,
       "package": "com.jeff.chamapay",
       "permissions": [
         "USE_BIOMETRIC",
@@ -56,40 +68,36 @@
         },
         {
           "action": "VIEW",
-          "data": [
-            {
-              "scheme": "chamapayapp"
-            }
-          ],
+          "data": [{ "scheme": "chamapayapp" }],
           "category": ["BROWSABLE", "DEFAULT"]
         },
         {
           "action": "VIEW",
-          "data": [
-            {
-              "scheme": "com.jeff.chamapay"
-            }
-          ],
+          "data": [{ "scheme": "com.jeff.chamapay" }],
           "category": ["BROWSABLE", "DEFAULT"]
         }
       ]
     },
+
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+
     "plugins": [
       "expo-router",
       "expo-asset",
+
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/chamapay-logo.png",
           "resizeMode": "contain",
-          "backgroundColor": "#f1fcfa"
+          "backgroundColor": "#d1f6f1"
         }
       ],
+
       [
         "expo-local-authentication",
         {
@@ -99,15 +107,14 @@
       [
         "expo-build-properties",
         {
-          "ios": {
-            "newArchEnabled": true
-          },
           "android": {
-            "newArchEnabled": true,
-            "minSdkVersion": 26
+            "minSdkVersion": 26,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35
           }
         }
       ],
+
       "expo-secure-store",
       "expo-apple-authentication",
       "expo-web-browser",
@@ -115,9 +122,11 @@
       "@react-native-community/datetimepicker",
       "expo-font"
     ],
+
     "experiments": {
       "typedRoutes": true
     },
+
     "extra": {
       "router": {},
       "eas": {

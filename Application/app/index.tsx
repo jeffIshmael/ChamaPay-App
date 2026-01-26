@@ -1,15 +1,17 @@
+// app/index.tsx
 import { useAuth } from "@/Contexts/AuthContext";
-import { router } from "expo-router";
-import { useEffect } from "react";
+import { Redirect } from "expo-router";
 
 export default function Index() {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
 
-  useEffect(() => {
-    if (isLoading) return;
-    if (isAuthenticated) router.replace("/(tabs)");
-    else router.replace("/new-auth-screen");
-  }, [isLoading, isAuthenticated]);
+  console.log("[Index] isAuthenticated:", isAuthenticated);
 
-  return null;
+  if (isAuthenticated) {
+    console.log("[Index] Redirect → Tabs");
+    return <Redirect href="/(tabs)" />;
+  }
+
+  console.log("[Index] Redirect → Auth");
+  return <Redirect href="/new-auth-screen" />;
 }

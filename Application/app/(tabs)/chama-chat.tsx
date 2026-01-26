@@ -226,7 +226,7 @@ export default function ChamaChat({ chama, user, onBack }: ChamaChatProps) {
             const showDate =
               index === 0 ||
               formatDate(message.timestamp) !==
-                formatDate(messages[index - 1].timestamp);
+              formatDate(messages[index - 1].timestamp);
 
             return (
               <View key={message.id} className="mb-4">
@@ -274,18 +274,16 @@ export default function ChamaChat({ chama, user, onBack }: ChamaChatProps) {
                           </Text>
                         )}
                         <Card
-                          className={`p-3 ${
-                            isCurrentUser(message.senderId)
+                          className={`p-3 ${isCurrentUser(message.senderId)
                               ? "bg-emerald-600"
                               : "bg-white border border-gray-200"
-                          }`}
+                            }`}
                         >
                           <Text
-                            className={`text-sm ${
-                              isCurrentUser(message.senderId)
+                            className={`text-sm ${isCurrentUser(message.senderId)
                                 ? "text-white"
                                 : "text-gray-900"
-                            }`}
+                              }`}
                           >
                             {message.message}
                           </Text>
@@ -329,9 +327,8 @@ export default function ChamaChat({ chama, user, onBack }: ChamaChatProps) {
             <TouchableOpacity
               onPress={sendMessage}
               disabled={!newMessage.trim()}
-              className={`p-3 rounded-lg ${
-                newMessage.trim() ? "bg-emerald-600" : "bg-gray-300"
-              }`}
+              className={`p-3 rounded-lg ${newMessage.trim() ? "bg-emerald-600" : "bg-gray-300"
+                }`}
             >
               <Send
                 size={16}
