@@ -1,6 +1,7 @@
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import {
   ArrowLeft,
   Calendar,
@@ -917,6 +918,7 @@ export default function CreateChama() {
 
   return (
     <View className="flex-1 bg-gray-50">
+      <StatusBar style="light" />
       {/* Header */}
       <View
         className="bg-downy-800 rounded-b-3xl"

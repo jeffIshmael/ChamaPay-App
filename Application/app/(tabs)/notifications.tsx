@@ -1,30 +1,31 @@
 import { useAuth } from "@/Contexts/AuthContext";
 import { getUserDetails, transformNotification } from "@/lib/chamaService";
+import { handleTheRequestToJoin } from "@/lib/userService";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import {
   ArrowLeft,
   Bell,
   Calendar,
+  Check,
   CheckCircle,
   MessageCircle,
+  UserPlus,
   Users,
   Wallet,
-  UserPlus,
   X,
-  Check,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
-  ActivityIndicator,
-  Alert,
-  RefreshControl,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { handleTheRequestToJoin } from "@/lib/userService";
 
 export interface Notification {
   id: string;
@@ -321,6 +322,7 @@ export default function Notifications() {
 
   return (
     <View className="flex-1 bg-gray-50">
+      <StatusBar style="light" />
       {/* Modern Digital Header */}
       <View
         className="bg-downy-800 rounded-b-3xl"
@@ -371,8 +373,8 @@ export default function Notifications() {
             key={notification.id}
             onPress={() => handleNotificationPress(notification)}
             className={`mb-3 p-4 bg-white rounded-xl border border-gray-200 ${!notification.read
-                ? "border-l-4 border-l-emerald-500 bg-emerald-50"
-                : ""
+              ? "border-l-4 border-l-emerald-500 bg-emerald-50"
+              : ""
               }`}
             activeOpacity={0.7}
             disabled={notification.actionRequired && processingRequestId !== null}

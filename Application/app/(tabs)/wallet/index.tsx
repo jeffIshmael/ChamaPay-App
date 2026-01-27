@@ -1,10 +1,10 @@
-import { AllBalances, getAllBalances } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
 import { CurrencyCode } from "@/lib/pretiumService";
 import { getUserBalance } from "@/lib/userService";
 import { getTheUserTx } from "@/lib/walletServices";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { useFocusEffect, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -21,7 +21,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -33,7 +32,6 @@ import {
   View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Circle, Path } from "react-native-svg";
 
 interface Transaction {
   id: number;
@@ -542,6 +540,7 @@ export default function CryptoWallet() {
       keyboardVerticalOffset={insets.top + 64}
     >
       <View className="flex-1 bg-gray-50">
+        <StatusBar style="light" />
         {/* Header - Fixed */}
         <View
           className="bg-downy-800 px-6 pb-8 rounded-b-3xl"

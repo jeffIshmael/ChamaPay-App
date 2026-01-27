@@ -1,5 +1,3 @@
-import { pretiumSettlementAddress } from "@/constants/contractAddress";
-import { chain, client, usdcContract } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
 import {
   CurrencyCode,
@@ -9,6 +7,7 @@ import {
 } from "@/lib/pretiumService";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { ArrowLeft, Check } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
@@ -52,7 +51,7 @@ interface Verification {
 export default function WithdrawCryptoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [amount, setAmount] = useState("");
+  const [amountKES, setAmountKES] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState<
@@ -105,22 +104,25 @@ export default function WithdrawCryptoScreen() {
   // Get current exchange rate
   const currentExchangeRate = theExhangeQuote?.exchangeRate?.buying_rate || 0;
 
-  // Calculations
-  const calculateTotalAmount = () =>
-    (parseFloat(amount) || 0) * currentExchangeRate;
-  const calculateFee = () => calculateTotalAmount() * 0.005;
-  const calculateFinalAmount = () =>
-    (calculateTotalAmount() - calculateFee()).toFixed(2);
+  // Calculate available balance in KES
+  const balanceInKES = (parseFloat(USDCBalance as string) || 0) * currentExchangeRate;
 
-  // Convert min/max limits from KES to USDC
-  const minUSDC =
-    limits && currentExchangeRate > 0
-      ? (limits.min / currentExchangeRate).toFixed(2)
-      : null;
-  const maxUSDC =
-    limits && currentExchangeRate > 0
-      ? (limits.max / currentExchangeRate).toFixed(2)
-      : null;
+  // Calculations - now based on KES input
+  // User gets exactly what they input, fee is added on top
+  const calculateFee = () => parseFloat(amountKES || "0") * 0.005;
+  
+  const calculateTotalDeduction = () => {
+    const kesAmount = parseFloat(amountKES) || 0;
+    return kesAmount + calculateFee();
+  };
+
+  const calculateUSDCAmount = () => {
+    const totalKES = calculateTotalDeduction();
+    return currentExchangeRate > 0 ? totalKES / currentExchangeRate : 0;
+  };
+
+  const usdcAmount = calculateUSDCAmount().toFixed(6);
+  const finalAmount = amountKES; // User receives exactly what they enter
 
   // Verify M-Pesa number
   const handleVerifyPhoneNumber = async () => {
@@ -168,63 +170,37 @@ export default function WithdrawCryptoScreen() {
     }
   };
 
-  // const transferUSDC = async (
-  //   amount: string,
-  //   receivingAddress: `0x${string}`
-  // ) => {
-  //   if (!token) {
-  //     Alert.alert("Error", "Authentication required");
-  //     return;
-  //   }
-  //   try {
-  //     const transaction = prepareContractCall({
-  //       contract: usdcContract,
-  //       method: "function transfer(address to, uint256 amount)",
-  //       params: [receivingAddress, toUnits(amount, 6)],
-  //     });
-  //     const { transactionHash } = await sendTransaction({
-  //       account: activeAccount,
-  //       transaction,
-  //     });
-  //     const receipt = await waitForReceipt({ client, chain, transactionHash });
-  //     return receipt?.transactionHash;
-  //   } catch (error) {
-  //     console.log("Transfer error:", error);
-  //     return null;
-  //   }
-  // };
-
   const handleInitialWithdraw = async () => {
-    if (!amount.trim()) return Alert.alert("Error", "Please enter an amount");
+    if (!amountKES.trim()) return Alert.alert("Error", "Please enter an amount");
 
-    const amountNum = parseFloat(amount);
-    const balanceNum = parseFloat(currentToken.balance.toString());
+    const kesAmountNum = parseFloat(amountKES);
+    const totalDeduction = calculateTotalDeduction();
 
-    if (amountNum <= 0) {
+    if (kesAmountNum <= 0) {
       return Alert.alert("Error", "Amount must be greater than 0");
     }
 
-    if (amountNum > balanceNum) {
-      return Alert.alert("Error", "Insufficient balance");
+    if (totalDeduction > balanceInKES) {
+      // Calculate max amount user can withdraw
+      const maxWithdrawable = balanceInKES / 1.005; // Reverse calculate: balance / (1 + 0.005)
+      return Alert.alert(
+        "Insufficient Balance",
+        `You can withdraw up to ${CURRENCY} ${formatCurrency(maxWithdrawable.toFixed(2))} (including 0.5% fee)`
+      );
     }
 
     // Validate against min/max limits
-    if (limits && currentExchangeRate > 0) {
-      const localCurrencyAmount = amountNum * currentExchangeRate;
-      if (localCurrencyAmount < limits.min) {
+    if (limits) {
+      if (kesAmountNum < limits.min) {
         return Alert.alert(
           "Error",
-          `Minimum withdrawal is ${CURRENCY} ${formatCurrency(
-            limits.min
-          )} (${minUSDC} USDC)`
+          `Minimum withdrawal is ${CURRENCY} ${formatCurrency(limits.min)}`
         );
       }
-      if (localCurrencyAmount > limits.max) {
+      if (kesAmountNum > limits.max) {
         return Alert.alert(
           "Error",
-          `Maximum withdrawal is ${CURRENCY} ${formatCurrency(
-            limits.max
-          )} (${maxUSDC} USDC)`
+          `Maximum withdrawal is ${CURRENCY} ${formatCurrency(limits.max)}`
         );
       }
     }
@@ -237,7 +213,7 @@ export default function WithdrawCryptoScreen() {
   };
 
   const handleConfirmedWithdraw = async () => {
-    if (!token ) {
+    if (!token) {
       Alert.alert("Error", "No token or wallet connected");
       return;
     }
@@ -248,7 +224,7 @@ export default function WithdrawCryptoScreen() {
 
     try {
       // Step 1: Transfer USDC to Pretium settlement address
-      // const txHash = await transferUSDC(amount, pretiumSettlementAddress);
+      // const txHash = await transferUSDC(usdcAmount, pretiumSettlementAddress);
       // if (!txHash) {
       //   throw new Error("Unable to send USDC");
       // }
@@ -260,8 +236,8 @@ export default function WithdrawCryptoScreen() {
         MOBILE_NETWORK,
         `0${phoneNumber}`,
         txHash,
-        calculateFinalAmount(),
-        amount,
+        amountKES, // User receives exactly what they entered
+        usdcAmount,
         currentExchangeRate.toString(),
         token
       );
@@ -310,7 +286,7 @@ export default function WithdrawCryptoScreen() {
           setIsProcessing(false);
           Alert.alert(
             "Success!",
-            `${CURRENCY} ${calculateFinalAmount()} has been sent to ${formatPhoneNumber(
+            `${CURRENCY} ${formatCurrency(amountKES)} has been sent to ${formatPhoneNumber(
               KENYA_PHONE_CODE,
               phoneNumber
             )}`,
@@ -318,7 +294,7 @@ export default function WithdrawCryptoScreen() {
               {
                 text: "OK",
                 onPress: () => {
-                  setAmount("");
+                  setAmountKES("");
                   setPhoneNumber("");
                   router.push("/wallet");
                 },
@@ -377,9 +353,6 @@ export default function WithdrawCryptoScreen() {
   };
 
   const currentToken = tokens[0];
-  const totalAmount = calculateTotalAmount().toFixed(2);
-  const fee = calculateFee().toFixed(2);
-  const finalAmount = calculateFinalAmount();
 
   const canConfirmWithdraw =
     !isVerifying &&
@@ -387,19 +360,15 @@ export default function WithdrawCryptoScreen() {
     !!getMobileDetails(verifiedPhoneData);
 
   const isFormValid = () => {
-    const amountNum = parseFloat(amount);
-    const balanceNum = parseFloat(currentToken.balance.toString());
+    const kesAmountNum = parseFloat(amountKES);
+    const totalDeduction = calculateTotalDeduction();
 
-    if (!amount.trim() || amountNum <= 0 || amountNum > balanceNum) {
+    if (!amountKES.trim() || kesAmountNum <= 0 || totalDeduction > balanceInKES) {
       return false;
     }
 
-    if (limits && currentExchangeRate > 0) {
-      const localCurrencyAmount = amountNum * currentExchangeRate;
-      if (
-        localCurrencyAmount < limits.min ||
-        localCurrencyAmount > limits.max
-      ) {
+    if (limits) {
+      if (kesAmountNum < limits.min || kesAmountNum > limits.max) {
         return false;
       }
     }
@@ -409,9 +378,10 @@ export default function WithdrawCryptoScreen() {
 
   return (
     <View className="flex-1 bg-gray-50">
+      <StatusBar style="light" />
       {/* Header */}
       <View
-        className="bg-downy-800 rounded-b-3xl"
+        className="bg-downy-800"
         style={{
           paddingTop: insets.top + 16,
           paddingBottom: 24,
@@ -430,40 +400,41 @@ export default function WithdrawCryptoScreen() {
           <View className="w-10" />
         </View>
         <Text className="text-emerald-100 text-sm text-center mt-1">
-          Withdraw USDC to M-Pesa instantly
+          Withdraw to M-Pesa instantly
         </Text>
       </View>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
+        className="flex-1 rounded-t-3xl"
       >
         <ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          className="flex-1 pb-20"
+          className="flex-1 pb-20 "
         >
           <View className="px-6 py-6 gap-5">
             {/* M-Pesa Info Card */}
             <View className="bg-downy-50 rounded-3xl p-5 shadow-lg border border-downy-100">
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center">
-                  <View className="w-16 h-16 rounded-2xl bg-green-50 items-center justify-center">
-                    <Image
-                      source={require("@/assets/images/mpesa.png")}
-                      className="w-16 h-16"
-                      resizeMode="contain"
-                    />
-                  </View>
+              <View className="flex-row items-center">
+                <View className="w-16 h-16 rounded-2xl bg-green-50 items-center justify-center">
+                  <Image
+                    source={require("@/assets/images/mpesa.png")}
+                    className="w-16 h-16"
+                    resizeMode="contain"
+                  />
+                </View>
+                
+                {/* Vertical Divider */}
+                <View className="w-px h-12 bg-gray-300 mx-4" />
 
-                  <View className="ml-4">
-                    <Text className="text-lg font-bold text-gray-900">
-                      M-Pesa
-                    </Text>
-                    <Text className="text-xs text-gray-500">
-                      Safaricom Kenya
-                    </Text>
-                  </View>
+                <View className="flex-1">
+                  <Text className="text-lg font-bold text-gray-900">
+                    M-Pesa
+                  </Text>
+                  <Text className="text-xs text-gray-500">
+                    Safaricom Kenya
+                  </Text>
                 </View>
               </View>
             </View>
@@ -503,20 +474,27 @@ export default function WithdrawCryptoScreen() {
 
             {/* Amount Input Section */}
             <View className="bg-white p-6 rounded-2xl shadow-sm">
-              <Text className="text-base font-bold text-gray-900 mb-4">
-                Withdrawal Amount
-              </Text>
+              <View className="flex-row items-center justify-between mb-4">
+                <Text className="text-base font-bold text-gray-900">
+                  Withdrawal Amount
+                </Text>
+                <View>
+                  <Text className="text-xs font-bold text-gray-600">
+                    1 USDC = {currentExchangeRate.toFixed(2)} {CURRENCY}
+                  </Text>
+                </View>
+              </View>
               <View className="p-5 rounded-2xl border-2 border-gray-200 bg-gray-50">
                 <TextInput
-                  value={amount}
-                  onChangeText={setAmount}
+                  value={amountKES}
+                  onChangeText={setAmountKES}
                   placeholder="0.00"
                   keyboardType="decimal-pad"
                   placeholderTextColor="#9CA3AF"
                   className="text-center text-4xl font-bold text-gray-900"
                 />
                 <Text className="text-center text-xs font-medium text-gray-500 mt-2">
-                  USDC
+                  {CURRENCY}
                 </Text>
               </View>
               <View className="flex-row items-center justify-between mt-4">
@@ -524,25 +502,24 @@ export default function WithdrawCryptoScreen() {
                   <Text className="text-sm text-gray-600">
                     Available:{" "}
                     <Text className="font-semibold">
-                      {currentToken.balance} USDC
+                      {CURRENCY} {formatCurrency(balanceInKES.toFixed(2))}
                     </Text>
                   </Text>
-                  {limits && minUSDC && maxUSDC && (
+                  {limits && (
                     <Text className="text-xs text-amber-600 mt-1">
-                      Limits: {minUSDC} - {maxUSDC} USDC
+                      Limits: {CURRENCY} {formatCurrency(limits.min)} - {formatCurrency(limits.max)}
                     </Text>
                   )}
                 </View>
                 <TouchableOpacity
                   onPress={() => {
-                    const balanceNum = parseFloat(
-                      currentToken.balance.toString()
-                    );
-                    const maxLimitNum = maxUSDC
-                      ? parseFloat(maxUSDC)
-                      : Infinity;
-                    const maxAmount = Math.min(balanceNum, maxLimitNum);
-                    setAmount(maxAmount.toFixed(2));
+                    const maxLimitNum = limits?.max || Infinity;
+                    // Calculate max withdrawable: we need to account for the fee
+                    // If user wants X KES, we deduct X * 1.005 from balance
+                    // So max withdrawable = min(balance / 1.005, maxLimit)
+                    const maxFromBalance = balanceInKES / 1.005;
+                    const maxAmount = Math.min(maxFromBalance, maxLimitNum);
+                    setAmountKES(maxAmount.toFixed(2));
                   }}
                   className="bg-downy-100 px-4 py-2 rounded-lg border border-downy-300"
                   activeOpacity={0.7}
@@ -552,21 +529,13 @@ export default function WithdrawCryptoScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
-              {parseFloat(amount) > 0 && (
+              {parseFloat(amountKES) > 0 && (
                 <>
                   <View className="my-5">
                     <View className="flex-1 h-px bg-gray-200" />
                   </View>
-                  <View className="mb-4 flex-row justify-between items-center">
-                    <Text className="text-sm font-semibold text-emerald-800">
-                      Exchange Rate
-                    </Text>
-                    <Text className="text-sm font-bold text-emerald-700">
-                      1 USDC = {currentExchangeRate.toFixed(2)} {CURRENCY}
-                    </Text>
-                  </View>
-                  {(limits && Number(finalAmount) > limits?.max) ||
-                    (limits && Number(finalAmount) < limits?.min && (
+                  {(limits && Number(amountKES) > limits?.max) ||
+                    (limits && Number(amountKES) < limits?.min && (
                       <View className="bg-amber-50 p-3 rounded-xl border border-amber-200 mb-2">
                         <Text className="text-xs text-amber-800 text-center">
                           💰 Limits: {CURRENCY}{" "}
@@ -578,28 +547,39 @@ export default function WithdrawCryptoScreen() {
                   <View className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-2">
                     <View className="flex-row justify-between items-center mb-2">
                       <Text className="text-sm text-gray-600">
-                        {amount} USDC converts to
+                        You will receive
                       </Text>
                       <Text className="text-sm font-semibold text-gray-900">
-                        {CURRENCY} {formatCurrency(totalAmount)}
+                        {CURRENCY} {formatCurrency(amountKES)}
                       </Text>
                     </View>
-                    <View className="flex-row justify-between items-center">
+                    <View className="flex-row justify-between items-center mb-2">
                       <Text className="text-sm text-gray-600">
                         Service Fee (0.5%)
                       </Text>
                       <Text className="text-sm font-semibold text-amber-600">
-                        - {CURRENCY} {formatCurrency(fee)}
+                        + {CURRENCY} {formatCurrency(calculateFee().toFixed(2))}
                       </Text>
                     </View>
-                  </View>
-                  <View className="mt-4 bg-blue-50 p-4 rounded-2xl border-2 border-blue-200">
-                    <Text className="text-xs text-blue-600 font-semibold mb-2 text-center">
-                      YOU'LL RECEIVE
-                    </Text>
-                    <Text className="text-3xl font-bold text-blue-600 text-center">
-                      {CURRENCY} {formatCurrency(finalAmount)}
-                    </Text>
+                    <View className="my-2">
+                      <View className="flex-1 h-px bg-gray-300" />
+                    </View>
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-sm font-bold text-gray-900">
+                        Total Deduction
+                      </Text>
+                      <Text className="text-sm font-bold text-gray-900">
+                        {CURRENCY} {formatCurrency(calculateTotalDeduction().toFixed(2))}
+                      </Text>
+                    </View>
+                    <View className="flex-row justify-between items-center mt-2">
+                      <Text className="text-xs text-gray-500">
+                        USDC to withdraw
+                      </Text>
+                      <Text className="text-xs text-gray-500">
+                        {parseFloat(usdcAmount).toFixed(4)} USDC
+                      </Text>
+                    </View>
                   </View>
                 </>
               )}
@@ -693,10 +673,10 @@ export default function WithdrawCryptoScreen() {
                           </Text>
                           <View className="flex-row items-center gap-4">
                             <Text className="text-lg font-bold text-blue-700 mb-1">
-                              {amount} USDC
+                              {CURRENCY} {formatCurrency(amountKES)}
                             </Text>
                             <Text className="text-sm text-blue-800">
-                              ≈ {CURRENCY} {formatCurrency(finalAmount)}{" "}
+                              ≈ {parseFloat(usdcAmount).toFixed(4)} USDC
                             </Text>
                           </View>
                         </>
@@ -750,7 +730,7 @@ export default function WithdrawCryptoScreen() {
                   Processing Withdrawal
                 </Text>
                 <Text className="text-sm text-gray-600 text-center mt-2">
-                  Sending {CURRENCY} {finalAmount} to{" "}
+                  Sending {CURRENCY} {formatCurrency(amountKES)} to{" "}
                   {formatPhoneNumber(KENYA_PHONE_CODE, phoneNumber)}
                 </Text>
                 <View className="mt-4 bg-blue-50 p-3 rounded-xl">
@@ -796,7 +776,7 @@ export default function WithdrawCryptoScreen() {
                   Success!
                 </Text>
                 <Text className="text-sm text-gray-600 text-center mt-2">
-                  KES {finalAmount} sent successfully
+                  KES {formatCurrency(amountKES)} sent successfully
                 </Text>
                 <View className="mt-4 bg-emerald-50 p-4 rounded-xl border border-emerald-200">
                   <Text className="text-xs text-emerald-800 text-center">

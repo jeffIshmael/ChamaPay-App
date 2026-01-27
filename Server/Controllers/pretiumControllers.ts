@@ -15,6 +15,9 @@ import {
 } from "../Lib/PretiumFunctions";
 import { pimlicoDepositForUser } from "../Lib/pimlicoAgent";
 import { toUnits } from "thirdweb";
+import { settlementAddress } from "../Lib/PretiumFunctions";
+import { transferTx } from "../Blockchain/erc20Functions";
+import { getPrivateKey } from "../Lib/HelperFunctions";
 
 const prisma = new PrismaClient();
 
@@ -155,6 +158,22 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
       return res.status(400).json({
         success: false,
         error: "Amount and phone number are required",
+      });
+    }
+    // send the usdc to the pretium settlement address
+    // get the users private key
+    const userPrivateKey = await getPrivateKey(userId);
+    if (!userPrivateKey.success || userPrivateKey.privateKey === null) {
+      return res.status(400).json({
+        success: false,
+        error: "Unable to get user signing client",
+      });
+    }
+    const txHash = await transferTx(userPrivateKey.privateKey, amount, settlementAddress as `0x${string}`);
+    if (!txHash) {
+      return res.status(400).json({
+        success: false,
+        error: "Failed to send USDC to pretium settlement address",
       });
     }
     // for the offramp, the fee will be charged from the crypto
