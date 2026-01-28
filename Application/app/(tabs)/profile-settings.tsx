@@ -228,7 +228,7 @@ export default function ProfileSettings() {
                 </Text>
                 <View className="flex-row items-center justify-between">
                   <Text className="text-gray-900 font-mono text-sm flex-1">
-                    {formatWalletAddress(user.address)}
+                    {formatWalletAddress(user.smartAddress)}
                   </Text>
                   <TouchableOpacity
                     onPress={copyWalletAddress}

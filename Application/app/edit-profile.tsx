@@ -2,6 +2,7 @@ import { serverUrl } from '@/constants/serverUrl';
 import { useAuth } from '@/Contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { ArrowLeft, Camera, Edit3, Mail, Phone, Save, User } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
@@ -20,7 +21,7 @@ export default function EditProfile() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, token, refreshUser } = useAuth();
-  
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -53,7 +54,7 @@ export default function EditProfile() {
       .join('')
       .toUpperCase()
       .slice(0, 2);
-    
+
     return `https://api.dicebear.com/7.x/initials/svg?seed=${initials}&backgroundColor=10b981&textColor=ffffff`;
   };
 
@@ -80,7 +81,7 @@ export default function EditProfile() {
   const pickImage = async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
+
       if (permissionResult.granted === false) {
         Alert.alert('Permission Required', 'Permission to access camera roll is required!');
         return;
@@ -105,7 +106,7 @@ export default function EditProfile() {
   const takePhoto = async () => {
     try {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-      
+
       if (permissionResult.granted === false) {
         Alert.alert('Permission Required', 'Permission to access camera is required!');
         return;
@@ -131,11 +132,11 @@ export default function EditProfile() {
     try {
       // Create FormData for multipart upload
       const formData = new FormData();
-      
+
       // Extract filename and type from URI
       const uriParts = imageAsset.uri.split('.');
       const fileType = uriParts[uriParts.length - 1];
-      
+
       formData.append('image', {
         uri: imageAsset.uri,
         name: `profile_${Date.now()}.${fileType}`,
@@ -156,10 +157,10 @@ export default function EditProfile() {
       if (response.ok) {
         // Update local state with new image URL
         setFormData(prev => ({ ...prev, profileImageUrl: data.profileImageUrl }));
-        
+
         // Refresh user data to get updated profile
         await refreshUser?.();
-        
+
         Alert.alert('Success', 'Profile image updated successfully!');
       } else {
         throw new Error(data.error || 'Failed to upload image');
@@ -167,7 +168,7 @@ export default function EditProfile() {
     } catch (error) {
       console.error('Error uploading image:', error);
       Alert.alert(
-        'Upload Failed', 
+        'Upload Failed',
         error instanceof Error ? error.message : 'Failed to upload image. Please try again.'
       );
     } finally {
@@ -195,8 +196,8 @@ export default function EditProfile() {
     setLoading(true);
     try {
       const updateData = {
-        phoneNo: formData.phoneNo && formData.phoneNo.trim() 
-          ? parseInt(formData.phoneNo.replace(/\D/g, '')) 
+        phoneNo: formData.phoneNo && formData.phoneNo.trim()
+          ? parseInt(formData.phoneNo.replace(/\D/g, ''))
           : null,
       };
 
@@ -238,8 +239,9 @@ export default function EditProfile() {
 
   return (
     <View className="flex-1 bg-gray-50">
+      <StatusBar style="light" />
       {/* Header */}
-      <View 
+      <View
         className="bg-downy-800 px-6 pb-8 pt-4 rounded-b-md"
         style={{ paddingTop: insets.top + 16 }}
       >
@@ -271,7 +273,7 @@ export default function EditProfile() {
                 <Text className="text-gray-600 text-sm">Update your profile photo</Text>
               </View>
             </View>
-            
+
             <View className="items-center">
               <View className="relative">
                 <Image
@@ -287,15 +289,14 @@ export default function EditProfile() {
                   <Camera size={14} color="white" />
                 </View>
               </View>
-              
+
               <TouchableOpacity
                 onPress={showImageOptions}
                 disabled={imageUploading}
-                className={`mt-6 px-6 py-3 rounded-xl flex-row items-center ${
-                  imageUploading 
-                    ? 'bg-gray-300' 
-                    : 'bg-downy-700 opacity-95'
-                }`}
+                className={`mt-6 px-6 py-3 rounded-xl flex-row items-center ${imageUploading
+                  ? 'bg-gray-300'
+                  : 'bg-downy-700 opacity-95'
+                  }`}
                 activeOpacity={0.8}
               >
                 <Camera size={18} color="white" style={{ marginRight: 8 }} />
@@ -361,9 +362,8 @@ export default function EditProfile() {
                   <Text className="text-emerald-700 text-xs font-medium">Editable</Text>
                 </View>
               </View>
-              <View className={`flex-row items-center border-2 rounded-xl px-4 py-4 ${
-                errors.phoneNo ? 'border-red-300 bg-red-50' : 'border-emerald-200 bg-white'
-              }`}>
+              <View className={`flex-row items-center border-2 rounded-xl px-4 py-4 ${errors.phoneNo ? 'border-red-300 bg-red-50' : 'border-emerald-200 bg-white'
+                }`}>
                 <Phone size={20} color={errors.phoneNo ? "#dc2626" : "#10b981"} />
                 <TextInput
                   className="flex-1 ml-3 text-gray-900 text-base"
@@ -387,11 +387,10 @@ export default function EditProfile() {
               <TouchableOpacity
                 onPress={handleSave}
                 disabled={loading || !hasChanges()}
-                className={`w-full py-4 rounded-2xl flex-row items-center justify-center shadow-lg ${
-                  loading || !hasChanges()
-                    ? 'bg-gray-300'
-                    : 'bg-emerald-600'
-                }`}
+                className={`w-full py-4 rounded-2xl flex-row items-center justify-center shadow-lg ${loading || !hasChanges()
+                  ? 'bg-gray-300'
+                  : 'bg-emerald-600'
+                  }`}
                 activeOpacity={0.8}
               >
                 {loading ? (
@@ -405,7 +404,7 @@ export default function EditProfile() {
                   </>
                 )}
               </TouchableOpacity>
-              
+
               {hasChanges() && (
                 <Text className="text-gray-500 text-sm text-center mt-3">
                   You have unsaved changes

@@ -76,7 +76,8 @@
           "data": [{ "scheme": "com.jeff.chamapay" }],
           "category": ["BROWSABLE", "DEFAULT"]
         }
-      ]
+      ],
+      "googleServicesFile": "./google-services.json"
     },
 
     "web": {

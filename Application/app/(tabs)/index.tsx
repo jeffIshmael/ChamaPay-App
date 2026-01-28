@@ -36,6 +36,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+
 export default function HomeScreen() {
   const router = useRouter();
   const { user, token } = useAuth();
@@ -215,7 +216,7 @@ export default function HomeScreen() {
 
   return (
     <View className="flex-1 bg-gray-50">
-      <StatusBar style="light" backgroundColor="#195556" />
+      <StatusBar style="light" />
       {/* Header */}
       <View
         className="bg-downy-800 rounded-b-3xl px-5 pb-5 flex-row items-center justify-between"
@@ -355,8 +356,8 @@ export default function HomeScreen() {
                       <HandCoins color="#3b82f6" size={16} />
                       <Text className="text-sm font-semibold text-blue-700 ml-1.5" numberOfLines={1}>
                         {kesRate > 0
-                          ? `${(Number(chama.contribution) * kesRate).toLocaleString()} KES (${chama.contribution?.toLocaleString()} ${chama.currency})`
-                          : `${chama.contribution?.toLocaleString()} ${chama.currency}`}
+                          ? `${(Number(chama.contribution) * kesRate).toFixed(2)} KES (${chama.contribution?.toLocaleString()} ${chama.currency})`
+                          : `${chama.contribution?.toFixed(3)} ${chama.currency}`}
                         / {formatDays(Number(chama.duration))}
                       </Text>
                     </View>
@@ -369,7 +370,7 @@ export default function HomeScreen() {
                     router.push({
                       pathname: "/[joined-chama-details]/[id]",
                       params: {
-                        "joined-chama-details": chama.slug || `chama-${index}`,
+                        "joined-chama-details": chama.slug,
                         id: chama.slug,
                         tab: "chat",
                       },

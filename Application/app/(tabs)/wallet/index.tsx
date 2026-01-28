@@ -1,10 +1,10 @@
-import { AllBalances, getAllBalances } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
 import { CurrencyCode } from "@/lib/pretiumService";
 import { getUserBalance } from "@/lib/userService";
 import { getTheUserTx } from "@/lib/walletServices";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { useFocusEffect, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -21,7 +21,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -33,7 +32,6 @@ import {
   View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Circle, Path } from "react-native-svg";
 
 interface Transaction {
   id: number;
@@ -73,7 +71,6 @@ export default function CryptoWallet() {
 
   const fetchBalances = async () => {
     const balances = await getUserBalance(token as string);
-    console.log("the balances", balances);
     setUserBalance(balances.balance);
   };
 
@@ -543,6 +540,7 @@ export default function CryptoWallet() {
       keyboardVerticalOffset={insets.top + 64}
     >
       <View className="flex-1 bg-gray-50">
+        <StatusBar style="light" />
         {/* Header - Fixed */}
         <View
           className="bg-downy-800 px-6 pb-8 rounded-b-3xl"
@@ -559,7 +557,7 @@ export default function CryptoWallet() {
                 <Text className="text-5xl text-white font-extrabold tracking-tight">
                   {balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance
                     ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toFixed(2)
-                    : "••••••"}
+                    : "---"}
                 </Text>
 
                 <Text className="text-2xl ml-2 text-white/90 font-semibold tracking-tight">
@@ -570,9 +568,9 @@ export default function CryptoWallet() {
               {balanceVisible && (
                 <Text className="text-emerald-100 text-base font-medium">
                   ≈{" "}
-                  {balanceVisible
+                  {balanceVisible && userBalance
                     ? usdcBalance
-                    : "••••••"} USDC
+                    : "----"} USDC
                 </Text>
               )}
             </View>
@@ -741,6 +739,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 5,
+    backgroundColor: "transparent",
   },
   headerShadow: {
     shadowColor: "#000",

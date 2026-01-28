@@ -343,7 +343,12 @@ export const registerUser = async (
   res: Response
 ): Promise<void> => {
   try {
+    console.log("register request headers", req.headers);
     const { email, userName, profileImageUrl } = req.body;
+
+    // getting user's location
+    const country = req.headers["cf-ipcountry"];
+    console.log("Country code:", country);
 
     if (!email || !userName) {
       res.status(400).json({

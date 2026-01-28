@@ -2,9 +2,10 @@ import { AuthProvider, useAuth } from "@/Contexts/AuthContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { useEffect, useState } from "react";
-import { View, ActivityIndicator, Image, StyleSheet, Platform, AppState, Text } from "react-native";
+import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "./global.css";
 
@@ -34,9 +35,9 @@ function LoadingSplashScreen() {
         resizeMode="contain"
       />
       <View style={styles.loaderContainer}>
-        <ActivityIndicator 
-          size="large" 
-          color="#10b981" 
+        <ActivityIndicator
+          size="large"
+          color="#10b981"
         />
       </View>
     </View>
@@ -53,19 +54,19 @@ function RootLayoutNav() {
   useEffect(() => {
     const initializeApp = async () => {
       console.log("[RootLayout] 🚀 Starting app initialization...");
-      
+
       try {
         // Set system UI background IMMEDIATELY
         await SystemUI.setBackgroundColorAsync("#d1f6f1");
         console.log("[RootLayout] ✅ System UI configured");
-        
+
         // Hydrate exchange rates (don't await - do it in background)
         hydrateRates();
         console.log("[RootLayout] ✅ Exchange rates hydrating...");
-        
+
         // Small delay to ensure everything is painted
         await new Promise(resolve => setTimeout(resolve, 100));
-        
+
         setIsReady(true);
         console.log("[RootLayout] ✅ App resources ready");
       } catch (error) {
@@ -83,11 +84,11 @@ function RootLayoutNav() {
     const hideSplash = async () => {
       if (!isLoading && isReady && !hasSplashHidden) {
         console.log("[RootLayout] 🎯 All ready! Hiding splash...");
-        
+
         try {
           // Small delay for React to render
           await new Promise(resolve => setTimeout(resolve, 100));
-          
+
           await SplashScreen.hideAsync();
           setHasSplashHidden(true);
           console.log("[RootLayout] ✅ Splash hidden successfully");
@@ -113,6 +114,7 @@ function RootLayoutNav() {
 
   return (
     <SafeAreaProvider style={{ flex: 1, backgroundColor: "#d1f6f1" }}>
+      <StatusBar style="dark" translucent backgroundColor="transparent" />
       <Stack
         screenOptions={{
           headerShown: false,
@@ -129,6 +131,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="edit-profile" />
         <Stack.Screen name="verify-email" />
+        <Stack.Screen name="notification-trial" />
         <Stack.Screen name="chama/[encryptedSlug]" />
       </Stack>
     </SafeAreaProvider>

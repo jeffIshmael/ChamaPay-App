@@ -27,7 +27,7 @@ interface OfframpResult {
 }
 
 const pretiumApiKey = process.env.PRETIUM_API_KEY;
-const settlementAddress = process.env.SETTLEMENT_ADDRESS;
+export const settlementAddress = process.env.SETTLEMENT_ADDRESS;
 const serverUrl = process.env.CHAMAPAY_SERVER_URL;
 
 if (!pretiumApiKey || !settlementAddress || !serverUrl) {

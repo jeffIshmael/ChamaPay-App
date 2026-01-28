@@ -219,24 +219,25 @@ export default function DepositCryptoScreen() {
 
           {/* M-Pesa Info Card */}
           <View className="bg-downy-50 rounded-3xl p-5 shadow-lg border border-downy-100">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center">
-                <View className="w-16 h-16 rounded-2xl bg-green-50 items-center justify-center">
-                  <Image
-                    source={require("@/assets/images/mpesa.png")}
-                    className="w-16 h-16"
-                    resizeMode="contain"
-                  />
-                </View>
+            <View className="flex-row items-center">
+              <View className="w-16 h-16 rounded-2xl bg-green-50 items-center justify-center">
+                <Image
+                  source={require("@/assets/images/mpesa.png")}
+                  className="w-16 h-16"
+                  resizeMode="contain"
+                />
+              </View>
 
-                <View className="ml-4">
-                  <Text className="text-lg font-bold text-gray-900">
-                    M-Pesa
-                  </Text>
-                  <Text className="text-xs text-gray-500">
-                    Safaricom Kenya
-                  </Text>
-                </View>
+              {/* Vertical Divider */}
+              <View className="w-px h-12 bg-gray-300 mx-4" />
+
+              <View className="flex-1">
+                <Text className="text-lg font-bold text-gray-900">
+                  M-Pesa
+                </Text>
+                <Text className="text-xs text-gray-500">
+                  Safaricom Kenya
+                </Text>
               </View>
             </View>
           </View>
@@ -276,9 +277,16 @@ export default function DepositCryptoScreen() {
 
           {/* Amount Input */}
           <View className="bg-white p-5 rounded-2xl shadow-sm">
-            <Text className="text-base font-bold text-gray-900 mb-3">
-              Amount ({CURRENCY})
-            </Text>
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-base font-bold text-gray-900">
+                Amount ({CURRENCY})
+              </Text>
+              <View>
+                <Text className="text-xs font-bold text-gray-600">
+                  1 USDC = {onrampRate.toFixed(2)} {CURRENCY}
+                </Text>
+              </View>
+            </View>
             <View className="bg-gray-50 p-4 rounded-xl border-2 border-gray-200">
               <TextInput
                 value={amount}
@@ -316,26 +324,20 @@ export default function DepositCryptoScreen() {
               </View>
             </View>
 
-            <View className="h-px bg-gray-200 my-4" />
 
-            <View className="flex-row justify-between items-center">
-              <Text className="text-sm font-bold text-gray-600">
-                Exchange Rate
-              </Text>
-              <Text className="text-sm font-bold text-gray-500">
-                1 USDC = {onrampRate.toFixed(2)} {CURRENCY}
-              </Text>
-            </View>
 
             {parseFloat(amount) >= MINIMUM_DEPOSIT && (
-              <View className="flex-row justify-between items-center bg-blue-50 p-3 rounded-xl mt-4">
-                <Text className="text-base font-bold text-blue-700">
-                  You'll Receive
-                </Text>
-                <Text className="text-lg font-bold text-blue-700">
-                  {cryptoAmount} USDC
-                </Text>
-              </View>
+              <>
+                <View className="h-px bg-gray-200 my-4" />
+                <View className="flex-row justify-between items-center bg-blue-50 p-3 rounded-xl mt-2">
+                  <Text className="text-base font-bold text-blue-700">
+                    You'll Receive
+                  </Text>
+                  <Text className="text-lg font-bold text-blue-700">
+                    {cryptoAmount} USDC
+                  </Text>
+                </View>
+              </>
             )}
           </View>
 

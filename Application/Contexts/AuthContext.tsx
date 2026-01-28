@@ -81,6 +81,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (storedToken) {
         console.log("[Auth] Token found. Hydrating state.");
         setToken(storedToken);
+        // Connect socket when token is found
+        connectSocket(storedToken).catch((err) => {
+          console.error("[Auth] Failed to connect socket on load:", err);
+        });
         if (storedRefreshToken) setRefreshToken(storedRefreshToken);
 
         if (storedUser) {
@@ -117,7 +121,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       console.error("[Auth] Critical error during storage load:", error);
       // Don't await clearAuth - just set loading false to unblock the app
-      clearAuth().catch(() => {});
+      clearAuth().catch(() => { });
       setIsLoading(false);
     } finally {
       // Safety net: ALWAYS set loading to false after 3 seconds max
@@ -318,7 +322,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (newRefreshToken) setRefreshToken(newRefreshToken);
 
     // Background refresh
-    fetchUserData(newToken).catch(() => {});
+    fetchUserData(newToken).catch(() => { });
   };
 
   const getToken = async () => {

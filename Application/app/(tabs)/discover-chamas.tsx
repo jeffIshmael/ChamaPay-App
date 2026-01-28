@@ -2,6 +2,7 @@ import { useAuth } from "@/Contexts/AuthContext";
 import { BackendChama, getPublicChamas } from "@/lib/chamaService";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { Calendar, Search, Star, TrendingUp, Users, Zap } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -197,6 +198,7 @@ export default function DiscoverChamas() {
 
   return (
     <View className="flex-1 bg-gray-50">
+      <StatusBar style="light" />
       {/* Enhanced Header */}
       <View
         className="bg-downy-800 px-6 pb-6 rounded-b-3xl shadow-lg"
