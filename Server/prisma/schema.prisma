@@ -15,6 +15,7 @@ model User {
   phoneNo             Int?
   address             String?
   smartAddress        String               @unique
+  location            String?
   profileImageUrl     String?
   hashedPrivkey       String
   hashedPassphrase    String

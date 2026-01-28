@@ -343,13 +343,20 @@ export const registerUser = async (
   res: Response
 ): Promise<void> => {
   try {
-    console.log("register request headers", req.headers);
+
     const { email, userName, profileImageUrl } = req.body;
 
     // getting user's location
-    const country = req.headers["cf-ipcountry"];
-    console.log("Country code:", country);
-
+    let country = "";
+    if (req.headers["cf-ipcountry"]) {
+      const theCountry = req.headers["cf-ipcountry"];
+      // if its string [] get the first element
+      if (theCountry instanceof Array) {
+        country = theCountry[0];
+      } else {
+        country = theCountry;
+      }
+    }
     if (!email || !userName) {
       res.status(400).json({
         success: false,
@@ -400,8 +407,6 @@ export const registerUser = async (
       return;
     }
 
-
-
     const masterKey = process.env.ENCRYPTION_SECRET;
     if (!masterKey) {
       throw new Error("ENCRYPTION_MASTER_KEY not configured");
@@ -432,6 +437,7 @@ export const registerUser = async (
         profileImageUrl: profileImageUrl || null,
         hashedPrivkey: hashedPrivkey,
         hashedPassphrase: hashedPassphrase,
+        location: country,
       },
     });
 
