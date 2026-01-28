@@ -1,6 +1,6 @@
 // this file implements the socket.io in the client side
-import { io, Socket } from "socket.io-client";
 import { serverUrl } from "@/constants/serverUrl";
+import { io, Socket } from "socket.io-client";
 
 let socket: Socket | null = null;
 
@@ -16,11 +16,32 @@ export async function connectSocket(token: string): Promise<Socket> {
     });
 
     // wait for the connection
-    await new Promise((resolve) => {
-      socket?.on("connect", () => {
+    await new Promise((resolve, reject) => {
+      if (!socket) return reject("Socket initialization failed");
+
+      const onConnect = () => {
         console.log("socket connected", socket?.id);
+        cleanupListeners();
         resolve(true);
-      });
+      };
+
+      const onError = (err: Error) => {
+        console.error("socket connection error:", err.message);
+        cleanupListeners();
+        if (socket) {
+          socket.disconnect();
+          socket = null;
+        }
+        reject(err);
+      };
+
+      const cleanupListeners = () => {
+        socket?.off("connect", onConnect);
+        socket?.off("connect_error", onError);
+      };
+
+      socket.on("connect", onConnect);
+      socket.on("connect_error", onError);
     });
 
     socket.on("disconnect", () => {
@@ -33,13 +54,13 @@ export async function connectSocket(token: string): Promise<Socket> {
 
 
 // function to get socket 
-export function getSocket(){
-    return socket;
+export function getSocket() {
+  return socket;
 }
 
-export function disconnectSocket(){
-    if(socket){
-        socket.disconnect();
-        socket=null;
-    }
+export function disconnectSocket() {
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
 }

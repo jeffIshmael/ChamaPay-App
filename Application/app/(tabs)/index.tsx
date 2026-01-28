@@ -36,6 +36,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+
 export default function HomeScreen() {
   const router = useRouter();
   const { user, token } = useAuth();
@@ -369,7 +370,7 @@ export default function HomeScreen() {
                     router.push({
                       pathname: "/[joined-chama-details]/[id]",
                       params: {
-                        "joined-chama-details": chama.slug || `chama-${index}`,
+                        "joined-chama-details": chama.slug,
                         id: chama.slug,
                         tab: "chat",
                       },

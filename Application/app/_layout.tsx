@@ -131,6 +131,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="edit-profile" />
         <Stack.Screen name="verify-email" />
+        <Stack.Screen name="notification-trial" />
         <Stack.Screen name="chama/[encryptedSlug]" />
       </Stack>
     </SafeAreaProvider>

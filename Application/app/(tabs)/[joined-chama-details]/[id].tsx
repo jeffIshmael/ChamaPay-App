@@ -90,57 +90,14 @@ export default function JoinedChamaDetails() {
     address: string;
     profileImageUrl: string | null;
   } | null>(null);
-  // const {
-  //   data: chamaBalance,
-  //   isLoading: isChamaBalanceLoading,
-  //   error: chamaBalanceError,
-  // } = useReadContract({
-  //   contract: chamapayContract,
-  //   method:
-  //     "function getEachMemberBalance(uint256 _chamaId) view returns (address[] memory, uint256[][] memory)",
-  //   params: [BigInt(Number(chama?.blockchainId) || 0) as bigint],
-  // });
-  // const {
-  //   data: individualBalance,
-  //   isLoading: isIndividualBalanceLoading,
-  //   refetch: refetchBalance,
-  //   error: individualBalanceError,
-  // } = useReadContract({
-  //   contract: chamapayContract,
-  //   method:
-  //     "function getBalance(uint256 _chamaId, address _member) view returns (uint256[] memory)",
-  //   params: [
-  //     BigInt(Number(chama?.blockchainId) || 0) as bigint,
-  //     user?.address as `0x${string}`,
-  //   ],
-  // });
-  // const {
-  //   data: eachMemberBalances,
-  //   isLoading: isEachMemberBalancesLoading,
-  //   refetch: refetchEachMemberBalance,
-  //   error: eachMemberBalancesError,
-  // } = useReadContract({
-  //   contract: chamapayContract,
-  //   method:
-  //     "function getEachMemberBalance(uint256 _chamaId) view returns (address[] memory, uint256[][] memory)",
-  //   params: [BigInt(Number(chama?.blockchainId) || 0) as bigint],
-  // });
   const [myBalance, setMyBalance] = useState<bigint[] | undefined>();
   const [memberBalances, setMemberBalances] = useState<
     readonly [readonly string[], readonly (readonly bigint[])[]] | null
   >(null);
   const [sendingLink, setSendingLink] = useState(false);
 
-  // useEffect(() => {
-  //   // Handle individualBalance which comes as an array of BigInt values
-  //   if (individualBalance) {
-  //     const balanceArray = Array.isArray(individualBalance)
-  //       ? individualBalance
-  //       : [individualBalance];
-  //     setMyBalance(balanceArray as bigint[]);
-  //     console.log("the individual balance", balanceArray);
-  //   }
-  // }, [individualBalance]);
+  console.log("the tab", tab, tab ==="chat");
+
 
   const fetchChama = async () => {
     if (!token || !user) {
