@@ -20,7 +20,7 @@ export default function DiscoverChamas() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [searchTerm, setSearchTerm] = useState("");
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [backendChamas, setBackendChamas] = useState<BackendChama[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -153,10 +153,10 @@ export default function DiscoverChamas() {
             Contribution Amount
           </Text>
           <Text className="text-3xl font-bold text-emerald-800">
-            {kesRate > 0
+            {kesRate > 0 && user?.location === "KE"
               ? `${(parseFloat(chama.amount) * kesRate).toLocaleString()} KES`
-              : `${parseFloat(chama.amount).toLocaleString()} cUSD`}
-            {kesRate > 0 && <Text className="text-sm font-medium text-emerald-600 ml-2"> ({parseFloat(chama.amount).toLocaleString()} cUSD)</Text>}
+              : `${parseFloat(chama.amount).toLocaleString()} USDC`}
+            {kesRate > 0 && user?.location === "KE" && <Text className="text-sm font-medium text-emerald-600 ml-2"> ({parseFloat(chama.amount).toLocaleString()} USDC)</Text>}
           </Text>
         </View>
 

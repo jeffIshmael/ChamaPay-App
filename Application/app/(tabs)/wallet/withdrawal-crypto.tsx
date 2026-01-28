@@ -68,7 +68,7 @@ export default function WithdrawCryptoScreen() {
   const [verificationError, setVerificationError] = useState("");
 
   const { USDCBalance } = useLocalSearchParams();
-  const { token } = useAuth();
+  const { user, token } = useAuth();
   const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
 
   const theExhangeQuote = rates["KES"]?.data || null;
@@ -110,7 +110,7 @@ export default function WithdrawCryptoScreen() {
   // Calculations - now based on KES input
   // User gets exactly what they input, fee is added on top
   const calculateFee = () => parseFloat(amountKES || "0") * 0.005;
-  
+
   const calculateTotalDeduction = () => {
     const kesAmount = parseFloat(amountKES) || 0;
     return kesAmount + calculateFee();
@@ -406,17 +406,49 @@ export default function WithdrawCryptoScreen() {
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1 rounded-t-3xl"
+        className="flex-1 rounded-t-3xl bg-gray-50"
       >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          className="flex-1 pb-20 "
-        >
-          <View className="px-6 py-6 gap-5">
-            {/* M-Pesa Info Card */}
-            <View className="bg-downy-50 rounded-3xl p-5 shadow-lg border border-downy-100">
-              <View className="flex-row items-center">
+        {user?.location !== "KE" ? (
+          // --- Non-Kenya Users --- //
+          <View className="flex-1 items-center rounded-t-3xl justify-center px-6">
+            <View className="bg-amber-50 p-6 rounded-2xl border border-amber-200 items-center shadow-sm">
+              <Text className="text-5xl mb-4">⚠️</Text>
+              <Text className="text-lg font-bold text-amber-900 text-center mb-2">
+                Regional Restriction
+              </Text>
+              <Text className="text-amber-800 text-center leading-6 mb-4">
+                M-Pesa withdrawal services are only available in Kenya.
+                Please use the "Send" feature to transfer to an external crypto wallet.
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => router.push("/(tabs)/wallet/send-crypto")}
+                className="w-full bg-amber-600 p-3 rounded-xl mb-3 shadow-md"
+              >
+                <Text className="text-white text-center font-bold">
+                  Send to Wallet Address
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => router.back()}
+                className="p-3 border border-amber-700 rounded-xl"
+              >
+                <Text className="text-amber-700 font-semibold text-center">Go Back</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          // --- Kenya Users --- //
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            className="flex-1 pb-20"
+          >
+            <View className="px-6 py-6 gap-6">
+
+              {/* --- M-Pesa Info Card --- */}
+              <View className="bg-downy-50 rounded-3xl p-5 shadow-md border border-downy-100 flex-row items-center">
                 <View className="w-16 h-16 rounded-2xl bg-green-50 items-center justify-center">
                   <Image
                     source={require("@/assets/images/mpesa.png")}
@@ -424,184 +456,124 @@ export default function WithdrawCryptoScreen() {
                     resizeMode="contain"
                   />
                 </View>
-                
-                {/* Vertical Divider */}
                 <View className="w-px h-12 bg-gray-300 mx-4" />
-
                 <View className="flex-1">
-                  <Text className="text-lg font-bold text-gray-900">
-                    M-Pesa
-                  </Text>
-                  <Text className="text-xs text-gray-500">
-                    Safaricom Kenya
-                  </Text>
+                  <Text className="text-lg font-bold text-gray-900">M-Pesa</Text>
+                  <Text className="text-xs text-gray-500">Safaricom Kenya</Text>
                 </View>
               </View>
-            </View>
 
-
-            {/* M-Pesa Number Input */}
-            <View className="bg-white px-5 py-6 rounded-2xl shadow-sm">
-              <Text className="text-base font-bold text-gray-900 mb-2">
-                M-Pesa Number
-              </Text>
-              <Text className="text-sm text-gray-500 mb-3">
-                Enter your registered M-Pesa mobile number
-              </Text>
-              <View className="flex-row items-center bg-gray-50 rounded-xl border-2 border-gray-200 px-4 py-3">
-                <Text className="text-base font-semibold text-gray-700 mr-2">
-                  +{KENYA_PHONE_CODE}
+              {/* --- Phone Number Input --- */}
+              <View className="bg-white px-5 py-6 rounded-2xl shadow-sm border border-gray-200">
+                <Text className="text-base font-bold text-gray-900 mb-1">M-Pesa Number</Text>
+                <Text className="text-sm text-gray-500 mb-3">
+                  Enter your registered M-Pesa mobile number
                 </Text>
-                <TextInput
-                  value={phoneNumber}
-                  onChangeText={(text) =>
-                    setPhoneNumber(text.replace(/[^0-9]/g, "").slice(0, 12))
-                  }
-                  placeholder="712345678"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="phone-pad"
-                  maxLength={12}
-                  style={{ fontSize: 16, padding: 0, margin: 0 }}
-                  className="flex-1"
-                />
+                <View className="flex-row items-center bg-gray-50 rounded-xl border-2 border-gray-200 px-4 py-3">
+                  <Text className="text-base font-semibold text-gray-700 mr-2">+{KENYA_PHONE_CODE}</Text>
+                  <TextInput
+                    value={phoneNumber}
+                    onChangeText={(text) =>
+                      setPhoneNumber(text.replace(/[^0-9]/g, "").slice(0, 12))
+                    }
+                    placeholder="712345678"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="phone-pad"
+                    maxLength={12}
+                    className="flex-1 text-base"
+                  />
+                </View>
+                {phoneNumber && !isValidPhoneNumber(phoneNumber) && (
+                  <Text className="text-red-500 text-xs mt-2">
+                    Please enter a valid Kenyan phone number
+                  </Text>
+                )}
               </View>
-              {phoneNumber && !isValidPhoneNumber(phoneNumber) && (
-                <Text className="text-red-500 text-xs mt-2">
-                  Please enter a valid Kenyan phone number
-                </Text>
-              )}
-            </View>
 
-            {/* Amount Input Section */}
-            <View className="bg-white p-6 rounded-2xl shadow-sm">
-              <View className="flex-row items-center justify-between mb-4">
-                <Text className="text-base font-bold text-gray-900">
-                  Withdrawal Amount
-                </Text>
-                <View>
+              {/* --- Amount Input Section --- */}
+              <View className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                <View className="flex-row items-center justify-between mb-4">
+                  <Text className="text-base font-bold text-gray-900">Withdrawal Amount</Text>
                   <Text className="text-xs font-bold text-gray-600">
                     1 USDC = {currentExchangeRate.toFixed(2)} {CURRENCY}
                   </Text>
                 </View>
-              </View>
-              <View className="p-5 rounded-2xl border-2 border-gray-200 bg-gray-50">
-                <TextInput
-                  value={amountKES}
-                  onChangeText={setAmountKES}
-                  placeholder="0.00"
-                  keyboardType="decimal-pad"
-                  placeholderTextColor="#9CA3AF"
-                  className="text-center text-4xl font-bold text-gray-900"
-                />
-                <Text className="text-center text-xs font-medium text-gray-500 mt-2">
-                  {CURRENCY}
-                </Text>
-              </View>
-              <View className="flex-row items-center justify-between mt-4">
-                <View className="flex-1">
-                  <Text className="text-sm text-gray-600">
-                    Available:{" "}
-                    <Text className="font-semibold">
-                      {CURRENCY} {formatCurrency(balanceInKES.toFixed(2))}
-                    </Text>
-                  </Text>
-                  {limits && (
-                    <Text className="text-xs text-amber-600 mt-1">
-                      Limits: {CURRENCY} {formatCurrency(limits.min)} - {formatCurrency(limits.max)}
-                    </Text>
-                  )}
+
+                <View className="p-5 rounded-2xl border-2 border-gray-200 bg-gray-50 mb-4">
+                  <TextInput
+                    value={amountKES}
+                    onChangeText={setAmountKES}
+                    placeholder="0.00"
+                    keyboardType="decimal-pad"
+                    placeholderTextColor="#9CA3AF"
+                    className="text-center text-4xl font-bold text-gray-900"
+                  />
+                  <Text className="text-center text-xs font-medium text-gray-500 mt-2">{CURRENCY}</Text>
                 </View>
-                <TouchableOpacity
-                  onPress={() => {
-                    const maxLimitNum = limits?.max || Infinity;
-                    // Calculate max withdrawable: we need to account for the fee
-                    // If user wants X KES, we deduct X * 1.005 from balance
-                    // So max withdrawable = min(balance / 1.005, maxLimit)
-                    const maxFromBalance = balanceInKES / 1.005;
-                    const maxAmount = Math.min(maxFromBalance, maxLimitNum);
-                    setAmountKES(maxAmount.toFixed(2));
-                  }}
-                  className="bg-downy-100 px-4 py-2 rounded-lg border border-downy-300"
-                  activeOpacity={0.7}
-                >
-                  <Text className="text-downy-700 text-xs font-bold">
-                    Max
+
+                {/* Available Balance & Max Button */}
+                <View className="flex-row items-center justify-between mb-4">
+                  <Text className="text-sm text-gray-600">
+                    Available: <Text className="font-semibold">{CURRENCY} {formatCurrency(balanceInKES.toFixed(2))}</Text>
                   </Text>
-                </TouchableOpacity>
-              </View>
-              {parseFloat(amountKES) > 0 && (
-                <>
-                  <View className="my-5">
-                    <View className="flex-1 h-px bg-gray-200" />
-                  </View>
-                  {(limits && Number(amountKES) > limits?.max) ||
-                    (limits && Number(amountKES) < limits?.min && (
-                      <View className="bg-amber-50 p-3 rounded-xl border border-amber-200 mb-2">
-                        <Text className="text-xs text-amber-800 text-center">
-                          💰 Limits: {CURRENCY}{" "}
-                          {formatCurrency(limits.min)} -{" "}
-                          {formatCurrency(limits.max)}
-                        </Text>
-                      </View>
-                    ))}
-                  <View className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-2">
-                    <View className="flex-row justify-between items-center mb-2">
-                      <Text className="text-sm text-gray-600">
-                        You will receive
-                      </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const maxLimitNum = limits?.max || Infinity;
+                      const maxFromBalance = balanceInKES / 1.005; // fee included
+                      const maxAmount = Math.min(maxFromBalance, maxLimitNum);
+                      setAmountKES(maxAmount.toFixed(2));
+                    }}
+                    className="bg-downy-100 px-4 py-2 rounded-lg border border-downy-300"
+                    activeOpacity={0.7}
+                  >
+                    <Text className="text-downy-700 text-xs font-bold">Max</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Fee & Total */}
+                {parseFloat(amountKES) > 0 && (
+                  <View className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-2 space-y-2">
+                    <View className="flex-row justify-between">
+                      <Text className="text-sm text-gray-600">You will receive</Text>
                       <Text className="text-sm font-semibold text-gray-900">
                         {CURRENCY} {formatCurrency(amountKES)}
                       </Text>
                     </View>
-                    <View className="flex-row justify-between items-center mb-2">
-                      <Text className="text-sm text-gray-600">
-                        Service Fee (0.5%)
-                      </Text>
+                    <View className="flex-row justify-between">
+                      <Text className="text-sm text-gray-600">Service Fee (0.5%)</Text>
                       <Text className="text-sm font-semibold text-amber-600">
                         + {CURRENCY} {formatCurrency(calculateFee().toFixed(2))}
                       </Text>
                     </View>
-                    <View className="my-2">
-                      <View className="flex-1 h-px bg-gray-300" />
-                    </View>
-                    <View className="flex-row justify-between items-center">
-                      <Text className="text-sm font-bold text-gray-900">
-                        Total Deduction
-                      </Text>
+                    <View className="flex-1 h-px bg-gray-300 my-1" />
+                    <View className="flex-row justify-between">
+                      <Text className="text-sm font-bold text-gray-900">Total Deduction</Text>
                       <Text className="text-sm font-bold text-gray-900">
                         {CURRENCY} {formatCurrency(calculateTotalDeduction().toFixed(2))}
                       </Text>
                     </View>
-                    <View className="flex-row justify-between items-center mt-2">
-                      <Text className="text-xs text-gray-500">
-                        USDC to withdraw
-                      </Text>
-                      <Text className="text-xs text-gray-500">
-                        {parseFloat(usdcAmount).toFixed(4)} USDC
-                      </Text>
+                    <View className="flex-row justify-between">
+                      <Text className="text-xs text-gray-500">USDC to withdraw</Text>
+                      <Text className="text-xs text-gray-500">{parseFloat(usdcAmount).toFixed(4)} USDC</Text>
                     </View>
                   </View>
-                </>
-              )}
-            </View>
+                )}
+              </View>
 
-            {/* Submit Button */}
-            <TouchableOpacity
-              onPress={handleInitialWithdraw}
-              disabled={!isFormValid()}
-              className={`w-full py-4 rounded-2xl shadow-lg ${isFormValid() ? "bg-downy-600" : "bg-gray-300"
-                }`}
-              activeOpacity={0.8}
-            >
-              <Text
-                className={`text-center font-bold text-lg ${isFormValid() ? "text-white" : "text-gray-500"
-                  }`}
+              {/* Submit Button */}
+              <TouchableOpacity
+                onPress={handleInitialWithdraw}
+                disabled={!isFormValid()}
+                className={`w-full py-4 rounded-2xl shadow-lg ${isFormValid() ? "bg-downy-600" : "bg-gray-300"}`}
+                activeOpacity={0.8}
               >
-                Withdraw to M-Pesa
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
+                <Text className={`text-center font-bold text-lg ${isFormValid() ? "text-white" : "text-gray-500"}`}>
+                  Withdraw to M-Pesa
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        )}
       </KeyboardAvoidingView>
 
       {/* Verification Modal */}

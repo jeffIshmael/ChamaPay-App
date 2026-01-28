@@ -347,14 +347,14 @@ export const registerUser = async (
     const { email, userName, profileImageUrl } = req.body;
 
     // getting user's location
-    let country = "";
+    let country: string = "";
     if (req.headers["cf-ipcountry"]) {
       const theCountry = req.headers["cf-ipcountry"];
       // if its string [] get the first element
       if (theCountry instanceof Array) {
-        country = theCountry[0];
+        country = theCountry[0] as string;
       } else {
-        country = theCountry;
+        country = theCountry as string;
       }
     }
     if (!email || !userName) {

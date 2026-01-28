@@ -616,31 +616,49 @@ export default function CreateChama() {
             </View>
           </View> */}
 
+
           <View>
             <View className="flex-row justify-between items-center mb-2">
               <Text className="text-sm font-medium text-gray-700">
-                Contribution Amount (KES){" "}
+                Contribution Amount ({user?.location === "KE" ? "KES" : "USDC"}){" "}
                 <Text className="text-red-500">*</Text>
               </Text>
-              {kesRate > 0 && (
+              {user?.location === "KE" && kesRate > 0 ? (
                 <Text className="text-xs text-gray-500">
                   Min: {(MINIMUM_CONTRIBUTION * kesRate).toFixed(0)} KES
+                </Text>
+              ) : (
+                <Text className="text-xs text-gray-500">
+                  Min: {MINIMUM_CONTRIBUTION} USDC
                 </Text>
               )}
             </View>
             <TextInput
-              placeholder="e.g., 500"
-              value={formData.contributionKES}
-              onChangeText={handleContributionKESChange}
+              placeholder={user?.location === "KE" ? "e.g., 500" : "e.g., 5"}
+              value={user?.location === "KE" ? formData.contributionKES : formData.contribution}
+              onChangeText={(text) => {
+                if (user?.location === "KE") {
+                  handleContributionKESChange(text);
+                } else {
+                  // Direct USDC input
+                  if (text === "" || /^\d*\.?\d*$/.test(text)) {
+                    const decimalCount = (text.match(/\./g) || []).length;
+                    if (decimalCount <= 1) {
+                      updateFormData("contribution", text);
+                      // Clear KES if we are in USDC mode effectively (though state keeps it)
+                    }
+                  }
+                }
+              }}
               keyboardType="decimal-pad"
               className={`bg-gray-50 border rounded-xl px-4 py-3 text-gray-900 ${getContributionValue() < MINIMUM_CONTRIBUTION &&
-                formData.contributionKES !== ""
+                (user?.location === "KE" ? formData.contributionKES : formData.contribution) !== ""
                 ? "border-red-300 bg-red-50"
                 : "border-gray-200"
                 }`}
               placeholderTextColor="#9ca3af"
             />
-            {formData.contributionKES !== "" && getContributionValue() > 0 && (
+            {user?.location === "KE" && formData.contributionKES !== "" && getContributionValue() > 0 && (
               <View className="mt-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                 <Text className="text-blue-900 text-xs font-medium">
                   ≈ {formData.contribution} USDC (at 1 USDC = KES{" "}
@@ -649,10 +667,12 @@ export default function CreateChama() {
               </View>
             )}
             {getContributionValue() < MINIMUM_CONTRIBUTION &&
-              formData.contributionKES !== "" && (
+              (user?.location === "KE" ? formData.contributionKES : formData.contribution) !== "" && (
                 <Text className="text-red-600 text-xs mt-1">
-                  Minimum contribution is {MINIMUM_CONTRIBUTION} USDC (≈{" "}
-                  {(MINIMUM_CONTRIBUTION * kesRate).toFixed(0)} KES)
+                  Minimum contribution is {MINIMUM_CONTRIBUTION} USDC
+                  {user?.location === "KE" && kesRate > 0 ? (
+                    ` (≈ ${(MINIMUM_CONTRIBUTION * kesRate).toFixed(0)} KES)`
+                  ) : null}
                 </Text>
               )}
           </View>
@@ -669,12 +689,21 @@ export default function CreateChama() {
                       Financial Summary
                     </Text>
                     <Text className="text-blue-800 text-sm">
-                      • Total pool per payout:{" "}
-                      {Math.ceil(getContributionValue() * getMaxMembersValue() * kesRate).toLocaleString()} KES (≈{" "}
-                      {(getContributionValue() * getMaxMembersValue()).toFixed(2)} USDC)
-                      {"\n"}• Each contribution:{" "}
-                      {Math.ceil(getContributionValue() * kesRate).toLocaleString()} KES (≈{" "}
-                      {getContributionValue().toFixed(3)} USDC)
+                      {user?.location === "KE" ? (
+                        <>
+                          • Total pool per payout:{" "}
+                          {Math.ceil(getContributionValue() * getMaxMembersValue() * kesRate).toLocaleString()} KES (≈{" "}
+                          {(getContributionValue() * getMaxMembersValue()).toFixed(2)} USDC)
+                          {"\n"}• Each contribution:{" "}
+                          {Math.ceil(getContributionValue() * kesRate).toLocaleString()} KES (≈{" "}
+                          {getContributionValue().toFixed(3)} USDC)
+                        </>
+                      ) : (
+                        <>
+                          • Total pool per payout: {(getContributionValue() * getMaxMembersValue()).toFixed(2)} USDC
+                          {"\n"}• Each contribution: {getContributionValue().toFixed(3)} USDC
+                        </>
+                      )}
                       {"\n"}• Frequency: {formData.frequency} days
                       {"\n"}• Starts: {formatDate(formData.startDate)} at{" "}
                       {formatTime(formData.startTime)}
