@@ -62,7 +62,7 @@ export default function JoinedChamaDetails() {
   const router = useRouter();
   const { user, token } = useAuth();
   const [activeTab, setActiveTab] = useState(
-    tab === "chat" ? "chat" : tab === "schedule" ? "schedule" : "overview"
+    tab ? tab : "overview"
   );
   const insets = useSafeAreaInsets();
   const [paymentAmount, setPaymentAmount] = useState<string>();
@@ -246,12 +246,21 @@ export default function JoinedChamaDetails() {
         return;
       }
 
+      // Don't search if a user is already selected (prevents search on selection)
+      if (selectedShareUser && shareUsername === selectedShareUser.userName) {
+        return;
+      }
+
       setIsShareSearching(true);
       try {
         const result = await searchUsers(shareUsername.trim());
         if (result.success && result.users) {
-          setShareSearchResults(result.users);
-          setShowShareSearchResults(true);
+          // Filter out the current user from search results
+          const filteredUsers = result.users.filter(
+            (searchUser) => searchUser.id !== user?.id
+          );
+          setShareSearchResults(filteredUsers);
+          setShowShareSearchResults(filteredUsers.length > 0);
         } else {
           setShareSearchResults([]);
           setShowShareSearchResults(false);
@@ -267,7 +276,7 @@ export default function JoinedChamaDetails() {
 
     const timeoutId = setTimeout(searchForShareUsers, 300);
     return () => clearTimeout(timeoutId);
-  }, [shareUsername]);
+  }, [shareUsername, selectedShareUser, user]);
 
   const handleShareUserSelect = (user: typeof selectedShareUser) => {
     setSelectedShareUser(user);
@@ -353,6 +362,8 @@ export default function JoinedChamaDetails() {
       chamaStartDate={chama.startDate}
       currency={chama.currency}
       kesRate={user?.location === "KE" ? kesRate : 0}
+      isPublic={chama.isPublic}
+      collateralAmount={chama.collateralAmount || 0}
     />
   );
 
@@ -537,7 +548,13 @@ export default function JoinedChamaDetails() {
         visible={showShareModal}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => setShowShareModal(false)}
+        onRequestClose={() => {
+          setShowShareModal(false);
+          setShareUsername("");
+          setIsShareSearching(false);
+          setShowShareSearchResults(false);
+          setSelectedShareUser(null);
+        }}
       >
         <View className="flex-1 items-center justify-center bg-black/70 px-6">
           <View className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
@@ -568,11 +585,8 @@ export default function JoinedChamaDetails() {
                   <Text className="font-bold text-gray-900 text-base">
                     Copy Invite Link
                   </Text>
-                  <Text className="text-gray-600 text-sm mt-0.5">
-                    Share via any platform
-                  </Text>
                 </View>
-                <View className="bg-emerald-600 rounded-lg px-3 py-1.5">
+                <View className="bg-downy-600 rounded-lg px-3 py-1.5">
                   <Text className="text-white font-semibold text-xs">Copy</Text>
                 </View>
               </TouchableOpacity>
@@ -593,7 +607,7 @@ export default function JoinedChamaDetails() {
                   </View>
                   <View className="ml-3 flex-1">
                     <Text className="text-base font-bold text-gray-900">
-                      Send to ChamaPay User
+                      Send to a Chamapay user
                     </Text>
                     <Text className="text-xs text-gray-600">
                       Enter their username
@@ -603,8 +617,8 @@ export default function JoinedChamaDetails() {
 
                 {/* Input Field */}
                 <View className="mb-3 relative">
-                  <View className="flex-row items-center bg-white border border-emerald-300 rounded-xl px-4 py-3.5">
-                    <Text className="text-lg font-semibold text-emerald-600 mr-2">
+                  <View className="flex-row items-center bg-white border border-emerald-300 rounded-xl px-4 py-2">
+                    <Text className="text-lg font-semibold text-emerald-600 mr-3">
                       @
                     </Text>
                     <TextInput
@@ -651,9 +665,6 @@ export default function JoinedChamaDetails() {
                             <Text className="font-semibold text-gray-900">
                               @{user.userName}
                             </Text>
-                            <Text className="text-sm text-gray-500">
-                              {user.email}
-                            </Text>
                             <Text className="text-xs text-gray-400 font-mono">
                               {user.address.slice(0, 6)}...
                               {user.address.slice(-4)}
@@ -681,7 +692,7 @@ export default function JoinedChamaDetails() {
                   onPress={() => shareToUser(chama.slug)}
                   disabled={!selectedShareUser || sendingLink}
                   activeOpacity={0.7}
-                  className={`py-3.5 rounded-xl flex-row items-center justify-center shadow-lg ${selectedShareUser ? "bg-emerald-600" : "bg-gray-300"
+                  className={`py-3.5 rounded-xl flex-row items-center justify-center shadow-lg ${selectedShareUser ? "bg-downy-600" : "bg-gray-300"
                     }`}
                 >
                   <Text
@@ -697,7 +708,7 @@ export default function JoinedChamaDetails() {
             {/* Cancel Button */}
             <TouchableOpacity
               onPress={() => setShowShareModal(false)}
-              className="mt-6 bg-gray-500 py-3.5 rounded-xl"
+              className="mt-6 bg-gray-300 py-3 rounded-xl border border-gray-500 border-2"
               activeOpacity={0.7}
             >
               <Text className="text-gray-700 font-semibold text-center text-base">

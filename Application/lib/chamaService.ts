@@ -172,10 +172,9 @@ interface RegisterChamaRequestBody {
 
 export interface UserDetails {
   id: number;
-  name: string;
-  email: string;
+  smartAddress: string;
+  userName: string;
   profileImageUrl?: string;
-  address?: string;
 }
 
 // Database notification type
@@ -213,9 +212,9 @@ interface DbJoinRequest {
   };
   user: {
     id: number;
+    smartAddress: string;
     userName: string;
-    email: string;
-    address: string;
+    profileImageUrl: string;
   };
 }
 
@@ -632,7 +631,7 @@ const mapNotificationType = (type: string | null): Notification["type"] => {
     case "payout_scheduled":
       return "payout_scheduled";
     case "payment_made":
-      return "contribution_due"; // Map to existing type
+      return "contribution_due";
     case "round_complete":
       return "payout_scheduled";
     case "chama_started":
@@ -704,10 +703,10 @@ export const transformNotification = async (
 
     pendingRequests.forEach((request) => {
       const transformed: Notification = {
-        id: `request-${request.id}`,
+        id: request.id.toString(),
         type: "join_request",
         title: "New Join Request",
-        message: `${request.user?.userName} wants to join ${request.chama.name}`,
+        message: `${request.user?.userName} wants to join ${request.chama.name} chama`,
         timestamp: request.createdAt,
         read: false, // Pending requests are always unread
         actionRequired: true,
@@ -716,7 +715,7 @@ export const transformNotification = async (
         requestId: request.id,
         requestUserId: request.user.id,
         requestUserName: request.user?.userName,
-        requestUserAddress: request.user.address,
+        requestUserAddress: request.user.smartAddress,
         chamaBlockchainId: request.chama.blockchainId,
         canAdd: request.chama.round == 1,
       };

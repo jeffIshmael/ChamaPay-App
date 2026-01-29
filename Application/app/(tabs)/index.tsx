@@ -91,6 +91,15 @@ export default function HomeScreen() {
     }, [fetchChamas])
   );
 
+  // Validate if the link matches ChamaPay format
+  const isValidChamaLink = (link: string): boolean => {
+    if (!link.trim()) return false;
+
+    // Check if link matches the format: https://chamapay.com/chama/[slug]
+    const chamaLinkRegex = /^https?:\/\/(www\.)?chamapay\.com\/chama\/[a-zA-Z0-9_-]+$/;
+    return chamaLinkRegex.test(link.trim());
+  };
+
   // Handle paste link functionality
   const handlePasteLink = async () => {
     try {
@@ -169,6 +178,8 @@ export default function HomeScreen() {
       setShowPasteModal(false);
     } finally {
       setIsProcessingLink(false);
+      setPasteLink("");
+      setShowPasteModal(false);
     }
   };
 
@@ -289,7 +300,7 @@ export default function HomeScreen() {
               </Badge>
             </View>
             <Text className="text-sm text-gray-500">
-              Your active savings groups
+              Your active saving groups
             </Text>
           </View>
           <TouchableOpacity
@@ -499,10 +510,33 @@ export default function HomeScreen() {
               value={pasteLink}
               onChangeText={setPasteLink}
               placeholder="Paste link here..."
-              className="bg-gray-100 rounded-xl px-4 py-3 text-gray-900 mb-4"
+              className="bg-gray-100 rounded-xl px-4 py-3 text-gray-900 mb-2"
               placeholderTextColor="#9ca3af"
               multiline
+              autoCapitalize="none"
+              autoCorrect={false}
             />
+
+            {/* Validation Feedback */}
+            {pasteLink.trim().length > 0 && (
+              <View className="mb-4">
+                {isValidChamaLink(pasteLink) ? (
+                  <View className="flex-row items-center gap-2 bg-emerald-50 px-3 py-2 rounded-lg">
+                    <Text className="text-downy-600 text-lg">✓</Text>
+                    <Text className="text-downy-700 text-sm font-medium">
+                      Valid Chamapay link
+                    </Text>
+                  </View>
+                ) : (
+                  <View className="flex-row items-center gap-2 bg-red-50 px-3 py-2 rounded-lg">
+                    <Text className="text-red-600 text-lg">✗</Text>
+                    <Text className="text-red-700 text-sm font-medium">
+                      Invalid link format
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
 
             <View className="flex-row gap-3">
               <TouchableOpacity
@@ -519,8 +553,8 @@ export default function HomeScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => handleProcessLink(pasteLink)}
-                disabled={!pasteLink.trim() || isProcessingLink}
-                className={`flex-1 py-3 rounded-xl ${!pasteLink.trim() || isProcessingLink
+                disabled={!isValidChamaLink(pasteLink) || isProcessingLink}
+                className={`flex-1 py-3 rounded-xl ${!isValidChamaLink(pasteLink) || isProcessingLink
                   ? "bg-gray-300"
                   : "bg-emerald-600"
                   }`}
@@ -529,7 +563,12 @@ export default function HomeScreen() {
                 {isProcessingLink ? (
                   <ActivityIndicator size="small" color="white" />
                 ) : (
-                  <Text className="text-white font-semibold text-center">
+                  <Text
+                    className={`font-semibold text-center ${!isValidChamaLink(pasteLink)
+                      ? "text-gray-500"
+                      : "text-white"
+                      }`}
+                  >
                     Open
                   </Text>
                 )}
