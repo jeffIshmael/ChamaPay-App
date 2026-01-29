@@ -224,7 +224,7 @@ export default function HomeScreen() {
       >
         <View className="flex-row items-center">
           <TouchableOpacity
-            onPress={() => router.push("/profile-settings")}
+            onPress={() => router.push("/pin-setup")}
             className="mr-3"
             activeOpacity={0.8}
           >
@@ -355,10 +355,12 @@ export default function HomeScreen() {
                     <View className="flex-row items-center bg-blue-50 px-3 py-1.5 rounded-lg">
                       <HandCoins color="#3b82f6" size={16} />
                       <Text className="text-sm font-semibold text-blue-700 ml-1.5" numberOfLines={1}>
-                        {kesRate > 0
-                          ? `${(Number(chama.contribution) * kesRate).toFixed(2)} KES (${chama.contribution?.toLocaleString()} ${chama.currency})`
-                          : `${chama.contribution?.toFixed(3)} ${chama.currency}`}
-                        / {formatDays(Number(chama.duration))}
+                        <Text className="text-sm font-semibold text-blue-700 ml-1.5" numberOfLines={1}>
+                          {kesRate > 0 && user?.location === "KE"
+                            ? `${(Number(chama.contribution) * kesRate).toFixed(2)} KES (${chama.contribution?.toLocaleString()} ${chama.currency})`
+                            : `${chama.contribution?.toFixed(3)} ${chama.currency}`}
+                          / {formatDays(Number(chama.duration))}
+                        </Text>
                       </Text>
                     </View>
                   </View>

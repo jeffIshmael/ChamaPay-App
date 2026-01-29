@@ -18,6 +18,7 @@ export interface User {
   address: string;
   smartAddress: string;
   profileImageUrl: string | null;
+  location:string | null;
 }
 
 interface AuthContextType {

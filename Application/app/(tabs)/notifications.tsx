@@ -117,6 +117,7 @@ export default function Notifications() {
         details.user.notifications,
         details.user.sentRequests
       );
+      console.log("the transformed notifications", transformedNotifications);
       setNotifications(transformedNotifications);
     } catch (error) {
       console.error("Error fetching notifications:", error);
@@ -206,7 +207,7 @@ export default function Notifications() {
       case "chama_started":
       case "payout_scheduled":
         router.push({
-          pathname: "/[joined-chama-details]/[id]",
+          pathname: "/(tabs)/[joined-chama-details]/[id]",
           params: {
             "joined-chama-details": notification.chamaSlug,
             id: notification.chamaSlug,
@@ -217,7 +218,7 @@ export default function Notifications() {
 
       case "new_message":
         router.push({
-          pathname: "/[joined-chama-details]/[id]",
+          pathname: "/(tabs)/[joined-chama-details]/[id]",
           params: {
             "joined-chama-details": notification.chamaSlug,
             id: notification.chamaSlug,
@@ -228,7 +229,7 @@ export default function Notifications() {
 
       case "invite_link":
         router.push({
-          pathname: "/chama-details/[slug]",
+          pathname: "/(tabs)/chama-details/[slug]",
           params: { slug: notification.chamaSlug },
         });
         break;
@@ -239,7 +240,7 @@ export default function Notifications() {
       case "member_joined":
         // Navigate to chama details (home tab by default)
         router.push({
-          pathname: "/[joined-chama-details]/[id]",
+          pathname: "/(tabs)/[joined-chama-details]/[id]",
           params: {
             "joined-chama-details": notification.chamaSlug,
             id: notification.chamaSlug,

@@ -555,17 +555,17 @@ export default function CryptoWallet() {
             <View className="items-center mb-2">
               <View className="flex-row items-baseline justify-center mb-1">
                 <Text className="text-5xl text-white font-extrabold tracking-tight">
-                  {balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance
+                  {balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && user?.location === "KE"
                     ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toFixed(2)
-                    : "---"}
+                    : balanceVisible && user?.location !== "KE" ? usdcBalance : "---"}
                 </Text>
 
                 <Text className="text-2xl ml-2 text-white/90 font-semibold tracking-tight">
-                  {theExhangeQuote?.currencyCode}
+                  {user?.location === "KE" ? theExhangeQuote?.currencyCode : "USDC"}
                 </Text>
               </View>
 
-              {balanceVisible && (
+              {balanceVisible && user?.location === "KE" && (
                 <Text className="text-emerald-100 text-base font-medium">
                   ≈{" "}
                   {balanceVisible && userBalance

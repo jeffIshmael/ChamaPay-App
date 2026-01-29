@@ -162,12 +162,26 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
       include: {
         members: {
           include: {
-            user: true,
+            user: {
+              select: {
+                id: true,
+                smartAddress: true,
+                userName: true,
+                profileImageUrl: true,
+              },
+            },
           },
         },
         payments: {
           include: {
-            user: true,
+            user: {
+              select: {
+                id: true,
+                smartAddress: true,
+                userName: true,
+                profileImageUrl: true,
+              },
+            },
           },
           orderBy: {
             doneAt: "desc",
@@ -175,10 +189,24 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
         },
         messages: {
           include: {
-            sender: true,
+            sender: {
+              select: {
+                id: true,
+                smartAddress: true,
+                userName: true,
+                profileImageUrl: true,
+              },
+            },
           },
         },
-        admin: true,
+        admin: {
+          select: {
+            id: true,
+            smartAddress: true,
+            userName: true,
+            profileImageUrl: true,
+          },
+        },
       },
     });
     if (!chama) {

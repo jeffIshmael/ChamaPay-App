@@ -8,6 +8,7 @@ import MembersTab from "@/components/MembersTab";
 import PaymentModal from "@/components/PaymentModal";
 import ScheduleTab from "@/components/ScheduleTab";
 import { TabButton } from "@/components/ui/TabButton";
+import USDCPay from "@/components/USDCPay";
 import { JoinedChama } from "@/constants/mockData";
 import { useAuth } from "@/Contexts/AuthContext";
 import {
@@ -70,6 +71,7 @@ export default function JoinedChamaDetails() {
   const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
   const kesRate = rates["KES"]?.rate || 0;
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showUSDCPaymentModal, setShowUSDCPaymentModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareUsername, setShareUsername] = useState("");
   const [shareSearchResults, setShareSearchResults] = useState<
@@ -96,7 +98,7 @@ export default function JoinedChamaDetails() {
   >(null);
   const [sendingLink, setSendingLink] = useState(false);
 
-  console.log("the tab", tab, tab ==="chat");
+  console.log("the tab", tab, tab === "chat");
 
 
   const fetchChama = async () => {
@@ -179,7 +181,11 @@ export default function JoinedChamaDetails() {
     }
 
     // Show the payment modal instead of Alert
-    setShowPaymentModal(true);
+    if (user?.location !== "KE") {
+      setShowUSDCPaymentModal(true);
+    } else {
+      setShowPaymentModal(true);
+    }
   };
 
   const handlePaymentSuccess = () => {
@@ -207,6 +213,15 @@ export default function JoinedChamaDetails() {
         },
       },
     ]);
+  };
+
+  const handleUSDCPaymentSuccess = (data?: {
+    txHash: string;
+    message: string;
+    amount: string;
+  }) => {
+    setShowUSDCPaymentModal(false);
+    fetchChama();
   };
 
   const handleShare = () => {
@@ -337,7 +352,7 @@ export default function JoinedChamaDetails() {
       chamaStatus={chama.status}
       chamaStartDate={chama.startDate}
       currency={chama.currency}
-      kesRate={kesRate}
+      kesRate={user?.location === "KE" ? kesRate : 0}
     />
   );
 
@@ -499,6 +514,21 @@ export default function JoinedChamaDetails() {
           chamaName={chama.name}
           remainingAmount={remainingAmount}
           paymentAmount={Number(paymentAmount)}
+        />
+      )}
+      {/* Direct USDC Pay Modal for non-KE users */}
+      {showUSDCPaymentModal && chama && (
+        <USDCPay
+          visible={showUSDCPaymentModal}
+          onClose={() => setShowUSDCPaymentModal(false)}
+          onBack={() => setShowUSDCPaymentModal(false)}
+          onSuccess={handleUSDCPaymentSuccess}
+          chamaId={Number(chama.id)}
+          chamaBlockchainId={Number(chama.blockchainId)}
+          USDCBalance={toTokens(myBalance ? myBalance[0] : BigInt(0), 6)}
+          chamaName={chama.name}
+          remainingAmount={remainingAmount}
+          contributionAmount={Number(chama.contribution)}
         />
       )}
 

@@ -42,7 +42,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useActiveAccount } from "thirdweb/react";
 
 export default function ChamaDetails() {
   const { slug } = useLocalSearchParams();
@@ -79,7 +78,6 @@ export default function ChamaDetails() {
   const [progressPercentage, setProgressPercentage] = useState<number>();
   const [sendingLink, setSendingLink] = useState(false);
   const { token, user } = useAuth();
-  const activeAccount = useActiveAccount();
   const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
   const kesRate = rates["KES"]?.rate || 0;
 
@@ -289,7 +287,7 @@ export default function ChamaDetails() {
 
       const result = await requestToJoin(chama.id, token);
       if (!result.success) {
-        Alert.alert("Error", "Request not sent.");
+        Alert.alert("Error", "Request not sent successfully.");
         return;
       }
 
@@ -316,7 +314,7 @@ export default function ChamaDetails() {
       return;
     }
     if (!chama.isPublic) {
-      handleRequestToJoinChama();
+      await handleRequestToJoinChama();
     } else {
       setShowCollateralModal(true);
     }
@@ -547,7 +545,7 @@ export default function ChamaDetails() {
             icon: "👥",
             color: "emerald",
             items: [
-              "Must contribute on time every month",
+              "Must contribute on time.",
               "Collateral will be locked until cycle completion",
             ],
           },

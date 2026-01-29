@@ -51,7 +51,14 @@ export async function getNonStartedChamas() {
       include: {
         members: {
           include: {
-            user: true,
+            user: {
+              select: {
+                id: true,
+                smartAddress: true,
+                userName: true,
+                profileImageUrl: true,
+              },
+            },
           },
         },
       },

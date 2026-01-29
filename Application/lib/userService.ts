@@ -56,12 +56,13 @@ export async function registerPayment(
 export async function requestToJoin(
   chamaId: number,
   token: string
-): Promise<RegisterPaymentResponse> {
+): Promise<joinRequestResponse> {
   try {
+    console.log("Requesting to join chama with ID:", chamaId);
     const response = await fetch(
       `${serverUrl}/user/joinRequest?chamaId=${chamaId}`,
       {
-        method: "POST",
+        method: "GET",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -69,10 +70,11 @@ export async function requestToJoin(
       }
     );
     const data = await response.json();
+    console.log("Join request response:", data);
     return data;
   } catch (error) {
-    console.error("Error registering payment:", error);
-    return { success: false, payment: null };
+    console.error("Error sending join request:", error);
+    return { success: false, request: null};
   }
 }
 

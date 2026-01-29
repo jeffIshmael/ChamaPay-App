@@ -199,6 +199,10 @@ export default function CreateChama() {
       if (event.type === 'set' && selectedDate) {
         const dateString = selectedDate.toISOString().slice(0, 10);
         updateFormData("startDate", dateString);
+        // On Android, automatically open time picker after date selection
+        setTimeout(() => {
+          setShowTimePicker(true);
+        }, 300);
       }
     } else {
       if (selectedDate) {
@@ -539,7 +543,7 @@ export default function CreateChama() {
                   setShowDatePicker(true);
                   setPickerMode("date");
                 }}
-                className={`bg-gray-50 border rounded-xl px-4 py-3 flex-row items-center justify-between active:bg-gray-100 ${!isStartDateTimeInFuture() && formData.startDate.trim() !== ""
+                className={`bg-gray-50 border rounded-xl px-4 py-3 flex-row items-center justify-between active:bg-gray-100 ${!isStartDateTimeInFuture() && formData.startDate.trim() !== "" && formData.startTime.trim() !== ""
                   ? "border-red-300 bg-red-50"
                   : "border-gray-200"
                   }`}
@@ -553,7 +557,8 @@ export default function CreateChama() {
                 <Calendar size={20} color="#6b7280" />
               </TouchableOpacity>
               {!isStartDateTimeInFuture() &&
-                formData.startDate.trim() !== "" && (
+                formData.startDate.trim() !== "" &&
+                formData.startTime.trim() !== "" && (
                   <Text className="text-red-600 text-xs mt-1">
                     Start date must be in the future
                   </Text>
@@ -577,7 +582,7 @@ export default function CreateChama() {
                   setShowTimePicker(true);
                   setPickerMode("time");
                 }}
-                className={`bg-gray-50 border rounded-xl px-4 py-3 flex-row items-center justify-between active:bg-gray-100 ${!isStartDateTimeInFuture() && formData.startTime.trim() !== ""
+                className={`bg-gray-50 border rounded-xl px-4 py-3 flex-row items-center justify-between active:bg-gray-100 ${!isStartDateTimeInFuture() && formData.startTime.trim() !== "" && formData.startDate.trim() !== ""
                   ? "border-red-300 bg-red-50"
                   : "border-gray-200"
                   }`}
@@ -591,7 +596,8 @@ export default function CreateChama() {
                 <Clock size={20} color="#6b7280" />
               </TouchableOpacity>
               {!isStartDateTimeInFuture() &&
-                formData.startTime.trim() !== "" && (
+                formData.startTime.trim() !== "" &&
+                formData.startDate.trim() !== "" && (
                   <Text className="text-red-600 text-xs mt-1">
                     Start time must be in the future
                   </Text>
@@ -616,31 +622,49 @@ export default function CreateChama() {
             </View>
           </View> */}
 
+
           <View>
             <View className="flex-row justify-between items-center mb-2">
               <Text className="text-sm font-medium text-gray-700">
-                Contribution Amount (KES){" "}
+                Contribution Amount ({user?.location === "KE" ? "KES" : "USDC"}){" "}
                 <Text className="text-red-500">*</Text>
               </Text>
-              {kesRate > 0 && (
+              {user?.location === "KE" && kesRate > 0 ? (
                 <Text className="text-xs text-gray-500">
                   Min: {(MINIMUM_CONTRIBUTION * kesRate).toFixed(0)} KES
+                </Text>
+              ) : (
+                <Text className="text-xs text-gray-500">
+                  Min: {MINIMUM_CONTRIBUTION} USDC
                 </Text>
               )}
             </View>
             <TextInput
-              placeholder="e.g., 500"
-              value={formData.contributionKES}
-              onChangeText={handleContributionKESChange}
+              placeholder={user?.location === "KE" ? "e.g., 500" : "e.g., 5"}
+              value={user?.location === "KE" ? formData.contributionKES : formData.contribution}
+              onChangeText={(text) => {
+                if (user?.location === "KE") {
+                  handleContributionKESChange(text);
+                } else {
+                  // Direct USDC input
+                  if (text === "" || /^\d*\.?\d*$/.test(text)) {
+                    const decimalCount = (text.match(/\./g) || []).length;
+                    if (decimalCount <= 1) {
+                      updateFormData("contribution", text);
+                      // Clear KES if we are in USDC mode effectively (though state keeps it)
+                    }
+                  }
+                }
+              }}
               keyboardType="decimal-pad"
               className={`bg-gray-50 border rounded-xl px-4 py-3 text-gray-900 ${getContributionValue() < MINIMUM_CONTRIBUTION &&
-                formData.contributionKES !== ""
+                (user?.location === "KE" ? formData.contributionKES : formData.contribution) !== ""
                 ? "border-red-300 bg-red-50"
                 : "border-gray-200"
                 }`}
               placeholderTextColor="#9ca3af"
             />
-            {formData.contributionKES !== "" && getContributionValue() > 0 && (
+            {user?.location === "KE" && formData.contributionKES !== "" && getContributionValue() > 0 && (
               <View className="mt-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                 <Text className="text-blue-900 text-xs font-medium">
                   ≈ {formData.contribution} USDC (at 1 USDC = KES{" "}
@@ -649,10 +673,12 @@ export default function CreateChama() {
               </View>
             )}
             {getContributionValue() < MINIMUM_CONTRIBUTION &&
-              formData.contributionKES !== "" && (
+              (user?.location === "KE" ? formData.contributionKES : formData.contribution) !== "" && (
                 <Text className="text-red-600 text-xs mt-1">
-                  Minimum contribution is {MINIMUM_CONTRIBUTION} USDC (≈{" "}
-                  {(MINIMUM_CONTRIBUTION * kesRate).toFixed(0)} KES)
+                  Minimum contribution is {MINIMUM_CONTRIBUTION} USDC
+                  {user?.location === "KE" && kesRate > 0 ? (
+                    ` (≈ ${(MINIMUM_CONTRIBUTION * kesRate).toFixed(0)} KES)`
+                  ) : null}
                 </Text>
               )}
           </View>
@@ -669,17 +695,27 @@ export default function CreateChama() {
                       Financial Summary
                     </Text>
                     <Text className="text-blue-800 text-sm">
-                      • Total pool per payout:{" "}
-                      {Math.ceil(getContributionValue() * getMaxMembersValue() * kesRate).toLocaleString()} KES (≈{" "}
-                      {(getContributionValue() * getMaxMembersValue()).toFixed(2)} USDC)
-                      {"\n"}• Each contribution:{" "}
-                      {Math.ceil(getContributionValue() * kesRate).toLocaleString()} KES (≈{" "}
-                      {getContributionValue().toFixed(3)} USDC)
+                      {user?.location === "KE" ? (
+                        <>
+                          • Total pool per payout:{" "}
+                          {Math.ceil(getContributionValue() * getMaxMembersValue() * kesRate).toLocaleString()} KES (≈{" "}
+                          {(getContributionValue() * getMaxMembersValue()).toFixed(2)} USDC)
+                          {"\n"}• Each contribution:{" "}
+                          {Math.ceil(getContributionValue() * kesRate).toLocaleString()} KES (≈{" "}
+                          {getContributionValue().toFixed(3)} USDC)
+                        </>
+                      ) : (
+                        <>
+                          • Total pool per payout: {(getContributionValue() * getMaxMembersValue()).toFixed(2)} USDC
+                          {"\n"}• Each contribution: {getContributionValue().toFixed(3)} USDC
+                        </>
+                      )}
                       {"\n"}• Frequency: {formData.frequency} days
                       {"\n"}• Starts: {formatDate(formData.startDate)} at{" "}
                       {formatTime(formData.startTime)}
                       {!isStartDateTimeInFuture() &&
-                        formData.startDate.trim() !== "" && (
+                        formData.startDate.trim() !== "" &&
+                        formData.startTime.trim() !== "" && (
                           <Text className="text-red-600">
                             {"\n"}• Start date/time must be in the future
                           </Text>
@@ -827,9 +863,15 @@ export default function CreateChama() {
             <Text className="text-emerald-800 text-sm font-medium">
               • Contribution:{" "}
               <Text className="font-normal">
-                {formData.contributionKES
-                  ? `${Math.ceil(parseFloat(formData.contributionKES)).toLocaleString()} KES (${formData.contribution} USDC)`
-                  : "Not set"}
+                {formData.contribution ? (
+                  user?.location === "KE" && formData.contributionKES ? (
+                    `${Math.ceil(parseFloat(formData.contributionKES)).toLocaleString()} KES (${formData.contribution} USDC)`
+                  ) : (
+                    `${formData.contribution} USDC`
+                  )
+                ) : (
+                  "Not set"
+                )}
               </Text>
             </Text>
             <Text className="text-emerald-800 text-sm font-medium">
@@ -866,7 +908,7 @@ export default function CreateChama() {
                 <Text className="text-emerald-800 text-sm font-medium">
                   • Collateral Required:{" "}
                   <Text className="font-normal">
-                    {kesRate > 0
+                    {user?.location === "KE" && kesRate > 0
                       ? `${Math.ceil(Number(formData.contribution) * Number(formData.maxMembers) * kesRate).toLocaleString()} KES (${(Number(formData.contribution) * Number(formData.maxMembers)).toFixed(3)} USDC)`
                       : `${(Number(formData.contribution) * Number(formData.maxMembers)).toFixed(3)} USDC`}
                   </Text>
@@ -895,7 +937,8 @@ export default function CreateChama() {
 
   // Check if start date and time are in the future
   const isStartDateTimeInFuture = () => {
-    if (!formData.startDate || !formData.startTime) return false;
+    // If either date or time is missing, don't validate yet
+    if (!formData.startDate || !formData.startTime) return true;
     const now = new Date();
     const startDateTime = new Date(
       `${formData.startDate}T${formData.startTime}:00`
@@ -1024,145 +1067,170 @@ export default function CreateChama() {
       </KeyboardAvoidingView>
 
       {/* Date/Time Pickers */}
-      <Modal
-        visible={showDatePicker}
-        onRequestClose={() => setShowDatePicker(false)}
-        transparent={true}
-        animationType="slide"
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.5)",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <TouchableOpacity
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-            }}
-            onPress={() => setShowDatePicker(false)}
-          />
-          <View
-            style={{
-              backgroundColor: "white",
-              borderRadius: 20,
-              padding: 24,
-              margin: 20,
-              width: "90%",
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 20,
-                fontWeight: "700",
-                marginBottom: 20,
-                textAlign: "center",
-                color: "#111827",
-              }}
-            >
-              Select Date
-            </Text>
+      {Platform.OS === 'android' ? (
+        <>
+          {showDatePicker && (
             <DateTimePicker
               value={selectedDate}
               mode="date"
-              display="compact"
+              display="default"
               onChange={handleDateChange}
-              style={{ backgroundColor: "white" }}
+              minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
             />
-            <TouchableOpacity
-              onPress={() => setShowDatePicker(false)}
-              style={{
-                backgroundColor: "#059669",
-                padding: 14,
-                borderRadius: 12,
-                marginTop: 20,
-                alignItems: "center",
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={{ color: "white", fontWeight: "600", fontSize: 16 }}>
-                Done
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={showTimePicker}
-        onRequestClose={() => setShowTimePicker(false)}
-        transparent={true}
-        animationType="slide"
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.5)",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <TouchableOpacity
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-            }}
-            onPress={() => setShowTimePicker(false)}
-          />
-          <View
-            style={{
-              backgroundColor: "white",
-              borderRadius: 20,
-              padding: 24,
-              margin: 20,
-              width: "90%",
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 20,
-                fontWeight: "700",
-                marginBottom: 20,
-                textAlign: "center",
-                color: "#111827",
-              }}
-            >
-              Select Time
-            </Text>
+          )}
+          {showTimePicker && (
             <DateTimePicker
               value={selectedDate}
               mode="time"
-              display="compact"
+              display="default"
               onChange={handleTimeChange}
-              style={{ backgroundColor: "white" }}
             />
-            <TouchableOpacity
-              onPress={() => setShowTimePicker(false)}
+          )}
+        </>
+      ) : (
+        <>
+          <Modal
+            visible={showDatePicker}
+            onRequestClose={() => setShowDatePicker(false)}
+            transparent={true}
+            animationType="slide"
+          >
+            <View
               style={{
-                backgroundColor: "#059669",
-                padding: 14,
-                borderRadius: 12,
-                marginTop: 20,
+                flex: 1,
+                backgroundColor: "rgba(0,0,0,0.5)",
+                justifyContent: "center",
                 alignItems: "center",
               }}
-              activeOpacity={0.8}
             >
-              <Text style={{ color: "white", fontWeight: "600", fontSize: 16 }}>
-                Done
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+              <TouchableOpacity
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                }}
+                onPress={() => setShowDatePicker(false)}
+              />
+              <View
+                style={{
+                  backgroundColor: "white",
+                  borderRadius: 20,
+                  padding: 24,
+                  margin: 20,
+                  width: "90%",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 20,
+                    fontWeight: "700",
+                    marginBottom: 20,
+                    textAlign: "center",
+                    color: "#111827",
+                  }}
+                >
+                  Select Date
+                </Text>
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="date"
+                  display="compact"
+                  onChange={handleDateChange}
+                  style={{ backgroundColor: "white" }}
+                  minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowDatePicker(false)}
+                  style={{
+                    backgroundColor: "#059669",
+                    padding: 14,
+                    borderRadius: 12,
+                    marginTop: 20,
+                    alignItems: "center",
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ color: "white", fontWeight: "600", fontSize: 16 }}>
+                    Done
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
+          <Modal
+            visible={showTimePicker}
+            onRequestClose={() => setShowTimePicker(false)}
+            transparent={true}
+            animationType="slide"
+          >
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: "rgba(0,0,0,0.5)",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <TouchableOpacity
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                }}
+                onPress={() => setShowTimePicker(false)}
+              />
+              <View
+                style={{
+                  backgroundColor: "white",
+                  borderRadius: 20,
+                  padding: 24,
+                  margin: 20,
+                  width: "90%",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 20,
+                    fontWeight: "700",
+                    marginBottom: 20,
+                    textAlign: "center",
+                    color: "#111827",
+                  }}
+                >
+                  Select Time
+                </Text>
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="time"
+                  display="compact"
+                  onChange={handleTimeChange}
+                  style={{ backgroundColor: "white" }}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowTimePicker(false)}
+                  style={{
+                    backgroundColor: "#059669",
+                    padding: 14,
+                    borderRadius: 12,
+                    marginTop: 20,
+                    alignItems: "center",
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ color: "white", fontWeight: "600", fontSize: 16 }}>
+                    Done
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        </>
+      )}
 
       {/* Collateral Requirement Modal */}
       <Modal

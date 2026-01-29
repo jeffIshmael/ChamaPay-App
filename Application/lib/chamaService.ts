@@ -189,6 +189,7 @@ interface DbNotification {
   chamaId: number | null;
   read: boolean;
   createdAt: string;
+  sharedLink: string | null;
   chama?: {
     id: number;
     name: string;
@@ -379,9 +380,9 @@ export const transformChamaData = (
   // --------- GET USER POSITION IN PAYOUT ORDER ---------
   const myPosition = payoutArray.length
     ? payoutArray.findIndex(
-        (entry: any) =>
-          entry.userAddress?.toLowerCase() === userAddress.toLowerCase()
-      ) + 1 // +1 so position starts at 1 instead of index 0
+      (entry: any) =>
+        entry.userAddress?.toLowerCase() === userAddress.toLowerCase()
+    ) + 1 // +1 so position starts at 1 instead of index 0
     : null;
 
   // --------- GET MY PAY DATE FROM PAYOUT ORDER ---------
@@ -505,8 +506,8 @@ export const transformChamaData = (
           address: payment.user.smartAddress,
         },
       })) || [],
-      userChamaBalance: backendChama.userBalance,
-      eachMemberBalance: backendChama.eachMemberBalance,
+    userChamaBalance: backendChama.userBalance,
+    eachMemberBalance: backendChama.eachMemberBalance,
   };
 };
 
@@ -636,6 +637,8 @@ const mapNotificationType = (type: string | null): Notification["type"] => {
       return "payout_scheduled";
     case "chama_started":
       return "chama_started";
+    case "invite_link":
+      return "invite_link";
     default:
       return "other"; // Default fallback
   }
@@ -689,7 +692,7 @@ export const transformNotification = async (
         actionRequired: false,
         chama: notif.chama?.name || "Unknown Chama",
         chamaId: notif.chamaId,
-        chamaSlug: notif.chama?.slug
+        chamaSlug: notif.chama?.slug || notif.sharedLink || "Unknown Chama"
       };
 
       transformedNotifications.push(transformed);
