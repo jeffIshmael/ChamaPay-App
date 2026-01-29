@@ -63,9 +63,10 @@ export default function Notifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [processingRequestId, setProcessingRequestId] = useState<number | null>(
-    null
-  );
+  const [processingRequest, setProcessingRequest] = useState<{
+    requestId: number;
+    action: "approve" | "reject";
+  } | null>(null);
 
   const getNotificationIcon = (type: Notification["type"]) => {
     const iconProps = { size: 20 };
@@ -155,11 +156,12 @@ export default function Notifications() {
       Alert.alert("error", "Some details are not defined.");
       return;
     }
-    setProcessingRequestId(requestId);
+    setProcessingRequest({ requestId, action });
 
     try {
       if (!canAdd && action === "approve") {
         Alert.alert("error", "Member can't be added in the middle of cycle.");
+        setProcessingRequest(null);
         return;
       }
 
@@ -172,9 +174,9 @@ export default function Notifications() {
       );
       if (!result.success) {
         Alert.alert("Error", "Action failed");
+        setProcessingRequest(null);
         return;
       }
-      setProcessingRequestId(null);
 
       Alert.alert(
         "Success",
@@ -185,7 +187,7 @@ export default function Notifications() {
     } catch (error) {
       console.error("Error happened in handle request", error);
     } finally {
-      setProcessingRequestId(null);
+      setProcessingRequest(null);
     }
   };
 
@@ -379,7 +381,7 @@ export default function Notifications() {
               : ""
               }`}
             activeOpacity={0.7}
-            disabled={notification.actionRequired && processingRequestId !== null}
+            disabled={notification.actionRequired && processingRequest !== null}
           >
             <View className="flex-row items-start gap-3">
               {getNotificationIcon(notification.type)}
@@ -431,12 +433,23 @@ export default function Notifications() {
                           notification.chamaId!
                         )
                       }
-                      disabled={processingRequestId === notification.requestId}
-                      className="flex-1 bg-emerald-500 py-2.5 rounded-lg flex-row items-center justify-center gap-2"
+                      disabled={
+                        processingRequest?.requestId === notification.requestId
+                      }
+                      className={`flex-1 py-2.5 rounded-lg flex-row items-center justify-center gap-2 ${processingRequest?.requestId === notification.requestId
+                        ? "bg-emerald-400"
+                        : "bg-emerald-500"
+                        }`}
                       activeOpacity={0.7}
                     >
-                      {processingRequestId === notification.requestId ? (
-                        <ActivityIndicator size="small" color="white" />
+                      {processingRequest?.requestId === notification.requestId &&
+                        processingRequest?.action === "approve" ? (
+                        <>
+                          <ActivityIndicator size="small" color="white" />
+                          <Text className="text-white font-semibold text-sm">
+                            Approving...
+                          </Text>
+                        </>
                       ) : (
                         <>
                           <Check size={16} color="white" />
@@ -459,12 +472,23 @@ export default function Notifications() {
                           notification.chamaId!
                         )
                       }
-                      disabled={processingRequestId === notification.requestId}
-                      className="flex-1 bg-red-500 py-2.5 rounded-lg flex-row items-center justify-center gap-2"
+                      disabled={
+                        processingRequest?.requestId === notification.requestId
+                      }
+                      className={`flex-1 py-2.5 rounded-lg flex-row items-center justify-center gap-2 ${processingRequest?.requestId === notification.requestId
+                          ? "bg-red-400"
+                          : "bg-red-500"
+                        }`}
                       activeOpacity={0.7}
                     >
-                      {processingRequestId === notification.requestId ? (
-                        <ActivityIndicator size="small" color="white" />
+                      {processingRequest?.requestId === notification.requestId &&
+                        processingRequest?.action === "reject" ? (
+                        <>
+                          <ActivityIndicator size="small" color="white" />
+                          <Text className="text-white font-semibold text-sm">
+                            Rejecting...
+                          </Text>
+                        </>
                       ) : (
                         <>
                           <X size={16} color="white" />

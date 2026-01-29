@@ -34,12 +34,11 @@ import {
   Alert,
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -164,12 +163,21 @@ export default function ChamaDetails() {
         return;
       }
 
+      // Don't search if a user is already selected (prevents search on selection)
+      if (selectedShareUser && shareUsername === selectedShareUser.userName) {
+        return;
+      }
+
       setIsShareSearching(true);
       try {
         const result = await searchUsers(shareUsername.trim());
         if (result.success && result.users) {
-          setShareSearchResults(result.users);
-          setShowShareSearchResults(true);
+          // Filter out the current user from search results
+          const filteredUsers = result.users.filter(
+            (searchUser) => searchUser.id !== user?.id
+          );
+          setShareSearchResults(filteredUsers);
+          setShowShareSearchResults(filteredUsers.length > 0);
         } else {
           setShareSearchResults([]);
           setShowShareSearchResults(false);
@@ -185,7 +193,7 @@ export default function ChamaDetails() {
 
     const timeoutId = setTimeout(searchForShareUsers, 300);
     return () => clearTimeout(timeoutId);
-  }, [shareUsername]);
+  }, [shareUsername, selectedShareUser, user]);
 
   const handleShareUserSelect = (user: typeof selectedShareUser) => {
     setSelectedShareUser(user);
@@ -286,6 +294,7 @@ export default function ChamaDetails() {
       setIsJoining(true);
 
       const result = await requestToJoin(chama.id, token);
+      console.log("the result", result);
       if (!result.success) {
         Alert.alert("Error", "Request not sent successfully.");
         return;
@@ -330,7 +339,7 @@ export default function ChamaDetails() {
     active: boolean;
   }) => (
     <TouchableOpacity
-      className={`flex-1 py-3 px-4 items-center justify-center rounded-xl ${active ? "bg-emerald-600 shadow-sm" : "bg-transparent"
+      className={`flex-1 py-3 px-4 items-center justify-center rounded-xl ${active ? "bg-downy-600 shadow-sm" : "bg-transparent"
         }`}
       onPress={() => setActiveTab(id)}
       activeOpacity={0.7}
@@ -426,7 +435,7 @@ export default function ChamaDetails() {
                 key={index}
                 className={`flex-row items-start gap-4 ${item.bgColor} ${item.borderColor} border rounded-2xl p-4`}
               >
-                <View className="w-14 h-14 bg-white rounded-2xl items-center justify-center shadow-sm flex-shrink-0">
+                <View className="w-12 h-12 bg-white rounded-2xl items-center justify-center shadow-sm flex-shrink-0">
                   <Text className="text-2xl">{item.icon}</Text>
                 </View>
                 <View className="flex-1 pt-1">
@@ -1114,7 +1123,7 @@ export default function ChamaDetails() {
             {/* Cancel Button */}
             <TouchableOpacity
               onPress={() => setShowShareModal(false)}
-              className="mt-6 bg-gray-300 py-3.5 rounded-xl"
+              className="mt-6 bg-gray-200 py-2 rounded-xl border border-gray-300 border-2"
               activeOpacity={0.7}
             >
               <Text className="text-gray-700 font-semibold text-center text-base">

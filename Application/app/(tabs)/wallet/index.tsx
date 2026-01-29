@@ -12,15 +12,18 @@ import {
   Download,
   ExternalLink,
   History,
-  QrCode,
+  Upload,
+  Plus,
   Send,
-  Upload
+  ArrowDownToLine,
+  Copy,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -540,66 +543,114 @@ export default function CryptoWallet() {
       keyboardVerticalOffset={insets.top + 64}
     >
       <View className="flex-1 bg-gray-50">
-        <StatusBar style="light" />
-        {/* Header - Fixed */}
+        <StatusBar style="dark" />
+
+
+        {/* Card Section */}
         <View
-          className="bg-downy-800 px-6 pb-8 rounded-b-3xl"
-          style={[styles.headerShadow, { paddingTop: insets.top + 24 }]}
+          className="px-4 bg-downy-600 rounded-b-3xl"
+          style={{ paddingTop: insets.top + 24 }}
         >
-          {/* Balance Section */}
-          <View className="mb-6 items-center">
-            <View className="flex-row items-center gap-4 mb-4">
-              <Text className="text-lg text-emerald-100 font-medium">Available Balance</Text>
+          {/* Balance Card */}
+          <View
+            className="rounded-3xl p-6 mb-6 border border-downy-500 relative overflow-hidden"
+            style={[styles.balanceCard, {
+              backgroundColor: '#1a6b6b',
+            }]}
+          >
+            {/* Logo Background */}
+            <View className="absolute inset-0 items-center justify-center">
+              <Image
+                source={require("@/assets/images/chamapay-logo.png")}
+                style={{
+                  width: '80%',
+                  height: '80%',
+                  opacity: 0.07,
+                }}
+                resizeMode="contain"
+              />
             </View>
 
-            <View className="items-center mb-2">
-              <View className="flex-row items-baseline justify-center mb-1">
-                <Text className="text-5xl text-white font-extrabold tracking-tight">
-                  {balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && user?.location === "KE"
-                    ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toFixed(2)
-                    : balanceVisible && user?.location !== "KE" ? usdcBalance : "---"}
-                </Text>
+            {/* Decorative circles in background */}
+            <View className="absolute -right-10 -top-10 w-32 h-32 bg-white/10 rounded-full" />
+            <View className="absolute -right-5 top-20 w-24 h-24 bg-white/10 rounded-full" />
+            <View className="absolute right-10 -bottom-5 w-20 h-20 bg-white/10 rounded-full" />
 
-                <Text className="text-2xl ml-2 text-white/90 font-semibold tracking-tight">
-                  {user?.location === "KE" ? theExhangeQuote?.currencyCode : "USDC"}
+            <Text className="text-white/80 text-xs font-semibold tracking-wide mb-3">
+              YOUR BALANCE
+            </Text>
+
+            <View className="mb-8">
+              <View className="flex-row items-baseline">
+                <Text className="text-5xl text-white font-bold tracking-tight">
+                  {balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && user?.location === "KE"
+                    ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    }).split('.')[0]
+                    : balanceVisible && user?.location !== "KE"
+                      ? Number(usdcBalance).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }).split('.')[0]
+                      : "---"}
+                </Text>
+                <Text className="text-5xl text-white font-medium">
+                  .{balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && user?.location === "KE"
+                    ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    }).split('.')[1] || "00"
+                    : balanceVisible && user?.location !== "KE"
+                      ? Number(usdcBalance).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }).split('.')[1] || "00"
+                      : "00"}
+                </Text>
+                <Text className="text-lg text-white/90 ml-1 font-medium">
+                  {user?.location === "KE" ? theExhangeQuote?.currencyCode : "USD"}
                 </Text>
               </View>
 
               {balanceVisible && user?.location === "KE" && (
-                <Text className="text-emerald-100 text-base font-medium">
-                  ≈{" "}
-                  {balanceVisible && userBalance
-                    ? usdcBalance
-                    : "----"} USDC
+                <Text className="text-white/60 text-sm mt-2">
+                  ≈ {balanceVisible && userBalance ? usdcBalance : "----"} USDC
                 </Text>
               )}
             </View>
+
+            {/* Card details and logo */}
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center gap-2">
+                <Text className="text-white/80 text-base font-mono tracking-widest">
+                  {user?.smartAddress?.slice(0, 4) || "****"} **** {user?.smartAddress?.slice(-4) || "****"}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (user?.smartAddress) {
+                      // Clipboard.setString(user.smartAddress);
+                      Alert.alert("Copied!", "Wallet address copied to clipboard");
+                    }
+                  }}
+                  activeOpacity={0.7}
+                  className="p-1"
+                >
+                  <Copy size={16} color="rgba(255, 255, 255, 0.8)" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Mastercard-style logo */}
+              <View className="flex-row">
+                <View className="w-8 h-8 rounded-full bg-red-500" />
+                <View className="w-8 h-8 rounded-full bg-orange-400 -ml-3" />
+              </View>
+            </View>
           </View>
 
-          {/* Action Buttons - Inside Header */}
-          <View className="flex-row justify-between px-4">
-            <ActionButton
-              onPress={() =>
-                router.push({
-                  pathname: "/wallet/send-crypto",
-                  params: {
-                    USDCBalance: usdcBalance,
-                    totalBalance: usdcBalance,
-                    address: user?.smartAddress,
-                  },
-                })
-              }
-              icon={<Send size={22} color="white" />}
-              title="Send"
-              gradient="bg-gradient-to-br from-violet-500 to-purple-600"
-            />
-            <ActionButton
-              onPress={() => router.push("/wallet/receive-crypto")}
-              icon={<QrCode size={22} color="white" />}
-              title="Receive"
-              gradient="bg-gradient-to-br from-blue-500 to-indigo-600"
-            />
-            <ActionButton
+          {/* Action Buttons */}
+          <View className="flex-row gap-2 mb-6">
+            <TouchableOpacity
               onPress={() =>
                 router.push({
                   pathname: "/wallet/deposit-crypto",
@@ -610,11 +661,40 @@ export default function CryptoWallet() {
                   },
                 })
               }
-              icon={<Download size={22} color="white" className="bg-transparent" />}
-              title="Deposit"
-              gradient="bg-gradient-to-br from-emerald-500 to-green-600"
-            />
-            <ActionButton
+              className="flex-1 bg-white py-3.5 rounded-xl shadow-sm"
+              activeOpacity={0.8}
+            >
+              <View className="items-center justify-center gap-1">
+                <Plus size={20} color="#1c8584" />
+                <Text className="text-downy-600 font-semibold text-xs">
+                  Add Funds
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: "/wallet/send-crypto",
+                  params: {
+                    USDCBalance: usdcBalance,
+                    totalBalance: usdcBalance,
+                    address: user?.smartAddress,
+                  },
+                })
+              }
+              className="flex-1 bg-white py-3.5 rounded-xl shadow-sm"
+              activeOpacity={0.8}
+            >
+              <View className="items-center justify-center gap-1">
+                <Send size={20} color="#1c8584" />
+                <Text className="text-downy-600 font-semibold text-xs">
+                  Send Funds
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
               onPress={() =>
                 router.push({
                   pathname: "/wallet/withdrawal-crypto",
@@ -627,10 +707,16 @@ export default function CryptoWallet() {
                   },
                 })
               }
-              icon={<Upload size={22} color="white" />}
-              title="Withdraw"
-              gradient="bg-gradient-to-br from-amber-500 to-orange-600"
-            />
+              className="flex-1 bg-white py-3.5 rounded-xl shadow-sm"
+              activeOpacity={0.8}
+            >
+              <View className="items-center justify-center gap-1">
+                <Upload size={20} color="#1c8584" />
+                <Text className="text-downy-600 font-semibold text-xs">
+                  Withdraw Funds
+                </Text>
+              </View>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -646,7 +732,7 @@ export default function CryptoWallet() {
                 className="px-4 py-2 rounded-full"
                 activeOpacity={0.8}
               >
-                <Text className="text-downy-600 text-sm font-semibold">
+                <Text className="text-indigo-600 text-sm font-semibold">
                   View All
                 </Text>
               </TouchableOpacity>
@@ -704,8 +790,8 @@ export default function CryptoWallet() {
                   <RefreshControl
                     refreshing={refreshing}
                     onRefresh={onRefresh}
-                    tintColor="#059669"
-                    colors={["#059669"]}
+                    tintColor="#6366f1"
+                    colors={["#6366f1"]}
                   />
                 }
               />
@@ -741,15 +827,15 @@ const styles = StyleSheet.create({
     elevation: 5,
     backgroundColor: "transparent",
   },
-  headerShadow: {
+  balanceCard: {
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 12,
     },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 12,
   },
   modalCard: {
     shadowColor: "#000",

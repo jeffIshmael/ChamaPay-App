@@ -33,6 +33,8 @@ type Props = {
   chamaStartDate?: Date;
   currency: string;
   kesRate?: number;
+  isPublic?: boolean;
+  collateralAmount?: number;
 };
 
 const ChamaOverviewTab: FC<Props> = ({
@@ -53,6 +55,8 @@ const ChamaOverviewTab: FC<Props> = ({
   chamaStartDate,
   currency,
   kesRate = 0,
+  isPublic = false,
+  collateralAmount = 0,
 }) => {
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
@@ -73,10 +77,120 @@ const ChamaOverviewTab: FC<Props> = ({
 
   return (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-      {/* Contribution Progress */}
-      <Card className="p-6 mb-6">
-        <View className="flex-row items-center justify-between mb-4">
-          <Text className="text-xl font-semibold text-gray-900">
+      {/* Balance and Locked Amount Cards */}
+      <View className="flex-row gap-3 mb-6">
+        {/* Balance Card */}
+        <Card className="flex-1 p-5">
+          <View className="mb-4">
+            <Text className="text-sm font-medium text-gray-600 mb-1">
+              Chama Balance
+            </Text>
+            <Text className="text-2xl font-bold text-gray-900">
+              {kesRate > 0
+                ? `${(myContributions * kesRate).toLocaleString()} KES`
+                : `${myContributions.toFixed(3)} ${currency}`}
+            </Text>
+            {kesRate > 0 && (
+              <Text className="text-xs text-gray-500 mt-1">
+                ≈ {myContributions.toFixed(3)} {currency}
+              </Text>
+            )}
+          </View>
+
+          <View className="flex-row gap-2">
+            <TouchableOpacity
+              onPress={makePayment}
+              className="flex-1 bg-emerald-600 py-2.5 rounded-lg"
+              activeOpacity={0.8}
+            >
+              <Text className="text-white text-sm font-semibold text-center">
+                Add
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="flex-1 bg-gray-200 py-2.5 rounded-lg"
+              activeOpacity={0.8}
+              disabled
+            >
+              <Text className="text-gray-500 text-sm font-semibold text-center">
+                Withdraw
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Card>
+
+        {/* Locked Amount Card - Only for Public Chamas */}
+        {isPublic && (
+          <Card className="flex-1 p-5">
+            <View className="mb-4">
+              <Text className="text-sm font-medium text-gray-600 mb-1">
+                Locked Amount
+              </Text>
+              <Text className="text-2xl font-bold text-gray-900">
+                {kesRate > 0
+                  ? `${(collateralAmount * kesRate).toLocaleString()} KES`
+                  : `${collateralAmount.toFixed(3)} ${currency}`}
+              </Text>
+              {kesRate > 0 && (
+                <Text className="text-xs text-gray-500 mt-1">
+                  ≈ {collateralAmount.toFixed(3)} {currency}
+                </Text>
+              )}
+            </View>
+
+            <View className="flex-row gap-2">
+              <TouchableOpacity
+                className="flex-1 bg-emerald-600 py-2.5 rounded-lg"
+                activeOpacity={0.8}
+                disabled
+              >
+                <Text className="text-white text-sm font-semibold text-center">
+                  Add
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Card>
+        )}
+      </View>
+
+      {/* Payment Warning - Show if remaining amount */}
+      {remainingAmount > 0 && (
+        <View className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6">
+          <View className="flex-row items-center gap-2 mb-2">
+            <View className="w-5 h-5 bg-orange-100 rounded-full items-center justify-center">
+              <Text className="text-orange-600 text-xs font-bold">!</Text>
+            </View>
+            <Text className="text-orange-800 font-medium">
+              Payment Required
+            </Text>
+          </View>
+          <Text className="text-sm text-orange-700">
+            {kesRate > 0
+              ? `${(remainingAmount * kesRate).toLocaleString()} KES`
+              : `${remainingAmount.toFixed(3)} ${currency}`}{" "}
+            remaining
+            {kesRate > 0 && (
+              <Text className="font-semibold">
+                {" "}
+                ({remainingAmount.toFixed(3)} {currency})
+              </Text>
+            )}
+            {" • "}Due:{" "}
+            {new Date(contributionDueDate).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </Text>
+        </View>
+      )}
+
+      {/* Contribution Progress Indicator */}
+      <Card className="p-5 mb-6">
+        <View className="flex-row items-center justify-between mb-3">
+          <Text className="text-lg font-semibold text-gray-900">
             Cycle Contribution
           </Text>
           <Badge
@@ -94,98 +208,46 @@ const ChamaOverviewTab: FC<Props> = ({
           </Badge>
         </View>
 
-        <View className="gap-4">
-          {/* Contribution Stats */}
-          <View className="bg-gray-50 rounded-xl p-4">
-            <View className="flex-row justify-between items-center mb-2">
-              <Text className="text-sm font-medium text-gray-600">
-                Required
-              </Text>
-              <Text className="text-lg font-semibold text-gray-900">
-                {kesRate > 0
-                  ? `${(contribution * kesRate).toFixed(2)} KES`
-                  : `${contribution.toFixed(3)} ${currency}`}
-                {kesRate > 0 && <Text className="text-sm font-medium text-gray-500"> ({contribution.toFixed(2)} {currency})</Text>}
-              </Text>
-            </View>
-            <View className="flex-row justify-between items-center mb-3">
-              <Text className="text-sm font-medium text-gray-600">
-                Contributed
-              </Text>
-              <Text className="text-lg font-semibold text-emerald-600">
-                {kesRate > 0
-                  ? `${(myContributions * kesRate).toFixed(2)} KES`
-                  : `${myContributions.toFixed(3)} ${currency}`}
-                {kesRate > 0 && <Text className="text-sm font-medium text-emerald-400"> ({myContributions.toFixed(3)} {currency})</Text>}
-              </Text>
-            </View>
-            <ProgressBar
-              value={
-                contribution > 0
-                  ? Math.min((myContributions / contribution) * 100, 100)
-                  : 0
-              }
-            />
+        <View className="bg-gray-50 rounded-xl p-4">
+          <View className="flex-row justify-between items-center mb-2">
+            <Text className="text-sm font-medium text-gray-600">
+              Required
+            </Text>
+            <Text className="text-base font-semibold text-gray-900">
+              {kesRate > 0
+                ? `${(contribution * kesRate).toFixed(2)} KES`
+                : `${contribution.toFixed(3)} ${currency}`}
+              {kesRate > 0 && (
+                <Text className="text-sm font-medium text-gray-500">
+                  {" "}
+                  ({contribution.toFixed(2)} {currency})
+                </Text>
+              )}
+            </Text>
           </View>
-
-          {/* Status Message */}
-          {myContributions >= contribution ? (
-            <View className="bg-green-50 border border-green-200 rounded-xl p-4">
-              <View className="flex-row items-center gap-2 mb-2">
-                <View className="w-5 h-5 bg-green-100 rounded-full items-center justify-center">
-                  <Text className="text-green-600 text-xs font-bold">✓</Text>
-                </View>
-                <Text className="text-green-800 font-medium">
-                  Contribution Complete!
+          <View className="flex-row justify-between items-center mb-3">
+            <Text className="text-sm font-medium text-gray-600">
+              Contributed
+            </Text>
+            <Text className="text-base font-semibold text-emerald-600">
+              {kesRate > 0
+                ? `${(myContributions * kesRate).toFixed(2)} KES`
+                : `${myContributions.toFixed(3)} ${currency}`}
+              {kesRate > 0 && (
+                <Text className="text-sm font-medium text-emerald-400">
+                  {" "}
+                  ({myContributions.toFixed(3)} {currency})
                 </Text>
-              </View>
-              <Text className="text-sm text-green-700">
-                Thank you for your contribution this cycle. You can still make
-                additional payments for next cycle.
-              </Text>
-            </View>
-          ) : (
-            <View className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-              <View className="flex-row items-center gap-2 mb-2">
-                <View className="w-5 h-5 bg-orange-100 rounded-full items-center justify-center">
-                  <Text className="text-orange-600 text-xs font-bold">!</Text>
-                </View>
-                <Text className="text-orange-800 font-medium">
-                  Payment Required
-                </Text>
-              </View>
-              <Text className="text-sm text-orange-700 mb-3">
-                {kesRate > 0
-                  ? `${(remainingAmount * kesRate).toLocaleString()} KES`
-                  : `${remainingAmount} ${currency}`} remaining
-                {kesRate > 0 && <Text className="font-semibold"> ({remainingAmount} {currency})</Text>}
-                • Due:{" "}
-                {new Date(contributionDueDate).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </Text>
-            </View>
-          )}
-
-          {/* Make Payment Button - Always Visible */}
-          <TouchableOpacity
-            onPress={makePayment}
-            className="bg-emerald-600 py-4 rounded-xl shadow-sm"
-            activeOpacity={0.8}
-          >
-            <View className="flex-row items-center justify-center gap-2">
-              <DollarSign size={18} color="white" />
-              <Text className="text-white text-base font-semibold">
-                {myContributions >= contribution
-                  ? "Make Additional Payment"
-                  : "Make Payment"}
-              </Text>
-            </View>
-          </TouchableOpacity>
+              )}
+            </Text>
+          </View>
+          <ProgressBar
+            value={
+              contribution > 0
+                ? Math.min((myContributions / contribution) * 100, 100)
+                : 0
+            }
+          />
         </View>
       </Card>
 
