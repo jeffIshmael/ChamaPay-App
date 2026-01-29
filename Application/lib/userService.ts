@@ -74,7 +74,7 @@ export async function requestToJoin(
     return data;
   } catch (error) {
     console.error("Error sending join request:", error);
-    return { success: false, request: null };
+    return { success: false, request: null};
   }
 }
 
