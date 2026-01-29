@@ -224,7 +224,7 @@ export default function HomeScreen() {
       >
         <View className="flex-row items-center">
           <TouchableOpacity
-            onPress={() => router.push("/profile-settings")}
+            onPress={() => router.push("/pin-setup")}
             className="mr-3"
             activeOpacity={0.8}
           >

@@ -198,7 +198,14 @@ export async function getSentRequests(userId: number) {
       },
       include: {
         chama: true,
-        user: true,
+        user: {
+          select: {
+            id: true,
+            smartAddress: true,
+            userName: true,
+            profileImageUrl: true,
+          },
+        },
       },
     });
   } catch (error) {

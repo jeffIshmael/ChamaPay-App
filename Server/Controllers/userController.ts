@@ -448,6 +448,7 @@ export const sendJoinRequest = async (
   res: Response
 ): Promise<void> => {
   const { chamaId } = req.query;
+  console.log("Chama ID for the request:", chamaId);
   try {
     const userId: number = req.user?.userId as number;
     if (!req.user?.userId) {

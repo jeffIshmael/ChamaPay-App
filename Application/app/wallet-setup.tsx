@@ -1,7 +1,5 @@
-import { serverUrl } from "@/constants/serverUrl";
 import { useAuth } from "@/Contexts/AuthContext";
 import { checkUsernameAvailability } from "@/lib/chamaService";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -9,18 +7,17 @@ import {
   Copy,
   Shield,
   Wallet,
-  X,
-  Loader2,
+  X
 } from "lucide-react-native";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -107,17 +104,17 @@ export default function WalletSetup() {
         setHasNameMissing(false);
         // Simulate getting wallet address after registration
         setWalletAddress("0x1234567890abcdef1234567890abcdef12345678");
-        
+
         // Show success briefly, then auto-navigate
         Alert.alert(
-          "Success! 🎉", 
+          "Success! 🎉",
           "Your account has been created successfully",
           [
             {
               text: "OK",
               onPress: () => {
                 setTimeout(() => {
-                  router.replace("/(tabs)");
+                  router.replace("/pin-setup");
                 }, 500);
               }
             }
@@ -321,15 +318,14 @@ export default function WalletSetup() {
             }}
           >
             <Text className="text-gray-900 font-medium mb-2">Choose your username</Text>
-            <View className={`flex-row items-center border-2 rounded-lg px-4 py-3 mb-3 ${
-              usernameStatus === "available" 
-                ? "border-green-500 bg-green-50" 
+            <View className={`flex-row items-center border-2 rounded-lg px-4 py-3 mb-3 ${usernameStatus === "available"
+                ? "border-green-500 bg-green-50"
                 : usernameStatus === "unavailable" || usernameStatus === "invalid"
-                ? "border-red-500 bg-red-50"
-                : usernameStatus === "checking"
-                ? "border-yellow-500 bg-yellow-50"
-                : "border-gray-200"
-            }`}>
+                  ? "border-red-500 bg-red-50"
+                  : usernameStatus === "checking"
+                    ? "border-yellow-500 bg-yellow-50"
+                    : "border-gray-200"
+              }`}>
               <Text className="text-gray-700 mr-2">@</Text>
               <TextInput
                 className="flex-1 text-gray-900"
@@ -349,16 +345,15 @@ export default function WalletSetup() {
                 <X size={16} color="#ef4444" />
               )}
             </View>
-            
+
             {/* Username status message */}
             {usernameMessage && (
-              <Text className={`text-sm mb-3 ${
-                usernameStatus === "available" 
-                  ? "text-green-600" 
+              <Text className={`text-sm mb-3 ${usernameStatus === "available"
+                  ? "text-green-600"
                   : usernameStatus === "unavailable" || usernameStatus === "invalid"
-                  ? "text-red-600"
-                  : "text-yellow-600"
-              }`}>
+                    ? "text-red-600"
+                    : "text-yellow-600"
+                }`}>
                 {usernameMessage}
               </Text>
             )}
@@ -366,9 +361,9 @@ export default function WalletSetup() {
               onPress={saveUsername}
               disabled={savingName || !isUsernameValid}
               className="w-full py-3 rounded-lg items-center justify-center"
-              style={{ 
-                backgroundColor: savingName || !isUsernameValid ? "#808080" : "#059669", 
-                opacity: savingName ? 0.8 : 1 
+              style={{
+                backgroundColor: savingName || !isUsernameValid ? "#808080" : "#059669",
+                opacity: savingName ? 0.8 : 1
               }}
               activeOpacity={0.8}
             >
