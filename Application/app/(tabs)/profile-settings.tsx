@@ -235,6 +235,34 @@ export default function ProfileSettings() {
     }
   }
 
+  // function to switch notification off
+  async function switchNotificationOff() {
+    try {
+      if (!token) {
+        ToastAndroid.show("Token not found. Refresh the app", ToastAndroid.SHORT);
+        return;
+      }
+      const result = await updateUserNotificationSettings(token, false);
+      if (!result.success) {
+        ToastAndroid.show("Unable to update notification settings", ToastAndroid.SHORT);
+      }
+      console.log("result", result);
+      refreshUser();
+    } catch (e: unknown) {
+      ToastAndroid.show("Unable to update notification settings", ToastAndroid.SHORT);
+      console.log("e", e);
+    }
+  }
+
+  // function to handle switch notification
+  async function switchNotification(currentNotify: boolean) {
+    if (currentNotify) {
+      await switchNotificationOff();
+    } else {
+      await switchNotificationOn();
+    }
+  }
+
   // functio to switch email notification
   async function switchEmailNotification(currentEmailNotify: boolean) {
     try {
@@ -409,7 +437,7 @@ export default function ProfileSettings() {
                 <Switch
                   value={notifications.pushNotifications}
                   onValueChange={(value) => {
-                    switchNotificationOn();
+                    switchNotification(value);
                     updateNotificationSetting("pushNotifications", value)
                   }}
                   trackColor={{ false: "#e5e7eb", true: "#10b981" }}
