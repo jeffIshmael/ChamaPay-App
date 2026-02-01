@@ -19,6 +19,9 @@ model User {
   profileImageUrl     String?
   hashedPrivkey       String
   hashedPassphrase    String
+  expoPushToken       String?
+  emailNotify         Boolean              @default(true)
+  pushNotify          Boolean              @default(false)
   createdChamas       Chama[]              @relation("AdminChamas")
   chamas              ChamaMember[]
   joinRequests        ChamaRequest[]

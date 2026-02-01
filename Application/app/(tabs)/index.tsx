@@ -236,7 +236,7 @@ export default function HomeScreen() {
       >
         <View className="flex-row items-center">
           <TouchableOpacity
-            onPress={() => router.push("/lock-screen")}
+            onPress={() => router.push("/notification-trial")}
             className="mr-3"
             activeOpacity={0.8}
           >

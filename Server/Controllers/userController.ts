@@ -469,20 +469,6 @@ export const sendJoinRequest = async (
         .json({ success: false, error: "Failed to send request." });
       return;
     }
-
-    // // notify admin
-    // const adminId = await prisma.chama.findUnique({
-    //   where:{
-    //     id: chamaId
-    //   },
-    //   select:{
-    //     adminId: true
-    //   }
-    // });
-    // if(!adminId){
-    //   throw new Error("Unable to get admin.");
-    // }
-    // await notify
     res.status(200).json({ success: true, request: request });
   } catch (error) {
     console.error("Register request error:", error);
@@ -882,3 +868,71 @@ export const getUserUsdcBalance = async (
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
+
+// update user push token
+export const updateUserPushToken = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const userId: number = req.user?.userId as number;
+    if (!req.user?.userId) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+    const { pushToken } = req.body;
+    if (!pushToken) {
+      res.status(400).json({ success: false, error: "Push token is required" });
+      return;
+    }
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { expoPushToken: pushToken },
+    });
+    if (!user) {
+      res.status(400).json({ success: false, error: "User not found" });
+      return;
+    }
+    res.status(200).json({ success: true, user: user });
+  } catch (error) {
+    console.error("Update user push token error:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};
+
+// update user notification settings
+export const updateUserNotificationSettings = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const userId: number = req.user?.userId as number;
+    if (!req.user?.userId) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+    const { pushNotify, emailNotify } = req.body;
+    let user;
+    if (pushNotify) {
+      user = await prisma.user.update({
+        where: { id: userId },
+        data: { pushNotify: pushNotify },
+      });
+    }
+    if (emailNotify) {
+      user = await prisma.user.update({
+        where: { id: userId },
+        data: { emailNotify: emailNotify },
+      });
+    }
+    if (!user) {
+      res.status(400).json({ success: false, error: "User not found" });
+      return;
+    }
+    res.status(200).json({ success: true, user: user });
+  } catch (error) {
+    console.error("Update user notification settings error:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};
+

@@ -16,7 +16,8 @@ import {
   updatePhoneNumber,
   uploadProfileImage,
   transferUSDC,
-  getUserUsdcBalance
+  getUserUsdcBalance,updateUserPushToken,
+  updateUserNotificationSettings
 } from "../Controllers/userController";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -42,6 +43,8 @@ router.post("/confirmRequest", authenticate, confirmJoinRequest);
 router.post("/shareLink", authenticate, shareChamaLink);
 router.post("/sendUSDC", authenticate, transferUSDC);
 router.post('/profile/image', authenticate, upload.single('image'), uploadProfileImage);
+router.post("/updatePushToken", authenticate, updateUserPushToken);
+router.post("/updateNotificationSettings", authenticate, updateUserNotificationSettings);
 
 
 // get routes functions
