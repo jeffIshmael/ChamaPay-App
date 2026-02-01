@@ -915,13 +915,13 @@ export const updateUserNotificationSettings = async (
     console.log("pushNotify", pushNotify);
     console.log("emailNotify", emailNotify);
     let user;
-    if (pushNotify) {
+    if (pushNotify !== undefined) {
       user = await prisma.user.update({
         where: { id: userId },
         data: { pushNotify: pushNotify },
       });
     }
-    if (emailNotify) {
+    if (emailNotify !== undefined) {
       user = await prisma.user.update({
         where: { id: userId },
         data: { emailNotify: emailNotify },
