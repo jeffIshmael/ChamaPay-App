@@ -25,9 +25,11 @@ import {
   Switch,
   Text,
   TouchableOpacity,
-  View
+  View,
+  ToastAndroid
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { updateUserPushToken, updateUserNotificationSettings } from "@/lib/userService";
 
 interface NotificationSettings {
   pushNotifications: boolean;
@@ -68,62 +70,17 @@ async function sendPushNotification(expoPushToken: string) {
 }
 
 
-function handleRegistrationError(errorMessage: string) {
-  alert(errorMessage);
-  throw new Error(errorMessage);
-}
 
-async function registerForPushNotificationsAsync() {
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
-    });
-  }
-
-  if (Device.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    if (finalStatus !== 'granted') {
-      handleRegistrationError('Permission not granted to get push token for push notification!');
-      return;
-    }
-    const projectId =
-      Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
-    if (!projectId) {
-      handleRegistrationError('Project ID not found');
-    }
-    try {
-      const pushTokenString = (
-        await Notifications.getExpoPushTokenAsync({
-          projectId,
-        })
-      ).data;
-      console.log(pushTokenString);
-      return pushTokenString;
-    } catch (e: unknown) {
-      handleRegistrationError(`${e}`);
-    }
-  } else {
-    handleRegistrationError('Must use physical device for push notifications');
-  }
-}
 
 export default function ProfileSettings() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, logout, isLoading } = useAuth();
+  const { user, logout, isLoading, token, refreshUser } = useAuth();
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [showSeedPhraseModal, setShowSeedPhraseModal] = useState(false);
   const [notifications, setNotifications] = useState<NotificationSettings>({
-    pushNotifications: true,
-    emailNotifications: true,
+    pushNotifications: user?.pushNotify || false,
+    emailNotifications: user?.emailNotify || false,
     contributionReminders: true,
   });
 
@@ -201,6 +158,102 @@ export default function ProfileSettings() {
       ]
     );
   };
+
+
+
+  async function registerForPushNotificationsAsync(token: string) {
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
+    }
+
+    if (Device.isDevice) {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== 'granted') {
+        ToastAndroid.show("Permission not granted to get push token for push notification!", ToastAndroid.SHORT);
+        return;
+      }
+      const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+      if (!projectId) {
+        ToastAndroid.show("Project ID not found", ToastAndroid.SHORT);
+        return;
+      }
+      try {
+        const pushTokenString = (
+          await Notifications.getExpoPushTokenAsync({
+            projectId,
+          })
+        ).data;
+        console.log("pushTokenString", pushTokenString);
+        return pushTokenString;
+      } catch (e: unknown) {
+        ToastAndroid.show("Unable to update push token", ToastAndroid.SHORT);
+      }
+    } else {
+      ToastAndroid.show("Must use physical device for push notifications", ToastAndroid.SHORT);
+    }
+  }
+
+  // function to switch notification on
+  async function switchNotificationOn() {
+    try {
+      if (!token) {
+        ToastAndroid.show("Token not found. Refresh the app", ToastAndroid.SHORT);
+        return;
+      }
+      const pushTokenString = await registerForPushNotificationsAsync(token);
+      console.log("pushTokenString", pushTokenString);
+      if (!pushTokenString) {
+        ToastAndroid.show("Unable to get push token", ToastAndroid.SHORT);
+        return;
+      }
+      const result = await updateUserPushToken(pushTokenString, token);
+      if (!result.success) {
+        ToastAndroid.show("Unable to update push token", ToastAndroid.SHORT);
+      }
+      // update notification setting
+      const updateResult = await updateUserNotificationSettings(token, true);
+      if (!updateResult.success) {
+        ToastAndroid.show("Unable to update notification settings", ToastAndroid.SHORT);
+      }
+      console.log("result", result);
+      refreshUser();
+      return pushTokenString;
+    } catch (e: unknown) {
+      ToastAndroid.show("Unable to update push token", ToastAndroid.SHORT);
+      console.log("e", e);
+    }
+  }
+
+  // functio to switch email notification
+  async function switchEmailNotification(currentEmailNotify: boolean) {
+    try {
+      if (!token) {
+        ToastAndroid.show("Token not found. Refresh the app", ToastAndroid.SHORT);
+        return;
+      }
+      const result = await updateUserNotificationSettings(token, undefined, !currentEmailNotify);
+      console.log(`seting email mnotify from ${currentEmailNotify} to ${!currentEmailNotify}`);
+      if (!result.success) {
+        ToastAndroid.show("Unable to update notification settings", ToastAndroid.SHORT);
+      }
+      console.log("result", result);
+      refreshUser();
+    } catch (e: unknown) {
+      ToastAndroid.show("Unable to update notification settings", ToastAndroid.SHORT);
+      console.log("e", e);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -293,9 +346,6 @@ export default function ProfileSettings() {
           {user?.address && (
             <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
               <View className="flex-row items-center gap-3 mb-4">
-                {/* <View className="w-12 h-12 bg-blue-100 rounded-xl items-center justify-center">
-                  <Wallet size={20} color="#3b82f6" />
-                </View> */}
                 <View>
                   <Text className="text-lg font-bold text-gray-900">
                     Wallet Information
@@ -358,9 +408,10 @@ export default function ProfileSettings() {
                 </View>
                 <Switch
                   value={notifications.pushNotifications}
-                  onValueChange={(value) =>
+                  onValueChange={(value) => {
+                    switchNotificationOn();
                     updateNotificationSetting("pushNotifications", value)
-                  }
+                  }}
                   trackColor={{ false: "#e5e7eb", true: "#10b981" }}
                   thumbColor="#ffffff"
                 />
@@ -376,9 +427,10 @@ export default function ProfileSettings() {
                 </View>
                 <Switch
                   value={notifications.emailNotifications}
-                  onValueChange={(value) =>
+                  onValueChange={async (value) => {
+                    await switchEmailNotification(value);
                     updateNotificationSetting("emailNotifications", value)
-                  }
+                  }}
                   trackColor={{ false: "#e5e7eb", true: "#10b981" }}
                   thumbColor="#ffffff"
                 />
