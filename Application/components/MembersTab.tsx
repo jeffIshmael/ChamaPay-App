@@ -127,7 +127,7 @@ const MembersTab: FC<Props> = ({ members = [], eachMemberBalances, isPublic = fa
                         {/* Balance Information */}
                         <View className="gap-1">
                           {/* Available Balance */}
-                          <View className="flex-row items-center gap-2">
+                          <View className="flex-row items-center gap-1">
                             <DollarSign size={14} color="#6b7280" />
                             <Text className="text-sm text-gray-600">
                               Balance: {memberBalance.balance.toLocaleString()} USDC

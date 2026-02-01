@@ -470,6 +470,8 @@ export const transformChamaData = (
 
     unreadMessages: 0,
     isPublic: backendChama.type === "Public",
+    currentCycle: backendChama.cycle,
+    currentRound: backendChama.round,
     blockchainId: backendChama.blockchainId,
 
     messages: backendChama.messages,

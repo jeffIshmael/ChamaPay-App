@@ -6,6 +6,7 @@ import React, { useEffect, useState } from "react";
 import {
     Alert,
     Image,
+    ToastAndroid,
     Text,
     TouchableOpacity,
     View
@@ -47,7 +48,7 @@ export default function PinSetup() {
             }
         } catch (error) {
             console.log("Biometric setup failed", error);
-            Alert.alert("Error", "Failed to set up biometric authentication. Please use PIN instead.");
+            ToastAndroid.show("Failed to set up biometric authentication. Please use PIN instead.", ToastAndroid.SHORT);
         }
     };
 

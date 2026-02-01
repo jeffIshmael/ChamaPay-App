@@ -13,7 +13,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  ToastAndroid
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -160,8 +161,7 @@ export default function EditProfile() {
 
         // Refresh user data to get updated profile
         await refreshUser?.();
-
-        Alert.alert('Success', 'Profile image updated successfully!');
+        ToastAndroid.show('Profile image updated successfully!', ToastAndroid.SHORT);
       } else {
         throw new Error(data.error || 'Failed to upload image');
       }

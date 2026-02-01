@@ -14,6 +14,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ToastAndroid
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -120,16 +121,16 @@ export default function SendCryptoScreen() {
 
   const handleSend = async () => {
     if (!token) {
-      Alert.alert("Error", "Please login to send transactions");
+      ToastAndroid.show("Please login to send transactions", ToastAndroid.SHORT);
       return;
     }
     if (!recipient.trim() || !amount.trim()) {
-      Alert.alert("Error", "Please fill in all required fields");
+      ToastAndroid.show("Please fill in all required fields", ToastAndroid.SHORT);
       return;
     }
 
     if (sendMode === "chamapay" && !selectedUser) {
-      Alert.alert("Error", "Please select a user from the search results");
+      ToastAndroid.show("Please select a user from the search results", ToastAndroid.SHORT);
       return;
     }
     let receiver: `0x${string}` | null = null;
@@ -140,7 +141,7 @@ export default function SendCryptoScreen() {
     }
 
     if (!receiver) {
-      Alert.alert("Error", "Please select a user or enter a valid address");
+      ToastAndroid.show("Please select a user or enter a valid address", ToastAndroid.SHORT);
       return;
     }
     setIsProcessing(true);
@@ -159,16 +160,15 @@ export default function SendCryptoScreen() {
       });
       const data = await response.json();
       if (!data.success) {
-        Alert.alert("Error", data.message);
+        ToastAndroid.show(data.message, ToastAndroid.SHORT);
         return;
       }
-      Alert.alert("Success", "Transaction sent successfully", [
-        { text: "OK", onPress: () => router.push("/wallet") },
-      ]);
+      ToastAndroid.show("Transaction sent successfully", ToastAndroid.SHORT);
+      router.push("/wallet");
 
     } catch (error) {
       console.error("Error sending transaction:", error);
-      Alert.alert("Error", "Failed to send transaction");
+      ToastAndroid.show("Failed to send transaction", ToastAndroid.SHORT);
       return;
     } finally {
       setIsProcessing(false);
@@ -195,7 +195,7 @@ export default function SendCryptoScreen() {
           <View className="w-8" />
         </View>
         <Text className="text-emerald-100 text-sm text-center mt-1">
-          Send USDC to ChamaPay users or external wallets
+          Send USDC to Chamapay users or external wallets
         </Text>
       </View>
 
@@ -222,7 +222,7 @@ export default function SendCryptoScreen() {
                 activeOpacity={0.7}
               >
                 <Image
-                  source={require("@/assets/images/logo.png")}
+                  source={require("@/assets/images/chamapay-logo.png")}
                   className="w-6 h-6 rounded-md"
                   style={{
                     tintColor: sendMode === "chamapay" ? "#fff" : "#059669",
@@ -232,7 +232,7 @@ export default function SendCryptoScreen() {
                   className={`font-bold text-sm ${sendMode === "chamapay" ? "text-white" : "text-gray-700"
                     }`}
                 >
-                  ChamaPay User
+                  Chamapay user
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity

@@ -10,7 +10,7 @@ import {
   TrendingUp
 } from "lucide-react-native";
 import React, { FC, useState } from "react";
-import { Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Modal, ScrollView, Text, TouchableOpacity, View, Dimensions } from "react-native";
 import { Badge } from "./ui/Badge";
 import { Card } from "./ui/Card";
 import { ProgressBar } from "./ui/ProgressBar";
@@ -19,8 +19,8 @@ type Props = {
   myContributions: number;
   contribution: number;
   remainingAmount: number;
-  paymentAmount: string | undefined;
-  setPaymentAmount: (val: string) => void;
+  currentCycle: number;
+  currentRound: number;
   makePayment: () => void;
   contributionDueDate: Date;
   currentTurnMember: string;
@@ -30,19 +30,19 @@ type Props = {
   leaveChama: () => void;
   userAddress: `0x${string}`;
   chamaStatus: "active" | "not started";
-  chamaStartDate?: Date;
   currency: string;
-  kesRate?: number;
-  isPublic?: boolean;
+  isPublic: boolean;
+  chamaStartDate?: Date;
   collateralAmount?: number;
+  kesRate?: number;
 };
 
 const ChamaOverviewTab: FC<Props> = ({
   myContributions,
   contribution,
   remainingAmount,
-  paymentAmount,
-  setPaymentAmount,
+  currentCycle,
+  currentRound,
   makePayment,
   contributionDueDate,
   currentTurnMember,
@@ -54,13 +54,14 @@ const ChamaOverviewTab: FC<Props> = ({
   chamaStatus,
   chamaStartDate,
   currency,
+  isPublic = true,
+  collateralAmount = 100,
   kesRate = 0,
-  isPublic = false,
-  collateralAmount = 0,
 }) => {
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [activeCardIndex, setActiveCardIndex] = useState(0);
 
   const handleTransactionPress = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
@@ -77,121 +78,14 @@ const ChamaOverviewTab: FC<Props> = ({
 
   return (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-      {/* Balance and Locked Amount Cards */}
-      <View className="flex-row gap-3 mb-6">
-        {/* Balance Card */}
-        <Card className="flex-1 p-5">
-          <View className="mb-4">
-            <Text className="text-sm font-medium text-gray-600 mb-1">
-              Chama Balance
-            </Text>
-            <Text className="text-2xl font-bold text-gray-900">
-              {kesRate > 0
-                ? `${(myContributions * kesRate).toLocaleString()} KES`
-                : `${myContributions.toFixed(3)} ${currency}`}
-            </Text>
-            {kesRate > 0 && (
-              <Text className="text-xs text-gray-500 mt-1">
-                ≈ {myContributions.toFixed(3)} {currency}
-              </Text>
-            )}
-          </View>
+      {/* Contribution Progress with Balance Cards */}
 
-          <View className="flex-row gap-2">
-            <TouchableOpacity
-              onPress={makePayment}
-              className="flex-1 bg-emerald-600 py-2.5 rounded-lg"
-              activeOpacity={0.8}
-            >
-              <Text className="text-white text-sm font-semibold text-center">
-                Add
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="flex-1 bg-gray-200 py-2.5 rounded-lg"
-              activeOpacity={0.8}
-              disabled
-            >
-              <Text className="text-gray-500 text-sm font-semibold text-center">
-                Withdraw
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </Card>
-
-        {/* Locked Amount Card - Only for Public Chamas */}
-        {isPublic && (
-          <Card className="flex-1 p-5">
-            <View className="mb-4">
-              <Text className="text-sm font-medium text-gray-600 mb-1">
-                Locked Amount
-              </Text>
-              <Text className="text-2xl font-bold text-gray-900">
-                {kesRate > 0
-                  ? `${(collateralAmount * kesRate).toLocaleString()} KES`
-                  : `${collateralAmount.toFixed(3)} ${currency}`}
-              </Text>
-              {kesRate > 0 && (
-                <Text className="text-xs text-gray-500 mt-1">
-                  ≈ {collateralAmount.toFixed(3)} {currency}
-                </Text>
-              )}
-            </View>
-
-            <View className="flex-row gap-2">
-              <TouchableOpacity
-                className="flex-1 bg-emerald-600 py-2.5 rounded-lg"
-                activeOpacity={0.8}
-                disabled
-              >
-                <Text className="text-white text-sm font-semibold text-center">
-                  Add
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </Card>
-        )}
-      </View>
-
-      {/* Payment Warning - Show if remaining amount */}
-      {remainingAmount > 0 && (
-        <View className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6">
-          <View className="flex-row items-center gap-2 mb-2">
-            <View className="w-5 h-5 bg-orange-100 rounded-full items-center justify-center">
-              <Text className="text-orange-600 text-xs font-bold">!</Text>
-            </View>
-            <Text className="text-orange-800 font-medium">
-              Payment Required
-            </Text>
-          </View>
-          <Text className="text-sm text-orange-700">
-            {kesRate > 0
-              ? `${(remainingAmount * kesRate).toLocaleString()} KES`
-              : `${remainingAmount.toFixed(3)} ${currency}`}{" "}
-            remaining
-            {kesRate > 0 && (
-              <Text className="font-semibold">
-                {" "}
-                ({remainingAmount.toFixed(3)} {currency})
-              </Text>
-            )}
-            {" • "}Due:{" "}
-            {new Date(contributionDueDate).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </Text>
-        </View>
-      )}
-
-      {/* Contribution Progress Indicator */}
-      <Card className="p-5 mb-6">
+      {/* Contribution Progress with Balance Cards */}
+      <Card className="px-6 py-4 mb-4">
+        {/* Section Header */}
         <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-lg font-semibold text-gray-900">
-            Cycle Contribution
+          <Text className="text-xl font-semibold text-gray-900">
+            Cycle Overview
           </Text>
           <Badge
             variant={myContributions >= contribution ? "default" : "secondary"}
@@ -208,48 +102,396 @@ const ChamaOverviewTab: FC<Props> = ({
           </Badge>
         </View>
 
-        <View className="bg-gray-50 rounded-xl p-4">
-          <View className="flex-row justify-between items-center mb-2">
-            <Text className="text-sm font-medium text-gray-600">
-              Required
-            </Text>
-            <Text className="text-base font-semibold text-gray-900">
-              {kesRate > 0
-                ? `${(contribution * kesRate).toFixed(2)} KES`
-                : `${contribution.toFixed(3)} ${currency}`}
-              {kesRate > 0 && (
-                <Text className="text-sm font-medium text-gray-500">
-                  {" "}
-                  ({contribution.toFixed(2)} {currency})
-                </Text>
+        {/* Compact Cycle Details */}
+        {/* <View className="bg-gray-50 rounded-lg px-3 py-2 mb-4">
+          <Text className="text-xs text-gray-600 leading-5">
+            <Text className="font-semibold text-gray-800">Cycle:</Text> {currentCycle || 1}
+            <Text className="text-gray-400"> • </Text>
+            <Text className="font-semibold text-gray-800">Round:</Text> {currentRound || 1}
+            <Text className="text-gray-400"> • </Text>
+            <Text className="font-semibold text-gray-800">Required:</Text>{" "}
+            {kesRate > 0
+              ? `${(contribution * kesRate).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })} KES`
+              : `${contribution.toFixed(3)} ${currency}`}
+            <Text className="text-gray-400"> • </Text>
+            <Text className="font-semibold text-gray-800">Due:</Text>{" "}
+            {new Date(contributionDueDate).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })}
+          </Text>
+        </View> */}
+
+        {/* Swipeable Balance Cards */}
+        <View className="gap-4 mb-2">
+          {isPublic ? (
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={(e) => {
+                const contentOffsetX = e.nativeEvent.contentOffset.x;
+                const index = Math.round(contentOffsetX / (Dimensions.get('window').width - 48));
+                setActiveCardIndex(index);
+              }}
+              scrollEventThrottle={16}
+            >
+              {/* Chama Balance Card */}
+              <View style={{ width: Dimensions.get('window').width - 48 }}>
+                <View className="bg-downy-100/20 rounded-2xl overflow-hidden border border-emerald-100">
+                  {/* Card Header */}
+                  <View className="px-4 py-3">
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-row items-center gap-2">
+                        {/* <View className="w-8 h-8 bg-downy-100 rounded-full items-center justify-center">
+                          <DollarSign size={16} color="#059669" />
+                        </View> */}
+                        <View>
+                          <Text className="text-sm font-semibold text-gray-800">
+                            My Chama Balance
+                          </Text>
+                          <Text className="text-xs text-gray-600">
+                            Available funds
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* {remainingAmount > 0 && (
+                        <View className="bg-orange-100 px-2 py-1 rounded-full">
+                          <Text className="text-orange-700 text-xs font-bold">
+                            Due
+                          </Text>
+                        </View>
+                      )} */}
+                    </View>
+                  </View>
+
+                  {/* Balance Amount */}
+                  <View className="px-4 py-4">
+                    <View className="mb-4">
+                      <Text className="text-3xl font-bold text-gray-900">
+                        {kesRate > 0
+                          ? `${(myContributions * kesRate).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })} KES`
+                          : `${myContributions.toFixed(3)} ${currency}`}
+                      </Text>
+                      {kesRate > 0 && (
+                        <Text className="text-xs text-gray-500 mt-1">
+                          ≈ {myContributions.toFixed(3)} {currency}
+                        </Text>
+                      )}
+                    </View>
+
+                    {/* Payment Warning */}
+                    {remainingAmount > 0 && (
+                      <View className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
+                        <View className="flex-row items-start gap-2">
+                          <View className="w-4 h-4 bg-orange-100 rounded-full items-center justify-center mt-0.5">
+                            <Text className="text-orange-600 text-xs font-bold">!</Text>
+                          </View>
+                          <View className="flex-1">
+                            <Text className="text-orange-800 font-semibold text-xs mb-0.5">
+                              Outstanding Payment
+                            </Text>
+                            <Text className="text-orange-700 text-xs">
+                              {kesRate > 0
+                                ? `${(remainingAmount * kesRate).toLocaleString()} KES`
+                                : `${remainingAmount.toFixed(3)} ${currency}`}
+                              {" • Due: "}
+                              {new Date(contributionDueDate).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Action Buttons */}
+                    <View className="flex-row gap-2">
+                      {remainingAmount > 0 ? (
+                        <>
+                          <TouchableOpacity
+                            onPress={makePayment}
+                            className="flex-1 bg-downy-600 py-3 rounded-lg"
+                            activeOpacity={0.8}
+                          >
+                            <Text className="text-white text-sm font-bold text-center">
+                              Make Payment
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            className="flex-1 bg-gray-200 py-3 rounded-lg"
+                            activeOpacity={0.8}
+                            disabled
+                          >
+                            <Text className="text-gray-400 text-sm font-bold text-center">
+                              Withdraw
+                            </Text>
+                          </TouchableOpacity>
+                        </>
+                      ) : (
+                        <>
+                          <TouchableOpacity
+                            onPress={makePayment}
+                            className="flex-1 bg-emerald-50 border border-emerald-300 py-3 rounded-lg"
+                            activeOpacity={0.8}
+                          >
+                            <Text className="text-emerald-700 text-sm font-bold text-center">
+                              Add Funds
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            className="flex-1 bg-downy-600 py-3 rounded-lg"
+                            activeOpacity={0.8}
+                          >
+                            <Text className="text-white text-sm font-bold text-center">
+                              Withdraw
+                            </Text>
+                          </TouchableOpacity>
+                        </>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Locked Balance Card - Different Color */}
+              {collateralAmount !== undefined && (
+                <View style={{ width: Dimensions.get('window').width - 48 }}>
+                  <View className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl overflow-hidden border border-purple-200">
+                    {/* Card Header */}
+                    <View className="px-4 py-3">
+                      <View className="flex-row items-center justify-between">
+                        <View className="flex-row items-center gap-2">
+                          <View className="w-8 h-8 bg-purple-100 rounded-full items-center justify-center">
+                            <View className="w-4 h-4 bg-purple-500 rounded-full" />
+                          </View>
+                          <View>
+                            <Text className="text-sm font-semibold text-gray-900">
+                              Locked Balance
+                            </Text>
+                            <Text className="text-xs text-gray-600">
+                              Secured collateral
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View className="bg-purple-100 px-2 py-1 rounded-full">
+                          <Text className="text-purple-700 text-xs font-bold">
+                            🔒 Locked
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Balance Amount */}
+                    <View className="px-4 py-4">
+                      <View className="mb-4">
+                        <Text className="text-3xl font-bold text-gray-900">
+                          {kesRate > 0
+                            ? `${(collateralAmount * kesRate).toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })} KES`
+                            : `${collateralAmount.toFixed(3)} ${currency}`}
+                        </Text>
+                        {kesRate > 0 && (
+                          <Text className="text-xs text-gray-500 mt-1">
+                            ≈ {collateralAmount.toFixed(3)} {currency}
+                          </Text>
+                        )}
+                      </View>
+
+                      {/* Collateral Info */}
+                      <View className="bg-purple-100 border border-purple-200 rounded-lg p-3 mb-3">
+                        <View className="flex-row items-start gap-2">
+                          <Text className="text-purple-600 text-base">💡</Text>
+                          <View className="flex-1">
+                            <Text className="text-purple-800 font-semibold text-xs mb-0.5">
+                              Required Collateral
+                            </Text>
+                            <Text className="text-purple-700 text-xs">
+                              {kesRate > 0
+                                ? `${((contribution * 10) * kesRate).toLocaleString()} KES`
+                                : `${(contribution * 10).toFixed(3)} ${currency}`}
+                              {collateralAmount >= (contribution * 10) && (
+                                <Text className="text-emerald-600 font-bold">
+                                  {" "}✓ Complete
+                                </Text>
+                              )}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Action Button */}
+                      <TouchableOpacity
+                        className={`py-3 rounded-lg ${collateralAmount >= (contribution * 10)
+                            ? "bg-gray-200"
+                            : "bg-purple-600"
+                          }`}
+                        activeOpacity={0.8}
+                        disabled={collateralAmount >= (contribution * 10)}
+                      >
+                        <Text
+                          className={`text-sm font-bold text-center ${collateralAmount >= (contribution * 10)
+                              ? "text-gray-400"
+                              : "text-white"
+                            }`}
+                        >
+                          {collateralAmount >= (contribution * 10)
+                            ? "Fully Funded"
+                            : "Add Collateral"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
               )}
-            </Text>
-          </View>
-          <View className="flex-row justify-between items-center mb-3">
-            <Text className="text-sm font-medium text-gray-600">
-              Contributed
-            </Text>
-            <Text className="text-base font-semibold text-emerald-600">
-              {kesRate > 0
-                ? `${(myContributions * kesRate).toFixed(2)} KES`
-                : `${myContributions.toFixed(3)} ${currency}`}
-              {kesRate > 0 && (
-                <Text className="text-sm font-medium text-emerald-400">
-                  {" "}
-                  ({myContributions.toFixed(3)} {currency})
-                </Text>
-              )}
-            </Text>
-          </View>
-          <ProgressBar
-            value={
-              contribution > 0
-                ? Math.min((myContributions / contribution) * 100, 100)
-                : 0
-            }
-          />
+            </ScrollView>
+          ) : (
+            // Non-public chama - just show balance card
+            <View className="bg-downy-100/20 rounded-2xl overflow-hidden border border-emerald-100">
+              {/* Same balance card content as above */}
+              <View className="px-4 py-3">
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center gap-2">
+                    <View className="w-8 h-8 bg-downy-100 rounded-full items-center justify-center">
+                      <DollarSign size={16} color="#059669" />
+                    </View>
+                    <View>
+                      <Text className="text-sm font-semibold text-gray-800">
+                        My Chama Balance
+                      </Text>
+                      <Text className="text-xs text-gray-600">
+                        Available funds
+                      </Text>
+                    </View>
+                  </View>
+
+                  {remainingAmount > 0 && (
+                    <View className="bg-orange-100 px-2 py-1 rounded-full">
+                      <Text className="text-orange-700 text-xs font-bold">
+                        Due
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              <View className="px-4 py-4">
+                <View className="mb-4">
+                  <Text className="text-3xl font-bold text-gray-900">
+                    {kesRate > 0
+                      ? `${(myContributions * kesRate).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })} KES`
+                      : `${myContributions.toFixed(3)} ${currency}`}
+                  </Text>
+                  {kesRate > 0 && (
+                    <Text className="text-xs text-gray-500 mt-1">
+                      ≈ {myContributions.toFixed(3)} {currency}
+                    </Text>
+                  )}
+                </View>
+
+                {remainingAmount > 0 && (
+                  <View className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
+                    <View className="flex-row items-start gap-2">
+                      <View className="w-4 h-4 bg-orange-100 rounded-full items-center justify-center mt-0.5">
+                        <Text className="text-orange-600 text-xs font-bold">!</Text>
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-orange-800 font-semibold text-xs mb-0.5">
+                          Outstanding Payment
+                        </Text>
+                        <Text className="text-orange-700 text-xs">
+                          {kesRate > 0
+                            ? `${(remainingAmount * kesRate).toLocaleString()} KES`
+                            : `${remainingAmount.toFixed(3)} ${currency}`}
+                          {" • Due: "}
+                          {new Date(contributionDueDate).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                <View className="flex-row gap-2">
+                  {remainingAmount > 0 ? (
+                    <>
+                      <TouchableOpacity
+                        onPress={makePayment}
+                        className="flex-1 bg-downy-600 py-3 rounded-lg"
+                        activeOpacity={0.8}
+                      >
+                        <Text className="text-white text-sm font-bold text-center">
+                          Make Payment
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        className="flex-1 bg-gray-200 py-3 rounded-lg"
+                        activeOpacity={0.8}
+                        disabled
+                      >
+                        <Text className="text-gray-400 text-sm font-bold text-center">
+                          Withdraw
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <TouchableOpacity
+                        onPress={makePayment}
+                        className="flex-1 bg-emerald-50 border border-emerald-300 py-3 rounded-lg"
+                        activeOpacity={0.8}
+                      >
+                        <Text className="text-emerald-700 text-sm font-bold text-center">
+                          Add Funds
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        className="flex-1 bg-downy-600 py-3 rounded-lg"
+                        activeOpacity={0.8}
+                      >
+                        <Text className="text-white text-sm font-bold text-center">
+                          Withdraw
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Pagination Dots - Only for public chamas */}
+          {isPublic && collateralAmount !== undefined && (
+            <View className="flex-row justify-center items-center gap-2 mt-3">
+              <View
+                className={`h-2 rounded-full transition-all ${activeCardIndex === 0 ? "w-6 bg-downy-600" : "w-2 bg-gray-300"
+                  }`}
+              />
+              <View
+                className={`h-2 rounded-full transition-all ${activeCardIndex === 1 ? "w-6 bg-purple-600" : "w-2 bg-gray-300"
+                  }`}
+              />
+            </View>
+          )}
         </View>
       </Card>
+
 
       {/* Next Payout Info */}
       <Card className="p-6 mb-6">

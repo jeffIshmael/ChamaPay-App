@@ -18,6 +18,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ToastAndroid
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -88,7 +89,7 @@ export default function WalletSetup() {
 
   const saveUsername = async () => {
     if (!isUsernameValid || !params.email) {
-      Alert.alert("Error", "Please enter a valid username");
+      ToastAndroid.show("Please enter a valid username", ToastAndroid.SHORT);
       return;
     }
 
@@ -100,28 +101,16 @@ export default function WalletSetup() {
         profileImageUrl: params.picture,
       });
 
-      if (res.success) {
+      if (res.success && res.user) {
         setHasNameMissing(false);
-        // Simulate getting wallet address after registration
-        setWalletAddress("0x1234567890abcdef1234567890abcdef12345678");
+        setWalletAddress(res.user.smartAddress);
 
-        // Show success briefly, then auto-navigate
-        Alert.alert(
-          "Success! 🎉",
-          "Your account has been created successfully",
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                setTimeout(() => {
-                  router.replace("/pin-setup");
-                }, 500);
-              }
-            }
-          ]
-        );
+        ToastAndroid.show("Account created successfully", ToastAndroid.SHORT);
+        setTimeout(() => {
+          router.replace("/pin-setup");
+        }, 500);
       } else {
-        Alert.alert("Error", res.error || "Failed to register");
+        ToastAndroid.show(res.error || "Failed to register", ToastAndroid.SHORT);
       }
     } catch (error) {
       console.error("Save username error:", error);
@@ -134,7 +123,6 @@ export default function WalletSetup() {
   const copyAddress = async () => {
     if (!walletAddress) return;
     await Clipboard.setStringAsync(walletAddress);
-    Alert.alert("Success", "Address copied to clipboard");
   };
 
   const StepIndicator = ({
@@ -319,12 +307,12 @@ export default function WalletSetup() {
           >
             <Text className="text-gray-900 font-medium mb-2">Choose your username</Text>
             <View className={`flex-row items-center border-2 rounded-lg px-4 py-3 mb-3 ${usernameStatus === "available"
-                ? "border-green-500 bg-green-50"
-                : usernameStatus === "unavailable" || usernameStatus === "invalid"
-                  ? "border-red-500 bg-red-50"
-                  : usernameStatus === "checking"
-                    ? "border-yellow-500 bg-yellow-50"
-                    : "border-gray-200"
+              ? "border-green-500 bg-green-50"
+              : usernameStatus === "unavailable" || usernameStatus === "invalid"
+                ? "border-red-500 bg-red-50"
+                : usernameStatus === "checking"
+                  ? "border-yellow-500 bg-yellow-50"
+                  : "border-gray-200"
               }`}>
               <Text className="text-gray-700 mr-2">@</Text>
               <TextInput
@@ -349,10 +337,10 @@ export default function WalletSetup() {
             {/* Username status message */}
             {usernameMessage && (
               <Text className={`text-sm mb-3 ${usernameStatus === "available"
-                  ? "text-green-600"
-                  : usernameStatus === "unavailable" || usernameStatus === "invalid"
-                    ? "text-red-600"
-                    : "text-yellow-600"
+                ? "text-green-600"
+                : usernameStatus === "unavailable" || usernameStatus === "invalid"
+                  ? "text-red-600"
+                  : "text-yellow-600"
                 }`}>
                 {usernameMessage}
               </Text>

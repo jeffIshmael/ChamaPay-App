@@ -22,6 +22,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ToastAndroid
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -223,19 +224,11 @@ export default function WithdrawCryptoScreen() {
     setProcessingStep("processing");
 
     try {
-      // Step 1: Transfer USDC to Pretium settlement address
-      // const txHash = await transferUSDC(usdcAmount, pretiumSettlementAddress);
-      // if (!txHash) {
-      //   throw new Error("Unable to send USDC");
-      // }
-      const txHash = "0x1234567890";
 
-      // Step 2: Initiate M-Pesa offramp
       const offrampResult = await disburseToMobileNumber(
         "KES" as CurrencyCode,
         MOBILE_NETWORK,
         `0${phoneNumber}`,
-        txHash,
         amountKES, // User receives exactly what they entered
         usdcAmount,
         currentExchangeRate.toString(),
@@ -246,7 +239,7 @@ export default function WithdrawCryptoScreen() {
         throw new Error(offrampResult.error || "Failed to initiate withdrawal");
       }
 
-      // Step 3: Poll for transaction completion
+      // Poll for transaction completion
       const transactionCode = offrampResult.transactionCode;
 
       if (!transactionCode) {
@@ -279,29 +272,16 @@ export default function WithdrawCryptoScreen() {
           2000
         );
 
-        // Step 4: Handle successful completion
+        // Handle successful completion
         setProcessingStep("completed");
-
-        setTimeout(() => {
-          setIsProcessing(false);
-          Alert.alert(
-            "Success!",
-            `${CURRENCY} ${formatCurrency(amountKES)} has been sent to ${formatPhoneNumber(
-              KENYA_PHONE_CODE,
-              phoneNumber
-            )}`,
-            [
-              {
-                text: "OK",
-                onPress: () => {
-                  setAmountKES("");
-                  setPhoneNumber("");
-                  router.push("/wallet");
-                },
-              },
-            ]
-          );
-        }, 2000);
+        setIsProcessing(false);
+        ToastAndroid.show(` ${formatCurrency(amountKES)} ${CURRENCY} has been successfully sent to ${formatPhoneNumber(
+          KENYA_PHONE_CODE,
+          phoneNumber
+        )}`, ToastAndroid.SHORT);
+        setAmountKES("");
+        setPhoneNumber("");
+        router.push("/wallet");
       } catch (pollError: any) {
         let errorTitle = "Withdrawal Processing";
         let errorMessage =
@@ -322,33 +302,19 @@ export default function WithdrawCryptoScreen() {
         }
 
         setProcessingStep("failed");
-        setTimeout(() => {
-          setIsProcessing(false);
-          Alert.alert(errorTitle, errorMessage, [
-            {
-              text: "OK",
-              onPress: () => router.push("/wallet"),
-            },
-          ]);
-        }, 2000);
+
+        ToastAndroid.show(errorMessage, ToastAndroid.SHORT);
       }
     } catch (error: any) {
       console.error("Withdrawal error:", error);
       setProcessingStep("failed");
 
-      setTimeout(() => {
-        setIsProcessing(false);
-        Alert.alert(
-          "Withdrawal Failed",
-          error.message || "Failed to process M-Pesa withdrawal. Please try again.",
-          [
-            {
-              text: "OK",
-              onPress: () => setProcessingStep("idle"),
-            },
-          ]
-        );
-      }, 2000);
+      setIsProcessing(false);
+      ToastAndroid.show(
+        error.message || "Failed to process M-Pesa withdrawal. Please try again.",
+        ToastAndroid.SHORT
+      );
+      setProcessingStep("idle");
     }
   };
 
@@ -381,7 +347,7 @@ export default function WithdrawCryptoScreen() {
       <StatusBar style="light" />
       {/* Header */}
       <View
-        className="bg-downy-800"
+        className="bg-downy-800 rounded-b-3xl"
         style={{
           paddingTop: insets.top + 16,
           paddingBottom: 24,

@@ -1,6 +1,9 @@
 import SeedPhraseModal from "@/components/SeedPhraseModal";
 import { useAuth } from "@/Contexts/AuthContext";
 import * as Clipboard from "expo-clipboard";
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
@@ -17,12 +20,12 @@ import React, { useState } from "react";
 import {
   Alert,
   Image,
-  SafeAreaView,
+  Platform,
   ScrollView,
   Switch,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -30,6 +33,86 @@ interface NotificationSettings {
   pushNotifications: boolean;
   emailNotifications: boolean;
   contributionReminders: boolean;
+}
+
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+
+
+async function sendPushNotification(expoPushToken: string) {
+  const message = {
+    to: expoPushToken,
+    sound: 'default',
+    title: 'Original Title',
+    body: 'And here is the body!',
+    data: { someData: 'goes here' },
+  };
+
+  await fetch('https://exp.host/--/api/v2/push/send', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Accept-encoding': 'gzip, deflate',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(message),
+  });
+}
+
+
+function handleRegistrationError(errorMessage: string) {
+  alert(errorMessage);
+  throw new Error(errorMessage);
+}
+
+async function registerForPushNotificationsAsync() {
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF231F7C',
+    });
+  }
+
+  if (Device.isDevice) {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      handleRegistrationError('Permission not granted to get push token for push notification!');
+      return;
+    }
+    const projectId =
+      Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+    if (!projectId) {
+      handleRegistrationError('Project ID not found');
+    }
+    try {
+      const pushTokenString = (
+        await Notifications.getExpoPushTokenAsync({
+          projectId,
+        })
+      ).data;
+      console.log(pushTokenString);
+      return pushTokenString;
+    } catch (e: unknown) {
+      handleRegistrationError(`${e}`);
+    }
+  } else {
+    handleRegistrationError('Must use physical device for push notifications');
+  }
 }
 
 export default function ProfileSettings() {
@@ -80,9 +163,9 @@ export default function ProfileSettings() {
   };
 
   const copyWalletAddress = async () => {
-    if (user?.address) {
+    if (user?.smartAddress) {
       try {
-        await Clipboard.setStringAsync(user.address);
+        await Clipboard.setStringAsync(user.smartAddress);
         setCopiedAddress(true);
         setTimeout(() => setCopiedAddress(false), 2000);
       } catch (error) {
@@ -121,9 +204,9 @@ export default function ProfileSettings() {
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
+      <View className="flex-1 bg-gray-50 items-center justify-center">
         <Text className="text-gray-600">Loading profile...</Text>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -222,32 +305,32 @@ export default function ProfileSettings() {
                   </Text>
                 </View>
               </View>
-              <View className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
-                <Text className="text-sm text-blue-700 font-medium mb-2">
-                  Wallet Address
-                </Text>
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-gray-900 font-mono text-sm flex-1">
-                    {formatWalletAddress(user.smartAddress)}
+              <TouchableOpacity onPress={copyWalletAddress}>
+                <View className="bg-white rounded-xl p-4 border border-gray-100">
+                  <Text className="text-sm text-blue-700 font-medium mb-2">
+                    Wallet Address
                   </Text>
-                  <TouchableOpacity
-                    onPress={copyWalletAddress}
-                    className="ml-3 p-2 bg-blue-600 rounded-lg active:bg-blue-700"
-                    activeOpacity={0.8}
-                  >
-                    {copiedAddress ? (
-                      <Check size={16} color="white" />
-                    ) : (
-                      <Copy size={16} color="white" />
-                    )}
-                  </TouchableOpacity>
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-gray-900 font-mono text-sm flex-1">
+                      {formatWalletAddress(user.smartAddress)}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={copyWalletAddress}
+                      className="ml-3 p-2 bg-blue-600 rounded-lg active:bg-blue-700"
+                      activeOpacity={0.8}
+                    >
+                      {copiedAddress ? (
+                        <Check size={14} color="white" />
+                      ) : (
+                        <Copy size={14} color="white" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                  <Text className="text-xs text-blue-600 mt-2 font-medium">
+                    Tap to copy full address
+                  </Text>
                 </View>
-                <Text className="text-xs text-blue-600 mt-2 font-medium">
-                  {copiedAddress
-                    ? "✓ Address copied to clipboard!"
-                    : "Tap to copy full address"}
-                </Text>
-              </View>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -300,7 +383,7 @@ export default function ProfileSettings() {
                   thumbColor="#ffffff"
                 />
               </View>
-              <View className="flex-row items-center justify-between p-4 bg-gray-50 rounded-xl">
+              {/* <View className="flex-row items-center justify-between p-4 bg-gray-50 rounded-xl">
                 <View className="flex-1 pr-4">
                   <Text className="text-gray-900 font-semibold text-base">
                     Contribution Reminders
@@ -317,7 +400,7 @@ export default function ProfileSettings() {
                   trackColor={{ false: "#e5e7eb", true: "#10b981" }}
                   thumbColor="#ffffff"
                 />
-              </View>
+              </View> */}
             </View>
           </View>
 

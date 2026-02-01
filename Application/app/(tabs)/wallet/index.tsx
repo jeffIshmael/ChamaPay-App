@@ -3,20 +3,20 @@ import { CurrencyCode } from "@/lib/pretiumService";
 import { getUserBalance } from "@/lib/userService";
 import { getTheUserTx } from "@/lib/walletServices";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
+import * as Clipboard from "expo-clipboard";
 import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
   ArrowDownRight,
   ArrowUpRight,
+  Copy,
   DollarSign,
   Download,
   ExternalLink,
   History,
-  Upload,
   Plus,
   Send,
-  ArrowDownToLine,
-  Copy,
+  Upload
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -31,8 +31,9 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  ToastAndroid,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -606,7 +607,7 @@ export default function CryptoWallet() {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       }).split('.')[1] || "00"
-                      : "00"}
+                      : ""}
                 </Text>
                 <Text className="text-lg text-white/90 ml-1 font-medium">
                   {user?.location === "KE" ? theExhangeQuote?.currencyCode : "USD"}
@@ -629,8 +630,8 @@ export default function CryptoWallet() {
                 <TouchableOpacity
                   onPress={() => {
                     if (user?.smartAddress) {
-                      // Clipboard.setString(user.smartAddress);
-                      Alert.alert("Copied!", "Wallet address copied to clipboard");
+                      Clipboard.setStringAsync(user.smartAddress);
+                      // ToastAndroid.show("Wallet address copied to clipboard", ToastAndroid.SHORT);
                     }
                   }}
                   activeOpacity={0.7}
@@ -667,7 +668,7 @@ export default function CryptoWallet() {
               <View className="items-center justify-center gap-1">
                 <Plus size={20} color="#1c8584" />
                 <Text className="text-downy-600 font-semibold text-xs">
-                  Add Funds
+                  Deposit Funds
                 </Text>
               </View>
             </TouchableOpacity>

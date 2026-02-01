@@ -33,6 +33,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ToastAndroid,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -235,7 +236,7 @@ export default function HomeScreen() {
       >
         <View className="flex-row items-center">
           <TouchableOpacity
-            onPress={() => router.push("/pin-setup")}
+            onPress={() => router.push("/notification-trial")}
             className="mr-3"
             activeOpacity={0.8}
           >

@@ -99,8 +99,6 @@ const USDCPay = ({
         }
       );
 
-      console.log("deposit response", response);
-
       if (response.data.error) {
         setError(response.data.error);
         return;

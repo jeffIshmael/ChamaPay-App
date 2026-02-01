@@ -77,6 +77,8 @@ export interface JoinedChama {
   status: "not started" | "active";
   unreadMessages: number;
   isPublic: boolean;
+  currentCycle: number;
+  currentRound: number;
   messages: Message[];
   payoutSchedule: PayoutScheduleItem[];
   members: Member[];

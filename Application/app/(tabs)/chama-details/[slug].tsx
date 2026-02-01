@@ -38,9 +38,11 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  ToastAndroid
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Clipboard from 'expo-clipboard';
 
 export default function ChamaDetails() {
   const { slug } = useLocalSearchParams();
@@ -145,13 +147,11 @@ export default function ChamaDetails() {
     setShowShareModal(true);
   };
 
-  const copyLink = () => {
+  const copyLink = async () => {
     if (!chama) return;
     const link = generateChamaShareUrl(chama.slug);
-    console.log("the link", link);
-    // In a real app, you'd use Clipboard.setString(link)
-    Alert.alert("Link Copied", "Chama link has been copied to clipboard!");
-    setShowShareModal(false);
+    await Clipboard.setStringAsync(link);
+    // setShowShareModal(false);
   };
 
   // Search users for sharing with debouncing
@@ -241,11 +241,11 @@ export default function ChamaDetails() {
 
     try {
       if (!token) {
-        Alert.alert("Error", "Please login to continue");
+        ToastAndroid.show("Please login to continue", ToastAndroid.SHORT);
         return;
       }
       if (!chama || !user) {
-        Alert.alert("Error", "Chama not found");
+        ToastAndroid.show("Chama not found", ToastAndroid.SHORT);
         return;
       }
 
@@ -261,17 +261,17 @@ export default function ChamaDetails() {
       );
 
       if (!response.success) {
-        Alert.alert("Error", response.error);
+        ToastAndroid.show("Unable to join chama. Please try again.", ToastAndroid.SHORT);
         setIsJoining(false);
         return;
       }
 
-      Alert.alert("Success", `You are now a member of ${chama.name}`);
+      ToastAndroid.show(`You are now a member of ${chama.name} chama`, ToastAndroid.SHORT);
       setShowCollateralModal(false);
       router.replace(`/(tabs)/[joined-chama-details]/${chama.slug}`);
     } catch (error) {
       console.log(error);
-      Alert.alert("Error", "Failed to join chama. Please try again.");
+      ToastAndroid.show("Failed to join chama. Please try again.", ToastAndroid.SHORT);
     } finally {
       setIsJoining(false);
     }
@@ -282,12 +282,12 @@ export default function ChamaDetails() {
 
     try {
       if (!token) {
-        Alert.alert("Error", "Please login to continue.");
+        ToastAndroid.show("Please login to continue", ToastAndroid.SHORT);
         return;
       }
 
       if (!chama || !user) {
-        Alert.alert("Error", "Chama not found");
+        ToastAndroid.show("Chama not found", ToastAndroid.SHORT);
         return;
       }
 
@@ -296,22 +296,16 @@ export default function ChamaDetails() {
       const result = await requestToJoin(chama.id, token);
       console.log("the result", result);
       if (!result.success) {
-        Alert.alert("Error", "Request not sent successfully.");
+        ToastAndroid.show("Request not sent successfully.", ToastAndroid.SHORT);
         return;
       }
 
       setHasRequest(true);
 
-      Alert.alert(
-        "Success",
-        "Request sent to admin. Please wait for approval."
-      );
+      ToastAndroid.show("Request sent to admin. Please wait for approval.", ToastAndroid.SHORT);
     } catch (error) {
       console.log(error);
-      Alert.alert(
-        "Error",
-        "Failed to request to join chama. Please try again."
-      );
+      ToastAndroid.show("Failed to request to join chama. Please try again.", ToastAndroid.SHORT);
     } finally {
       setIsJoining(false);
     }
@@ -319,7 +313,7 @@ export default function ChamaDetails() {
 
   const handleJoinChama = async () => {
     if (!chama) {
-      Alert.alert("Error", "Chama not found");
+      ToastAndroid.show("Chama not found", ToastAndroid.SHORT);
       return;
     }
     if (!chama.isPublic) {

@@ -347,7 +347,6 @@ export async function disburseToMobileNumber(
   currencyCode: CurrencyCode,
   mobileNetwork: string,
   shortCode: string,
-  txHash: string,
   amount: string, // be plus fees
   usdcAmount: string,
   exchangeRate: string,
@@ -367,7 +366,6 @@ export async function disburseToMobileNumber(
         usdcAmount,
         exchangeRate,
         amount,
-        txHash,
       }),
     });
     const data = await response.json();

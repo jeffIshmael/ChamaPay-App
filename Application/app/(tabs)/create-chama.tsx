@@ -24,6 +24,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ToastAndroid
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -351,7 +352,7 @@ export default function CreateChama() {
       });
       setStep(1);
       setLoadingState("");
-      Alert.alert("Success", "Chama created successfully");
+      ToastAndroid.show("Chama created successfully", ToastAndroid.SHORT);
       router.push("/(tabs)");
     } catch (error: any) {
       console.error("Error creating chama:", error);
