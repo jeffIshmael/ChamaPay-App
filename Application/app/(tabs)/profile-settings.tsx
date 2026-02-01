@@ -17,10 +17,10 @@ import React, { useState } from "react";
 import {
   Alert,
   Image,
-  SafeAreaView,
   ScrollView,
   Switch,
   Text,
+  ToastAndroid,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -80,9 +80,9 @@ export default function ProfileSettings() {
   };
 
   const copyWalletAddress = async () => {
-    if (user?.address) {
+    if (user?.smartAddress) {
       try {
-        await Clipboard.setStringAsync(user.address);
+        await Clipboard.setStringAsync(user.smartAddress);
         setCopiedAddress(true);
         setTimeout(() => setCopiedAddress(false), 2000);
       } catch (error) {
@@ -121,9 +121,9 @@ export default function ProfileSettings() {
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
+      <View className="flex-1 bg-gray-50 items-center justify-center">
         <Text className="text-gray-600">Loading profile...</Text>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -222,32 +222,32 @@ export default function ProfileSettings() {
                   </Text>
                 </View>
               </View>
-              <View className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
-                <Text className="text-sm text-blue-700 font-medium mb-2">
-                  Wallet Address
-                </Text>
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-gray-900 font-mono text-sm flex-1">
-                    {formatWalletAddress(user.smartAddress)}
+              <TouchableOpacity onPress={copyWalletAddress}>
+                <View className="bg-white rounded-xl p-4 border border-gray-100">
+                  <Text className="text-sm text-blue-700 font-medium mb-2">
+                    Wallet Address
                   </Text>
-                  <TouchableOpacity
-                    onPress={copyWalletAddress}
-                    className="ml-3 p-2 bg-blue-600 rounded-lg active:bg-blue-700"
-                    activeOpacity={0.8}
-                  >
-                    {copiedAddress ? (
-                      <Check size={16} color="white" />
-                    ) : (
-                      <Copy size={16} color="white" />
-                    )}
-                  </TouchableOpacity>
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-gray-900 font-mono text-sm flex-1">
+                      {formatWalletAddress(user.smartAddress)}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={copyWalletAddress}
+                      className="ml-3 p-2 bg-blue-600 rounded-lg active:bg-blue-700"
+                      activeOpacity={0.8}
+                    >
+                      {copiedAddress ? (
+                        <Check size={14} color="white" />
+                      ) : (
+                        <Copy size={14} color="white" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                  <Text className="text-xs text-blue-600 mt-2 font-medium">
+                    Tap to copy full address
+                  </Text>
                 </View>
-                <Text className="text-xs text-blue-600 mt-2 font-medium">
-                  {copiedAddress
-                    ? "✓ Address copied to clipboard!"
-                    : "Tap to copy full address"}
-                </Text>
-              </View>
+              </TouchableOpacity>
             </View>
           )}
 

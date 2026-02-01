@@ -18,7 +18,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  ToastAndroid
 } from "react-native";
 
 interface MobileMoneyPayProps {
@@ -148,65 +149,61 @@ const MobileMoneyPay = ({
   const handlePayment = async () => {
     // Validate phone number
     if (!phoneNumber) {
-      Alert.alert("Missing Information", "Please enter your M-Pesa number");
+      ToastAndroid.show("Please enter your M-Pesa number", ToastAndroid.SHORT);
       return;
     }
 
     if (!isValidPhoneNumber(phoneNumber)) {
-      Alert.alert(
-        "Invalid Phone Number",
-        "Please enter a valid M-Pesa number starting with 7 or 1 (e.g., 712345678)"
+      ToastAndroid.show(
+        "Invalid Phone Number, Use a valid M-Pesa number starting with 7 or 1 (e.g., 712345678)", ToastAndroid.SHORT
       );
       return;
     }
 
     // Validate amount
     if (!amount || amount.trim() === "") {
-      Alert.alert("Missing Amount", "Please enter an amount to pay");
+      ToastAndroid.show("Please enter an amount to pay", ToastAndroid.SHORT);
       return;
     }
 
     const parsedAmount = parseFloat(amount);
 
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      Alert.alert("Invalid Amount", "Please enter a valid amount greater than 0");
+      ToastAndroid.show("Please enter a valid amount greater than 0", ToastAndroid.SHORT);
       return;
     }
 
     if (parsedAmount < minimumKES) {
-      Alert.alert(
-        "Amount Too Low",
-        `Minimum amount is ${minimumKES} KES\n\nPlease enter at least ${minimumKES} KES`
+      ToastAndroid.show(
+        `Minimum amount is ${minimumKES} KES`, ToastAndroid.SHORT
       );
       return;
     }
 
     if (parsedAmount > maximumKES) {
-      Alert.alert(
-        "Amount Too High",
-        `Maximum amount is ${maximumKES} KES\n\nPlease enter at most ${maximumKES} KES`
+      ToastAndroid.show(
+        `Maximum amount is ${maximumKES} KES`,
+        ToastAndroid.SHORT
       );
       return;
     }
 
     // Check if USDC amount is valid
     if (!usdcAmount || parseFloat(usdcAmount) <= 0) {
-      Alert.alert(
-        "Conversion Error",
-        "Unable to calculate USDC amount. Please check the amount entered."
+      ToastAndroid.show(
+        "Unable to calculate USDC amount. Please check the amount entered.", ToastAndroid.SHORT
       );
       return;
     }
 
     if (!token) {
-      Alert.alert("Authentication Error", "You need to be logged in to make a payment");
+      ToastAndroid.show("You need to be logged in to make a payment", ToastAndroid.SHORT);
       return;
     }
 
     if (!theExhangeQuote?.exchangeRate?.selling_rate) {
-      Alert.alert(
-        "Exchange Rate Unavailable",
-        "Unable to fetch current exchange rate. Please check your internet connection and try again."
+      ToastAndroid.show(
+        "Unable to fetch current exchange rate.", ToastAndroid.SHORT
       );
       return;
     }
@@ -290,26 +287,15 @@ const MobileMoneyPay = ({
         }),
       ]).start();
 
-      setTimeout(() => {
-        Alert.alert(
-          "Payment Successful! 🎉",
-          `You paid ${usdcAmount} USDC to ${chamaName} chama.\n\nBlockchain TX: ${txHashResult.substring(0, 10)}...`,
-          [
-            {
-              text: "Done",
-              onPress: () => {
-                setPhoneNumber("");
-                setAmount("");
-                setUsdcAmount("0.00");
-                setCurrentStep("input");
-                setStatusMessage("");
-                setTxHash("");
-                onClose();
-              },
-            },
-          ]
-        );
-      }, 2000);
+      ToastAndroid.show(`Successfully paid ${usdcAmount} USDC to ${chamaName} chama.`, ToastAndroid.SHORT);
+
+      setPhoneNumber("");
+      setAmount("");
+      setUsdcAmount("0.00");
+      setCurrentStep("input");
+      setStatusMessage("");
+      setTxHash("");
+      onClose();
     } catch (error: any) {
       setLoading(false);
       setCurrentStep("input");
@@ -327,7 +313,7 @@ const MobileMoneyPay = ({
         errorMessage = error.message;
       }
 
-      Alert.alert(errorTitle, errorMessage);
+      ToastAndroid.show(errorMessage, ToastAndroid.SHORT);
     }
   };
 

@@ -18,7 +18,7 @@ export interface User {
   address: string;
   smartAddress: string;
   profileImageUrl: string | null;
-  location:string | null;
+  location: string | null;
 }
 
 interface AuthContextType {
@@ -31,7 +31,7 @@ interface AuthContextType {
     email: string;
     userName: string;
     profileImageUrl?: string;
-  }) => Promise<{ success: boolean; error?: string }>;
+  }) => Promise<{ success: boolean; user?: User; error?: string }>;
   loginWithRefreshToken: () => Promise<{ success: boolean; error?: string }>;
   setAuth: (
     newToken: string,
@@ -166,7 +166,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     email: string;
     userName: string;
     profileImageUrl?: string;
-  }): Promise<{ success: boolean; error?: string }> => {
+  }): Promise<{ success: boolean; user?: User; error?: string }> => {
     try {
       const response = await fetch(`${serverUrl}/auth/register`, {
         method: "POST",
@@ -192,7 +192,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(newUser);
         if (newRefreshToken) setRefreshToken(newRefreshToken);
 
-        return { success: true };
+        return { success: true, user: newUser };
       } else {
         return {
           success: false,

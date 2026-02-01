@@ -80,7 +80,6 @@ export default function AuthScreen() {
   useEffect(() => {
     if (response?.type === "success") {
       const { authentication } = response;
-      console.log("Authentication successful", authentication);
       handleGoogleAuth(authentication?.accessToken);
     } else if (response?.type === "error") {
       console.error("Authentication error:", response.error);

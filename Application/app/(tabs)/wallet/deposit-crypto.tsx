@@ -15,7 +15,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  ToastAndroid
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -78,22 +79,22 @@ export default function DepositCryptoScreen() {
 
   const handleDeposit = async () => {
     if (!amount.trim()) {
-      Alert.alert("Error", "Please enter an amount");
+      ToastAndroid.show("Please enter an amount", ToastAndroid.SHORT);
       return;
     }
 
     if (!isValidPhoneNumber(phoneNumber)) {
-      Alert.alert("Error", "Please enter a valid M-Pesa number");
+      ToastAndroid.show("Please enter a valid M-Pesa number", ToastAndroid.SHORT);
       return;
     }
 
     if (parseFloat(amount) < MINIMUM_DEPOSIT) {
-      Alert.alert("Error", `Minimum deposit is ${CURRENCY} ${MINIMUM_DEPOSIT}`);
+      ToastAndroid.show(`Minimum deposit is ${CURRENCY} ${MINIMUM_DEPOSIT}`, ToastAndroid.SHORT);
       return;
     }
 
     if (!token) {
-      Alert.alert("Error", "Authentication required");
+      ToastAndroid.show("Authentication required", ToastAndroid.SHORT);
       return;
     }
 
@@ -141,17 +142,11 @@ export default function DepositCryptoScreen() {
       );
 
       setProcessingStep("completed");
-      Alert.alert("Success!", `Successfully deposited ${cryptoAmount} USDC`, [
-        {
-          text: "OK",
-          onPress: () => {
-            emptyInputs();
-            setIsProcessing(false);
-            setProcessingStep("idle");
-            router.push("/(tabs)/wallet");
-          },
-        },
-      ]);
+      setIsProcessing(false);
+      ToastAndroid.show(`Successfully deposited ${cryptoAmount} USDC`, ToastAndroid.SHORT);
+      emptyInputs();
+      setProcessingStep("idle");
+      router.push("/(tabs)/wallet");
     } catch (error: any) {
       setIsProcessing(false);
       setProcessingStep("idle");
@@ -171,7 +166,7 @@ export default function DepositCryptoScreen() {
         errorMessage = error.message;
       }
 
-      Alert.alert(errorTitle, errorMessage);
+      ToastAndroid.show(errorMessage, ToastAndroid.SHORT);
     }
   };
 

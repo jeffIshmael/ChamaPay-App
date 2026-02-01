@@ -98,8 +98,6 @@ export default function JoinedChamaDetails() {
   >(null);
   const [sendingLink, setSendingLink] = useState(false);
 
-  console.log("the tab", tab, tab === "chat");
-
 
   const fetchChama = async () => {
     if (!token || !user) {
@@ -348,8 +346,8 @@ export default function JoinedChamaDetails() {
       myContributions={myContributions}
       contribution={contribution}
       remainingAmount={remainingAmount}
-      paymentAmount={paymentAmount}
-      setPaymentAmount={setPaymentAmount}
+      currentCycle={chama.currentCycle}
+      currentRound={chama.currentRound}
       makePayment={makePayment}
       contributionDueDate={chama.contributionDueDate}
       currentTurnMember={chama.currentTurnMember}
@@ -361,9 +359,9 @@ export default function JoinedChamaDetails() {
       chamaStatus={chama.status}
       chamaStartDate={chama.startDate}
       currency={chama.currency}
-      kesRate={user?.location === "KE" ? kesRate : 0}
       isPublic={chama.isPublic}
-      collateralAmount={chama.collateralAmount || 0}
+      collateralAmount={chama.collateralAmount}
+      kesRate={user?.location === "KE" ? kesRate : 0}
     />
   );
 

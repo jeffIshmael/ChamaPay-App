@@ -129,7 +129,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
 }
 
 export async function initiatePretiumOfframp(req: Request, res: Response) {
-  const { amount, phoneNo, kesFee, usdcAmount, exchangeRate, txHash } =
+  const { amount, phoneNo, kesFee, usdcAmount, exchangeRate } =
     req.body;
   const userId = req.user?.userId;
   try {
