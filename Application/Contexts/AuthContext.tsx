@@ -19,6 +19,9 @@ export interface User {
   smartAddress: string;
   profileImageUrl: string | null;
   location: string | null;
+  pushToken: string | null;
+  pushNotify: boolean;
+  emailNotify: boolean;
 }
 
 interface AuthContextType {

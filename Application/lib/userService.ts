@@ -27,6 +27,10 @@ interface balanceResponse {
   success: boolean;
   balance: string;
 }
+interface updateNotificationSettingsResponse {
+  success: boolean;
+  user: {};
+}
 // function to register a payment to the database
 export async function registerPayment(
   receiver: string,
@@ -74,7 +78,7 @@ export async function requestToJoin(
     return data;
   } catch (error) {
     console.error("Error sending join request:", error);
-    return { success: false, request: null};
+    return { success: false, request: null };
   }
 }
 
@@ -177,4 +181,58 @@ export async function getUserBalance(
     console.error("Error getting balance:", error);
     return { success: false, balance: "" };
   }
+}
+
+// function to update user notification settings
+export async function updateUserNotificationSettings(
+  token: string,
+  pushNotify?: boolean,
+  emailNotify?: boolean,
+
+): Promise<updateNotificationSettingsResponse> {
+  try {
+    const response = await fetch(`${serverUrl}/user/updateNotificationSettings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        pushNotify,
+        emailNotify,
+      }),
+    });
+    const data = await response.json();
+    console.log(data);
+    return data;
+  } catch (error) {
+    console.error("Error updating notification settings:", error);
+    return { success: false, user: {} };
+  }
+}
+
+// function to update user push token
+export async function updateUserPushToken(
+  pushToken: string,
+  token: string
+): Promise<updateNotificationSettingsResponse> {
+  try {
+    const response = await fetch(`${serverUrl}/user/updatePushToken`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        pushToken,
+      }),
+    });
+    const data = await response.json();
+    console.log(data);
+    return data;
+  } catch (error) {
+    console.error("Error updating push token:", error);
+    return { success: false, user: {} };
+  }
+
 }
