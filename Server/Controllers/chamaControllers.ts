@@ -6,6 +6,7 @@ import { bcGetTotalChamas, getEachMemberBalance, getUserChamaBalance } from "../
 import { bcCreateChama, bcDepositFundsToChama, bcJoinPublicChama } from "../Blockchain/WriteFunction";
 import { approveTx } from "../Blockchain/erc20Functions";
 import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
+import { sendExpoNotificationToAllChamaMembers } from "../Lib/ExpoNotificationFunctions";
 
 const prisma = new PrismaClient();
 
@@ -483,6 +484,12 @@ export const addMemberToChama = async (req: Request, res: Response) => {
         .status(400)
         .json({ success: false, error: "Failed to add member" });
     }
+    await sendExpoNotificationToAllChamaMembers(
+      `New member joined.`,
+      `A new member has joined ${chama.name} chama.`,
+      parseInt(chamaId),
+      user.id
+    );
     return res
       .status(200)
       .json({ success: true, message: "Member added successfully" });
@@ -509,6 +516,18 @@ export const sendChamaMessage = async (req: Request, res: Response) => {
         .json({ success: false, error: "All fields are required" });
     }
 
+    const chama = await prisma.chama.findUnique({
+      where: {
+        id: Number(chamaId)
+      }
+    });
+
+    if (!chama) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Chama not found." });
+    }
+
     const messages = await prisma.message.create({
       data: {
         chamaId: chamaId,
@@ -517,6 +536,13 @@ export const sendChamaMessage = async (req: Request, res: Response) => {
       },
     });
 
+    await sendExpoNotificationToAllChamaMembers(
+      `New message`,
+      `A new message has been sent to ${chama.name} chama.`,
+      parseInt(chamaId),
+      Number(userId)
+    );
+
     return res
       .status(200)
       .json({ success: true, message: "Message successfully sent." });
@@ -524,7 +550,7 @@ export const sendChamaMessage = async (req: Request, res: Response) => {
     console.log(error);
     return res.status(500).json({
       success: false,
-      error: "Failed to add member to chama",
+      error: "Failed to send message",
     });
   }
 };

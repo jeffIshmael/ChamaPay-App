@@ -17,6 +17,7 @@ import {
 } from "./pimlicoAgent";
 import { notifyAllChamaMembers, notifyUser } from "./prismaFunctions";
 import { formatUnits } from "viem";
+import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } from "./ExpoNotificationFunctions";
 
 const prisma = new PrismaClient();
 
@@ -59,7 +60,7 @@ export const checkStartDate = async () => {
           userAddress: address,
           payDate: new Date(
             chama.payDate.getTime() +
-              chama.cycleTime * 24 * 60 * 60 * 1000 * index
+            chama.cycleTime * 24 * 60 * 60 * 1000 * index
           ),
           paid: false,
           amount: "0",
@@ -74,6 +75,13 @@ export const checkStartDate = async () => {
       await notifyAllChamaMembers(
         chama.id,
         `Your ${chama.name} chama has started! Tap to view the payout order and your position.`
+      );
+
+      // expo notify all members
+      await sendExpoNotificationToAllChamaMembers(
+        `${chama.name} Chama Started`,
+        `Tap to view the payout order and your position.`,
+        chama.id
       );
     }
   } catch (error) {
@@ -155,7 +163,7 @@ export const checkPaydate = async () => {
               amount: "0",
               payDate: new Date(
                 chama.payDate.getTime() +
-                  (index + 1) * chama.cycleTime * 24 * 60 * 60 * 1000
+                (index + 1) * chama.cycleTime * 24 * 60 * 60 * 1000
               ),
             })
           );
@@ -189,6 +197,12 @@ export const checkPaydate = async () => {
         });
 
         await notifyUser(user.id, userMessage, "payout_received");
+        // expo notify the user
+        await sendExpoNotificationToAUser(
+          user.id,
+          "Congratulations!",
+          userMessage,
+        );
 
         await notifyAllChamaMembers(
           chama.id,
@@ -196,11 +210,18 @@ export const checkPaydate = async () => {
           "payout_received",
           user.id
         );
+        // expo notify all members
+        await sendExpoNotificationToAllChamaMembers(
+          `${chama.name} Chama Payout`,
+          othersMessage,
+          chama.id,
+          user.id
+        );
       } else if (payoutResult.type === "refund") {
 
-      /* ======================
-         REFUND FLOW
-      ======================= */
+        /* ======================
+           REFUND FLOW
+        ======================= */
         const payoutOrder: PayoutOrder[] = chama.payOutOrder
           ? JSON.parse(chama.payOutOrder)
           : [];
@@ -211,7 +232,7 @@ export const checkPaydate = async () => {
               ...order,
               payDate: new Date(
                 new Date(order.payDate).getTime() +
-                  chama.cycleTime * 24 * 60 * 60 * 1000
+                chama.cycleTime * 24 * 60 * 60 * 1000
               ),
             };
           }
@@ -233,6 +254,12 @@ export const checkPaydate = async () => {
         await notifyAllChamaMembers(
           chama.id,
           `Round ${chama.round} of the ${chama.name} chama couldn’t proceed because not all members contributed. Your contribution has been refunded to your wallet.`
+        );
+        // expo notify all members
+        await sendExpoNotificationToAllChamaMembers(
+          `${chama.name} Chama Payout`,
+          `Round ${chama.round} of the ${chama.name} chama couldn’t proceed because not all members contributed. Your contribution has been refunded to your wallet.`,
+          chama.id
         );
       } else {
         throw new Error("Unknown payout result");

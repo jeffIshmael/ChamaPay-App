@@ -1,6 +1,7 @@
 // This file has prisma related functions
 import { PrismaClient } from "@prisma/client";
 import { PayoutOrder } from "./cronJobFunctions";
+import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } from "./ExpoNotificationFunctions";
 
 const prisma = new PrismaClient();
 
@@ -104,7 +105,7 @@ export async function addMemberToPayout(chamaId: number, userId: number) {
         userAddress: user.address!,
         payDate: new Date(
           payoutOrder[payoutOrder.length - 1].payDate.getTime() +
-            chama.cycleTime * 24 * 60 * 60 * 1000
+          chama.cycleTime * 24 * 60 * 60 * 1000
         ),
         amount: "0",
         paid: false,
@@ -167,19 +168,30 @@ export async function handleRequest(
       await addMemberToPayout(request.chamaId, request.userId);
 
       // send members of the new member
-      const message = `${userName} joined ${chamaName} chama.`;
+      const message = `${userName} has joined ${chamaName} chama.`;
       await notifyAllChamaMembers(
         request.chamaId,
         message,
         "member_joined",
         request.userId
       );
+      // expo notify all members
+      await sendExpoNotificationToAllChamaMembers(
+        `New member joined.`,
+        message,
+        request.chamaId
+      );
     }
     // notification to the sender
-    const message = `Request to join ${chamaName} chama was ${
-      approve ? "approved" : "rejected"
-    }`;
+    const message = `Request to join ${chamaName} chama was ${approve ? "approved" : "rejected"
+      }`;
     await notifyUser(request.userId, message, "new_message");
+    // expo notify the sender
+    await sendExpoNotificationToAUser(
+      request.userId,
+      `Request result`,
+      message
+    );
     return request;
   } catch (error) {
     console.error("approve request error", error);

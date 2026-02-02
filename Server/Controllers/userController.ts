@@ -15,6 +15,7 @@ import { getPrivateKey } from "../Lib/HelperFunctions";
 import { transferTx } from "../Blockchain/erc20Functions";
 import { bcAddMemberToPrivateChama } from "../Blockchain/WriteFunction";
 import { getUserBalance } from "../Blockchain/ReadFunctions";
+import { sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
 
 const prisma = new PrismaClient();
 
@@ -462,6 +463,20 @@ export const sendJoinRequest = async (
         .json({ success: false, error: "All fields are required" });
       return;
     }
+
+    const chama = await prisma.chama.findUnique({
+      where: {
+        id: Number(chamaId)
+      }
+    });
+
+    if (!chama) {
+      res
+        .status(400)
+        .json({ success: false, error: "Chama not found." });
+      return;
+    }
+
     const request = await requestToJoin(userId, Number(chamaId));
     if (request === null) {
       res
@@ -469,6 +484,14 @@ export const sendJoinRequest = async (
         .json({ success: false, error: "Failed to send request." });
       return;
     }
+
+    // notify the admin
+    await sendExpoNotificationToAUser(
+      chama.adminId,
+      `New join request`,
+      `A user requests to join ${chama.name} chama.Tap to approve or reject.`,
+    );
+
     res.status(200).json({ success: true, request: request });
   } catch (error) {
     console.error("Register request error:", error);
@@ -648,6 +671,28 @@ export const shareChamaLink = async (
       return;
     }
 
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!user) {
+      res.status(400).json({ success: false, error: "user not found." });
+      return;
+    }
+
+    const receiver = await prisma.user.findUnique({
+      where: {
+        id: Number(receiverId),
+      },
+    });
+
+    if (!receiver) {
+      res.status(400).json({ success: false, error: "receiver not found." });
+      return;
+    }
+
     const notification = await prisma.notification.create({
       data: {
         senderId: userId,
@@ -663,6 +708,13 @@ export const shareChamaLink = async (
         .json({ success: false, error: "Unable to notify the user." });
       return;
     }
+
+    // expo notify the receiver
+    await sendExpoNotificationToAUser(
+      receiver.id,
+      "ChamaPay Invite",
+      message,
+    );
 
     res.status(200).json({ success: true, notification: notification });
   } catch (error) {
