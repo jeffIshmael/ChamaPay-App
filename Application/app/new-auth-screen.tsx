@@ -79,6 +79,9 @@ export default function AuthScreen() {
   // Handle Google OAuth response
   useEffect(() => {
     if (response?.type === "success") {
+      // Immediate feedback
+      setIsLoading(true);
+      setLoadingMessage("Signing in...");
       const { authentication } = response;
       handleGoogleAuth(authentication?.accessToken);
     } else if (response?.type === "error") {
@@ -98,8 +101,7 @@ export default function AuthScreen() {
       return;
     }
 
-    setIsLoading(true);
-    setLoadingMessage("Signing in...");
+    // isLoading checks are handled in useEffect for immediate feedback
     setErrorText("");
 
     try {

@@ -544,7 +544,7 @@ export default function CryptoWallet() {
       keyboardVerticalOffset={insets.top + 64}
     >
       <View className="flex-1 bg-gray-50">
-        <StatusBar style="dark" />
+        <StatusBar style="light" />
 
 
         {/* Card Section */}

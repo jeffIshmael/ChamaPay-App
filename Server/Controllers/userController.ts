@@ -965,7 +965,7 @@ export const updateUserPushToken = async (
     }
     const user = await prisma.user.update({
       where: { id: userId },
-      data: { expoPushToken: pushToken },
+      data: { expoPushToken: pushToken, pushNotify: true },
     });
     if (!user) {
       res.status(400).json({ success: false, error: "User not found" });
