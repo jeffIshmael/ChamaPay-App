@@ -1,9 +1,7 @@
+import { Notification } from "@/app/(tabs)/notifications";
 import { JoinedChama, Message } from "@/constants/mockData";
 import { serverUrl } from "@/constants/serverUrl";
 import { formatDays, formatTimeRemaining } from "@/Utils/helperFunctions";
-import { Notification } from "@/app/(tabs)/notifications";
-import { MessageObj } from "@/hooks/useChat";
-import { checkHasSentRequest } from "./userService";
 
 // User service functions
 export const checkUsernameAvailability = async (
@@ -744,3 +742,45 @@ export interface ExtendedNotification extends Notification {
   requestUserId?: number; // User who made the request
   requestUserName?: string; // Name of user who made the request
 }
+
+// mark messages as read
+export const markMessagesReadApi = async (
+  chamaId: number,
+  token: string
+) => {
+  try {
+    const response = await fetch(`${serverUrl}/chama/mark-messages-read`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ chamaId }),
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error marking messages as read:", error);
+    return { success: false, error: "Failed to mark messages as read" };
+  }
+};
+
+// mark notifications as read
+export const markNotificationsReadApi = async (token: string) => {
+  try {
+    const response = await fetch(`${serverUrl}/user/notifications/mark-read`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error marking notifications as read:", error);
+    return { success: false, error: "Failed to mark notifications as read" };
+  }
+};
+
+

@@ -70,7 +70,8 @@ model ChamaMember {
   chamaId Int
   chama   Chama    @relation(fields: [chamaId], references: [id])
   user    User     @relation(fields: [userId], references: [id])
-  payDate DateTime
+  payDate      DateTime
+  lastReadTime DateTime @default(now())
 }
 
 model Payment {

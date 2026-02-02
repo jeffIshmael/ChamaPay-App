@@ -32,8 +32,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  ToastAndroid,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -64,6 +63,7 @@ export default function HomeScreen() {
         const transformed = response.chamas.map((member: any) =>
           transformChamaData(member.chama, user.smartAddress)
         );
+        // Sort chamas by unread messages (optional, or stick to default order)
         setChamas(transformed);
         setError(null);
       } else {

@@ -156,7 +156,10 @@ const ScheduleTab: FC<Props> = ({
             const isUserTurn = isCurrentUserPayout(payout.userAddress);
 
             return (
-              <Card key={`${payout.userAddress}-${index}`} className={`p-4 border ${payout.paid ? " bg-downy-200/10  border-downy-500 " : ""}`}>
+              <Card
+                key={`${payout.userAddress}-${index}`}
+                className={`p-4 border ${payout.paid ? " bg-downy-200/10  border-downy-500 " : ""}`}
+              >
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center gap-3 flex-1">
                     <View
@@ -180,11 +183,15 @@ const ScheduleTab: FC<Props> = ({
                       )}
                     </View>
                     <View className="flex-1">
-                      <Text className={` text-sm font-medium ${member?.name === user?.userName && payout.paid ? "text-downy-600" : "text-gray-900"} `}>
+                      <Text
+                        className={`text-sm font-medium ${member?.name === user?.userName && payout.paid
+                          ? "text-downy-600"
+                          : "text-gray-900"
+                          }`}
+                      >
                         {member?.name === user?.userName
                           ? "# You"
-                          : (member?.name && member?.name) ||
-                          truncateAddress(payout.userAddress)}
+                          : member?.name || truncateAddress(payout.userAddress)}
                       </Text>
                       <Text className="text-gray-600 text-xs">
                         {new Date(payout.payDate).toLocaleString("en-US", {
@@ -196,7 +203,10 @@ const ScheduleTab: FC<Props> = ({
                     </View>
                   </View>
                   <View className="items-end">
-                    <Text className={`text-sm font-medium ${payout.paid ? "text-emerald-700" : "text-gray-900"}`}>
+                    <Text
+                      className={`text-sm font-medium ${payout.paid ? "text-emerald-700" : "text-gray-900"
+                        }`}
+                    >
                       {estimatedPayoutAmount > 0
                         ? `${estimatedPayoutAmount.toLocaleString()} USDC`
                         : "—"}

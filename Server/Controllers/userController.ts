@@ -1,21 +1,21 @@
 // This file has all user related functions
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-import { formatUnits, isAddress } from "viem";
 import "multer";
+import { formatUnits, isAddress } from "viem";
+import { transferTx } from "../Blockchain/erc20Functions";
+import { getUserBalance } from "../Blockchain/ReadFunctions";
+import { bcAddMemberToPrivateChama } from "../Blockchain/WriteFunction";
+import { sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
+import { getPrivateKey } from "../Lib/HelperFunctions";
 import {
   checkHasPendingRequest,
   getSentRequests,
+  handleRequest,
   registerUserPayment,
   requestToJoin,
-  handleRequest,
 } from "../Lib/prismaFunctions";
 import { uploadToPinata } from "../utils/PinataUtils";
-import { getPrivateKey } from "../Lib/HelperFunctions";
-import { transferTx } from "../Blockchain/erc20Functions";
-import { bcAddMemberToPrivateChama } from "../Blockchain/WriteFunction";
-import { getUserBalance } from "../Blockchain/ReadFunctions";
-import { sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
 
 const prisma = new PrismaClient();
 
@@ -764,6 +764,32 @@ export const updatePhoneNumber = async (
   } catch (error) {
     console.error("Update profile error:", error);
     res.status(500).json({ error: "Failed to update profile" });
+  }
+};
+
+// MARK ALL NOTIFICATIONS AS READ
+export const markNotificationsRead = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+
+    await prisma.notification.updateMany({
+      where: {
+        userId: userId,
+        read: false,
+      },
+      data: {
+        read: true,
+      },
+    });
+
+    res.json({ success: true, message: "Notifications marked as read" });
+  } catch (error) {
+    console.error("Error marking notifications as read:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
 

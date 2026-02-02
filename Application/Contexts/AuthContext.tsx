@@ -1,4 +1,5 @@
 import { serverUrl } from "@/constants/serverUrl";
+import { markNotificationsReadApi } from "@/lib/chamaService";
 import { connectSocket, disconnectSocket } from "@/socket/socket";
 import React, {
   createContext,
@@ -22,6 +23,7 @@ export interface User {
   pushToken: string | null;
   pushNotify: boolean;
   emailNotify: boolean;
+  notifications?: any[]; // added for unread count calculation
 }
 
 interface AuthContextType {
@@ -46,6 +48,8 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   getToken: () => Promise<string | null>;
   getRefreshToken: () => Promise<string | null>;
+  unReadNotificationCount: number;
+  markNotificationsRead: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -59,6 +63,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [token, setToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [unReadNotificationCount, setUnReadNotificationCount] = useState(0);
 
   // Refs to prevent race conditions
   const isInitialized = useRef(false);
@@ -74,6 +79,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       loadStoredAuth();
     }
   }, []);
+
+  // Update unread count whenever user changes
+  useEffect(() => {
+    if (user?.notifications) {
+      const count = user.notifications.filter((n: any) => !n.read).length;
+      setUnReadNotificationCount(count);
+    }
+  }, [user]);
 
   const loadStoredAuth = async () => {
     try {
@@ -140,7 +153,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const fetchUserData = async (authToken: string) => {
     try {
-      const response = await fetch(`${serverUrl}/user`, {
+      const response = await fetch(`${serverUrl}/user/details`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${authToken}`,
@@ -340,6 +353,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return null;
   };
 
+  const markNotificationsRead = async () => {
+    if (token) {
+      setUnReadNotificationCount(0); // Optimistic update
+      // Also update user state to reflect read status
+      if (user && user.notifications) {
+        const updatedNotifications = user.notifications.map((n: any) => ({ ...n, read: true }));
+        updateUser({ notifications: updatedNotifications });
+      }
+      await markNotificationsReadApi(token);
+      await refreshUser(); // Sync with server to be sure
+    }
+  };
+
   const value: AuthContextType = {
     user,
     token,
@@ -354,6 +380,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     refreshUser,
     getToken,
     getRefreshToken,
+    unReadNotificationCount,
+    markNotificationsRead
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

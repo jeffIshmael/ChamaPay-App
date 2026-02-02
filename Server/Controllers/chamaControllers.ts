@@ -5,8 +5,8 @@ import { contractAddress } from "../Blockchain/Constants";
 import { bcGetTotalChamas, getEachMemberBalance, getUserChamaBalance } from "../Blockchain/ReadFunctions";
 import { bcCreateChama, bcDepositFundsToChama, bcJoinPublicChama } from "../Blockchain/WriteFunction";
 import { approveTx } from "../Blockchain/erc20Functions";
-import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
 import { sendExpoNotificationToAllChamaMembers } from "../Lib/ExpoNotificationFunctions";
+import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
 
 const prisma = new PrismaClient();
 
@@ -552,5 +552,46 @@ export const sendChamaMessage = async (req: Request, res: Response) => {
       success: false,
       error: "Failed to send message",
     });
+  }
+};
+
+// MARK MESSAGES AS READ
+export const markMessagesRead = async (req: Request, res: Response) => {
+  try {
+    const { chamaId } = req.body;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
+    if (!chamaId) {
+      return res.status(400).json({ success: false, error: "Chama ID is required" });
+    }
+
+    const member = await prisma.chamaMember.findFirst({
+      where: {
+        chamaId: Number(chamaId),
+        userId: Number(userId),
+      },
+    });
+
+    if (!member) {
+      return res.status(404).json({ success: false, error: "Member not found" });
+    }
+
+    await prisma.chamaMember.update({
+      where: {
+        id: member.id,
+      },
+      data: {
+        lastReadTime: new Date(),
+      },
+    });
+
+    return res.status(200).json({ success: true, message: "Messages marked as read" });
+  } catch (error) {
+    console.error("Error marking messages as read:", error);
+    return res.status(500).json({ success: false, error: "Failed to mark messages as read" });
   }
 };

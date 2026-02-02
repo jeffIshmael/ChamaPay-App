@@ -1,7 +1,7 @@
 import { useAuth } from "@/Contexts/AuthContext";
 import { getUserDetails, transformNotification } from "@/lib/chamaService";
 import { handleTheRequestToJoin } from "@/lib/userService";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
   ArrowLeft,
@@ -15,7 +15,7 @@ import {
   Wallet,
   X,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -60,7 +60,7 @@ export interface Notification {
 export default function Notifications() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, token } = useAuth();
+  const { user, token, refreshUser, markNotificationsRead } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -68,6 +68,19 @@ export default function Notifications() {
     requestId: number;
     action: "approve" | "reject";
   } | null>(null);
+
+  useEffect(() => {
+    refreshUser();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      markNotificationsRead();
+      return () => {
+        // Optional cleanup
+      };
+    }, [])
+  );
 
   const getNotificationIcon = (type: Notification["type"]) => {
     const iconProps = { size: 20 };
@@ -354,14 +367,14 @@ export default function Notifications() {
               </Text>
             </View>
           </View>
-
+{/* 
           {unreadCount > 0 && (
             <View className="bg-emerald-500 px-3 py-1.5 rounded-full">
               <Text className="text-xs font-bold text-white">
                 {unreadCount}
               </Text>
             </View>
-          )}
+          )} */}
         </View>
       </View>
 
@@ -396,11 +409,11 @@ export default function Notifications() {
                     {notification.title}
                   </Text>
 
-                  <View className="flex-row items-center gap-2 ml-2">
+                  {/* <View className="flex-row items-center gap-2 ml-2">
                     {!notification.read && (
                       <View className="w-2 h-2 bg-emerald-500 rounded-full" />
                     )}
-                  </View>
+                  </View> */}
                 </View>
 
                 <Text

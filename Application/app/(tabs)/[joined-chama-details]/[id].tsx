@@ -13,6 +13,7 @@ import { JoinedChama } from "@/constants/mockData";
 import { useAuth } from "@/Contexts/AuthContext";
 import {
   getChamaBySlug,
+  markMessagesReadApi,
   searchUsers,
   transformChamaData,
 } from "@/lib/chamaService";
@@ -20,6 +21,7 @@ import { generateChamaShareUrl } from "@/lib/encryption";
 import { shareChamaLink } from "@/lib/userService";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { formatTimeRemaining } from "@/Utils/helperFunctions";
+import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Share, Share2, User } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
@@ -36,7 +38,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toEther, toTokens } from "thirdweb/utils";
-import * as Clipboard from 'expo-clipboard';
 
 // Loading Skeleton Component
 const SkeletonBox = ({
@@ -172,6 +173,16 @@ export default function JoinedChamaDetails() {
     fetchChama();
     globalFetchRate("KES");
   }, [id, token]);
+
+  useEffect(() => {
+    if (activeTab === "chat" && chama && token) {
+      // Mark as read
+      markMessagesReadApi(chama.id, token).then(() => {
+        // Optionally update local state to clear badge visually immediately
+        setChama(prev => prev ? ({ ...prev, unreadMessages: 0 }) : null);
+      });
+    }
+  }, [activeTab, chama?.id, token]);
 
   const makePayment = () => {
     if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
@@ -493,7 +504,7 @@ export default function JoinedChamaDetails() {
               value="chat"
               isActive={activeTab === "chat"}
               onPress={() => setActiveTab("chat")}
-            // badge={unreadMessages}
+              badge={unreadMessages}
             />
             <TabButton
               label="Schedule"
