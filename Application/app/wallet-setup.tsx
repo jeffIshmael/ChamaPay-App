@@ -106,9 +106,9 @@ export default function WalletSetup() {
         setWalletAddress(res.user.smartAddress);
 
         ToastAndroid.show("Account created successfully", ToastAndroid.SHORT);
-        setTimeout(() => {
-          router.replace("/pin-setup");
-        }, 500);
+
+        router.replace("/pin-setup");
+
       } else {
         ToastAndroid.show(res.error || "Failed to register", ToastAndroid.SHORT);
       }
@@ -306,7 +306,7 @@ export default function WalletSetup() {
             }}
           >
             <Text className="text-gray-900 font-medium mb-2">Choose your username</Text>
-            <View className={`flex-row items-center border-2 rounded-lg px-4 py-3 mb-3 ${usernameStatus === "available"
+            <View className={`flex-row items-center border-2 rounded-lg px-4  mb-3 ${usernameStatus === "available"
               ? "border-green-500 bg-green-50"
               : usernameStatus === "unavailable" || usernameStatus === "invalid"
                 ? "border-red-500 bg-red-50"
@@ -314,7 +314,7 @@ export default function WalletSetup() {
                   ? "border-yellow-500 bg-yellow-50"
                   : "border-gray-200"
               }`}>
-              <Text className="text-gray-700 mr-2">@</Text>
+              <Text className="text-gray-700 ">@</Text>
               <TextInput
                 className="flex-1 text-gray-900"
                 placeholder="your-username"

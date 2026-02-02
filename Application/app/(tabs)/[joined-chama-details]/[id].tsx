@@ -36,6 +36,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toEther, toTokens } from "thirdweb/utils";
+import * as Clipboard from 'expo-clipboard';
 
 // Loading Skeleton Component
 const SkeletonBox = ({
@@ -229,10 +230,11 @@ export default function JoinedChamaDetails() {
   const copyLink = () => {
     if (!chama) return;
     const link = generateChamaShareUrl(chama.slug);
-    // In a real app, you'd use Clipboard.setString(link)
-    console.log("the link", link);
-    Alert.alert("Link Copied", "Chama link has been copied to clipboard!");
-    setShowShareModal(false);
+    Clipboard.setStringAsync(link);
+    setTimeout(() => {
+      setShowShareModal(false);
+    }, 1000);
+
   };
 
   // Search users for sharing with debouncing

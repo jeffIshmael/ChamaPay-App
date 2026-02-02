@@ -90,10 +90,12 @@ export const getUser = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Remove sensitive fields from response
-    const { ...userResponse } = user;
-
-    res.status(200).json({ user: userResponse });
+    const nonSensitiveUser = {
+      hashedPrivKey: user.hashedPrivkey,
+      hashedPassPhrase: user.hashedPassphrase,
+      ...user
+    }
+    res.status(200).json({ user: nonSensitiveUser });
   } catch (error: unknown) {
     console.error("Get user error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -230,16 +232,14 @@ export const updateUserProfile = async (
       },
     });
 
-    // Remove sensitive fields from response
-    const {
-      ...userResponse
-    }: {
-      [key: string]: any;
-    } = updatedUser;
-
+    const nonSensitiveUser = {
+      hashedPrivKey: updatedUser.hashedPrivkey,
+      hashedPassPhrase: updatedUser.hashedPassphrase,
+      ...updatedUser
+    }
     res.status(200).json({
       message: "Profile updated successfully",
-      user: userResponse as UserResponse,
+      user: nonSensitiveUser,
     });
   } catch (error: unknown) {
     console.error("Update profile error:", error);
@@ -893,7 +893,12 @@ export const updateUserPushToken = async (
       res.status(400).json({ success: false, error: "User not found" });
       return;
     }
-    res.status(200).json({ success: true, user: user });
+    const nonSensitiveUser = {
+      hashedPrivKey: user.hashedPrivkey,
+      hashedPassPhrase: user.hashedPassphrase,
+      ...user
+    }
+    res.status(200).json({ success: true, user: nonSensitiveUser });
   } catch (error) {
     console.error("Update user push token error:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
@@ -932,7 +937,12 @@ export const updateUserNotificationSettings = async (
       res.status(400).json({ success: false, error: "User not found" });
       return;
     }
-    res.status(200).json({ success: true, user: user });
+    const nonSensitiveUser = {
+      hashedPrivKey: user.hashedPrivkey,
+      hashedPassPhrase: user.hashedPassphrase,
+      ...user
+    }
+    res.status(200).json({ success: true, user: nonSensitiveUser });
   } catch (error) {
     console.error("Update user notification settings error:", error);
     res.status(500).json({ success: false, error: "Internal server error" });

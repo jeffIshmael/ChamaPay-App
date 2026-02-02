@@ -3,7 +3,7 @@ import { Member, PayoutScheduleItem } from "@/constants/mockData";
 import { useAuth } from "@/Contexts/AuthContext";
 import { CheckCircle, Clock } from "lucide-react-native";
 import React, { FC, useMemo } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Image, ScrollView, Text, View } from "react-native";
 
 type Props = {
   payoutSchedule: PayoutScheduleItem[];
@@ -114,62 +114,32 @@ const ScheduleTab: FC<Props> = ({
   if (chamaStatus === "not started") {
     return (
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="gap-3">
-          {/* Header Card for Pending Status */}
-          <Card className="p-6 mb-4">
-            <View className="items-center">
-              <View className="w-16 h-16 bg-amber-100 rounded-full items-center justify-center mb-4">
-                <Text className="text-2xl">🎲</Text>
-              </View>
-              <Text className="text-lg font-semibold text-amber-800 mb-2">
-                Schedule Pending
-              </Text>
-              <Text className="text-sm text-amber-700 text-center leading-5">
-                The payout schedule will be randomly generated and displayed
-                once the chama starts. All members will be notified when the
-                schedule is ready.
-              </Text>
-            </View>
-          </Card>
+        <View className="flex-1 items-center justify-center px-6 py-16">
+          <Image
+            source={require("../assets/images/no-schedule.png")}
+            className="w-20 h-20 mb-6"
+            resizeMode="contain"
+          />
 
-          {/* Position Slots */}
-          {/* {members.length > 0 &&
-            members.map((member, index) => (
-              <Card key={member.id || index} className="p-4">
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-row items-center gap-3">
-                    <View className="w-8 h-8 rounded-full items-center justify-center bg-gray-100">
-                      <Text className="text-sm font-medium text-gray-600">
-                        {index + 1}
-                      </Text>
-                    </View>
-                    <View>
-                      <Text className="text-gray-500 text-sm font-medium">
-                        Position {index + 1}
-                      </Text>
-                      <Text className="text-gray-400 text-xs">
-                        {member.address
-                          ? truncateAddress(member.address)
-                          : "Not assigned"}
-                      </Text>
-                    </View>
-                  </View>
-                  <View className="items-end">
-                    <Text className="text-gray-500 text-sm font-medium">
-                      {estimatedPayoutAmount > 0
-                        ? `${estimatedPayoutAmount.toLocaleString()} USDC`
-                        : "TBD"}
-                    </Text>
-                    <View className="px-2 py-1 rounded-full mt-1 bg-gray-200">
-                      <Text className="text-xs font-medium text-gray-600">
-                        Pending
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </Card>
-            ))} */}
+          <Text className="text-xl font-semibold text-gray-900 mb-2 text-center">
+            Chama hasn&apos;t started yet
+          </Text>
+
+          <Text className="text-sm text-gray-500 text-center leading-6">
+            Once the chama starts, a payout schedule will be{" "}
+            <Text className="font-medium text-gray-700">
+              randomly generated
+            </Text>{" "}
+            and shared with all members.
+          </Text>
+
+          <View className="mt-4 bg-gray-100 px-4 py-3 rounded-xl">
+            <Text className="text-xs text-gray-600 text-center">
+              Everyone will be notified as soon as the schedule is ready.
+            </Text>
+          </View>
         </View>
+
         <View className="h-20" />
       </ScrollView>
     );
@@ -200,22 +170,21 @@ const ScheduleTab: FC<Props> = ({
                         <Clock size={16} color="#F59E0B" />
                       ) : (
                         <Text
-                          className={`text-sm font-medium ${
-                            status === "pending"
-                              ? "text-emerald-600"
-                              : "text-gray-600"
-                          }`}
+                          className={`text-sm font-medium ${status === "pending"
+                            ? "text-emerald-600"
+                            : "text-gray-600"
+                            }`}
                         >
                           {index + 1}
                         </Text>
                       )}
                     </View>
                     <View className="flex-1">
-                      <Text className={` text-sm font-medium ${member?.name === user?.userName && payout.paid ? "text-downy-600" :"text-gray-900"} `}>
+                      <Text className={` text-sm font-medium ${member?.name === user?.userName && payout.paid ? "text-downy-600" : "text-gray-900"} `}>
                         {member?.name === user?.userName
                           ? "# You"
                           : (member?.name && member?.name) ||
-                            truncateAddress(payout.userAddress)}
+                          truncateAddress(payout.userAddress)}
                       </Text>
                       <Text className="text-gray-600 text-xs">
                         {new Date(payout.payDate).toLocaleString("en-US", {
@@ -260,13 +229,19 @@ const ScheduleTab: FC<Props> = ({
             );
           })
         ) : (
-          <Card className="p-6">
-            <View className="items-center">
-              <Text className="text-gray-500 text-sm text-center">
-                No payout schedule available
-              </Text>
-            </View>
-          </Card>
+          <View className="items-center justify-center py-12">
+            <Image
+              source={require("../assets/images/no-schedule.png")}
+              className="w-48 h-48 mb-6"
+              resizeMode="contain"
+            />
+            <Text className="text-lg font-semibold text-gray-900 mb-2">
+              No Payout Schedule
+            </Text>
+            <Text className="text-sm text-gray-500 text-center px-4">
+              There is no payout schedule available for this chama yet.
+            </Text>
+          </View>
         )}
       </View>
       <View className="h-20" />

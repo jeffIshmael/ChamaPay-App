@@ -19,6 +19,7 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   RefreshControl,
   ScrollView,
   Text,
@@ -476,8 +477,8 @@ export default function Notifications() {
                         processingRequest?.requestId === notification.requestId
                       }
                       className={`flex-1 py-2.5 rounded-lg flex-row items-center justify-center gap-2 ${processingRequest?.requestId === notification.requestId
-                          ? "bg-red-400"
-                          : "bg-red-500"
+                        ? "bg-red-400"
+                        : "bg-red-500"
                         }`}
                       activeOpacity={0.7}
                     >
@@ -504,15 +505,20 @@ export default function Notifications() {
             </View>
           </TouchableOpacity>
         ))}
-
         {notifications.length === 0 && (
-          <View className="bg-white rounded-xl border border-gray-200 p-8 items-center">
-            <Bell size={48} className="text-gray-400 mb-4" />
-            <Text className="text-lg font-medium text-gray-900 mb-2">
+          <View className="flex-1 items-center justify-center py-24">
+            <View className="w-24 h-24  rounded-full items-center justify-center mb-6">
+              <Image
+                source={require("@/assets/images/no-notification.png")}
+                className="w-16 h-16 opacity-80"
+                resizeMode="contain"
+              />
+            </View>
+            <Text className="text-xl font-bold text-gray-900 mb-2">
               No Notifications
             </Text>
-            <Text className="text-sm text-gray-600 text-center">
-              You're all caught up! We'll notify you of any important updates.
+            <Text className="text-sm text-gray-500 text-center px-12 leading-5">
+              We'll notify you when something important happens.
             </Text>
           </View>
         )}

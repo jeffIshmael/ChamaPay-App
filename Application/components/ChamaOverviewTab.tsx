@@ -7,7 +7,8 @@ import {
   ExternalLink,
   LogOut,
   Receipt,
-  TrendingUp
+  CalendarCog,
+  ReceiptIcon
 } from "lucide-react-native";
 import React, { FC, useState } from "react";
 import { Modal, ScrollView, Text, TouchableOpacity, View, Dimensions } from "react-native";
@@ -83,7 +84,7 @@ const ChamaOverviewTab: FC<Props> = ({
       {/* Contribution Progress with Balance Cards */}
       <Card className="px-6 py-4 mb-4">
         {/* Section Header */}
-        <View className="flex-row items-center justify-between mb-3">
+        {/* <View className="flex-row items-center justify-between mb-3">
           <Text className="text-xl font-semibold text-gray-900">
             Cycle Overview
           </Text>
@@ -100,29 +101,6 @@ const ChamaOverviewTab: FC<Props> = ({
               {myContributions >= contribution ? "Complete" : "Pending"}
             </Text>
           </Badge>
-        </View>
-
-        {/* Compact Cycle Details */}
-        {/* <View className="bg-gray-50 rounded-lg px-3 py-2 mb-4">
-          <Text className="text-xs text-gray-600 leading-5">
-            <Text className="font-semibold text-gray-800">Cycle:</Text> {currentCycle || 1}
-            <Text className="text-gray-400"> • </Text>
-            <Text className="font-semibold text-gray-800">Round:</Text> {currentRound || 1}
-            <Text className="text-gray-400"> • </Text>
-            <Text className="font-semibold text-gray-800">Required:</Text>{" "}
-            {kesRate > 0
-              ? `${(contribution * kesRate).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })} KES`
-              : `${contribution.toFixed(3)} ${currency}`}
-            <Text className="text-gray-400"> • </Text>
-            <Text className="font-semibold text-gray-800">Due:</Text>{" "}
-            {new Date(contributionDueDate).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })}
-          </Text>
         </View> */}
 
         {/* Swipeable Balance Cards */}
@@ -334,16 +312,16 @@ const ChamaOverviewTab: FC<Props> = ({
                       {/* Action Button */}
                       <TouchableOpacity
                         className={`py-3 rounded-lg ${collateralAmount >= (contribution * 10)
-                            ? "bg-gray-200"
-                            : "bg-purple-600"
+                          ? "bg-gray-200"
+                          : "bg-purple-600"
                           }`}
                         activeOpacity={0.8}
                         disabled={collateralAmount >= (contribution * 10)}
                       >
                         <Text
                           className={`text-sm font-bold text-center ${collateralAmount >= (contribution * 10)
-                              ? "text-gray-400"
-                              : "text-white"
+                            ? "text-gray-400"
+                            : "text-white"
                             }`}
                         >
                           {collateralAmount >= (contribution * 10)
@@ -495,9 +473,9 @@ const ChamaOverviewTab: FC<Props> = ({
 
       {/* Next Payout Info */}
       <Card className="p-6 mb-6">
-        <View className="flex-row items-center gap-4 mb-4">
-          <View className="w-12 h-12 rounded-full bg-emerald-100 items-center justify-center">
-            <TrendingUp size={20} color="#059669" />
+        <View className="flex-row items-center gap-2 mb-4">
+          <View className="w-12 h-12  items-center justify-center">
+            <CalendarCog size={20} color="#059669" />
           </View>
           <View className="flex-1">
             <Text className="text-lg font-semibold text-gray-900">
@@ -522,8 +500,11 @@ const ChamaOverviewTab: FC<Props> = ({
         {chamaStatus === "not started" ? (
           <View className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-200">
             <View className="items-center">
-              <View className="w-16 h-16 bg-amber-100 rounded-full items-center justify-center mb-4">
-                <Text className="text-2xl">🎲</Text>
+              <View className="items-center mb-2">
+                <View className="w-16 h-12 items-center justify-center">
+                  <Text className="text-3xl">🎲</Text>
+                </View>
+                <View className="w-8 h-1 bg-amber-300/40 rounded-full mt-2" />
               </View>
               <Text className="text-lg font-semibold text-amber-800 mb-2">
                 Random Selection
@@ -568,9 +549,13 @@ const ChamaOverviewTab: FC<Props> = ({
           <Text className="text-lg font-semibold text-gray-900">
             Recent Transactions
           </Text>
-          <TouchableOpacity className="bg-gray-100 px-3 py-1 rounded-full">
-            <Text className="text-xs text-gray-600 font-medium">View All</Text>
-          </TouchableOpacity>
+          {
+            recentTransactions.length > 3 && (
+              <TouchableOpacity className="bg-gray-100 px-3 py-1 rounded-full">
+                <Text className="text-xs text-gray-600 font-medium">View All</Text>
+              </TouchableOpacity>
+            )
+          }
         </View>
 
         <View className="gap-3">
@@ -661,13 +646,13 @@ const ChamaOverviewTab: FC<Props> = ({
           ) : (
             <View className="py-8 items-center">
               <View className="w-16 h-16 bg-gray-100 rounded-full items-center justify-center mb-3">
-                <DollarSign size={24} color="#9ca3af" />
+                <ReceiptIcon size={24} color="#9ca3af" />
               </View>
               <Text className="text-gray-500 font-medium">
                 No transactions yet
               </Text>
               <Text className="text-gray-400 text-sm text-center mt-1">
-                Your recent transactions will appear here
+                All chama transactions will appear here
               </Text>
             </View>
           )}

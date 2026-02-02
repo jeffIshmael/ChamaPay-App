@@ -236,7 +236,7 @@ export default function HomeScreen() {
       >
         <View className="flex-row items-center">
           <TouchableOpacity
-            onPress={() => router.push("/notification-trial")}
+            onPress={() => router.push("/pin-setup")}
             className="mr-3"
             activeOpacity={0.8}
           >
@@ -480,7 +480,7 @@ export default function HomeScreen() {
             </Text>
             <TouchableOpacity
               onPress={() => router.push("/discover-chamas")}
-              className="px-6 py-3 rounded-xl bg-emerald-600 shadow-md"
+              className="px-6 py-3 rounded-xl bg-downy-600 shadow-md"
               activeOpacity={0.9}
             >
               <Text className="text-white font-semibold text-base">

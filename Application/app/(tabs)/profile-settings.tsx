@@ -1,10 +1,12 @@
 import SeedPhraseModal from "@/components/SeedPhraseModal";
 import { useAuth } from "@/Contexts/AuthContext";
+import { updateUserNotificationSettings, updateUserPushToken } from "@/lib/userService";
 import * as Clipboard from "expo-clipboard";
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import {
   ArrowLeft,
   Check,
@@ -24,12 +26,11 @@ import {
   ScrollView,
   Switch,
   Text,
+  ToastAndroid,
   TouchableOpacity,
-  View,
-  ToastAndroid
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { updateUserPushToken, updateUserNotificationSettings } from "@/lib/userService";
 
 interface NotificationSettings {
   pushNotifications: boolean;
@@ -83,6 +84,18 @@ export default function ProfileSettings() {
     emailNotifications: user?.emailNotify || false,
     contributionReminders: true,
   });
+  const [hasPin, setHasPin] = useState(false);
+
+  // Check for existing PIN
+  useFocusEffect(
+    React.useCallback(() => {
+      const checkPin = async () => {
+        const pin = await SecureStore.getItemAsync("user_pin");
+        setHasPin(!!pin);
+      };
+      checkPin();
+    }, [])
+  );
 
   // Default avatar URLs based on user's initials
   const getDefaultAvatar = () => {
@@ -226,7 +239,6 @@ export default function ProfileSettings() {
       if (!updateResult.success) {
         ToastAndroid.show("Unable to update notification settings", ToastAndroid.SHORT);
       }
-      console.log("result", result);
       refreshUser();
       return pushTokenString;
     } catch (e: unknown) {
@@ -246,7 +258,6 @@ export default function ProfileSettings() {
       if (!result.success) {
         ToastAndroid.show("Unable to update notification settings", ToastAndroid.SHORT);
       }
-      console.log("result", result);
       refreshUser();
     } catch (e: unknown) {
       ToastAndroid.show("Unable to update notification settings", ToastAndroid.SHORT);
@@ -255,27 +266,31 @@ export default function ProfileSettings() {
   }
 
   // function to handle switch notification
-  async function switchNotification(currentNotify: boolean) {
-    if (currentNotify) {
+  async function switchNotification(setNotify: boolean) {
+    if (user?.pushNotify) {
+      updateNotificationSetting("pushNotifications", false);
       await switchNotificationOff();
+
     } else {
       await switchNotificationOn();
+      updateNotificationSetting("pushNotifications", true);
     }
   }
 
-  // functio to switch email notification
-  async function switchEmailNotification(currentEmailNotify: boolean) {
+  // function to switch email notification
+  async function switchEmailNotification(setEmailNotify: boolean) {
     try {
       if (!token) {
         ToastAndroid.show("Token not found. Refresh the app", ToastAndroid.SHORT);
         return;
       }
-      const result = await updateUserNotificationSettings(token, undefined, !currentEmailNotify);
-      console.log(`seting email mnotify from ${currentEmailNotify} to ${!currentEmailNotify}`);
+      console.log("currentEmailNotify", user?.emailNotify);
+      console.log(`seting email notify from ${user?.emailNotify} to ${setEmailNotify}`);
+      const result = await updateUserNotificationSettings(token, undefined, setEmailNotify);
+
       if (!result.success) {
         ToastAndroid.show("Unable to update notification settings", ToastAndroid.SHORT);
       }
-      console.log("result", result);
       refreshUser();
     } catch (e: unknown) {
       ToastAndroid.show("Unable to update notification settings", ToastAndroid.SHORT);
@@ -438,7 +453,6 @@ export default function ProfileSettings() {
                   value={notifications.pushNotifications}
                   onValueChange={(value) => {
                     switchNotification(value);
-                    updateNotificationSetting("pushNotifications", value)
                   }}
                   trackColor={{ false: "#e5e7eb", true: "#10b981" }}
                   thumbColor="#ffffff"
@@ -456,8 +470,9 @@ export default function ProfileSettings() {
                 <Switch
                   value={notifications.emailNotifications}
                   onValueChange={async (value) => {
+                    updateNotificationSetting("emailNotifications", value);
                     await switchEmailNotification(value);
-                    updateNotificationSetting("emailNotifications", value)
+
                   }}
                   trackColor={{ false: "#e5e7eb", true: "#10b981" }}
                   thumbColor="#ffffff"
@@ -515,17 +530,20 @@ export default function ProfileSettings() {
                 <ChevronRight size={20} color="#9ca3af" />
               </TouchableOpacity> */}
 
-              <TouchableOpacity className="w-full p-4 bg-gray-50 rounded-xl active:bg-gray-100 flex-row items-center justify-between">
+              <TouchableOpacity
+                onPress={() => router.push(hasPin ? "/change-pin" : "/pin-setup")}
+                className="w-full p-4 bg-gray-50 rounded-xl active:bg-gray-100 flex-row items-center justify-between"
+              >
                 <View className="flex-row items-center gap-3">
                   <View className="w-10 h-10 bg-green-100 rounded-lg items-center justify-center">
                     <Fingerprint size={16} color="#059669" />
                   </View>
                   <View>
                     <Text className="text-gray-900 font-semibold text-base">
-                      Change Password
+                      {hasPin ? "Change Pin" : "Set Up Pin"}
                     </Text>
                     <Text className="text-sm text-gray-600 mt-1">
-                      Update your account password
+                      {hasPin ? "Update your account pin" : "Create a secure pin for your account"}
                     </Text>
                   </View>
                 </View>
@@ -537,9 +555,6 @@ export default function ProfileSettings() {
           {/* Legal & Support */}
           <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
             <View className="flex-row items-center gap-3 mb-6">
-              {/* <View className="w-12 h-12 bg-indigo-100 rounded-xl items-center justify-center">
-                <FileText size={20} color="#4f46e5" />
-              </View> */}
               <View>
                 <Text className="text-lg font-bold text-gray-900">
                   Legal & Support
