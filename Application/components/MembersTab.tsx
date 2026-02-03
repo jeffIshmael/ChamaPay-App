@@ -8,8 +8,8 @@ import { toEther, toTokens } from "thirdweb/utils";
 
 type Props = {
   members: Member[];
-  eachMemberBalances?: readonly [readonly string[], readonly (readonly bigint[])[]] | null;
-  isPublic?: boolean;
+  eachMemberBalances: readonly [readonly string[], readonly (readonly bigint[])[]] | null;
+  isPublic: boolean;
 };
 
 const getInitials = (name: string) => {
@@ -22,7 +22,7 @@ const getInitials = (name: string) => {
 };
 
 
-const MembersTab: FC<Props> = ({ members = [], eachMemberBalances, isPublic = false }) => {
+const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
   const {user } = useAuth();
   const totalMembers = members?.length || 0;
   const adminMembers = members?.filter(m => m && m.role === "Admin").length || 0;
@@ -130,7 +130,7 @@ const MembersTab: FC<Props> = ({ members = [], eachMemberBalances, isPublic = fa
                           <View className="flex-row items-center gap-1">
                             <DollarSign size={14} color="#6b7280" />
                             <Text className="text-sm text-gray-600">
-                              Balance: {memberBalance.balance.toLocaleString()} USDC
+                              Balance: {memberBalance.balance.toFixed(3)} USDC
                             </Text>
                           </View>
                           
@@ -139,7 +139,7 @@ const MembersTab: FC<Props> = ({ members = [], eachMemberBalances, isPublic = fa
                             <View className="flex-row items-center gap-2">
                               <Lock size={14} color="#f59e0b" />
                               <Text className="text-sm text-amber-600">
-                                Locked: {memberBalance.locked.toLocaleString()} USDC
+                                Locked: {memberBalance.locked.toFixed(3)} USDC
                               </Text>
                             </View>
                           )}

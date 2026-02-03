@@ -179,7 +179,7 @@ contract ChamaPay is
         if(block.timestamp > chama.startDate && chama.payoutOrder.length > 0) {
             chama.payoutOrder.push(msg.sender);
         }
-        chama.lockedAmounts[msg.sender] += chama.amount;
+        chama.lockedAmounts[msg.sender] += _amount;
         emit MemberAdded(_chamaId, msg.sender);
     }
 

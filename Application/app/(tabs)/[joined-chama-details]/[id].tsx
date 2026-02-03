@@ -38,7 +38,7 @@ import {
   ToastAndroid
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { toEther, toTokens } from "thirdweb/utils";
+import { toEther, toTokens, toUnits } from "thirdweb/utils";
 
 // Loading Skeleton Component
 const SkeletonBox = ({
@@ -138,11 +138,14 @@ export default function JoinedChamaDetails() {
             string[],
             string[][]
           ];
+          console.log("rawData for members balances", rawData);
           const addresses = rawData[0];
           const balancesStr = rawData[1];
+          console.log("balancesStr", balancesStr);
           const balancesBigInt = balancesStr.map((arr) =>
             arr.map((b) => BigInt(b))
           );
+          console.log("balancesBigInt", balancesBigInt);
           setMemberBalances([addresses, balancesBigInt]);
         } catch (e) {
           console.error("Error parsing member balances", e);
@@ -151,10 +154,12 @@ export default function JoinedChamaDetails() {
 
       // get my chama balance
       const balanceToUse = currentMyBalance;
+      console.log("balanceToUse", balanceToUse);
       const firstBalance = Array.isArray(balanceToUse)
         ? balanceToUse[0]
         : balanceToUse;
-      const myChamaBalance = toEther(firstBalance || BigInt(0)) || 0;
+      const myChamaBalance = (firstBalance || BigInt(0)) || 0;
+      console.log("myChamaBalance", myChamaBalance);
       // Set payment amount for the payment modal
       const remainingAmount =
         Number(transformedChama?.contribution) - Number(myChamaBalance);
