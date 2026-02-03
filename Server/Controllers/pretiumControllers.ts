@@ -606,8 +606,7 @@ export async function pretiumMobileTransfer(req: Request, res: Response) {
     usdcAmount,
     exchangeRate,
     amount,
-    txHash,
-    accountName,
+    amountFee
   } = req.body;
   const userId = req.user?.userId;
   try {
@@ -618,7 +617,7 @@ export async function pretiumMobileTransfer(req: Request, res: Response) {
       });
     }
 
-    if (!currencyCode || !mobileNetwork || !amount || !txHash || !shortCode) {
+    if (!currencyCode || !mobileNetwork || !amount || !shortCode) {
       return res.status(401).json({
         success: false,
         error: "One of the details is not set.",
@@ -637,34 +636,40 @@ export async function pretiumMobileTransfer(req: Request, res: Response) {
         error: "User  not found.",
       });
     }
-
-    // the amount coming in has 0.5% fee included in it :- so we get the fee
-    const fee = Number(amount) * 0.005;
-    const txResult = await transferToMobileNetwork(
-      currencyCode,
-      shortCode,
-      txHash,
-      amount,
-      fee.toString(),
-      mobileNetwork,
-      accountName
-    );
-    console.log("the pretium mobile transfer result", txResult);
-    if (!txResult) {
+    // send the usdc to the pretium settlement address
+    // get the users private key
+    const userPrivateKey = await getPrivateKey(userId);
+    if (!userPrivateKey.success || userPrivateKey.privateKey === null) {
       return res.status(400).json({
         success: false,
-        error: txResult || "Failed to initiate pretium onramp.",
+        error: "Unable to get user signing client",
+      });
+    }
+    const txHash = await transferTx(userPrivateKey.privateKey, amount, settlementAddress as `0x${string}`);
+    if (!txHash) {
+      return res.status(400).json({
+        success: false,
+        error: "Failed to send USDC to pretium settlement address",
+      });
+    }
+    // for the offramp, the fee will be charged from the crypto
+    const result = await pretiumOfframp(shortCode, Number(amount), Number(amountFee), txHash);
+    console.log("the offramp pretium result", result);
+    if (!result) {
+      return res.status(400).json({
+        success: false,
+        error: result || "Failed to initiate pretium offramp.",
       });
     }
     // Save offramp transaction to database
     await prisma.pretiumTransaction.create({
       data: {
         userId,
-        transactionCode: txResult.transaction_code,
+        transactionCode: result.transaction_code,
         isOnramp: false,
         shortcode: shortCode,
         amount: amount,
-        status: txResult.status,
+        status: result.status,
         isRealesed: false,
         cusdAmount: usdcAmount,
         exchangeRate: exchangeRate,
@@ -673,7 +678,7 @@ export async function pretiumMobileTransfer(req: Request, res: Response) {
     });
     return res.status(200).json({
       success: true,
-      result: txResult,
+      result: result,
     });
   } catch (error) {
     console.log("error transferring to mobile", error);

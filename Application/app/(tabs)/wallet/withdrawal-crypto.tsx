@@ -20,9 +20,9 @@ import {
   ScrollView,
   Text,
   TextInput,
+  ToastAndroid,
   TouchableOpacity,
-  View,
-  ToastAndroid
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -54,6 +54,7 @@ export default function WithdrawCryptoScreen() {
   const insets = useSafeAreaInsets();
   const [amountKES, setAmountKES] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [isPhoneTouched, setIsPhoneTouched] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState<
     "idle" | "processing" | "completed" | "failed"
@@ -446,10 +447,11 @@ export default function WithdrawCryptoScreen() {
                     placeholderTextColor="#9CA3AF"
                     keyboardType="phone-pad"
                     maxLength={12}
+                    onBlur={() => setIsPhoneTouched(true)}
                     className="flex-1 text-base"
                   />
                 </View>
-                {phoneNumber && !isValidPhoneNumber(phoneNumber) && (
+                {isPhoneTouched && phoneNumber && !isValidPhoneNumber(phoneNumber) && (
                   <Text className="text-red-500 text-xs mt-2">
                     Please enter a valid Kenyan phone number
                   </Text>

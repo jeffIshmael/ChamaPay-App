@@ -9,9 +9,6 @@
     "userInterfaceStyle": "light",
     "backgroundColor": "#d1f6f1",
     "newArchEnabled": true,
-    "notification": {
-      "icon": "./assets/images/notification-icon.png"
-    },
     "splash": {
       "image": "./assets/images/chamapay-logo.png",
       "resizeMode": "contain",
