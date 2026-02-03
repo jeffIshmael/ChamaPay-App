@@ -366,7 +366,11 @@ export default function WithdrawCryptoScreen() {
       >
         <View className="flex-row items-center justify-between mb-2">
           <TouchableOpacity
-            onPress={() => router.push("/wallet")}
+            onPress={() => {
+              setAmountKES("");
+              setPhoneNumber("");
+              router.push("/(tabs)/wallet");
+            }}
             className="w-10 h-10 rounded-full bg-white/20 items-center justify-center"
             activeOpacity={0.7}
           >

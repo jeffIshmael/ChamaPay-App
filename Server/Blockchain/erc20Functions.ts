@@ -1,8 +1,14 @@
 // this file contains erc20 functions to use
-import { erc20Abi, parseUnits } from "viem";
+import { erc20Abi, parseUnits, createPublicClient, http } from "viem";
 import { USDCAddress } from "./Constants";
 import { EIP7702Client } from "./EIP7702Client";
 import { createSmartAccount } from "./SmartAccount";
+import { celo } from "viem/chains";
+
+const publicClient = createPublicClient({
+    chain: celo,
+    transport: http()
+})
 
 // function for erc20 approve spending
 export const approveTx = async (privateKey: `0x${string}`, amount: string, spender: `0x${string}`) => {
@@ -18,7 +24,7 @@ export const approveTx = async (privateKey: `0x${string}`, amount: string, spend
         })
 
         // Wait for transaction to be mined
-        const transaction = await smartAccountClient.waitForTransaction(hash);
+        const transaction = await publicClient.waitForTransactionReceipt({hash});
 
         if (!transaction) {
             throw new Error("unable to approve spending.");
@@ -47,7 +53,7 @@ export const transferTx = async (privateKey: `0x${string}`, amount: string, reci
 
 
         // Wait for transaction to be mined
-        const transaction = await smartAccountClient.waitForTransaction(hash);
+        const transaction = await publicClient.waitForTransactionReceipt({hash});
 
         if (!transaction) {
             throw new Error("unable to transfer.");
