@@ -139,6 +139,7 @@ export default function WithdrawCryptoScreen() {
 
     try {
       const shortcode = `0${phoneNumber}`;
+
       const validation = await validatePhoneNumber(
         "KES" as CurrencyCode,
         "MOBILE",
@@ -251,7 +252,7 @@ export default function WithdrawCryptoScreen() {
       }
 
       // Poll for transaction completion
-      const transactionCode = offrampResult.transactionCode;
+      const transactionCode = offrampResult.result.transactionCode;
 
       if (!transactionCode) {
         throw new Error("No transaction code received");

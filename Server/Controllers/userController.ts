@@ -389,7 +389,7 @@ export const searchUsers = async (
         id: true,
         userName: true,
         email: true,
-        address: true,
+        smartAddress: true,
         profileImageUrl: true,
       },
       take: 10, // Limit to 10 results
@@ -477,6 +477,20 @@ export const sendJoinRequest = async (
       return;
     }
 
+    // get user
+     const user = await prisma.user.findUnique({
+      where: {
+        id: Number(userId)
+      }
+    });
+     if (!user) {
+      res
+        .status(400)
+        .json({ success: false, error: "User not found." });
+      return;
+    }
+
+
     const request = await requestToJoin(userId, Number(chamaId));
     if (request === null) {
       res
@@ -489,7 +503,7 @@ export const sendJoinRequest = async (
     await sendExpoNotificationToAUser(
       chama.adminId,
       `New join request`,
-      `A user requests to join ${chama.name} chama.Tap to approve or reject.`,
+      `${user.userName} wants to join the ${chama.name} chama. Tap to approve or reject.`,
     );
 
     res.status(200).json({ success: true, request: request });

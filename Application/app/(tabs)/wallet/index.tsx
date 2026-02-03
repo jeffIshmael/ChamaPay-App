@@ -22,18 +22,17 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Image,
   KeyboardAvoidingView,
   Linking,
   Modal,
   Platform,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
-  ToastAndroid,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -72,10 +71,19 @@ export default function CryptoWallet() {
   const { user, token } = useAuth();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
 
   const fetchBalances = async () => {
-    const balances = await getUserBalance(token as string);
-    setUserBalance(balances.balance);
+    if (!token) return;
+    setIsRefreshingBalance(true);
+    try {
+      const balances = await getUserBalance(token as string);
+      setUserBalance(balances.balance);
+    } catch (error) {
+      console.error("Error fetching balance:", error);
+    } finally {
+      setIsRefreshingBalance(false);
+    }
   };
 
   const getTx = async () => {
@@ -106,7 +114,11 @@ export default function CryptoWallet() {
   const theExhangeQuote = rates["KES"]?.data || null;
 
   const fetchRate = async () => {
-    await globalFetchRate("KES");
+    try {
+      await globalFetchRate("KES");
+    } catch (error) {
+      console.error("Error fetching rate:", error);
+    }
   };
 
   // Refresh all data when screen comes into focus
@@ -245,12 +257,24 @@ export default function CryptoWallet() {
             className={`font-bold text-base ${getTransactionTextColor(tx.type)}`}
           >
             {tx.type === "sent" || tx.type === "withdrew" ? "-" : "+"}
-            {parseFloat(tx.amount).toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 4,
-            })}{" "}
-            {tx.token}
+            {user?.location === "KE" && theExhangeQuote?.exchangeRate.selling_rate
+              ? `${(parseFloat(tx.amount) * theExhangeQuote.exchangeRate.selling_rate).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })} KES`
+              : `${parseFloat(tx.amount).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 4,
+              })} ${tx.token}`}
           </Text>
+          {user?.location === "KE" && theExhangeQuote?.exchangeRate.selling_rate && (
+            <Text className="text-[10px] text-gray-400">
+              ({parseFloat(tx.amount).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 4,
+              })} {tx.token})
+            </Text>
+          )}
           <Text className="text-xs text-gray-400 mt-1">
             {getRelativeTime(tx.date)}
           </Text>
@@ -329,15 +353,24 @@ export default function CryptoWallet() {
                     selectedTransaction.type === "withdrew"
                     ? "-"
                     : "+"}
-                  {parseFloat(selectedTransaction.amount).toLocaleString(
-                    undefined,
-                    {
+                  {user?.location === "KE" && theExhangeQuote?.exchangeRate.selling_rate
+                    ? `${(parseFloat(selectedTransaction.amount) * theExhangeQuote.exchangeRate.selling_rate).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })} KES`
+                    : `${parseFloat(selectedTransaction.amount).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 4,
-                    }
-                  )}{" "}
-                  {selectedTransaction.token}
+                    })} ${selectedTransaction.token}`}
                 </Text>
+                {user?.location === "KE" && theExhangeQuote?.exchangeRate.selling_rate && (
+                  <Text className="text-white/70 text-sm font-medium mt-1">
+                    ({parseFloat(selectedTransaction.amount).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 4,
+                    })} {selectedTransaction.token})
+                  </Text>
+                )}
               </View>
             </View>
 
@@ -547,257 +580,261 @@ export default function CryptoWallet() {
         <StatusBar style="light" />
 
 
-        {/* Card Section */}
-        <View
-          className="px-4 bg-downy-600 rounded-b-3xl"
-          style={{ paddingTop: insets.top + 24 }}
+        <ScrollView
+          className="flex-1 bg-gray-50"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#1c8584"
+              colors={["#1c8584"]}
+            />
+          }
         >
-          {/* Balance Card */}
+          {/* Card Section */}
           <View
-            className="rounded-3xl p-6 mb-6 border border-downy-500 relative overflow-hidden"
-            style={[styles.balanceCard, {
-              backgroundColor: '#1a6b6b',
-            }]}
+            className="px-4 bg-downy-600 rounded-b-3xl"
+            style={{ paddingTop: insets.top + 24 }}
           >
-            {/* Logo Background */}
-            <View className="absolute inset-0 items-center justify-center">
-              <Image
-                source={require("@/assets/images/chamapay-logo.png")}
-                style={{
-                  width: '80%',
-                  height: '80%',
-                  opacity: 0.07,
-                }}
-                resizeMode="contain"
-              />
-            </View>
-
-            {/* Decorative circles in background */}
-            <View className="absolute -right-10 -top-10 w-32 h-32 bg-white/10 rounded-full" />
-            <View className="absolute -right-5 top-20 w-24 h-24 bg-white/10 rounded-full" />
-            <View className="absolute right-10 -bottom-5 w-20 h-20 bg-white/10 rounded-full" />
-
-            <Text className="text-white/80 text-xs font-semibold tracking-wide mb-3">
-              YOUR BALANCE
-            </Text>
-
-            <View className="mb-8">
-              <View className="flex-row items-baseline">
-                <Text className="text-5xl text-white font-bold tracking-tight">
-                  {balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && user?.location === "KE"
-                    ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    }).split('.')[0]
-                    : balanceVisible && user?.location !== "KE"
-                      ? Number(usdcBalance).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      }).split('.')[0]
-                      : "---"}
-                </Text>
-                <Text className="text-5xl text-white font-medium">
-                  .{balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && user?.location === "KE"
-                    ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    }).split('.')[1] || "00"
-                    : balanceVisible && user?.location !== "KE"
-                      ? Number(usdcBalance).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      }).split('.')[1] || "00"
-                      : ""}
-                </Text>
-                <Text className="text-lg text-white/90 ml-1 font-medium">
-                  {user?.location === "KE" ? theExhangeQuote?.currencyCode : "USD"}
-                </Text>
+            {/* Balance Card */}
+            <View
+              className="rounded-3xl p-6 mb-6 border border-downy-500 relative overflow-hidden"
+              style={[styles.balanceCard, {
+                backgroundColor: '#1a6b6b',
+              }]}
+            >
+              {/* Logo Background */}
+              <View className="absolute inset-0 items-center justify-center">
+                <Image
+                  source={require("@/assets/images/chamapay-logo.png")}
+                  style={{
+                    width: '80%',
+                    height: '80%',
+                    opacity: 0.07,
+                  }}
+                  resizeMode="contain"
+                />
               </View>
 
-              {balanceVisible && user?.location === "KE" && (
-                <Text className="text-white/60 text-sm mt-2">
-                  ≈ {balanceVisible && userBalance ? usdcBalance : "----"} USDC
+              {/* Decorative circles in background */}
+              <View className="absolute -right-10 -top-10 w-32 h-32 bg-white/10 rounded-full" />
+              <View className="absolute -right-5 top-20 w-24 h-24 bg-white/10 rounded-full" />
+              <View className="absolute right-10 -bottom-5 w-20 h-20 bg-white/10 rounded-full" />
+
+              <View>
+                <Text className="text-white/80 text-xs font-semibold tracking-wide mb-3">
+                  YOUR BALANCE
                 </Text>
+
+                <View className="mb-8">
+                  <View className="flex-row items-baseline">
+                    <Text className="text-5xl text-white font-bold tracking-tight">
+                      {balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && user?.location === "KE"
+                        ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }).split('.')[0]
+                        : balanceVisible && user?.location !== "KE"
+                          ? Number(usdcBalance).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          }).split('.')[0]
+                          : "---"}
+                    </Text>
+                    <Text className="text-5xl text-white font-medium">
+                      .{balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && user?.location === "KE"
+                        ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }).split('.')[1] || "00"
+                        : balanceVisible && user?.location !== "KE"
+                          ? Number(usdcBalance).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          }).split('.')[1] || "00"
+                          : ""}
+                    </Text>
+                    <Text className="text-lg text-white/90 ml-1 font-medium">
+                      {user?.location === "KE" ? theExhangeQuote?.currencyCode : "USD"}
+                    </Text>
+                  </View>
+
+                  {balanceVisible && user?.location === "KE" && (
+                    <Text className="text-white/60 text-sm mt-2">
+                      ≈ {balanceVisible && userBalance ? usdcBalance : "----"} USDC
+                    </Text>
+                  )}
+                </View>
+
+                {/* Card details and logo */}
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center gap-2">
+                    <Text className="text-white/80 text-base font-mono tracking-widest">
+                      {user?.smartAddress?.slice(0, 4) || "****"} **** {user?.smartAddress?.slice(-4) || "****"}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (user?.smartAddress) {
+                          Clipboard.setStringAsync(user.smartAddress);
+                          // ToastAndroid.show("Wallet address copied to clipboard", ToastAndroid.SHORT);
+                        }
+                      }}
+                      activeOpacity={0.7}
+                      className="p-1"
+                    >
+                      <Copy size={16} color="rgba(255, 255, 255, 0.8)" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Mastercard-style logo */}
+                  <View className="flex-row">
+                    <View className="w-8 h-8 rounded-full bg-red-500" />
+                    <View className="w-8 h-8 rounded-full bg-orange-400 -ml-3" />
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Action Buttons */}
+            <View className="flex-row gap-2 mb-6">
+              <TouchableOpacity
+                onPress={() =>
+                  router.push({
+                    pathname: "/wallet/deposit-crypto",
+                    params: {
+                      currencyCode: theExhangeQuote?.currencyCode,
+                      onramp: theExhangeQuote?.exchangeRate.selling_rate,
+                      USDCBalance: usdcBalance,
+                    },
+                  })
+                }
+                className="flex-1 bg-white py-3.5 rounded-xl shadow-sm"
+                activeOpacity={0.8}
+              >
+                <View className="items-center justify-center gap-1">
+                  <Plus size={20} color="#1c8584" />
+                  <Text className="text-downy-600 font-semibold text-xs">
+                    Deposit Funds
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() =>
+                  router.push({
+                    pathname: "/wallet/send-crypto",
+                    params: {
+                      USDCBalance: usdcBalance,
+                      totalBalance: usdcBalance,
+                      address: user?.smartAddress,
+                    },
+                  })
+                }
+                className="flex-1 bg-white py-3.5 rounded-xl shadow-sm"
+                activeOpacity={0.8}
+              >
+                <View className="items-center justify-center gap-1">
+                  <Send size={20} color="#1c8584" />
+                  <Text className="text-downy-600 font-semibold text-xs">
+                    Send Funds
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() =>
+                  router.push({
+                    pathname: "/wallet/withdrawal-crypto",
+                    params: {
+                      USDCBalance: usdcBalance,
+                      totalBalance: usdcBalance,
+                      address: user?.smartAddress,
+                      currencyCode: theExhangeQuote?.currencyCode,
+                      offramp: theExhangeQuote?.exchangeRate.buying_rate,
+                    },
+                  })
+                }
+                className="flex-1 bg-white py-3.5 rounded-xl shadow-sm"
+                activeOpacity={0.8}
+              >
+                <View className="items-center justify-center gap-1">
+                  <Upload size={20} color="#1c8584" />
+                  <Text className="text-downy-600 font-semibold text-xs">
+                    Withdraw Funds
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Transaction History Section */}
+          <View className="flex-1 px-6 mt-6 pb-24">
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-2xl font-bold text-gray-900">
+                Recent Activity
+              </Text>
+              {theTransaction && theTransaction.length > 6 && (
+                <TouchableOpacity
+                  onPress={() => router.push("/wallet/all-transactions")}
+                  className="px-4 py-2 rounded-full"
+                  activeOpacity={0.8}
+                >
+                  <Text className="text-indigo-600 text-sm font-semibold">
+                    View All
+                  </Text>
+                </TouchableOpacity>
               )}
             </View>
 
-            {/* Card details and logo */}
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-2">
-                <Text className="text-white/80 text-base font-mono tracking-widest">
-                  {user?.smartAddress?.slice(0, 4) || "****"} **** {user?.smartAddress?.slice(-4) || "****"}
+            {/* Loading State */}
+            {loadingTransactions && !refreshing && <LoadingState />}
+
+            {/* Error State */}
+            {transactionError && !loadingTransactions && (
+              <View className="bg-red-50 p-4 rounded-xl border border-red-200 mb-4">
+                <Text className="text-red-700 font-medium text-sm">
+                  {transactionError}
                 </Text>
                 <TouchableOpacity
-                  onPress={() => {
-                    if (user?.smartAddress) {
-                      Clipboard.setStringAsync(user.smartAddress);
-                      // ToastAndroid.show("Wallet address copied to clipboard", ToastAndroid.SHORT);
-                    }
-                  }}
-                  activeOpacity={0.7}
-                  className="p-1"
+                  onPress={() => onRefresh()}
+                  className="mt-2 bg-red-100 px-3 py-1 rounded-md self-start"
                 >
-                  <Copy size={16} color="rgba(255, 255, 255, 0.8)" />
+                  <Text className="text-red-700 font-semibold text-xs">
+                    Retry
+                  </Text>
                 </TouchableOpacity>
               </View>
-
-              {/* Mastercard-style logo */}
-              <View className="flex-row">
-                <View className="w-8 h-8 rounded-full bg-red-500" />
-                <View className="w-8 h-8 rounded-full bg-orange-400 -ml-3" />
-              </View>
-            </View>
-          </View>
-
-          {/* Action Buttons */}
-          <View className="flex-row gap-2 mb-6">
-            <TouchableOpacity
-              onPress={() =>
-                router.push({
-                  pathname: "/wallet/deposit-crypto",
-                  params: {
-                    currencyCode: theExhangeQuote?.currencyCode,
-                    onramp: theExhangeQuote?.exchangeRate.selling_rate,
-                    USDCBalance: usdcBalance,
-                  },
-                })
-              }
-              className="flex-1 bg-white py-3.5 rounded-xl shadow-sm"
-              activeOpacity={0.8}
-            >
-              <View className="items-center justify-center gap-1">
-                <Plus size={20} color="#1c8584" />
-                <Text className="text-downy-600 font-semibold text-xs">
-                  Deposit Funds
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() =>
-                router.push({
-                  pathname: "/wallet/send-crypto",
-                  params: {
-                    USDCBalance: usdcBalance,
-                    totalBalance: usdcBalance,
-                    address: user?.smartAddress,
-                  },
-                })
-              }
-              className="flex-1 bg-white py-3.5 rounded-xl shadow-sm"
-              activeOpacity={0.8}
-            >
-              <View className="items-center justify-center gap-1">
-                <Send size={20} color="#1c8584" />
-                <Text className="text-downy-600 font-semibold text-xs">
-                  Send Funds
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() =>
-                router.push({
-                  pathname: "/wallet/withdrawal-crypto",
-                  params: {
-                    USDCBalance: usdcBalance,
-                    totalBalance: usdcBalance,
-                    address: user?.smartAddress,
-                    currencyCode: theExhangeQuote?.currencyCode,
-                    offramp: theExhangeQuote?.exchangeRate.buying_rate,
-                  },
-                })
-              }
-              className="flex-1 bg-white py-3.5 rounded-xl shadow-sm"
-              activeOpacity={0.8}
-            >
-              <View className="items-center justify-center gap-1">
-                <Upload size={20} color="#1c8584" />
-                <Text className="text-downy-600 font-semibold text-xs">
-                  Withdraw Funds
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Transaction History Section */}
-        <View className="flex-1 px-6 mt-6">
-          <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-2xl font-bold text-gray-900">
-              Recent Activity
-            </Text>
-            {theTransaction && theTransaction.length > 3 && (
-              <TouchableOpacity
-                onPress={() => router.push("/wallet/all-transactions")}
-                className="px-4 py-2 rounded-full"
-                activeOpacity={0.8}
-              >
-                <Text className="text-indigo-600 text-sm font-semibold">
-                  View All
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Loading State */}
-          {loadingTransactions && <LoadingState />}
-
-          {/* Error State */}
-          {transactionError && !loadingTransactions && (
-            <View className="bg-red-50 p-4 rounded-xl border border-red-200 mb-4">
-              <Text className="text-red-700 font-medium text-sm">
-                {transactionError}
-              </Text>
-              <TouchableOpacity
-                onPress={() => onRefresh()}
-                className="mt-2 bg-red-100 px-3 py-1 rounded-md self-start"
-              >
-                <Text className="text-red-700 font-semibold text-xs">
-                  Retry
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Empty State */}
-          {!loadingTransactions &&
-            !transactionError &&
-            (!theTransaction || theTransaction.length === 0) && (
-              <View className="p-10 items-center justify-center">
-                <History size={48} color="#9ca3af" className="mb-4" />
-                <Text className="text-gray-900 font-bold text-lg mb-2">
-                  No Transactions Yet
-                </Text>
-                <Text className="text-gray-500 text-sm text-center leading-5">
-                  Your transaction history will appear here when you make your
-                  first transaction
-                </Text>
-              </View>
             )}
 
-          {/* Transactions List - Show only first 3, scrollable */}
-          {!loadingTransactions &&
-            !transactionError &&
-            theTransaction &&
-            theTransaction.length > 0 && (
-              <FlatList
-                data={theTransaction.slice(0, 3)}
-                renderItem={({ item }) => <TransactionCard tx={item} />}
-                keyExtractor={(item) => `${item.id}-${item.date}`}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
-                refreshControl={
-                  <RefreshControl
-                    refreshing={refreshing}
-                    onRefresh={onRefresh}
-                    tintColor="#6366f1"
-                    colors={["#6366f1"]}
-                  />
-                }
-              />
-            )}
-        </View>
+            {/* Empty State */}
+            {!loadingTransactions &&
+              !transactionError &&
+              (!theTransaction || theTransaction.length === 0) && (
+                <View className="p-10 items-center justify-center">
+                  <History size={48} color="#9ca3af" className="mb-4" />
+                  <Text className="text-gray-900 font-bold text-lg mb-2">
+                    No Transactions Yet
+                  </Text>
+                  <Text className="text-gray-500 text-sm text-center leading-5">
+                    Your transaction history will appear here when you make your
+                    first transaction
+                  </Text>
+                </View>
+              )}
+
+            {/* Transactions List - Show only first 3 */}
+            {!loadingTransactions &&
+              !transactionError &&
+              theTransaction &&
+              theTransaction.length > 0 && (
+                <View>
+                  {theTransaction.slice(0, 6).map((item) => (
+                    <TransactionCard key={`${item.id}-${item.date}`} tx={item} />
+                  ))}
+                </View>
+              )}
+          </View>
+        </ScrollView>
       </View>
 
       {/* Transaction Details Modal */}

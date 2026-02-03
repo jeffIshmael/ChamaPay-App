@@ -43,7 +43,7 @@ export const searchUsers = async (
     id: number;
     userName: string;
     email: string;
-    address: string;
+    smartAddress: string;
     profileImageUrl: string | null;
   }>;
   error?: string;

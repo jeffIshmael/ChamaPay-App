@@ -1,8 +1,9 @@
 import { serverUrl } from "@/constants/serverUrl";
 import { useAuth } from "@/Contexts/AuthContext";
 import { searchUsers } from "@/lib/chamaService";
+import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, User, WalletMinimal } from "lucide-react-native";
+import { ArrowLeft, RefreshCw, User, WalletMinimal } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -12,9 +13,9 @@ import {
   ScrollView,
   Text,
   TextInput,
+  ToastAndroid,
   TouchableOpacity,
-  View,
-  ToastAndroid
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -23,12 +24,14 @@ export default function SendCryptoScreen() {
   const [sendMode, setSendMode] = useState<"chamapay" | "external">("chamapay");
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
+  const [amountKES, setAmountKES] = useState("");
+  const [isKESMode, setIsKESMode] = useState(false);
   const [searchResults, setSearchResults] = useState<
     Array<{
       id: number;
       userName: string;
       email: string;
-      address: string;
+      smartAddress: string;
       profileImageUrl: string | null;
     }>
   >([]);
@@ -38,14 +41,42 @@ export default function SendCryptoScreen() {
     id: number;
     userName: string;
     email: string;
-    address: string;
+    smartAddress: string;
     profileImageUrl: string | null;
   } | null>(null);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { USDCBalance, totalBalance, address } = useLocalSearchParams();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
+  const { getRate, fetchRate } = useExchangeRateStore();
+  const [kesRate, setKesRate] = useState<number>(0);
+
+  useEffect(() => {
+    if (user?.location === "KE") {
+      setIsKESMode(true);
+      const getRateData = async () => {
+        const rateData = await fetchRate("KES");
+        if (rateData) {
+          setKesRate(rateData.rate);
+        }
+      };
+      getRateData();
+    }
+  }, [user]);
+
+  const handleAmountChange = (text: string) => {
+    if (isKESMode && kesRate > 0) {
+      setAmountKES(text);
+      const usdc = text ? (parseFloat(text) / kesRate).toFixed(4) : "";
+      setAmount(usdc);
+    } else {
+      setAmount(text);
+      if (kesRate > 0) {
+        setAmountKES(text ? (parseFloat(text) * kesRate).toFixed(2) : "");
+      }
+    }
+  };
   // Fixed to USDC only - no need to display
   const tokenBalance = USDCBalance;
 
@@ -59,6 +90,11 @@ export default function SendCryptoScreen() {
       ) {
         setSearchResults([]);
         setShowSearchResults(false);
+        return;
+      }
+
+      // Don't search if a user is already selected (prevents search on selection)
+      if (selectedUser && recipient === selectedUser.userName) {
         return;
       }
 
@@ -135,7 +171,7 @@ export default function SendCryptoScreen() {
     }
     let receiver: `0x${string}` | null = null;
     if (sendMode === "chamapay" && selectedUser) {
-      receiver = selectedUser.address as `0x${string}`;
+      receiver = selectedUser.smartAddress as `0x${string}`;
     } else if (sendMode === "external" && recipient) {
       receiver = recipient as `0x${string}`;
     }
@@ -163,7 +199,7 @@ export default function SendCryptoScreen() {
         ToastAndroid.show(data.message, ToastAndroid.SHORT);
         return;
       }
-      ToastAndroid.show("Transaction sent successfully", ToastAndroid.SHORT);
+      ToastAndroid.show(`${isKESMode ? "KES" : "USDC"} sent successfully`, ToastAndroid.SHORT);
       router.push("/wallet");
 
     } catch (error) {
@@ -185,7 +221,12 @@ export default function SendCryptoScreen() {
       <View className="px-6 pt-4 pb-6">
         <View className="flex-row items-center justify-between mb-2">
           <TouchableOpacity
-            onPress={() => router.push("/wallet")}
+            onPress={() => {
+              setRecipient("");
+              setAmount("");
+              setSelectedUser(null);
+              router.push("/wallet");
+            }}
             className="p-2 -ml-2"
             activeOpacity={0.7}
           >
@@ -216,14 +257,14 @@ export default function SendCryptoScreen() {
                   setAmount("");
                 }}
                 className={`flex-1 py-4 px-4 rounded-2xl flex-row items-center justify-center gap-2 ${sendMode === "chamapay"
-                    ? "bg-downy-600 shadow-md"
-                    : "bg-white border-2 border-gray-200"
+                  ? "bg-downy-600 shadow-md"
+                  : "bg-white border-2 border-gray-200"
                   }`}
                 activeOpacity={0.7}
               >
                 <Image
                   source={require("@/assets/images/chamapay-logo.png")}
-                  className="w-6 h-6 rounded-md"
+                  className="w-8 h-8 rounded-md"
                   style={{
                     tintColor: sendMode === "chamapay" ? "#fff" : "#059669",
                   }}
@@ -243,8 +284,8 @@ export default function SendCryptoScreen() {
                   setAmount("");
                 }}
                 className={`flex-1 py-4 px-4 rounded-xl flex-row items-center justify-center gap-2 ${sendMode === "external"
-                    ? "bg-downy-600"
-                    : "bg-white border-2 border-gray-200"
+                  ? "bg-downy-600"
+                  : "bg-white border-2 border-gray-200"
                   }`}
                 activeOpacity={0.7}
               >
@@ -273,7 +314,7 @@ export default function SendCryptoScreen() {
 
             {sendMode === "chamapay" && (
               <Text className="text-sm text-gray-500 mb-3">
-                Enter the recipient's ChamaPay username
+                Enter the recipient's Chamapay username
               </Text>
             )}
 
@@ -386,34 +427,62 @@ export default function SendCryptoScreen() {
             className="bg-white p-5 rounded-2xl shadow-sm"
             style={{ zIndex: 1, elevation: 1 }}
           >
-            <Text className="text-base font-bold text-gray-900 mb-3">
-              Amount
-            </Text>
-            <View className="bg-gray-50 p-4 rounded-xl border-2 border-gray-200">
-              <TextInput
-                value={amount}
-                onChangeText={setAmount}
-                placeholder="0.00"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="decimal-pad"
-                className="text-center text-3xl font-bold text-gray-900"
-              />
-              <Text className="text-center text-sm text-gray-500 mt-2">
-                USDC
-              </Text>
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-base font-bold text-gray-900">Amount</Text>
+              {user?.location === "KE" && (
+                <TouchableOpacity
+                  onPress={() => setIsKESMode(!isKESMode)}
+                  className="bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100 flex-row items-center gap-2"
+                >
+                  <RefreshCw size={14} color="#059669" />
+                  <Text className="text-emerald-700 text-xs font-bold">
+                    Switch to {isKESMode ? "USDC" : "KES"}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
-            <View className="flex-row items-center justify-between mt-3 px-1">
-              <Text className="text-sm text-gray-600">
-                Available:{" "}
-                <Text className="font-semibold">{tokenBalance} USDC</Text>
+
+            <View className="flex-row items-center bg-gray-50 rounded-xl border-2 border-gray-200 px-4 py-1">
+              <Text className="text-2xl font-bold text-gray-400 mr-2">
+                {isKESMode ? "KES" : "$"}
               </Text>
+              <TextInput
+                value={isKESMode ? amountKES : amount}
+                onChangeText={handleAmountChange}
+                placeholder="0.00"
+                keyboardType="numeric"
+                className="flex-1 text-2xl font-bold text-gray-900 py-3"
+                placeholderTextColor="#9ca3af"
+              />
               <TouchableOpacity
-                onPress={() => setAmount(tokenBalance.toString())}
-                className="px-4 py-1.5 bg-emerald-100 rounded-full"
+                onPress={() => handleAmountChange(isKESMode ? (parseFloat(tokenBalance as string) * kesRate).toString() : tokenBalance.toString())}
+                className="px-3 py-1.5 bg-emerald-100 rounded-lg"
                 activeOpacity={0.7}
               >
-                <Text className="text-emerald-700 text-sm font-bold">Max</Text>
+                <Text className="text-emerald-700 text-xs font-bold uppercase">Max</Text>
               </TouchableOpacity>
+            </View>
+
+            {/* Equivalence display */}
+            {kesRate > 0 && (amount || amountKES) && (
+              <View className="mt-3 flex-row items-center bg-emerald-50/50 p-3 rounded-xl border border-emerald-100/50">
+                <Text className="text-sm text-emerald-700 font-medium">
+                  {isKESMode
+                    ? `≈ ${amount || "0.00"} USDC`
+                    : `≈ ${amountKES || "0.00"} KES`}
+                </Text>
+              </View>
+            )}
+
+            <View className="mt-4 pt-4 border-t border-gray-100 items-start">
+              <View className="flex-row items-center">
+                <Text className="text-gray-500 text-sm">Available: </Text>
+                <Text className="text-gray-900 font-semibold text-sm">
+                  {user?.location === "KE" && kesRate > 0
+                    ? `${(parseFloat(tokenBalance as string) * kesRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES (${tokenBalance} USDC)`
+                    : `${tokenBalance} USDC`}
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -428,26 +497,26 @@ export default function SendCryptoScreen() {
               isProcessing
             }
             className={`w-full py-4 rounded-2xl shadow-lg ${!recipient.trim() ||
-                !isValidAmount(amount) ||
-                (sendMode === "chamapay" && !selectedUser) ||
-                (sendMode === "external" && !isValidAddress(recipient)) ||
-                isProcessing
-                ? "bg-gray-300"
-                : "bg-downy-600"
+              !isValidAmount(amount) ||
+              (sendMode === "chamapay" && !selectedUser) ||
+              (sendMode === "external" && !isValidAddress(recipient)) ||
+              isProcessing
+              ? "bg-gray-300"
+              : "bg-downy-600"
               }`}
             activeOpacity={0.8}
           >
             <Text
               className={`text-center text-lg font-bold ${!recipient.trim() ||
-                  !isValidAmount(amount) ||
-                  (sendMode === "chamapay" && !selectedUser) ||
-                  (sendMode === "external" && !isValidAddress(recipient)) ||
-                  isProcessing
-                  ? "text-gray-500"
-                  : "text-white"
+                !isValidAmount(amount) ||
+                (sendMode === "chamapay" && !selectedUser) ||
+                (sendMode === "external" && !isValidAddress(recipient)) ||
+                isProcessing
+                ? "text-gray-500"
+                : "text-white"
                 }`}
             >
-              {isProcessing ? "Sending..." : "Send USDC"}
+              {isProcessing ? "Sending..." : isKESMode ? "Send KES" : "Send USDC"}
             </Text>
           </TouchableOpacity>
         </View>

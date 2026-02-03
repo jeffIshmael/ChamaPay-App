@@ -538,7 +538,7 @@ export const sendChamaMessage = async (req: Request, res: Response) => {
 
     await sendExpoNotificationToAllChamaMembers(
       `New message`,
-      `A new message has been sent to ${chama.name} chama.`,
+      `There’s a new message in the ${chama.name} chama.`,
       parseInt(chamaId),
       Number(userId)
     );

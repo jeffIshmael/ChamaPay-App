@@ -122,7 +122,7 @@ const ScheduleTab: FC<Props> = ({
           />
 
           <Text className="text-xl font-semibold text-gray-900 mb-2 text-center">
-            Chama hasn&apos;t started yet
+            No schedule yet
           </Text>
 
           <Text className="text-sm text-gray-500 text-center leading-6">
