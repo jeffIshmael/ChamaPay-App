@@ -22,9 +22,9 @@ import {
   Switch,
   Text,
   TextInput,
+  ToastAndroid,
   TouchableOpacity,
-  View,
-  ToastAndroid
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -178,6 +178,28 @@ export default function CreateChama() {
 
   const updateFormData = (field: keyof FormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // function to empty entries
+  const emptyEntries = () => {
+    setFormData({
+      name: "",
+      description: "",
+      contribution: "",
+      maxMembers: "",
+      duration: 0,
+      frequency: "",
+      isPublic: false,
+      adminTerms: [],
+      collateralRequired: false,
+      contributionKES: "",
+      startDate: "",
+      startTime: "",
+    });
+    setNewTerm("");
+    setShowDatePicker(false);
+    setShowTimePicker(false);
+    setShowCollateralModal(false);
   };
 
   const addTerm = () => {
@@ -539,7 +561,7 @@ export default function CreateChama() {
                   setSelectedDate(
                     formData.startDate
                       ? new Date(formData.startDate)
-                      : new Date(Date.now() + 24 * 60 * 60 * 1000)
+                      : new Date()
                   );
                   setShowDatePicker(true);
                   setPickerMode("date");
@@ -728,7 +750,7 @@ export default function CreateChama() {
             )}
         </View>
       </View>
-    </View>
+    </View >
   );
 
   const renderStep2 = () => (
@@ -795,7 +817,7 @@ export default function CreateChama() {
           </Text>
           <View className="flex-row gap-2 mb-2">
             <TextInput
-              placeholder="e.g., Must be a tech professional"
+              placeholder="e.g., Ensure you make payment early"
               value={newTerm}
               onChangeText={setNewTerm}
               className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 min-h-[44px]"
@@ -974,7 +996,10 @@ export default function CreateChama() {
       >
         <View className="flex-row items-center justify-between mb-6">
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => {
+              emptyEntries();
+              router.back();
+            }}
             className="w-10 h-10 rounded-full bg-white/20 items-center justify-center active:bg-white/30"
             activeOpacity={0.7}
           >
@@ -1076,7 +1101,7 @@ export default function CreateChama() {
               mode="date"
               display="default"
               onChange={handleDateChange}
-              minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
+              minimumDate={new Date()}
             />
           )}
           {showTimePicker && (
@@ -1140,7 +1165,7 @@ export default function CreateChama() {
                   display="compact"
                   onChange={handleDateChange}
                   style={{ backgroundColor: "white" }}
-                  minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
+                  minimumDate={new Date()}
                 />
                 <TouchableOpacity
                   onPress={() => setShowDatePicker(false)}
@@ -1324,10 +1349,23 @@ export default function CreateChama() {
                   >
                     You'll lock{" "}
                     <Text style={{ fontWeight: "600" }}>
-                      {(
-                        getContributionValue() * getMaxMembersValue()
-                      ).toLocaleString()}{" "}
-                      USDC
+                      {
+                        user?.location === "KE" ? (
+                          <Text>
+                            {(
+                              (getContributionValue() * getMaxMembersValue()) * kesRate
+                            ).toLocaleString()}{" "}
+                            KES
+                          </Text>
+                        ) : (
+                          <Text>
+                            {(
+                              getContributionValue() * getMaxMembersValue()
+                            ).toLocaleString()}{" "}
+                            USDC
+                          </Text>
+                        )
+                      }
                     </Text>{" "}
                     as collateral
                   </Text>
@@ -1423,10 +1461,23 @@ export default function CreateChama() {
                   >
                     I understand that I will lock{" "}
                     <Text style={{ fontWeight: "600" }}>
-                      {(
-                        getContributionValue() * getMaxMembersValue()
-                      ).toLocaleString()}{" "}
-                      USDC
+                      {
+                        user?.location === "KE" ? (
+                          <Text>
+                            {(
+                              (getContributionValue() * getMaxMembersValue()) * kesRate
+                            ).toLocaleString()}{" "}
+                            KES
+                          </Text>
+                        ) : (
+                          <Text>
+                            {(
+                              getContributionValue() * getMaxMembersValue()
+                            ).toLocaleString()}{" "}
+                            USDC
+                          </Text>
+                        )
+                      }
                     </Text>{" "}
                     as collateral and agree to the terms outlined above.
                   </Text>

@@ -1,26 +1,27 @@
 import { useAuth } from "@/Contexts/AuthContext";
 import { getTheUserTx } from "@/lib/walletServices";
+import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { useRouter } from "expo-router";
 import {
-    ArrowDownRight,
-    ArrowLeft,
-    ArrowUpRight,
-    DollarSign,
-    Download,
-    ExternalLink,
-    Upload,
+  ArrowDownRight,
+  ArrowLeft,
+  ArrowUpRight,
+  DollarSign,
+  Download,
+  ExternalLink,
+  Upload,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    Linking,
-    Modal,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Linking,
+  Modal,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -49,8 +50,18 @@ export default function AllTransactions() {
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
+  const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
+  const theExhangeQuote = rates["KES"]?.data || null;
+
+  const fetchRate = async () => {
+    try {
+      await globalFetchRate("KES");
+    } catch (error) {
+      console.error("Error fetching rate:", error);
+    }
+  };
 
   const getTx = async () => {
     if (!token) return;
@@ -78,6 +89,7 @@ export default function AllTransactions() {
 
   useEffect(() => {
     getTx();
+    fetchRate();
   }, [token]);
 
   const onRefresh = async () => {
@@ -239,12 +251,24 @@ export default function AllTransactions() {
             className={`font-bold text-base ${getTransactionTextColor(tx.type)}`}
           >
             {tx.type === "sent" || tx.type === "withdrew" ? "-" : "+"}
-            {parseFloat(tx.amount).toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 4,
-            })}{" "}
-            {tx.token}
+            {user?.location === "KE" && theExhangeQuote?.exchangeRate.selling_rate
+              ? `${(parseFloat(tx.amount) * theExhangeQuote.exchangeRate.selling_rate).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })} KES`
+              : `${parseFloat(tx.amount).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 4,
+              })} ${tx.token}`}
           </Text>
+          {user?.location === "KE" && theExhangeQuote?.exchangeRate.selling_rate && (
+            <Text className="text-[10px] text-gray-400">
+              ({parseFloat(tx.amount).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 4,
+              })} {tx.token})
+            </Text>
+          )}
           <Text className="text-xs text-gray-400 mt-1">
             {getRelativeTime(tx.date)}
           </Text>
@@ -315,20 +339,29 @@ export default function AllTransactions() {
                 <Text className="text-white text-2xl font-bold mb-1 capitalize">
                   {selectedTransaction.type}
                 </Text>
-                <Text className="text-white text-3xl font-extrabold">
+                <Text className="text-white text-3xl font-extrabold text-center">
                   {selectedTransaction.type === "sent" ||
-                  selectedTransaction.type === "withdrew"
+                    selectedTransaction.type === "withdrew"
                     ? "-"
                     : "+"}
-                  {parseFloat(selectedTransaction.amount).toLocaleString(
-                    undefined,
-                    {
+                  {user?.location === "KE" && theExhangeQuote?.exchangeRate.selling_rate
+                    ? `${(parseFloat(selectedTransaction.amount) * theExhangeQuote.exchangeRate.selling_rate).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })} KES`
+                    : `${parseFloat(selectedTransaction.amount).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 4,
-                    }
-                  )}{" "}
-                  {selectedTransaction.token}
+                    })} ${selectedTransaction.token}`}
                 </Text>
+                {user?.location === "KE" && theExhangeQuote?.exchangeRate.selling_rate && (
+                  <Text className="text-white/70 text-sm font-medium mt-1">
+                    ({parseFloat(selectedTransaction.amount).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 4,
+                    })} {selectedTransaction.token})
+                  </Text>
+                )}
               </View>
             </View>
 
@@ -388,7 +421,7 @@ export default function AllTransactions() {
 
                 {/* Receipt Number (for Pretium) or Transaction Hash */}
                 {selectedTransaction.isPretiumTx &&
-                selectedTransaction.receiptNumber ? (
+                  selectedTransaction.receiptNumber ? (
                   <View className="py-3">
                     <Text className="text-gray-600 font-medium mb-2">
                       M-PESA Receipt Number

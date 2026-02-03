@@ -168,28 +168,34 @@ export async function handleRequest(
       await addMemberToPayout(request.chamaId, request.userId);
 
       // send members of the new member
-      const message = `${userName} has joined ${chamaName} chama.`;
+      const message = `${userName} has joined the ${chamaName} chama.`;
       await notifyAllChamaMembers(
         request.chamaId,
         message,
         "member_joined",
-        request.userId
+        request.userId,
       );
       // expo notify all members
       await sendExpoNotificationToAllChamaMembers(
         `New member joined.`,
         message,
-        request.chamaId
+        request.chamaId,
+        request.userId
       );
     }
+    const title = approve
+      ? "You’ve been approved 🎉"
+      : "Request not approved";
+
     // notification to the sender
-    const message = `Request to join ${chamaName} chama was ${approve ? "approved" : "rejected"
-      }`;
+    const message = approve
+      ? `Your request to join the ${chamaName} chama has been approved. Welcome aboard!`
+      : `Your request to join the ${chamaName} chama was not approved at this time.`;
     await notifyUser(request.userId, message, "new_message");
     // expo notify the sender
     await sendExpoNotificationToAUser(
       request.userId,
-      `Request result`,
+      title,
       message
     );
     return request;

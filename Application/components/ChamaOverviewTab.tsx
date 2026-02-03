@@ -1,20 +1,19 @@
 import { Transaction } from "@/constants/mockData";
 import { formatTimeRemaining } from "@/Utils/helperFunctions";
 import {
+  CalendarCog,
   CircleArrowDown,
   CircleArrowOutUpRight,
   DollarSign,
   ExternalLink,
   LogOut,
   Receipt,
-  CalendarCog,
   ReceiptIcon
 } from "lucide-react-native";
 import React, { FC, useState } from "react";
-import { Modal, ScrollView, Text, TouchableOpacity, View, Dimensions } from "react-native";
-import { Badge } from "./ui/Badge";
+import { Dimensions, Linking, Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useAuth } from "../Contexts/AuthContext";
 import { Card } from "./ui/Card";
-import { ProgressBar } from "./ui/ProgressBar";
 
 type Props = {
   myContributions: number;
@@ -33,9 +32,10 @@ type Props = {
   chamaStatus: "active" | "not started";
   currency: string;
   isPublic: boolean;
-  chamaStartDate?: Date;
-  collateralAmount?: number;
-  kesRate?: number;
+  kesRate: number;
+  myCollateral: number;
+  chamaStartDate: Date;
+  collateralAmount: number;
 };
 
 const ChamaOverviewTab: FC<Props> = ({
@@ -55,14 +55,16 @@ const ChamaOverviewTab: FC<Props> = ({
   chamaStatus,
   chamaStartDate,
   currency,
-  isPublic = true,
-  collateralAmount = 100,
-  kesRate = 0,
+  isPublic,
+  kesRate,
+  collateralAmount,
+  myCollateral,
 }) => {
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [activeCardIndex, setActiveCardIndex] = useState(0);
+  const { user } = useAuth();
 
   const handleTransactionPress = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
@@ -72,6 +74,8 @@ const ChamaOverviewTab: FC<Props> = ({
   const handleViewOnChain = () => {
     if (selectedTransaction?.txHash) {
       // Open blockchain explorer
+      const url = `https://celoscan.io/tx/${selectedTransaction.txHash}`;
+      Linking.openURL(url);
       console.log("View transaction on chain:", selectedTransaction.txHash);
       // You can implement opening a blockchain explorer URL here
     }
@@ -104,7 +108,7 @@ const ChamaOverviewTab: FC<Props> = ({
         </View> */}
 
         {/* Swipeable Balance Cards */}
-        <View className="gap-4 mb-2">
+        <View className="mb-2">
           {isPublic ? (
             <ScrollView
               horizontal
@@ -112,13 +116,17 @@ const ChamaOverviewTab: FC<Props> = ({
               showsHorizontalScrollIndicator={false}
               onScroll={(e) => {
                 const contentOffsetX = e.nativeEvent.contentOffset.x;
-                const index = Math.round(contentOffsetX / (Dimensions.get('window').width - 48));
+                const cardWidth = Dimensions.get("window").width - 96;
+                const index = Math.round(contentOffsetX / cardWidth);
                 setActiveCardIndex(index);
               }}
               scrollEventThrottle={16}
+              snapToInterval={Dimensions.get("window").width - 96}
+              decelerationRate="fast"
+              snapToAlignment="center"
             >
               {/* Chama Balance Card */}
-              <View style={{ width: Dimensions.get('window').width - 48 }}>
+              <View style={{ width: Dimensions.get("window").width - 96 }}>
                 <View className="bg-downy-100/20 rounded-2xl overflow-hidden border border-emerald-100">
                   {/* Card Header */}
                   <View className="px-4 py-3">
@@ -242,7 +250,7 @@ const ChamaOverviewTab: FC<Props> = ({
 
               {/* Locked Balance Card - Different Color */}
               {collateralAmount !== undefined && (
-                <View style={{ width: Dimensions.get('window').width - 48 }}>
+                <View style={{ width: Dimensions.get("window").width - 96 }}>
                   <View className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl overflow-hidden border border-purple-200">
                     {/* Card Header */}
                     <View className="px-4 py-3">
@@ -253,7 +261,7 @@ const ChamaOverviewTab: FC<Props> = ({
                           </View>
                           <View>
                             <Text className="text-sm font-semibold text-gray-900">
-                              Locked Balance
+                              My Locked Balance
                             </Text>
                             <Text className="text-xs text-gray-600">
                               Secured collateral
@@ -273,16 +281,16 @@ const ChamaOverviewTab: FC<Props> = ({
                     <View className="px-4 py-4">
                       <View className="mb-4">
                         <Text className="text-3xl font-bold text-gray-900">
-                          {kesRate > 0
-                            ? `${(collateralAmount * kesRate).toLocaleString(undefined, {
+                          {kesRate > 0 && user?.location === "KE"
+                            ? `${(myCollateral * kesRate).toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })} KES`
-                            : `${collateralAmount.toFixed(3)} ${currency}`}
+                            : `${myCollateral.toFixed(3)} ${currency}`}
                         </Text>
-                        {kesRate > 0 && (
+                        {kesRate > 0 && user?.location === "KE" && (
                           <Text className="text-xs text-gray-500 mt-1">
-                            ≈ {collateralAmount.toFixed(3)} {currency}
+                            ≈ {myCollateral.toFixed(3)} {currency}
                           </Text>
                         )}
                       </View>
@@ -296,9 +304,9 @@ const ChamaOverviewTab: FC<Props> = ({
                               Required Collateral
                             </Text>
                             <Text className="text-purple-700 text-xs">
-                              {kesRate > 0
-                                ? `${((contribution * 10) * kesRate).toLocaleString()} KES`
-                                : `${(contribution * 10).toFixed(3)} ${currency}`}
+                              {kesRate > 0 && user?.location === "KE"
+                                ? `${(collateralAmount * kesRate).toLocaleString()} KES`
+                                : `${collateralAmount.toFixed(3)} ${currency}`}
                               {collateralAmount >= (contribution * 10) && (
                                 <Text className="text-emerald-600 font-bold">
                                   {" "}✓ Complete
@@ -311,20 +319,20 @@ const ChamaOverviewTab: FC<Props> = ({
 
                       {/* Action Button */}
                       <TouchableOpacity
-                        className={`py-3 rounded-lg ${collateralAmount >= (contribution * 10)
+                        className={`py-3 rounded-lg ${myCollateral >= collateralAmount
                           ? "bg-gray-200"
                           : "bg-purple-600"
                           }`}
                         activeOpacity={0.8}
-                        disabled={collateralAmount >= (contribution * 10)}
+                        disabled={myCollateral >= collateralAmount}
                       >
                         <Text
-                          className={`text-sm font-bold text-center ${collateralAmount >= (contribution * 10)
+                          className={`text-sm font-bold text-center ${myCollateral >= collateralAmount
                             ? "text-gray-400"
                             : "text-white"
                             }`}
                         >
-                          {collateralAmount >= (contribution * 10)
+                          {myCollateral >= (collateralAmount)
                             ? "Fully Funded"
                             : "Add Collateral"}
                         </Text>

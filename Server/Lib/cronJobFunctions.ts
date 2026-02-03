@@ -135,8 +135,11 @@ export const checkPaydate = async () => {
           throw new Error("User not found");
         }
 
-        const userMessage = `You’ve received ${displayableAmount} USDC as the payout for round ${chama.round} of the ${chama.name} chama.`;
-        const othersMessage = `${chama.name} chama – round ${chama.round} payout is complete! 🎉 ${user.userName} received ${displayableAmount} USDC.`;
+        const userTitle = "Payout received 🎉";
+        const userMessage = `You’ve received ${displayableAmount} USDC as your payout for round ${chama.round} of the ${chama.name} chama.`;
+
+        const othersTitle = "Payout completed 🎉";
+        const othersMessage = `Round ${chama.round} of the ${chama.name} chama is complete. ${user.userName} received ${displayableAmount} USDC.`;
 
         // record payout
         await prisma.payOut.create({
@@ -200,7 +203,7 @@ export const checkPaydate = async () => {
         // expo notify the user
         await sendExpoNotificationToAUser(
           user.id,
-          "Congratulations!",
+          userTitle,
           userMessage,
         );
 
@@ -212,7 +215,7 @@ export const checkPaydate = async () => {
         );
         // expo notify all members
         await sendExpoNotificationToAllChamaMembers(
-          `${chama.name} Chama Payout`,
+          othersTitle,
           othersMessage,
           chama.id,
           user.id
@@ -249,16 +252,19 @@ export const checkPaydate = async () => {
           },
         });
 
+        const title = "Payout skipped — funds refunded";
+        const message = `Round ${chama.round} of the ${chama.name} chama didn’t go through because some members didn’t contribute. Your contribution has been refunded to your wallet.`;
+
         // TO DO: add how we will record the refund 
 
         await notifyAllChamaMembers(
           chama.id,
-          `Round ${chama.round} of the ${chama.name} chama couldn’t proceed because not all members contributed. Your contribution has been refunded to your wallet.`
+          message
         );
         // expo notify all members
         await sendExpoNotificationToAllChamaMembers(
-          `${chama.name} Chama Payout`,
-          `Round ${chama.round} of the ${chama.name} chama couldn’t proceed because not all members contributed. Your contribution has been refunded to your wallet.`,
+          title,
+          message,
           chama.id
         );
       } else {

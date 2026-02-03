@@ -34,7 +34,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  ToastAndroid
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toEther, toTokens } from "thirdweb/utils";
@@ -81,7 +82,7 @@ export default function JoinedChamaDetails() {
       id: number;
       userName: string;
       email: string;
-      address: string;
+      smartAddress: string;
       profileImageUrl: string | null;
     }>
   >([]);
@@ -91,7 +92,7 @@ export default function JoinedChamaDetails() {
     id: number;
     userName: string;
     email: string;
-    address: string;
+    smartAddress: string;
     profileImageUrl: string | null;
   } | null>(null);
   const [myBalance, setMyBalance] = useState<bigint[] | undefined>();
@@ -108,13 +109,11 @@ export default function JoinedChamaDetails() {
     }
     setIsLoading(true);
     const response = await getChamaBySlug(id as string, token);
-    console.log("the response", response);
     if (response.success && response.chama) {
       const transformedChama = transformChamaData(
         response.chama,
         user?.smartAddress
       );
-      console.log(transformedChama);
       setChama(transformedChama);
 
       let currentMyBalance = myBalance;
@@ -307,7 +306,6 @@ export default function JoinedChamaDetails() {
     setSendingLink(true);
 
     try {
-      console.log(user.userName!, selectedShareUser.id, chamaSlug, token);
       const notificationResult = await shareChamaLink(
         user.userName!,
         selectedShareUser.id,
@@ -315,11 +313,10 @@ export default function JoinedChamaDetails() {
         token
       );
       if (!notificationResult.success) {
-        Alert.alert("Error", "Unable to send the link.");
+       ToastAndroid.show("Unable to send the link", ToastAndroid.LONG);
         return;
       }
-      // In a real app, you'd implement the sharing logic here
-      Alert.alert("Shared", `Chama shared with @${selectedShareUser.userName}`);
+      ToastAndroid.show(`Chama shared to @${selectedShareUser.userName}`, ToastAndroid.LONG);
       setSendingLink(false);
       setShareUsername("");
       setSelectedShareUser(null);
@@ -349,7 +346,11 @@ export default function JoinedChamaDetails() {
   const firstBalance = Array.isArray(balanceToUse)
     ? balanceToUse[0]
     : balanceToUse;
+    const lockedBalance = Array.isArray(balanceToUse)
+    ? balanceToUse[1]
+    : balanceToUse;
   const myContributions = Number(toTokens(firstBalance || BigInt(0), 6) || 0);
+  const myCollateral = Number(toTokens(lockedBalance || BigInt(0), 6) || 0);
   const remainingAmount = Number(contribution) - Number(myContributions);
   const nextPayoutAmount = chama.nextPayoutAmount || 0;
   const unreadMessages = chama.unreadMessages || 0;
@@ -375,6 +376,7 @@ export default function JoinedChamaDetails() {
       isPublic={chama.isPublic}
       collateralAmount={chama.collateralAmount}
       kesRate={user?.location === "KE" ? kesRate : 0}
+      myCollateral={myCollateral}
     />
   );
 
@@ -677,8 +679,8 @@ export default function JoinedChamaDetails() {
                               @{user.userName}
                             </Text>
                             <Text className="text-xs text-gray-400 font-mono">
-                              {user.address.slice(0, 6)}...
-                              {user.address.slice(-4)}
+                              {user.smartAddress.slice(0, 6)}...
+                              {user.smartAddress.slice(-4)}
                             </Text>
                           </View>
                         </TouchableOpacity>
@@ -703,11 +705,11 @@ export default function JoinedChamaDetails() {
                   onPress={() => shareToUser(chama.slug)}
                   disabled={!selectedShareUser || sendingLink}
                   activeOpacity={0.7}
-                  className={`py-3.5 rounded-xl flex-row items-center justify-center shadow-lg ${selectedShareUser ? "bg-downy-600" : "bg-gray-300"
+                  className={`py-3.5 rounded-xl flex-row items-center justify-center shadow-lg ${selectedShareUser && !sendingLink ? "bg-downy-600" : "bg-gray-300"
                     }`}
                 >
                   <Text
-                    className={`font-bold text-base ${selectedShareUser ? "text-white" : "text-gray-500"
+                    className={`font-bold text-base ${selectedShareUser && !sendingLink ? "text-white" : "text-gray-500"
                       }`}
                   >
                     {sendingLink ? "Sending..." : "  Send Invite"}
@@ -719,6 +721,7 @@ export default function JoinedChamaDetails() {
             {/* Cancel Button */}
             <TouchableOpacity
               onPress={() => setShowShareModal(false)}
+              disabled={sendingLink}
               className="mt-6 bg-gray-300 py-3 rounded-xl border border-gray-500 border-2"
               activeOpacity={0.7}
             >

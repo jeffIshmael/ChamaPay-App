@@ -6,6 +6,11 @@ import * as Haptics from "expo-haptics";
 import { Bell, Plus, Search, Wallet } from "lucide-react-native";
 import React from "react";
 import { Pressable, Text, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
@@ -33,7 +38,7 @@ const tabs = [
 ];
 
 export default function BottomNavigation({ state, navigation }: BottomTabBarProps) {
-  const { unreadNotificationCount } = useAuth();
+  const { unReadNotificationCount } = useAuth();
   const insets = useSafeAreaInsets();
   const currentRouteName = state.routes[state.index]?.name;
   const isRouteInTabs = tabs.some((tab) => tab.name === currentRouteName);
@@ -41,7 +46,7 @@ export default function BottomNavigation({ state, navigation }: BottomTabBarProp
   if (!isRouteInTabs) return null;
 
   return (
-    <View className="absolute bottom-0 left-0  right-0">
+    <View className="absolute bottom-0 left-0 right-0">
       <View
         className="bg-white rounded-t-3xl shadow-lg bg-[#f1fcfa]"
         style={{
@@ -54,23 +59,42 @@ export default function BottomNavigation({ state, navigation }: BottomTabBarProp
             const isActive = state.index === idx;
             const Icon = tab.icon;
 
+            const scale = useSharedValue(1);
+            const animatedStyle = useAnimatedStyle(() => ({
+              transform: [{ scale: scale.value }],
+            }));
+
+            const handlePressIn = () => {
+              scale.value = withSpring(0.9, { damping: 10, stiffness: 300 });
+            };
+
+            const handlePressOut = () => {
+              scale.value = withSpring(1, { damping: 10, stiffness: 300 });
+            };
+
             // Floating Action Button
             if (tab.isCenter) {
               return (
                 <View key={tab.name} className="flex flex-col items-center justify-center">
                   <Pressable
+                    onPressIn={handlePressIn}
+                    onPressOut={handlePressOut}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       navigation.navigate(tab.name as never);
                     }}
-                    className="rounded-full bg-downy-600 p-3"
                   >
-                    <Icon size={24} color="#fff" strokeWidth={2.5} />
+                    <Animated.View className="rounded-full bg-downy-600 p-3 relative" style={animatedStyle}>
+                      <Icon size={24} color="#fff" strokeWidth={2.5} />
+                    </Animated.View>
                   </Pressable>
                   <Text className={cn(
                     "text-xs mt-1",
                     isActive ? "text-downy-700 font-semibold" : "text-gray-500"
                   )}>Create chama</Text>
+                  {isActive && (
+                    <View className="w-1.5 h-1.5 bg-white rounded-full mt-1.5" />
+                  )}
                 </View>
               );
             }
@@ -78,6 +102,8 @@ export default function BottomNavigation({ state, navigation }: BottomTabBarProp
             return (
               <Pressable
                 key={tab.name}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
                 onPress={() => {
                   Haptics.selectionAsync();
                   const event = navigation.emit({
@@ -91,30 +117,34 @@ export default function BottomNavigation({ state, navigation }: BottomTabBarProp
                 }}
                 className="flex flex-col items-center justify-center"
               >
-                <View className="relative flex items-center justify-center">
-                  <Icon
-                    size={24}
-                    color={isActive ? "#1c8584" : "#6b7280"}
-                    strokeWidth={2}
-                  />
-                  {/* Badge */}
-                  {tab.name === "notifications" && unreadNotificationCount > 0 && (
-                    <View className="absolute -top-1.5 -right-2 bg-red-500 rounded-full w-[18px] h-[18px] flex items-center justify-center">
-                      <Text className="text-white text-[10px] font-bold">
-                        {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
-                      </Text>
-                    </View>
+                <Animated.View style={animatedStyle} className="items-center justify-center">
+                  <View className="relative flex items-center justify-center">
+                    <Icon
+                      size={24}
+                      color={isActive ? "#1c8584" : "#6b7280"}
+                      strokeWidth={2}
+                    />
+                    {/* Badge */}
+                    {tab.name === "notifications" && unReadNotificationCount > 0 && (
+                      <View className="absolute -top-1.5 -right-2 bg-red-500 rounded-full w-[18px] h-[18px] flex items-center justify-center">
+                        <Text className="text-white text-[10px] font-bold">
+                          {unReadNotificationCount > 99 ? "99+" : unReadNotificationCount}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text
+                    className={cn(
+                      "text-xs mt-1",
+                      isActive ? "text-downy-600 font-semibold" : "text-gray-500"
+                    )}
+                  >
+                    {tab.label}
+                  </Text>
+                  {isActive && (
+                    <View className="w-1.5 h-1.5 bg-downy-600 rounded-full mt-1" />
                   )}
-
-                </View>
-                <Text
-                  className={cn(
-                    "text-xs mt-1",
-                    isActive ? "text-downy-600 font-semibold" : "text-gray-500"
-                  )}
-                >
-                  {tab.label}
-                </Text>
+                </Animated.View>
               </Pressable>
             );
           })}
