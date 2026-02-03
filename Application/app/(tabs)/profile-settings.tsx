@@ -10,6 +10,7 @@ import * as SecureStore from "expo-secure-store";
 import {
   ArrowLeft,
   Check,
+  ChevronDown,
   ChevronRight,
   Copy,
   Edit,
@@ -22,6 +23,7 @@ import React, { useState } from "react";
 import {
   Alert,
   Image,
+  Modal,
   ScrollView,
   Switch,
   Text,
@@ -47,31 +49,6 @@ Notifications.setNotificationHandler({
   }),
 });
 
-
-
-async function sendPushNotification(expoPushToken: string) {
-  const message = {
-    to: expoPushToken,
-    sound: 'default',
-    title: 'Original Title',
-    body: 'And here is the body!',
-    data: { someData: 'goes here' },
-  };
-
-  await fetch('https://exp.host/--/api/v2/push/send', {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Accept-encoding': 'gzip, deflate',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(message),
-  });
-}
-
-
-
-
 export default function ProfileSettings() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -85,6 +62,7 @@ export default function ProfileSettings() {
     contributionReminders: true,
   });
   const [hasPin, setHasPin] = useState(false);
+  const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
 
   // Check for existing PIN
   useFocusEffect(
@@ -171,11 +149,6 @@ export default function ProfileSettings() {
       ]
     );
   };
-
-
-
-  // registerForPushNotificationsAsync is now imported from @/lib/notificationUtils
-
   // function to switch notification on
   async function switchNotificationOn() {
     try {
@@ -386,9 +359,9 @@ export default function ProfileSettings() {
             </View>
           )}
 
-          {/* Currency Selection */}
+          {/* Currency Selection Dropdown */}
           <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
-            <View className="flex-row items-center gap-3 mb-6">
+            <View className="flex-row items-center gap-3 mb-4">
               <View>
                 <Text className="text-lg font-bold text-gray-900">
                   Currency Preference
@@ -398,45 +371,110 @@ export default function ProfileSettings() {
                 </Text>
               </View>
             </View>
-            <View className="flex-row gap-4">
-              <TouchableOpacity
-                onPress={() => setCurrency('KES')}
-                className={`flex-1 flex-row items-center gap-3 p-4 rounded-xl border-2 ${currency === 'KES' ? 'border-downy-500 bg-downy-50' : 'border-gray-100 bg-gray-50'}`}
-                activeOpacity={0.7}
-              >
-                <Image
-                  source={require('@/assets/images/kenya-flag.png')}
-                  className="w-8 h-8 rounded-full"
-                />
-                <Text className={`font-bold ${currency === 'KES' ? 'text-downy-700' : 'text-gray-600'}`}>
-                  KES
-                </Text>
-                {currency === 'KES' && (
-                  <View className="ml-auto w-5 h-5 bg-downy-500 rounded-full items-center justify-center">
-                    <Check size={12} color="white" />
-                  </View>
-                )}
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() => setCurrency('USDC')}
-                className={`flex-1 flex-row items-center gap-3 p-4 rounded-xl border-2 ${currency === 'USDC' ? 'border-blue-500 bg-blue-50' : 'border-gray-100 bg-gray-50'}`}
-                activeOpacity={0.7}
-              >
+            <TouchableOpacity
+              onPress={() => setShowCurrencyDropdown(true)}
+              className="flex-row items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100"
+              activeOpacity={0.7}
+            >
+              <View className="flex-row items-center gap-3">
                 <Image
-                  source={require('@/assets/images/usdclogo.png')}
+                  source={currency === 'KES' ? require('@/assets/images/kenya-flag.png') : require('@/assets/images/usdclogo.png')}
                   className="w-8 h-8 rounded-full"
                 />
-                <Text className={`font-bold ${currency === 'USDC' ? 'text-blue-700' : 'text-gray-600'}`}>
-                  USDC
-                </Text>
-                {currency === 'USDC' && (
-                  <View className="ml-auto w-5 h-5 bg-blue-500 rounded-full items-center justify-center">
-                    <Check size={12} color="white" />
+                <View>
+                  <Text className="text-gray-900 font-bold text-base">
+                    {currency === 'KES' ? 'Kenyan Shilling (KES)' : 'USDC (Digital dollar)'}
+                  </Text>
+                  <Text className="text-gray-500 text-xs">
+                    Current selection: {currency}
+                  </Text>
+                </View>
+              </View>
+              <ChevronDown size={20} color="#6b7280" />
+            </TouchableOpacity>
+
+            {/* Currency Dropdown Modal */}
+            <Modal
+              visible={showCurrencyDropdown}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setShowCurrencyDropdown(false)}
+            >
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={() => setShowCurrencyDropdown(false)}
+                className="flex-1 bg-black/50 justify-end"
+              >
+                <TouchableOpacity
+                  activeOpacity={1}
+                  onPress={(e) => e.stopPropagation()}
+                  className="bg-white rounded-t-3xl p-6"
+                >
+                  <View className="w-12 h-1 bg-gray-200 rounded-full self-center mb-6" />
+                  <Text className="text-xl font-bold text-gray-900 mb-6">
+                    Select Currency
+                  </Text>
+
+                  <View className="gap-3">
+                    <TouchableOpacity
+                      onPress={() => {
+                        setCurrency('KES');
+                        setShowCurrencyDropdown(false);
+                      }}
+                      className={`flex-row items-center gap-4 p-4 rounded-2xl border-2 ${currency === 'KES' ? 'border-downy-500 bg-downy-50' : 'border-gray-50 bg-gray-50'}`}
+                    >
+                      <Image
+                        source={require('@/assets/images/kenya-flag.png')}
+                        className="w-10 h-10 rounded-full"
+                      />
+                      <View className="flex-1">
+                        <Text className={`font-bold text-lg ${currency === 'KES' ? 'text-downy-700' : 'text-gray-900'}`}>
+                          Kenyan Shilling
+                        </Text>
+                        <Text className="text-gray-500 text-sm">KES - Default for local transactions</Text>
+                      </View>
+                      {currency === 'KES' && (
+                        <View className="w-6 h-6 bg-downy-500 rounded-full items-center justify-center">
+                          <Check size={14} color="white" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        setCurrency('USDC');
+                        setShowCurrencyDropdown(false);
+                      }}
+                      className={`flex-row items-center gap-4 p-4 rounded-2xl border-2 ${currency === 'USDC' ? 'border-blue-500 bg-blue-50' : 'border-gray-50 bg-gray-50'}`}
+                    >
+                      <Image
+                        source={require('@/assets/images/usdclogo.png')}
+                        className="w-10 h-10 rounded-full"
+                      />
+                      <View className="flex-1">
+                        <Text className={`font-bold text-lg ${currency === 'USDC' ? 'text-blue-700' : 'text-gray-900'}`}>
+                          USDC Stablecoin
+                        </Text>
+                        <Text className="text-gray-500 text-sm">USD stablecoin on Celo</Text>
+                      </View>
+                      {currency === 'USDC' && (
+                        <View className="w-6 h-6 bg-blue-500 rounded-full items-center justify-center">
+                          <Check size={14} color="white" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
                   </View>
-                )}
+
+                  <TouchableOpacity
+                    onPress={() => setShowCurrencyDropdown(false)}
+                    className="mt-8 py-4 bg-gray-600/90  rounded-2xl items-center"
+                  >
+                    <Text className="text-white font-bold text-lg">Close</Text>
+                  </TouchableOpacity>
+                </TouchableOpacity>
               </TouchableOpacity>
-            </View>
+            </Modal>
           </View>
 
           {/* Notification Settings */}

@@ -33,59 +33,73 @@ export const checkStartDate = async () => {
   try {
     const nonStartedChamas = await getNonStartedChamas();
 
-    if (nonStartedChamas.length < 0) {
+    if (nonStartedChamas.length === 0) {
       return;
     }
-    for (const chama of nonStartedChamas) {
-      const members = chama.members;
 
-      // extract blockchain addresses
-      const addresses = members.map(
-        (m) => m.user.smartAddress // or m.user.address
-      );
+    const results = await Promise.allSettled(
+      nonStartedChamas.map(async (chama) => {
+        const members = chama.members;
+        const addresses = members.map((m) => m.user.smartAddress);
+        const shuffledPayoutOrder = shuffleArray(addresses);
 
-      // shuffle them
-      const shuffledPayoutOrder = shuffleArray(addresses);
+        const txHash = await pimlicoSetPayoutOrder(
+          Number(chama.blockchainId),
+          shuffledPayoutOrder
+        );
+        
+        if (!txHash) {
+          throw new Error("Failed to set payout order");
+        }
 
-      // send to contract
-      const txHash = await pimlicoSetPayoutOrder(
-        Number(chama.blockchainId),
-        shuffledPayoutOrder
-      );
-      if (!txHash) throw new Error("Failed to set payout order");
+        const payoutOrder: PayoutOrder[] = shuffledPayoutOrder.map(
+          (address, index) => ({
+            userAddress: address,
+            payDate: new Date(
+              chama.payDate.getTime() +
+              chama.cycleTime * 24 * 60 * 60 * 1000 * index
+            ),
+            paid: false,
+            amount: "0",
+          })
+        );
 
-      // compute payout dates
-      const payoutOrder: PayoutOrder[] = shuffledPayoutOrder.map(
-        (address, index) => ({
-          userAddress: address,
-          payDate: new Date(
-            chama.payDate.getTime() +
-            chama.cycleTime * 24 * 60 * 60 * 1000 * index
-          ),
-          paid: false,
-          amount: "0",
-        })
-      );
+        await prisma.chama.update({
+          where: { id: chama.id },
+          data: { payOutOrder: JSON.stringify(payoutOrder), started: true },
+        });
 
-      await prisma.chama.update({
-        where: { id: chama.id },
-        data: { payOutOrder: JSON.stringify(payoutOrder), started: true },
-      });
+        await notifyAllChamaMembers(
+          chama.id,
+          `Your ${chama.name} chama has started! Tap to view the payout order and your position.`
+        );
 
-      await notifyAllChamaMembers(
-        chama.id,
-        `Your ${chama.name} chama has started! Tap to view the payout order and your position.`
-      );
+        await sendExpoNotificationToAllChamaMembers(
+          `${chama.name} Chama Started`,
+          `Tap to view the payout order and your position.`,
+          chama.id
+        );
 
-      // expo notify all members
-      await sendExpoNotificationToAllChamaMembers(
-        `${chama.name} Chama Started`,
-        `Tap to view the payout order and your position.`,
-        chama.id
-      );
-    }
+        return { chamaId: chama.id, status: 'success' };
+      })
+    );
+
+    const successful = results.filter((r) => r.status === 'fulfilled');
+    const failed = results.filter((r) => r.status === 'rejected');
+
+    console.log(`✅ Successful: ${successful.length}`);
+    console.log(`❌ Failed: ${failed.length}`);
+    
+    failed.forEach((f, idx) => {
+      if (f.status === 'rejected') {
+        console.error(`Chama ${nonStartedChamas[idx]?.id} failed:`, f.reason);
+      }
+    });
+
+    return { successful: successful.length, failed: failed.length };
+
   } catch (error) {
-    console.log(error);
+    console.error('Critical error in checkStartDate:', error);
     return;
   }
 };
