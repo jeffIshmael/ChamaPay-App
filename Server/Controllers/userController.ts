@@ -892,7 +892,7 @@ export const transferUSDC = async (
 
     const txHash = await transferTx(privateKey.privateKey, amount, receiver as `0x${string}`);
 
-    if (!txHash.success) {
+    if (!txHash) {
       res.status(400).json({ success: false, error: "Failed to transfer USDC" });
       return;
     }
