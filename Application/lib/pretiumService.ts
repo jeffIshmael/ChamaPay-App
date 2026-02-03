@@ -350,6 +350,7 @@ export async function disburseToMobileNumber(
   amount: string, 
   usdcAmount: string,
   exchangeRate: string,
+  amountFee: string,
   token: string
 ) {
   try {
@@ -366,6 +367,7 @@ export async function disburseToMobileNumber(
         usdcAmount,
         exchangeRate,
         amount,
+        amountFee,
       }),
     });
     const data = await response.json();

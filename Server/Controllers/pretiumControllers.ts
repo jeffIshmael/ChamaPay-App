@@ -645,7 +645,7 @@ export async function pretiumMobileTransfer(req: Request, res: Response) {
         error: "Unable to get user signing client",
       });
     }
-    const txHash = await transferTx(userPrivateKey.privateKey, amount, settlementAddress as `0x${string}`);
+    const txHash = await transferTx(userPrivateKey.privateKey, usdcAmount, settlementAddress as `0x${string}`);
     if (!txHash) {
       return res.status(400).json({
         success: false,

@@ -226,14 +226,24 @@ export default function WithdrawCryptoScreen() {
 
     try {
 
+      const totalDeduction = calculateTotalDeduction();
+      // the fee is 0.5% of the amount
+      const fee = calculateFee();
+
+      console.log("totalDeduction", totalDeduction);
+      console.log("usdcAmount", usdcAmount);
+      console.log("currentExchangeRate", currentExchangeRate);
+      console.log("fee", fee);
+
       const offrampResult = await disburseToMobileNumber(
         "KES" as CurrencyCode,
         MOBILE_NETWORK,
         `0${phoneNumber}`,
-        amountKES, // User receives exactly what they entered
+        totalDeduction.toString(), // User receives exactly what they entered
         usdcAmount,
         currentExchangeRate.toString(),
-        token
+        fee.toString(),
+        token,
       );
 
       if (!offrampResult.success) {
@@ -319,7 +329,6 @@ export default function WithdrawCryptoScreen() {
     }
   };
 
-  const currentToken = tokens[0];
 
   const canConfirmWithdraw =
     !isVerifying &&
