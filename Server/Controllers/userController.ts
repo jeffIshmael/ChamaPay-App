@@ -478,12 +478,12 @@ export const sendJoinRequest = async (
     }
 
     // get user
-     const user = await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: {
         id: Number(userId)
       }
     });
-     if (!user) {
+    if (!user) {
       res
         .status(400)
         .json({ success: false, error: "User not found." });
@@ -1037,6 +1037,51 @@ export const updateUserNotificationSettings = async (
     res.status(200).json({ success: true, user: nonSensitiveUser });
   } catch (error) {
     console.error("Update user notification settings error:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};
+
+// function to get user by smartAddress or address
+export const getUserByAddress = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { address } = req.query as { address?: string };
+
+    if (!address) {
+      res.status(400).json({ success: false, error: "Address is required" });
+      return;
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { smartAddress: address },
+          { address: address }
+        ]
+      },
+      select: {
+        id: true,
+        userName: true,
+        email: true,
+        smartAddress: true,
+        profileImageUrl: true,
+        address: true,
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ success: false, error: "User not found" });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      user: user,
+    });
+  } catch (error) {
+    console.error("Error fetching user by address:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };

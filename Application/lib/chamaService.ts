@@ -90,6 +90,7 @@ export interface ChamaMember {
     id: number;
     name?: string;
     userName?: string;
+    smartAddress: string;
     email: string;
     profileImageUrl?: string;
     address?: string;
@@ -312,6 +313,35 @@ export const getChamaBySlug = async (
   }
 };
 
+export async function getUserByAddress(
+  address: string
+): Promise<{
+  success: boolean;
+  user?: {
+    id: number;
+    userName: string;
+    email: string;
+    smartAddress: string;
+    profileImageUrl: string | null;
+    address: string;
+  };
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${serverUrl}/user/by-address?address=${address}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error fetching user by address:", error);
+    return { success: false, error: "Failed to fetch user by address" };
+  }
+};
+
 // Get public chamas user is not a member of
 export const getPublicChamas = async (
   token: string
@@ -482,6 +512,7 @@ export const transformChamaData = (
         name: member.user.userName || "Unknown Member",
         phone: "",
         email: member.user.email,
+        smartAddress: member.user.smartAddress || "",
         role: member.user.id === backendChama.admin.id ? "Admin" : "Member",
         contributions: parseFloat(backendChama.amount),
         address: member.user.address || "",

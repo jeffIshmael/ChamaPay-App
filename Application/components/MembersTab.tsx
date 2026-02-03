@@ -84,7 +84,7 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
             members.map((member, index) => {
               if (!member) return null;
               const isCurrentUser = member.id === user?.id;
-              const memberBalance = getMemberBalance(member.address || "");
+              const memberBalance = getMemberBalance(member.smartAddress || "");
               
               return (
                 <Card key={member.id} className={`p-4 ${isCurrentUser ? "border-2 border-downy-400/20 bg-emerald-50" : ""}`}>

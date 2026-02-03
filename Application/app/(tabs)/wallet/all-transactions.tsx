@@ -1,3 +1,4 @@
+import { ResolvedAddress } from "@/components/ResolvedAddress";
 import { useAuth } from "@/Contexts/AuthContext";
 import { getTheUserTx } from "@/lib/walletServices";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
@@ -232,17 +233,21 @@ export default function AllTransactions() {
                 </View>
               )}
             </View>
-            <Text className="text-xs text-gray-500 mt-1">
-              {tx.isPretiumTx
-                ? tx.type === "deposited"
+            {tx.isPretiumTx ? (
+              <Text className="text-xs text-gray-500 mt-1">
+                {tx.type === "deposited"
                   ? `From: ${tx.sender || "M-PESA"}`
-                  : `To: ${tx.recipient || "M-PESA"}`
-                : tx.type === "sent"
-                  ? `To: ${tx.recipient || "Unknown"}`
-                  : tx.type === "received"
-                    ? `From: ${tx.sender || "Unknown"}`
-                    : "On-chain transaction"}
-            </Text>
+                  : `To: ${tx.recipient || "M-PESA"}`}
+              </Text>
+            ) : (
+              <ResolvedAddress
+                address={tx.type === "sent" || tx.type === "withdrew" ? tx.recipient : tx.sender}
+                type={tx.type === "sent" || tx.type === "withdrew" ? "recipient" : "sender"}
+                fallback={tx.type === "sent" || tx.type === "withdrew" ? "Unknown" : tx.type === "received" ? "Unknown" : "On-chain transaction"}
+                textClassName="text-xs text-gray-500 mt-1"
+                showPrefix={true}
+              />
+            )}
           </View>
         </View>
 
@@ -397,9 +402,12 @@ export default function AllTransactions() {
                     <View className="py-3 border-b border-gray-100">
                       <Text className="text-gray-600 font-medium mb-2">To</Text>
                       <View className="bg-gray-50 p-3 rounded-lg">
-                        <Text className="text-gray-900 font-mono text-sm">
-                          {selectedTransaction.recipient}
-                        </Text>
+                        <ResolvedAddress
+                          address={selectedTransaction.recipient}
+                          type="recipient"
+                          showPrefix={false}
+                          textClassName="text-gray-900 font-mono text-sm"
+                        />
                       </View>
                     </View>
                   )}
@@ -412,9 +420,12 @@ export default function AllTransactions() {
                         From
                       </Text>
                       <View className="bg-gray-50 p-3 rounded-lg">
-                        <Text className="text-gray-900 font-mono text-sm">
-                          {selectedTransaction.sender}
-                        </Text>
+                        <ResolvedAddress
+                          address={selectedTransaction.sender}
+                          type="sender"
+                          showPrefix={false}
+                          textClassName="text-gray-900 font-mono text-sm"
+                        />
                       </View>
                     </View>
                   )}
