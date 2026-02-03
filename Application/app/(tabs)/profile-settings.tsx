@@ -2,6 +2,7 @@ import SeedPhraseModal from "@/components/SeedPhraseModal";
 import { useAuth } from "@/Contexts/AuthContext";
 import { registerForPushNotificationsAsync } from "@/lib/notificationUtils";
 import { updateUserNotificationSettings, updateUserPushToken } from "@/lib/userService";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
 import * as Clipboard from "expo-clipboard";
 import * as Notifications from 'expo-notifications';
 import { useFocusEffect, useRouter } from "expo-router";
@@ -75,6 +76,7 @@ export default function ProfileSettings() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, logout, isLoading, token, refreshUser } = useAuth();
+  const { currency, setCurrency } = useCurrencyStore();
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [showSeedPhraseModal, setShowSeedPhraseModal] = useState(false);
   const [notifications, setNotifications] = useState<NotificationSettings>({
@@ -383,6 +385,59 @@ export default function ProfileSettings() {
               </TouchableOpacity>
             </View>
           )}
+
+          {/* Currency Selection */}
+          <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
+            <View className="flex-row items-center gap-3 mb-6">
+              <View>
+                <Text className="text-lg font-bold text-gray-900">
+                  Currency Preference
+                </Text>
+                <Text className="text-gray-600 text-sm">
+                  Choose your preferred primary currency
+                </Text>
+              </View>
+            </View>
+            <View className="flex-row gap-4">
+              <TouchableOpacity
+                onPress={() => setCurrency('KES')}
+                className={`flex-1 flex-row items-center gap-3 p-4 rounded-xl border-2 ${currency === 'KES' ? 'border-downy-500 bg-downy-50' : 'border-gray-100 bg-gray-50'}`}
+                activeOpacity={0.7}
+              >
+                <Image
+                  source={require('@/assets/images/kenya-flag.png')}
+                  className="w-8 h-8 rounded-full"
+                />
+                <Text className={`font-bold ${currency === 'KES' ? 'text-downy-700' : 'text-gray-600'}`}>
+                  KES
+                </Text>
+                {currency === 'KES' && (
+                  <View className="ml-auto w-5 h-5 bg-downy-500 rounded-full items-center justify-center">
+                    <Check size={12} color="white" />
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setCurrency('USDC')}
+                className={`flex-1 flex-row items-center gap-3 p-4 rounded-xl border-2 ${currency === 'USDC' ? 'border-blue-500 bg-blue-50' : 'border-gray-100 bg-gray-50'}`}
+                activeOpacity={0.7}
+              >
+                <Image
+                  source={require('@/assets/images/usdclogo.png')}
+                  className="w-8 h-8 rounded-full"
+                />
+                <Text className={`font-bold ${currency === 'USDC' ? 'text-blue-700' : 'text-gray-600'}`}>
+                  USDC
+                </Text>
+                {currency === 'USDC' && (
+                  <View className="ml-auto w-5 h-5 bg-blue-500 rounded-full items-center justify-center">
+                    <Check size={12} color="white" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
 
           {/* Notification Settings */}
           <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">

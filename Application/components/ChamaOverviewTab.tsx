@@ -13,6 +13,7 @@ import {
 import React, { FC, useState } from "react";
 import { Dimensions, Linking, Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../Contexts/AuthContext";
+import { ResolvedAddress } from "./ResolvedAddress";
 import { Card } from "./ui/Card";
 
 type Props = {
@@ -604,7 +605,12 @@ const ChamaOverviewTab: FC<Props> = ({
                               You
                             </Text>
                           ) : (
-                            transaction.user.name
+                            <ResolvedAddress
+                              address={transaction.user.address}
+                              showPrefix={false}
+                              textClassName="text-base font-medium text-gray-900 capitalize"
+                              fallback={transaction.user.name}
+                            />
                           )}{" "}
                           {transaction.description}
                         </Text>
@@ -738,9 +744,12 @@ const ChamaOverviewTab: FC<Props> = ({
                       {selectedTransaction.user.address === userAddress ? (
                         <Text className="font-semibold text-gray-800">You</Text>
                       ) : (
-                        <Text className="font-semibold text-gray-900">
-                          {selectedTransaction.user.address}
-                        </Text>
+                        <ResolvedAddress
+                          address={selectedTransaction.user.address}
+                          showPrefix={false}
+                          textClassName="font-semibold text-gray-900"
+                          fallback={selectedTransaction.user.name}
+                        />
                       )}
                     </Text>
                   </View>

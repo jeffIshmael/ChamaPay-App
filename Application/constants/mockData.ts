@@ -3,6 +3,7 @@ export interface Member {
   name: string;
   phone: string;
   email: string;
+  smartAddress: string;
   role: string;
   contributions: number;
   address?: string;

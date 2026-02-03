@@ -7,6 +7,7 @@ import {
   checkUsernameAvailability,
   confirmJoinRequest,
   getUser,
+  getUserByAddress,
   getUserById,
   getUserDetails,
   getUserUsdcBalance,
@@ -58,6 +59,7 @@ router.get("/hasRequest", authenticate, checkHasJoinRequest);
 router.get("/search", searchUsers);
 router.get("/balance", authenticate, getUserUsdcBalance);
 router.get("/joinRequest", authenticate, sendJoinRequest);
+router.get("/by-address", getUserByAddress);
 
 // put routes
 router.put("/profile", authenticate, updatePhoneNumber);
