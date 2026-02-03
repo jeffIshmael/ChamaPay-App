@@ -6,11 +6,12 @@ import React, { useEffect, useState } from "react";
 import {
     Alert,
     Image,
-    ToastAndroid,
     Text,
+    ToastAndroid,
     TouchableOpacity,
     View
 } from "react-native";
+
 
 const PIN_LENGTH = 4;
 
@@ -126,16 +127,15 @@ export default function PinSetup() {
     };
 
     const finishSetup = () => {
-        Alert.alert("Success", "Security setup complete!", [
-            { text: "Go to Wallet", onPress: () => router.replace("/(tabs)") }
-        ]);
+        ToastAndroid.show("Security setup complete!", ToastAndroid.SHORT);
+        router.replace("/(tabs)");
     };
 
     const NumberPad = () => {
-        const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "biometric-slot", "0", "backspace"];
+        const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "biometric-slot", "0", "backspace", "arrow-slot"];
 
         return (
-            <View className="flex-row flex-wrap justify-center gap-6 mt-8 max-w-[300px]">
+            <View className="flex-row flex-wrap justify-center gap-6 mt-8 max-w-[310px]">
                 {keys.map((key, index) => {
                     if (key === "biometric-slot") {
                         return (
@@ -144,11 +144,18 @@ export default function PinSetup() {
                                     <TouchableOpacity
                                         onPress={handleBiometricSetup}
                                         activeOpacity={0.7}
-                                        className="w-[70px] h-[70px] rounded-full bg-emerald-100 items-center justify-center border border-emerald-200 shadow-sm"
+                                        className="w-[70px] h-[70px] rounded-full  items-center justify-center border border-emerald-200"
                                     >
                                         <Fingerprint size={28} color="#059669" />
                                     </TouchableOpacity>
                                 )}
+                            </View>
+                        );
+                    }
+
+                    if (key === "arrow-slot") {
+                        return (
+                            <View key={key} className="w-[70px] h-[70px] items-center justify-center mt-20">
                                 {step === "enter" && pin.length === PIN_LENGTH && (
                                     <TouchableOpacity
                                         onPress={proceedToConfirm}

@@ -6,7 +6,6 @@ import { ArrowLeft, Check, Smartphone } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -14,9 +13,9 @@ import {
   ScrollView,
   Text,
   TextInput,
+  ToastAndroid,
   TouchableOpacity,
-  View,
-  ToastAndroid
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -31,6 +30,7 @@ export default function DepositCryptoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [isPhoneTouched, setIsPhoneTouched] = useState(false);
   const [amount, setAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState<
@@ -62,7 +62,7 @@ export default function DepositCryptoScreen() {
     const cryptoAmount = depositAmount / onrampRate;
     return {
       depositAmount,
-      cryptoAmount: cryptoAmount.toFixed(4),
+      cryptoAmount: cryptoAmount,
     };
   };
 
@@ -103,6 +103,8 @@ export default function DepositCryptoScreen() {
 
     try {
       const fullPhoneNumber = `0${phoneNumber}`;
+      console.log("kenya shillings", depositAmount);
+      console.log("crypto amount", cryptoAmount);
 
       // Initiate onramp
       const result = await pretiumOnramp(
@@ -143,9 +145,10 @@ export default function DepositCryptoScreen() {
 
       setProcessingStep("completed");
       setIsProcessing(false);
-      ToastAndroid.show(`Successfully deposited ${cryptoAmount} USDC`, ToastAndroid.SHORT);
+      ToastAndroid.show(`Successfully deposited ${Number(cryptoAmount).toFixed(4)} USDC`, ToastAndroid.SHORT);
       emptyInputs();
       setProcessingStep("idle");
+      
       router.push("/(tabs)/wallet");
     } catch (error: any) {
       setIsProcessing(false);
@@ -279,11 +282,12 @@ export default function DepositCryptoScreen() {
                   placeholderTextColor="#9CA3AF"
                   keyboardType="phone-pad"
                   maxLength={12}
+                  onBlur={() => setIsPhoneTouched(true)}
                   style={{ fontSize: 16, padding: 0, margin: 0 }}
                   className="flex-1"
                 />
               </View>
-              {phoneNumber && !isValidPhoneNumber(phoneNumber) && (
+              {isPhoneTouched && phoneNumber && !isValidPhoneNumber(phoneNumber) && (
                 <Text className="text-red-500 text-xs mt-2">
                   Please enter a valid Kenyan phone number
                 </Text>
@@ -349,7 +353,7 @@ export default function DepositCryptoScreen() {
                       You'll Receive
                     </Text>
                     <Text className="text-lg font-bold text-blue-700">
-                      {cryptoAmount} USDC
+                      {Number(cryptoAmount).toFixed(4)} USDC
                     </Text>
                   </View>
                 </>

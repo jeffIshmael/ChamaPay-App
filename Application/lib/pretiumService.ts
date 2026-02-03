@@ -347,7 +347,7 @@ export async function disburseToMobileNumber(
   currencyCode: CurrencyCode,
   mobileNetwork: string,
   shortCode: string,
-  amount: string, // be plus fees
+  amount: string, 
   usdcAmount: string,
   exchangeRate: string,
   token: string
@@ -376,3 +376,11 @@ export async function disburseToMobileNumber(
   }
 }
 
+//  currencyCode,
+    // mobileNetwork,
+    // shortCode,
+    // usdcAmount,
+    // exchangeRate,
+    // amount,
+    // txHash,
+    // accountName,

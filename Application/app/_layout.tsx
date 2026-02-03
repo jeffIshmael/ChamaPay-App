@@ -27,18 +27,35 @@ SplashScreen.preventAutoHideAsync().catch((error) => {
 });
 
 function LoadingSplashScreen() {
+  const [showLoader, setShowLoader] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowLoader(true);
+    }, 2000); // 2 seconds delay
+
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <View style={styles.splashContainer}>
-      <Image
-        source={require('@/assets/images/chamapay-logo.png')}
-        style={styles.logo}
-        resizeMode="contain"
-      />
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator
-          size="large"
-          color="#10b981"
+      {/* Centered Logo */}
+      <View style={styles.centerContainer}>
+        <Image
+          source={require('@/assets/images/chamapay-logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
         />
+      </View>
+
+      {/* Bottom Loader */}
+      <View style={styles.bottomLoaderContainer}>
+        {showLoader && (
+          <ActivityIndicator
+            size="large"
+            color="#10b981"
+          />
+        )}
       </View>
     </View>
   );
@@ -173,6 +190,10 @@ const styles = StyleSheet.create({
   splashContainer: {
     flex: 1,
     backgroundColor: '#d1f6f1',
+    // Remove center alignment from container so we can separate top/bottom
+  },
+  centerContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -180,10 +201,10 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
   },
-  loaderContainer: {
-    marginTop: 40,
-    height: 60,
+  bottomLoaderContainer: {
+    height: 100, // Fixed height area at bottom
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 40,
   },
 });

@@ -9,15 +9,17 @@ import {
   getUser,
   getUserById,
   getUserDetails,
+  getUserUsdcBalance,
+  markNotificationsRead,
   registerPayment,
   searchUsers,
   sendJoinRequest,
   shareChamaLink,
-  updatePhoneNumber,
-  uploadProfileImage,
   transferUSDC,
-  getUserUsdcBalance,updateUserPushToken,
-  updateUserNotificationSettings
+  updatePhoneNumber,
+  updateUserNotificationSettings,
+  updateUserPushToken,
+  uploadProfileImage
 } from "../Controllers/userController";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -45,6 +47,7 @@ router.post("/sendUSDC", authenticate, transferUSDC);
 router.post('/profile/image', authenticate, upload.single('image'), uploadProfileImage);
 router.post("/updatePushToken", authenticate, updateUserPushToken);
 router.post("/updateNotificationSettings", authenticate, updateUserNotificationSettings);
+router.post("/notifications/mark-read", authenticate, markNotificationsRead);
 
 
 // get routes functions

@@ -3,7 +3,7 @@ import { useAuth } from '@/Contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ArrowLeft, Camera, Edit3, Mail, Phone, Save, User } from 'lucide-react-native';
+import { ArrowLeft, Camera, Edit3, Mail, User } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,7 +11,6 @@ import {
   Image,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   ToastAndroid
@@ -352,64 +351,6 @@ export default function EditProfile() {
               <Text className="text-gray-500 text-xs mt-2">
                 Email cannot be changed for security reasons
               </Text>
-            </View>
-
-            {/* Phone Number Field - Editable */}
-            <View className="mb-6">
-              <View className="flex-row items-center gap-2 mb-3">
-                <Text className="text-gray-900 font-semibold text-base">Phone Number</Text>
-                <View className="bg-emerald-100 px-2 py-1 rounded-md">
-                  <Text className="text-emerald-700 text-xs font-medium">Editable</Text>
-                </View>
-              </View>
-              <View className={`flex-row items-center border-2 rounded-xl px-4 py-4 ${errors.phoneNo ? 'border-red-300 bg-red-50' : 'border-emerald-200 bg-white'
-                }`}>
-                <Phone size={20} color={errors.phoneNo ? "#dc2626" : "#10b981"} />
-                <TextInput
-                  className="flex-1 ml-3 text-gray-900 text-base"
-                  placeholder="Enter your phone number"
-                  placeholderTextColor="#9ca3af"
-                  value={formData.phoneNo}
-                  onChangeText={(text) => {
-                    setFormData(prev => ({ ...prev, phoneNo: text }));
-                    if (errors.phoneNo) setErrors(prev => ({ ...prev, phoneNo: '' }));
-                  }}
-                  keyboardType="phone-pad"
-                />
-              </View>
-              {errors.phoneNo && (
-                <Text className="text-red-500 text-sm mt-2 font-medium">{errors.phoneNo}</Text>
-              )}
-            </View>
-
-            {/* Save Button */}
-            <View className="mt-4">
-              <TouchableOpacity
-                onPress={handleSave}
-                disabled={loading || !hasChanges()}
-                className={`w-full py-4 rounded-2xl flex-row items-center justify-center shadow-lg ${loading || !hasChanges()
-                  ? 'bg-gray-300'
-                  : 'bg-emerald-600'
-                  }`}
-                activeOpacity={0.8}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <>
-                    <Save size={20} color="white" style={{ marginRight: 8 }} />
-                    <Text className="text-white font-bold text-lg">
-                      {hasChanges() ? 'Save Changes' : 'No Changes to Save'}
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              {hasChanges() && (
-                <Text className="text-gray-500 text-sm text-center mt-3">
-                  You have unsaved changes
-                </Text>
-              )}
             </View>
           </View>
         </View>

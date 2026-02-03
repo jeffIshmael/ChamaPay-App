@@ -1,11 +1,14 @@
 // Routes for chama related functions
 import express, { Router } from "express";
 import {
+    addMemberToChama,
     createChama,
     depositToChama,
     getChamaBySlug,
     getChamasUserIsMemberOf,
-    getPublicChamasUserIsNotMemberOf, addMemberToChama, sendChamaMessage
+    getPublicChamasUserIsNotMemberOf,
+    markMessagesRead,
+    sendChamaMessage
 } from "../Controllers/chamaControllers";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -33,6 +36,7 @@ router.post("/add-member", authenticate, addMemberToChama);
 
 // add a chama message
 router.post("/send-message", authenticate, sendChamaMessage);
+router.post("/mark-messages-read", authenticate, markMessagesRead);
 
 // get chama by slug
 router.get("/:slug", authenticate, getChamaBySlug);

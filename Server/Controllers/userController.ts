@@ -1,20 +1,21 @@
 // This file has all user related functions
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-import { formatUnits, isAddress } from "viem";
 import "multer";
+import { formatUnits, isAddress } from "viem";
+import { transferTx } from "../Blockchain/erc20Functions";
+import { getUserBalance } from "../Blockchain/ReadFunctions";
+import { bcAddMemberToPrivateChama } from "../Blockchain/WriteFunction";
+import { sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
+import { getPrivateKey } from "../Lib/HelperFunctions";
 import {
   checkHasPendingRequest,
   getSentRequests,
+  handleRequest,
   registerUserPayment,
   requestToJoin,
-  handleRequest,
 } from "../Lib/prismaFunctions";
 import { uploadToPinata } from "../utils/PinataUtils";
-import { getPrivateKey } from "../Lib/HelperFunctions";
-import { transferTx } from "../Blockchain/erc20Functions";
-import { bcAddMemberToPrivateChama } from "../Blockchain/WriteFunction";
-import { getUserBalance } from "../Blockchain/ReadFunctions";
 
 const prisma = new PrismaClient();
 
@@ -90,10 +91,12 @@ export const getUser = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Remove sensitive fields from response
-    const { ...userResponse } = user;
-
-    res.status(200).json({ user: userResponse });
+    const nonSensitiveUser = {
+      hashedPrivKey: user.hashedPrivkey,
+      hashedPassPhrase: user.hashedPassphrase,
+      ...user
+    }
+    res.status(200).json({ user: nonSensitiveUser });
   } catch (error: unknown) {
     console.error("Get user error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -230,16 +233,14 @@ export const updateUserProfile = async (
       },
     });
 
-    // Remove sensitive fields from response
-    const {
-      ...userResponse
-    }: {
-      [key: string]: any;
-    } = updatedUser;
-
+    const nonSensitiveUser = {
+      hashedPrivKey: updatedUser.hashedPrivkey,
+      hashedPassPhrase: updatedUser.hashedPassphrase,
+      ...updatedUser
+    }
     res.status(200).json({
       message: "Profile updated successfully",
-      user: userResponse as UserResponse,
+      user: nonSensitiveUser,
     });
   } catch (error: unknown) {
     console.error("Update profile error:", error);
@@ -462,6 +463,20 @@ export const sendJoinRequest = async (
         .json({ success: false, error: "All fields are required" });
       return;
     }
+
+    const chama = await prisma.chama.findUnique({
+      where: {
+        id: Number(chamaId)
+      }
+    });
+
+    if (!chama) {
+      res
+        .status(400)
+        .json({ success: false, error: "Chama not found." });
+      return;
+    }
+
     const request = await requestToJoin(userId, Number(chamaId));
     if (request === null) {
       res
@@ -469,6 +484,14 @@ export const sendJoinRequest = async (
         .json({ success: false, error: "Failed to send request." });
       return;
     }
+
+    // notify the admin
+    await sendExpoNotificationToAUser(
+      chama.adminId,
+      `New join request`,
+      `A user requests to join ${chama.name} chama.Tap to approve or reject.`,
+    );
+
     res.status(200).json({ success: true, request: request });
   } catch (error) {
     console.error("Register request error:", error);
@@ -648,6 +671,28 @@ export const shareChamaLink = async (
       return;
     }
 
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!user) {
+      res.status(400).json({ success: false, error: "user not found." });
+      return;
+    }
+
+    const receiver = await prisma.user.findUnique({
+      where: {
+        id: Number(receiverId),
+      },
+    });
+
+    if (!receiver) {
+      res.status(400).json({ success: false, error: "receiver not found." });
+      return;
+    }
+
     const notification = await prisma.notification.create({
       data: {
         senderId: userId,
@@ -663,6 +708,13 @@ export const shareChamaLink = async (
         .json({ success: false, error: "Unable to notify the user." });
       return;
     }
+
+    // expo notify the receiver
+    await sendExpoNotificationToAUser(
+      receiver.id,
+      "ChamaPay Invite",
+      message,
+    );
 
     res.status(200).json({ success: true, notification: notification });
   } catch (error) {
@@ -712,6 +764,32 @@ export const updatePhoneNumber = async (
   } catch (error) {
     console.error("Update profile error:", error);
     res.status(500).json({ error: "Failed to update profile" });
+  }
+};
+
+// MARK ALL NOTIFICATIONS AS READ
+export const markNotificationsRead = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+
+    await prisma.notification.updateMany({
+      where: {
+        userId: userId,
+        read: false,
+      },
+      data: {
+        read: true,
+      },
+    });
+
+    res.json({ success: true, message: "Notifications marked as read" });
+  } catch (error) {
+    console.error("Error marking notifications as read:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
 
@@ -887,13 +965,18 @@ export const updateUserPushToken = async (
     }
     const user = await prisma.user.update({
       where: { id: userId },
-      data: { expoPushToken: pushToken },
+      data: { expoPushToken: pushToken, pushNotify: true },
     });
     if (!user) {
       res.status(400).json({ success: false, error: "User not found" });
       return;
     }
-    res.status(200).json({ success: true, user: user });
+    const nonSensitiveUser = {
+      hashedPrivKey: user.hashedPrivkey,
+      hashedPassPhrase: user.hashedPassphrase,
+      ...user
+    }
+    res.status(200).json({ success: true, user: nonSensitiveUser });
   } catch (error) {
     console.error("Update user push token error:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
@@ -932,7 +1015,12 @@ export const updateUserNotificationSettings = async (
       res.status(400).json({ success: false, error: "User not found" });
       return;
     }
-    res.status(200).json({ success: true, user: user });
+    const nonSensitiveUser = {
+      hashedPrivKey: user.hashedPrivkey,
+      hashedPassPhrase: user.hashedPassphrase,
+      ...user
+    }
+    res.status(200).json({ success: true, user: nonSensitiveUser });
   } catch (error) {
     console.error("Update user notification settings error:", error);
     res.status(500).json({ success: false, error: "Internal server error" });

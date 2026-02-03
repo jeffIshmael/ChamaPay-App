@@ -13,6 +13,7 @@ import { JoinedChama } from "@/constants/mockData";
 import { useAuth } from "@/Contexts/AuthContext";
 import {
   getChamaBySlug,
+  markMessagesReadApi,
   searchUsers,
   transformChamaData,
 } from "@/lib/chamaService";
@@ -20,6 +21,7 @@ import { generateChamaShareUrl } from "@/lib/encryption";
 import { shareChamaLink } from "@/lib/userService";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { formatTimeRemaining } from "@/Utils/helperFunctions";
+import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Share, Share2, User } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
@@ -172,6 +174,16 @@ export default function JoinedChamaDetails() {
     globalFetchRate("KES");
   }, [id, token]);
 
+  useEffect(() => {
+    if (activeTab === "chat" && chama && token) {
+      // Mark as read
+      markMessagesReadApi(chama.id, token).then(() => {
+        // Optionally update local state to clear badge visually immediately
+        setChama(prev => prev ? ({ ...prev, unreadMessages: 0 }) : null);
+      });
+    }
+  }, [activeTab, chama?.id, token]);
+
   const makePayment = () => {
     if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
       Alert.alert("Error", "Please enter a valid amount");
@@ -229,10 +241,11 @@ export default function JoinedChamaDetails() {
   const copyLink = () => {
     if (!chama) return;
     const link = generateChamaShareUrl(chama.slug);
-    // In a real app, you'd use Clipboard.setString(link)
-    console.log("the link", link);
-    Alert.alert("Link Copied", "Chama link has been copied to clipboard!");
-    setShowShareModal(false);
+    Clipboard.setStringAsync(link);
+    setTimeout(() => {
+      setShowShareModal(false);
+    }, 1000);
+
   };
 
   // Search users for sharing with debouncing
@@ -491,7 +504,7 @@ export default function JoinedChamaDetails() {
               value="chat"
               isActive={activeTab === "chat"}
               onPress={() => setActiveTab("chat")}
-            // badge={unreadMessages}
+              badge={unreadMessages}
             />
             <TabButton
               label="Schedule"

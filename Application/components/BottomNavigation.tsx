@@ -1,7 +1,9 @@
+import { useAuth } from "@/Contexts/AuthContext";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+
 import cn from "clsx";
 import * as Haptics from "expo-haptics";
-import { Bell, CreditCard, Plus, Search, Wallet } from "lucide-react-native";
+import { Bell, Plus, Search, Wallet } from "lucide-react-native";
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,6 +33,7 @@ const tabs = [
 ];
 
 export default function BottomNavigation({ state, navigation }: BottomTabBarProps) {
+  const { unreadNotificationCount } = useAuth();
   const insets = useSafeAreaInsets();
   const currentRouteName = state.routes[state.index]?.name;
   const isRouteInTabs = tabs.some((tab) => tab.name === currentRouteName);
@@ -39,7 +42,7 @@ export default function BottomNavigation({ state, navigation }: BottomTabBarProp
 
   return (
     <View className="absolute bottom-0 left-0  right-0">
-      <View 
+      <View
         className="bg-white rounded-t-3xl shadow-lg bg-[#f1fcfa]"
         style={{
           paddingBottom: insets.bottom + 8,
@@ -95,13 +98,14 @@ export default function BottomNavigation({ state, navigation }: BottomTabBarProp
                     strokeWidth={2}
                   />
                   {/* Badge */}
-                  {tab.badge && tab.badge > 0 && (
+                  {tab.name === "notifications" && unreadNotificationCount > 0 && (
                     <View className="absolute -top-1.5 -right-2 bg-red-500 rounded-full w-[18px] h-[18px] flex items-center justify-center">
                       <Text className="text-white text-[10px] font-bold">
-                        {tab.badge > 99 ? "99+" : tab.badge}
+                        {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
                       </Text>
                     </View>
                   )}
+
                 </View>
                 <Text
                   className={cn(

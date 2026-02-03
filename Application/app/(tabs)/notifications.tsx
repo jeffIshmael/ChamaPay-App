@@ -1,7 +1,7 @@
 import { useAuth } from "@/Contexts/AuthContext";
 import { getUserDetails, transformNotification } from "@/lib/chamaService";
 import { handleTheRequestToJoin } from "@/lib/userService";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
   ArrowLeft,
@@ -15,10 +15,11 @@ import {
   Wallet,
   X,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   RefreshControl,
   ScrollView,
   Text,
@@ -59,7 +60,7 @@ export interface Notification {
 export default function Notifications() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, token } = useAuth();
+  const { user, token, refreshUser, markNotificationsRead } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -67,6 +68,19 @@ export default function Notifications() {
     requestId: number;
     action: "approve" | "reject";
   } | null>(null);
+
+  useEffect(() => {
+    refreshUser();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      markNotificationsRead();
+      return () => {
+        // Optional cleanup
+      };
+    }, [])
+  );
 
   const getNotificationIcon = (type: Notification["type"]) => {
     const iconProps = { size: 20 };
@@ -353,14 +367,14 @@ export default function Notifications() {
               </Text>
             </View>
           </View>
-
+{/* 
           {unreadCount > 0 && (
             <View className="bg-emerald-500 px-3 py-1.5 rounded-full">
               <Text className="text-xs font-bold text-white">
                 {unreadCount}
               </Text>
             </View>
-          )}
+          )} */}
         </View>
       </View>
 
@@ -395,11 +409,11 @@ export default function Notifications() {
                     {notification.title}
                   </Text>
 
-                  <View className="flex-row items-center gap-2 ml-2">
+                  {/* <View className="flex-row items-center gap-2 ml-2">
                     {!notification.read && (
                       <View className="w-2 h-2 bg-emerald-500 rounded-full" />
                     )}
-                  </View>
+                  </View> */}
                 </View>
 
                 <Text
@@ -476,8 +490,8 @@ export default function Notifications() {
                         processingRequest?.requestId === notification.requestId
                       }
                       className={`flex-1 py-2.5 rounded-lg flex-row items-center justify-center gap-2 ${processingRequest?.requestId === notification.requestId
-                          ? "bg-red-400"
-                          : "bg-red-500"
+                        ? "bg-red-400"
+                        : "bg-red-500"
                         }`}
                       activeOpacity={0.7}
                     >
@@ -504,15 +518,20 @@ export default function Notifications() {
             </View>
           </TouchableOpacity>
         ))}
-
         {notifications.length === 0 && (
-          <View className="bg-white rounded-xl border border-gray-200 p-8 items-center">
-            <Bell size={48} className="text-gray-400 mb-4" />
-            <Text className="text-lg font-medium text-gray-900 mb-2">
+          <View className="flex-1 items-center justify-center py-24">
+            <View className="w-24 h-24  rounded-full items-center justify-center mb-6">
+              <Image
+                source={require("@/assets/images/no-notification.png")}
+                className="w-16 h-16 opacity-80"
+                resizeMode="contain"
+              />
+            </View>
+            <Text className="text-xl font-bold text-gray-900 mb-2">
               No Notifications
             </Text>
-            <Text className="text-sm text-gray-600 text-center">
-              You're all caught up! We'll notify you of any important updates.
+            <Text className="text-sm text-gray-500 text-center px-12 leading-5">
+              We'll notify you when something important happens.
             </Text>
           </View>
         )}

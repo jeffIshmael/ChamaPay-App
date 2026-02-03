@@ -1,4 +1,7 @@
 import { serverUrl } from "@/constants/serverUrl";
+import { markNotificationsReadApi } from "@/lib/chamaService";
+import { registerForPushNotificationsAsync } from "@/lib/notificationUtils";
+import { updateUserPushToken } from "@/lib/userService";
 import { connectSocket, disconnectSocket } from "@/socket/socket";
 import React, {
   createContext,
@@ -22,6 +25,7 @@ export interface User {
   pushToken: string | null;
   pushNotify: boolean;
   emailNotify: boolean;
+  notifications?: any[]; // added for unread count calculation
 }
 
 interface AuthContextType {
@@ -46,6 +50,8 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   getToken: () => Promise<string | null>;
   getRefreshToken: () => Promise<string | null>;
+  unReadNotificationCount: number;
+  markNotificationsRead: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -59,6 +65,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [token, setToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [unReadNotificationCount, setUnReadNotificationCount] = useState(0);
 
   // Refs to prevent race conditions
   const isInitialized = useRef(false);
@@ -74,6 +81,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       loadStoredAuth();
     }
   }, []);
+
+  // Update unread count whenever user changes
+  useEffect(() => {
+    if (user?.notifications) {
+      const count = user.notifications.filter((n: any) => !n.read).length;
+      setUnReadNotificationCount(count);
+    }
+  }, [user]);
 
   const loadStoredAuth = async () => {
     try {
@@ -105,6 +120,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               await loginWithRefreshToken();
             }
           });
+
+          // Check notification token in background
+          if (storedUser.pushNotify !== false) {
+            registerForPushNotificationsAsync().then(async (pushToken) => {
+              if (pushToken && pushToken !== storedUser.pushToken) {
+                console.log("[Auth] Refreshing push token on app load");
+                await updateUserPushToken(pushToken, storedToken);
+              }
+            }).catch(err => console.error("[Auth] Failed to refresh push token:", err));
+          }
         } else {
           console.log("[Auth] Token exists but no user data. Fetching profile...");
           try {
@@ -140,7 +165,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const fetchUserData = async (authToken: string) => {
     try {
-      const response = await fetch(`${serverUrl}/user`, {
+      const response = await fetch(`${serverUrl}/user/details`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${authToken}`,
@@ -327,6 +352,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Background refresh
     fetchUserData(newToken).catch(() => { });
+
+    // Check/Register for notifications if user has them enabled or hasn't set a preference yet
+    // This provides the "automatic" prompting behavior at the right time (after login)
+    try {
+      if (userData.pushNotify !== false) { // Default to true if undefined or already true
+        console.log("[Auth] Checking notification permissions...");
+        const pushToken = await registerForPushNotificationsAsync();
+        if (pushToken && pushToken !== userData.pushToken) {
+          console.log("[Auth] Updating push token:", pushToken);
+          // Update backend
+          await updateUserPushToken(pushToken, newToken);
+          // Update local state
+          const updatedUser = { ...userData, pushToken, pushNotify: true };
+          setUser(updatedUser);
+          await storage.setUser(updatedUser);
+        }
+      }
+    } catch (error) {
+      console.error("[Auth] Error registering push notifications:", error);
+    }
   };
 
   const getToken = async () => {
@@ -338,6 +383,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return refreshToken ?? (await storage.getRefreshToken());
     }
     return null;
+  };
+
+  const markNotificationsRead = async () => {
+    if (token) {
+      setUnReadNotificationCount(0); // Optimistic update
+      // Also update user state to reflect read status
+      if (user && user.notifications) {
+        const updatedNotifications = user.notifications.map((n: any) => ({ ...n, read: true }));
+        updateUser({ notifications: updatedNotifications });
+      }
+      await markNotificationsReadApi(token);
+      await refreshUser(); // Sync with server to be sure
+    }
   };
 
   const value: AuthContextType = {
@@ -354,6 +412,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     refreshUser,
     getToken,
     getRefreshToken,
+    unReadNotificationCount,
+    markNotificationsRead
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
