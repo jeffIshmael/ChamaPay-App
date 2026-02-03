@@ -259,6 +259,7 @@ export default function ChamaDetails() {
         chama.collateralAmount.toString(),
         token
       );
+      console.log("join response", response);
 
       if (!response.success) {
         ToastAndroid.show("Unable to join chama. Please try again.", ToastAndroid.SHORT);
@@ -506,8 +507,8 @@ export default function ChamaDetails() {
                 </Text>
                 <Text className="font-semibold text-gray-900">
                   {kesRate > 0 && user?.location === "KE"
-                    ? `${(Number(chama.totalContributions) * kesRate).toLocaleString()} KES (${chama.totalContributions} ${chama.currency})`
-                    : `${chama.totalContributions} ${chama.currency}`}
+                    ? `${(Number(chama.collateralAmount) * kesRate).toLocaleString()} KES (${chama.collateralAmount} ${chama.currency})`
+                    : `${chama.collateralAmount} ${chama.currency}`}
                 </Text>
               </View>
             )}

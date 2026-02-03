@@ -373,8 +373,8 @@ export default function SendCryptoScreen() {
                             @{item.userName}
                           </Text>
                           <Text className="text-xs text-gray-400 font-mono">
-                            {item.address.slice(0, 6)}...
-                            {item.address.slice(-4)}
+                            {item.smartAddress.slice(0, 6)}...
+                            {item.smartAddress.slice(-4)}
                           </Text>
                         </View>
                       </TouchableOpacity>

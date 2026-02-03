@@ -773,7 +773,7 @@ export default function CryptoWallet() {
               <Text className="text-2xl font-bold text-gray-900">
                 Recent Activity
               </Text>
-              {theTransaction && theTransaction.length > 6 && (
+              {theTransaction && theTransaction.length > 5 && (
                 <TouchableOpacity
                   onPress={() => router.push("/wallet/all-transactions")}
                   className="px-4 py-2 rounded-full"
@@ -828,7 +828,7 @@ export default function CryptoWallet() {
               theTransaction &&
               theTransaction.length > 0 && (
                 <View>
-                  {theTransaction.slice(0, 6).map((item) => (
+                  {theTransaction.slice(0, 5).map((item) => (
                     <TransactionCard key={`${item.id}-${item.date}`} tx={item} />
                   ))}
                 </View>

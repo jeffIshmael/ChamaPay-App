@@ -47,7 +47,7 @@ export const bcJoinPublicChama = async (privateKey: `0x${string}`, chamaBlockcha
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
-            functionName: 'joinPublicChama',
+            functionName: 'addPublicMember',
             args: [chamaBlockchainId, amountInWei],
         })
         const transaction = await publicClient.waitForTransactionReceipt({
