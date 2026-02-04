@@ -68,7 +68,7 @@ const ScheduleTab: FC<Props> = ({
   // Helper function to find member by address
   const getMemberByAddress = (address: string): Member | undefined => {
     return members.find(
-      (m) => m.address?.toLowerCase() === address.toLowerCase()
+      (m) => m.smartAddress?.toLowerCase() === address.toLowerCase()
     );
   };
 

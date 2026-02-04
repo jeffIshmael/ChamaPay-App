@@ -33,12 +33,12 @@ import {
   Platform,
   Text,
   TextInput,
+  ToastAndroid,
   TouchableOpacity,
-  View,
-  ToastAndroid
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { toEther, toTokens, toUnits } from "thirdweb/utils";
+import { toTokens } from "thirdweb/utils";
 
 // Loading Skeleton Component
 const SkeletonBox = ({
@@ -318,7 +318,7 @@ export default function JoinedChamaDetails() {
         token
       );
       if (!notificationResult.success) {
-       ToastAndroid.show("Unable to send the link", ToastAndroid.LONG);
+        ToastAndroid.show("Unable to send the link", ToastAndroid.LONG);
         return;
       }
       ToastAndroid.show(`Chama shared to @${selectedShareUser.userName}`, ToastAndroid.LONG);
@@ -351,7 +351,7 @@ export default function JoinedChamaDetails() {
   const firstBalance = Array.isArray(balanceToUse)
     ? balanceToUse[0]
     : balanceToUse;
-    const lockedBalance = Array.isArray(balanceToUse)
+  const lockedBalance = Array.isArray(balanceToUse)
     ? balanceToUse[1]
     : balanceToUse;
   const myContributions = Number(toTokens(firstBalance || BigInt(0), 6) || 0);
@@ -374,7 +374,7 @@ export default function JoinedChamaDetails() {
       nextPayoutAmount={nextPayoutAmount}
       nextPayoutDate={chama.nextPayout!}
       leaveChama={leaveChama}
-      userAddress={(user?.address as `0x${string}`) || ""}
+      userAddress={(user?.smartAddress as `0x${string}`) || ""}
       chamaStatus={chama.status}
       chamaStartDate={chama.startDate}
       currency={chama.currency}
@@ -489,11 +489,7 @@ export default function JoinedChamaDetails() {
       </View>
 
       {/* Tabs */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
-      >
+      <View className="flex-1">
         <View className={`flex-1 pt-4 ${activeTab === "chat" ? "" : "px-6"}`}>
           {/* Tab Navigation */}
           <View
@@ -528,9 +524,19 @@ export default function JoinedChamaDetails() {
           </View>
 
           {/* Tab Content */}
-          <View className="flex-1">{renderTabContent()}</View>
+          {activeTab === "chat" ? (
+            <KeyboardAvoidingView
+              className="flex-1"
+              behavior={Platform.OS === "ios" ? "padding" : undefined}
+              keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+            >
+              {renderTabContent()}
+            </KeyboardAvoidingView>
+          ) : (
+            <View className="flex-1">{renderTabContent()}</View>
+          )}
         </View>
-      </KeyboardAvoidingView>
+      </View>
 
       {/* Payment Modal */}
       {showPaymentModal && (

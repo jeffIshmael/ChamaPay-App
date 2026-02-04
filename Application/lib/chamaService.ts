@@ -457,7 +457,7 @@ export const transformChamaData = (
       (nextPayoutEntry &&
         backendChama.members?.find(
           (m) =>
-            m.user.address?.toLowerCase() ===
+            m.user.smartAddress?.toLowerCase() ===
             nextPayoutEntry.userAddress?.toLowerCase()
         )?.user?.userName) ||
       "Not assigned",

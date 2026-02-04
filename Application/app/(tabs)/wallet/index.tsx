@@ -666,7 +666,7 @@ export default function CryptoWallet() {
                           : ""}
                     </Text>
                     <Text className="text-lg text-white/90 ml-1 font-medium">
-                      {user?.location === "KE" ? theExhangeQuote?.currencyCode : "USD"}
+                      {user?.location === "KE" ? theExhangeQuote?.currencyCode : "USDC"}
                     </Text>
                   </View>
 
