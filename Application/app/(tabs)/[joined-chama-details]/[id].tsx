@@ -10,6 +10,7 @@ import ScheduleTab from "@/components/ScheduleTab";
 import { TabButton } from "@/components/ui/TabButton";
 import USDCPay from "@/components/USDCPay";
 import { JoinedChama } from "@/constants/mockData";
+import { getAllBalances } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
 import {
   getChamaBySlug,
@@ -21,10 +22,11 @@ import { generateChamaShareUrl } from "@/lib/encryption";
 import { shareChamaLink } from "@/lib/userService";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { formatTimeRemaining } from "@/Utils/helperFunctions";
+import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from 'expo-clipboard';
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Share, Share2, User } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Image,
@@ -39,7 +41,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toTokens } from "thirdweb/utils";
-import { getAllBalances } from "@/constants/thirdweb";
 
 // Loading Skeleton Component
 const SkeletonBox = ({
@@ -102,6 +103,8 @@ export default function JoinedChamaDetails() {
   >(null);
   const [sendingLink, setSendingLink] = useState(false);
   const [myWalletBalance, setMyWalletBalance] = useState<any>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
 
   const fetchChama = async () => {
@@ -185,6 +188,16 @@ export default function JoinedChamaDetails() {
     fetchMyWalletBalance();
   }, [id, token]);
 
+  // Refetch data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (id && token) {
+        fetchChama();
+        fetchMyWalletBalance();
+      }
+    }, [id, token])
+  );
+
   useEffect(() => {
     if (activeTab === "chat" && chama && token) {
       // Mark as read
@@ -196,10 +209,10 @@ export default function JoinedChamaDetails() {
   }, [activeTab, chama?.id, token]);
 
   const makePayment = () => {
-    if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
-      Alert.alert("Error", "Please enter a valid amount");
-      return;
-    }
+    // if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
+    //   Alert.alert("Error", "Please enter a valid amount");
+    //   return;
+    // }
 
     // Show the payment modal instead of Alert
     if (user?.location !== "KE") {
@@ -242,7 +255,10 @@ export default function JoinedChamaDetails() {
     amount: string;
   }) => {
     setShowUSDCPaymentModal(false);
+    setSuccessMessage(data?.message || "Payment successful!");
+    setShowSuccessModal(true);
     fetchChama();
+    fetchMyWalletBalance();
   };
 
   const handleShare = () => {
@@ -750,6 +766,39 @@ export default function JoinedChamaDetails() {
           </View>
         </View>
       </Modal>
-    </View>
+
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <View className="flex-1 justify-center items-center bg-black/50">
+          <View className="bg-white rounded-2xl p-6 mx-6 shadow-lg">
+            <View className="items-center mb-4">
+              <View className="w-16 h-16 bg-green-100 rounded-full items-center justify-center mb-4">
+                <Ionicons name="checkmark" size={32} color="#059669" />
+              </View>
+              <Text className="text-xl font-semibold text-gray-900 mb-2">
+                Payment Successful!
+              </Text>
+              <Text className="text-gray-600 text-center mb-4">
+                {successMessage}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setShowSuccessModal(false)}
+              className="bg-emerald-600 py-3 rounded-xl"
+              activeOpacity={0.8}
+            >
+              <Text className="text-white font-semibold text-center text-base">
+                Done
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View >
   );
 }

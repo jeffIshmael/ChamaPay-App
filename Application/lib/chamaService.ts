@@ -720,9 +720,9 @@ export const transformNotification = async (
         timestamp: notif.createdAt,
         read: notif.read,
         actionRequired: false,
-        chama: notif.chama?.name || "Unknown Chama",
+        chama: notif.chama?.name || "",
         chamaId: notif.chamaId,
-        chamaSlug: notif.chama?.slug || notif.sharedLink || "Unknown Chama"
+        chamaSlug: notif.chama?.slug || notif.sharedLink || ""
       };
 
       transformedNotifications.push(transformed);

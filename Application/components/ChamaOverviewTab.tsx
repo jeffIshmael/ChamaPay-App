@@ -166,11 +166,11 @@ const ChamaOverviewTab: FC<Props> = ({
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })} KES`
-                          : `${myContributions.toFixed(3)} ${currency}`}
+                          : `${myContributions > 0 ? myContributions.toFixed(3) : 0} ${currency}`}
                       </Text>
                       {kesRate > 0 && (
                         <Text className="text-xs text-gray-500 mt-1">
-                          ≈ {myContributions.toFixed(3)} {currency}
+                          ≈ {myContributions > 0 ? myContributions.toFixed(3) : 0} {currency}
                         </Text>
                       )}
                     </View>
@@ -288,11 +288,11 @@ const ChamaOverviewTab: FC<Props> = ({
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })} KES`
-                            : `${myCollateral.toFixed(3)} ${currency}`}
+                            : `${myCollateral > 0 ? myCollateral.toFixed(3) : 0} ${currency}`}
                         </Text>
                         {kesRate > 0 && user?.location === "KE" && (
                           <Text className="text-xs text-gray-500 mt-1">
-                            ≈ {myCollateral.toFixed(3)} {currency}
+                            ≈ {myCollateral > 0 ? myCollateral.toFixed(3) : 0} {currency}
                           </Text>
                         )}
                       </View>
@@ -308,7 +308,7 @@ const ChamaOverviewTab: FC<Props> = ({
                             <Text className="text-purple-700 text-xs">
                               {kesRate > 0 && user?.location === "KE"
                                 ? `${(collateralAmount * kesRate).toLocaleString()} KES`
-                                : `${collateralAmount.toFixed(3)} ${currency}`}
+                                : `${collateralAmount > 0 ? collateralAmount.toFixed(3) : 0} ${currency}`}
                               {collateralAmount >= (contribution * 10) && (
                                 <Text className="text-emerald-600 font-bold">
                                   {" "}✓ Complete

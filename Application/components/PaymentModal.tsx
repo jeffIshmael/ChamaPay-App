@@ -50,11 +50,11 @@ const PaymentModal = ({
   useEffect(() => {
     console.log("the payment method", paymentMethod);
     const fetchUSDCBalance = async () => {
-      const balance = await getAllBalances(user?.address as `0x${string}`);
+      const balance = await getAllBalances(user?.smartAddress as `0x${string}`);
       setUSDCBalance(balance.USDC.displayValue);
     };
     fetchUSDCBalance();
-  }, [user?.address]);
+  }, [user?.smartAddress]);
 
   return (
     <Modal
@@ -89,7 +89,7 @@ const PaymentModal = ({
                       <View>
                         <Text className="text-lg font-medium">USDC</Text>
                         <Text className="text-xs text-gray-500">
-                          {Number(USDCBalance).toFixed(3)} USDC
+                          {Number(USDCBalance) > 0 ? Number(USDCBalance).toFixed(3) : 0} USDC
                         </Text>
                       </View>
                     </View>

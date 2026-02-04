@@ -1,7 +1,7 @@
 import { useAuth } from "@/Contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
-import { useRouter } from "expo-router";
+import { ArrowLeft } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -12,21 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import {ArrowLeft } from "lucide-react-native"
-import {
-  prepareContractCall,
-  sendTransaction,
-  toUnits,
-  waitForReceipt,
-} from "thirdweb";
-import { useActiveAccount } from "thirdweb/react";
 import { serverUrl } from "../constants/serverUrl";
-import {
-  chain,
-  chamapayContract,
-  client,
-  usdcContract,
-} from "../constants/thirdweb";
 
 const USDCPay = ({
   visible,
@@ -59,8 +45,6 @@ const USDCPay = ({
   const [amount, setAmount] = useState("");
   const [error, setError] = useState("");
   const [txHash, setTxHash] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const { token } = useAuth();
 
   const handlePayment = async () => {
@@ -104,10 +88,11 @@ const USDCPay = ({
         return;
       }
 
-      setSuccessMessage(
-        `Successfully deposited ${amount} USDC to ${chamaName}`
-      );
-      setShowSuccessModal(true);
+      onSuccess({
+        txHash: "", // Server doesn't return txHash yet in this call
+        message: `Successfully deposited ${amount} USDC to ${chamaName}`,
+        amount: amount.toString(),
+      });
     } catch (error) {
       console.log("Payment error:", error);
       setError("Failed to process payment. Please try again.");
@@ -130,16 +115,6 @@ const USDCPay = ({
 
   const handleClose = () => {
     setAmount("");
-    setShowSuccessModal(false);
-    onClose();
-  };
-
-  const handleSuccessClose = () => {
-    setShowSuccessModal(false);
-    setAmount("");
-    setError("");
-    setTxHash("");
-    setSuccessMessage("");
     onClose();
   };
 
@@ -226,7 +201,7 @@ const USDCPay = ({
               </View>
 
               <Text className="text-black font-light text-base mb-4">
-                Available balance: {Number(USDCBalance).toFixed(3)} USDC
+                Available balance: {Number(USDCBalance) > 0 ? Number(USDCBalance).toFixed(3) : 0} USDC
               </Text>
 
               {Number(amount) > 0 && (
@@ -279,38 +254,6 @@ const USDCPay = ({
         </View>
       </View>
 
-      {/* Success Modal */}
-      <Modal
-        visible={showSuccessModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={handleSuccessClose}
-      >
-        <View className="flex-1 justify-center items-center bg-black/50">
-          <View className="bg-white rounded-2xl p-6 mx-6 shadow-lg">
-            <View className="items-center mb-4">
-              <View className="w-16 h-16 bg-green-100 rounded-full items-center justify-center mb-4">
-                <Ionicons name="checkmark" size={32} color="#059669" />
-              </View>
-              <Text className="text-xl font-semibold text-gray-900 mb-2">
-                Payment Successful!
-              </Text>
-              <Text className="text-gray-600 text-center mb-4">
-                {successMessage}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={handleSuccessClose}
-              className="bg-emerald-600 py-3 rounded-xl"
-              activeOpacity={0.8}
-            >
-              <Text className="text-white font-semibold text-center text-base">
-                Done
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </Modal>
   );
 };
