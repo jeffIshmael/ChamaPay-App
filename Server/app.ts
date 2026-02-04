@@ -2,10 +2,11 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express, { Application } from "express";
 import authRoutes from "./Routes/authRoutes";
-import userRoutes from "./Routes/userRoutes";
 import chamaRoutes from "./Routes/chamaRoutes";
 import cronRoutes from "./Routes/cronRoutes";
 import pretiumRoutes from "./Routes/pretiumRoutes";
+import userRoutes from "./Routes/userRoutes";
+import webhookRoutes from "./Routes/webhookRoutes";
 
 // Load environment variables
 dotenv.config();
@@ -23,6 +24,7 @@ app.use("/user", userRoutes); // All user-related routes
 app.use("/chama", chamaRoutes); // All chama-related routes
 app.use("/cron", cronRoutes);
 app.use("/pretium", pretiumRoutes);
+app.use("/webhooks", webhookRoutes); // Webhook routes for external services
 
 // Health check endpoint
 app.get("/health", (req, res) => {
