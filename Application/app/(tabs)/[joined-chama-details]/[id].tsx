@@ -39,6 +39,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toTokens } from "thirdweb/utils";
+import { getAllBalances } from "@/constants/thirdweb";
 
 // Loading Skeleton Component
 const SkeletonBox = ({
@@ -100,6 +101,7 @@ export default function JoinedChamaDetails() {
     readonly [readonly string[], readonly (readonly bigint[])[]] | null
   >(null);
   const [sendingLink, setSendingLink] = useState(false);
+  const [myWalletBalance, setMyWalletBalance] = useState<any>(null);
 
 
   const fetchChama = async () => {
@@ -154,12 +156,10 @@ export default function JoinedChamaDetails() {
 
       // get my chama balance
       const balanceToUse = currentMyBalance;
-      console.log("balanceToUse", balanceToUse);
       const firstBalance = Array.isArray(balanceToUse)
         ? balanceToUse[0]
         : balanceToUse;
       const myChamaBalance = (firstBalance || BigInt(0)) || 0;
-      console.log("myChamaBalance", myChamaBalance);
       // Set payment amount for the payment modal
       const remainingAmount =
         Number(transformedChama?.contribution) - Number(myChamaBalance);
@@ -173,9 +173,16 @@ export default function JoinedChamaDetails() {
     setIsLoading(false);
   };
 
+  const fetchMyWalletBalance = async () => {
+    if (!user?.smartAddress) return;
+    const balance = await getAllBalances(user.smartAddress as `0x${string}`);
+    setMyWalletBalance(balance);
+  };
+
   useEffect(() => {
     fetchChama();
     globalFetchRate("KES");
+    fetchMyWalletBalance();
   }, [id, token]);
 
   useEffect(() => {
@@ -560,7 +567,7 @@ export default function JoinedChamaDetails() {
           onSuccess={handleUSDCPaymentSuccess}
           chamaId={Number(chama.id)}
           chamaBlockchainId={Number(chama.blockchainId)}
-          USDCBalance={toTokens(myBalance ? myBalance[0] : BigInt(0), 6)}
+          USDCBalance={myWalletBalance?.USDC?.displayValue}
           chamaName={chama.name}
           remainingAmount={remainingAmount}
           contributionAmount={Number(chama.contribution)}

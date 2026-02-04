@@ -37,8 +37,8 @@ const USDCPay = ({
   chamaBlockchainId,
   USDCBalance,
   chamaName,
-  remainingAmount = 0,
-  contributionAmount = 0,
+  remainingAmount,
+  contributionAmount,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -52,8 +52,8 @@ const USDCPay = ({
   chamaBlockchainId: number;
   USDCBalance: string;
   chamaName: string;
-  remainingAmount?: number;
-  contributionAmount?: number;
+  remainingAmount: number;
+  contributionAmount: number;
 }) => {
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState("");
@@ -248,7 +248,7 @@ const USDCPay = ({
               )}
 
               <TouchableOpacity
-                className={`py-4 rounded-xl shadow-md ${loading ? "bg-blue-200" : "bg-downy-800"
+                className={`py-4 rounded-xl shadow-md ${loading ? "bg-gray-400" : "bg-downy-800"
                   }`}
                 onPress={handlePayment}
                 disabled={loading}
