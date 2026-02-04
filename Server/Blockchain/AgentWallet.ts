@@ -12,8 +12,8 @@ if (!agentPrivateKey) {
 
 export const getAgentSmartWallet = async () => {
     try {
-        const { smartAccountClient } = await createSmartAccount(agentPrivateKey as `0x${string}`);
-        return smartAccountClient;
+        const { smartAccountClient, safeSmartAccount } = await createSmartAccount(agentPrivateKey as `0x${string}`);
+        return { smartAccountClient, agentSmartWallet: safeSmartAccount };
     } catch (error) {
         console.error("Error getting agent wallet:", error);
         throw error;
