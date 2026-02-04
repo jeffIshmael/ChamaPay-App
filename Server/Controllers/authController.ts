@@ -9,6 +9,7 @@ import { createUserWallet } from "../Lib/walletService";
 import Encryption from "../Lib/Encryption";
 import crypto from "crypto";
 import { createSmartAccount } from "../Blockchain/SmartAccount";
+import { addAddressToWebhook } from "../Lib/AlchemyWebhook";
 
 const prisma = new PrismaClient();
 
@@ -304,6 +305,8 @@ export const oauthAuthenticate = async (
       return;
     }
 
+
+
     if (!process.env.JWT_SECRET) {
       throw new Error("JWT_SECRET not configured");
     }
@@ -440,6 +443,20 @@ export const registerUser = async (
         location: country,
       },
     });
+
+    if (!newUser) {
+      res.status(500).json({
+        success: false,
+        message: "Failed to create user",
+      });
+      return;
+    }
+
+    // add user's wallet to alchemy webhook
+    const webhookResult = await addAddressToWebhook(newUser.smartAddress);
+    if (!webhookResult) {
+      console.error("Failed to add user's wallet to alchemy webhook");
+    }
 
     if (!process.env.JWT_SECRET) {
       throw new Error("JWT_SECRET not configured");

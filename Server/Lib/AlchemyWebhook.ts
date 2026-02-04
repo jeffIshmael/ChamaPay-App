@@ -8,11 +8,11 @@ export const addAddressToWebhook = async (
     address: string,
 ): Promise<boolean> => {
     try {
-        const apiKey = process.env.ALCHEMY_API_KEY;
+        const token = process.env.ALCHEMY_TOKEN;
         const webhookId = process.env.ALCHEMY_WEBHOOK_ID;
 
-        if (!apiKey) {
-            console.error("ALCHEMY_API_KEY not configured");
+        if (!token) {
+            console.error("ALCHEMY_TOKEN not configured");
             return false;
         }
 
@@ -30,7 +30,7 @@ export const addAddressToWebhook = async (
             },
             {
                 headers: {
-                    "X-Alchemy-Token": apiKey,
+                    "X-Alchemy-Token": token,
                     "Content-Type": "application/json",
                 },
             }
@@ -56,11 +56,11 @@ export const removeAddressFromWebhook = async (
     address: string,
 ): Promise<boolean> => {
     try {
-        const apiKey = process.env.ALCHEMY_API_KEY;
+        const token = process.env.ALCHEMY_TOKEN;
         const webhookId = process.env.ALCHEMY_WEBHOOK_ID;
 
-        if (!apiKey) {
-            console.error("ALCHEMY_API_KEY not configured");
+        if (!token) {
+            console.error("ALCHEMY_TOKEN not configured");
             return false;
         }
 
@@ -78,7 +78,7 @@ export const removeAddressFromWebhook = async (
             },
             {
                 headers: {
-                    "X-Alchemy-Token": apiKey,
+                    "X-Alchemy-Token": token,
                     "Content-Type": "application/json",
                 },
             }
@@ -102,11 +102,11 @@ export const removeAddressFromWebhook = async (
 export const getWebhookAddresses = async ():
     Promise<string[]> => {
     try {
-        const apiKey = process.env.ALCHEMY_API_KEY;
+        const token = process.env.ALCHEMY_TOKEN;
         const webhookId = process.env.ALCHEMY_WEBHOOK_ID;
 
-        if (!apiKey) {
-            console.error("ALCHEMY_API_KEY not configured");
+        if (!token) {
+            console.error("ALCHEMY_TOKEN not configured");
             return [];
         }
 
@@ -119,7 +119,7 @@ export const getWebhookAddresses = async ():
             `https://dashboard.alchemy.com/api/webhook-addresses?webhook_id=${webhookId}`,
             {
                 headers: {
-                    "X-Alchemy-Token": apiKey,
+                    "X-Alchemy-Token": token,
                 },
             }
         );
