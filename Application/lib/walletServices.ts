@@ -42,6 +42,7 @@ interface PaymentData {
     name: string;
   };
   receiver: string;
+  description: string;
 }
 
 /**
@@ -108,13 +109,13 @@ const validateTransaction = (tx: Partial<Transaction>): Transaction => {
 const transformPayment = (payment: PaymentData): Transaction => {
   return validateTransaction({
     id: payment.id,
-    type: "sent",
+    type: payment.description === "Received" ? "received" : "sent",
     token: "USDC",
     amount: payment.amount,
-    recipient: payment.receiver
+    recipient: payment.receiver 
       ? payment.receiver
       : payment.chama.name + " " + "chama",
-    sender: "you",
+    sender: payment.description === "Received" ? "you" : "you",
     hash: payment.txHash,
     date: payment.doneAt,
     status: "completed",
