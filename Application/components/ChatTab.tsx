@@ -4,13 +4,12 @@ import { useChat } from "@/hooks/useChat";
 import { Send } from "lucide-react-native";
 import React, { FC, useEffect, useRef, useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
+  Keyboard,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 type Props = {
@@ -26,6 +25,22 @@ const ChatTab: FC<Props> = ({ prevMessages, chamaId }) => {
 
   const { socketMessages, sendMessage } = useChat(chamaId);
   const { user, token } = useAuth();
+
+  // Auto-scroll when keyboard appears
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => {
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+    };
+  }, []);
 
   // Check if sender matches current user to identify user messages
   const isUserMessage = (sender: string | undefined) => {
@@ -103,15 +118,15 @@ const ChatTab: FC<Props> = ({ prevMessages, chamaId }) => {
     sender2: string
   ): boolean => {
     if (sender1 !== sender2) return false;
-    
+
     // Check if same day
     if (!isSameDay(msg1.timestamp, msg2.timestamp)) return false;
-    
+
     const time1 = parseTimestamp(msg1.timestamp);
     const time2 = parseTimestamp(msg2.timestamp);
     const diffMs = Math.abs(time2.getTime() - time1.getTime());
     const diffMins = diffMs / (1000 * 60);
-    
+
     // Group if within 2 minutes (WhatsApp-style)
     return diffMins < 2;
   };
@@ -204,22 +219,19 @@ const ChatTab: FC<Props> = ({ prevMessages, chamaId }) => {
   };
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-gray-50"
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
-    >
+    <View className="flex-1 bg-gray-50">
       <View className="flex-1">
         {/* Messages Area */}
         <ScrollView
           ref={scrollViewRef}
           className="flex-1"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ 
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
             paddingHorizontal: 16,
-            paddingTop: 16, 
-            paddingBottom: 16,
-            flexGrow: 1 
+            paddingTop: 16,
+            paddingBottom: 16
           }}
           onContentSizeChange={() => {
             setTimeout(() => {
@@ -243,32 +255,32 @@ const ChatTab: FC<Props> = ({ prevMessages, chamaId }) => {
             <View>
               {localMessages.map((message, index) => {
                 // Ensure sender is a string, not an object
-                const sender = typeof message.sender === 'string' 
-                  ? message.sender 
+                const sender = typeof message.sender === 'string'
+                  ? message.sender
                   : (message.sender as any)?.userName || (message.sender as any)?.name || 'Unknown';
-                
+
                 const isMyMessage = isUserMessage(sender);
                 const prevMessage = index > 0 ? localMessages[index - 1] : null;
                 const nextMessage = index < localMessages.length - 1 ? localMessages[index + 1] : null;
-                
-                const prevSender = prevMessage 
-                  ? (typeof prevMessage.sender === 'string' 
-                      ? prevMessage.sender 
-                      : (prevMessage.sender as any)?.userName || (prevMessage.sender as any)?.name || 'Unknown')
+
+                const prevSender = prevMessage
+                  ? (typeof prevMessage.sender === 'string'
+                    ? prevMessage.sender
+                    : (prevMessage.sender as any)?.userName || (prevMessage.sender as any)?.name || 'Unknown')
                   : null;
-                
-                const nextSender = nextMessage 
-                  ? (typeof nextMessage.sender === 'string' 
-                      ? nextMessage.sender 
-                      : (nextMessage.sender as any)?.userName || (nextMessage.sender as any)?.name || 'Unknown')
+
+                const nextSender = nextMessage
+                  ? (typeof nextMessage.sender === 'string'
+                    ? nextMessage.sender
+                    : (nextMessage.sender as any)?.userName || (nextMessage.sender as any)?.name || 'Unknown')
                   : null;
 
                 // Check if we need to show a date separator
                 const showDateSeparator = !prevMessage || !isSameDay(prevMessage.timestamp, message.timestamp);
-                
+
                 // Check if this is the first message in a group (show sender name)
                 const isFirstInGroup = !prevMessage || !shouldGroupMessages(prevMessage, message, prevSender!, sender);
-                
+
                 // Check if this is the last message in a group (show timestamp)
                 const isLastInGroup = !nextMessage || !shouldGroupMessages(message, nextMessage, sender, nextSender!);
 
@@ -287,9 +299,8 @@ const ChatTab: FC<Props> = ({ prevMessages, chamaId }) => {
 
                     {/* Message Bubble */}
                     <View
-                      className={`${isMyMessage ? "items-end" : "items-start"} ${
-                        isFirstInGroup ? "mt-3" : "mt-1"
-                      }`}
+                      className={`${isMyMessage ? "items-end" : "items-start"} ${isFirstInGroup ? "mt-3" : "mt-1"
+                        }`}
                     >
                       <View
                         className={`${isMyMessage ? "items-end" : "items-start"}`}
@@ -298,11 +309,10 @@ const ChatTab: FC<Props> = ({ prevMessages, chamaId }) => {
                         {/* Sender name for first message in group (not for own messages) */}
                         {!isMyMessage && isFirstInGroup && (
                           <Text
-                            className={`text-xs font-bold mb-1.5 px-1 ${
-                              message.isAdmin
-                                ? "text-emerald-700"
-                                : "text-gray-700"
-                            }`}
+                            className={`text-xs font-bold mb-1.5 px-1 ${message.isAdmin
+                              ? "text-emerald-700"
+                              : "text-gray-700"
+                              }`}
                           >
                             {sender}
                           </Text>
@@ -310,13 +320,12 @@ const ChatTab: FC<Props> = ({ prevMessages, chamaId }) => {
 
                         {/* Message Bubble */}
                         <View
-                          className={`px-4 py-2.5 shadow-sm ${
-                            isMyMessage
-                              ? "bg-emerald-600"
-                              : message.isAdmin
-                                ? "bg-emerald-100 border border-emerald-200"
-                                : "bg-white border border-gray-200"
-                          } ${
+                          className={`px-4 py-2.5 shadow-sm ${isMyMessage
+                            ? "bg-emerald-600"
+                            : message.isAdmin
+                              ? "bg-emerald-100 border border-emerald-200"
+                              : "bg-white border border-gray-200"
+                            } ${
                             // Rounded corners based on position in group
                             isMyMessage
                               ? isFirstInGroup && isLastInGroup
@@ -333,16 +342,15 @@ const ChatTab: FC<Props> = ({ prevMessages, chamaId }) => {
                                   : isLastInGroup
                                     ? "rounded-2xl rounded-tl-sm"
                                     : "rounded-r-2xl rounded-tl-sm rounded-bl-sm"
-                          }`}
+                            }`}
                         >
                           <Text
-                            className={`text-[15px] leading-5 ${
-                              isMyMessage
-                                ? "text-white"
-                                : message.isAdmin
-                                  ? "text-emerald-900"
-                                  : "text-gray-900"
-                            }`}
+                            className={`text-[15px] leading-5 ${isMyMessage
+                              ? "text-white"
+                              : message.isAdmin
+                                ? "text-emerald-900"
+                                : "text-gray-900"
+                              }`}
                           >
                             {message.text}
                           </Text>
@@ -351,11 +359,10 @@ const ChatTab: FC<Props> = ({ prevMessages, chamaId }) => {
                         {/* Timestamp - only show for last message in group */}
                         {isLastInGroup && (
                           <Text
-                            className={`text-[11px] mt-1 px-1 font-medium ${
-                              isMyMessage
-                                ? "text-gray-500"
-                                : "text-gray-500"
-                            }`}
+                            className={`text-[11px] mt-1 px-1 font-medium ${isMyMessage
+                              ? "text-gray-500"
+                              : "text-gray-500"
+                              }`}
                           >
                             {formatTime(message.timestamp)}
                           </Text>
@@ -389,11 +396,10 @@ const ChatTab: FC<Props> = ({ prevMessages, chamaId }) => {
             <TouchableOpacity
               onPress={handleSend}
               disabled={!newMessage.trim() || isSending}
-              className={`w-12 h-12 rounded-full items-center justify-center shadow-lg ${
-                newMessage.trim() && !isSending
-                  ? "bg-emerald-600"
-                  : "bg-gray-300"
-              }`}
+              className={`w-12 h-12 rounded-full items-center justify-center shadow-lg ${newMessage.trim() && !isSending
+                ? "bg-emerald-600"
+                : "bg-gray-300"
+                }`}
               activeOpacity={0.7}
             >
               <Send size={20} color="#ffffff" />
@@ -401,7 +407,7 @@ const ChatTab: FC<Props> = ({ prevMessages, chamaId }) => {
           </View>
         </View>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 };
 
