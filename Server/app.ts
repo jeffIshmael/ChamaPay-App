@@ -15,7 +15,11 @@ dotenv.config();
 const app: Application = express();
 
 // Middleware
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    (req as any).rawBody = buf.toString();
+  }
+}));
 app.use(cors());
 
 // Routes

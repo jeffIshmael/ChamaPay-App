@@ -1,8 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
 import { Request, Response } from "express";
-import { sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
 import { USDCAddress } from "../Blockchain/Constants";
+import { sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
 
 const prisma = new PrismaClient();
 
@@ -42,6 +42,8 @@ export const handleAlchemyWebhook = async (
     res: Response
 ): Promise<void> => {
     try {
+        console.log("Received webhook request");
+        console.log(req.body);
         const signature = req.headers["x-alchemy-signature"] as string;
         const signingKey = process.env.ALCHEMY_WEBHOOK_SIGNING_KEY;
 
@@ -52,7 +54,7 @@ export const handleAlchemyWebhook = async (
         }
 
         // Validate signature
-        const body = JSON.stringify(req.body);
+        const body = (req as any).rawBody || JSON.stringify(req.body);
         if (!signature || !validateAlchemySignature(body, signature, signingKey)) {
             console.error("Invalid webhook signature");
             res.status(401).json({ error: "Invalid signature" });
@@ -69,6 +71,7 @@ export const handleAlchemyWebhook = async (
 
         // Process each activity in the webhook
         const activities = payload.event?.activity || [];
+        const processedThisRequest = new Set<string>();
 
         for (const activity of activities) {
             // Check if this is a USDC transfer
@@ -78,26 +81,27 @@ export const handleAlchemyWebhook = async (
                 activity.rawContract?.address?.toLowerCase() ===
                 USDCAddress?.toLowerCase();
 
-            if (!isUSDCTransfer) {
-                continue;
-            }
+            if (!isUSDCTransfer) continue;
 
+            const txHash = activity.hash?.toLowerCase();
             const toAddress = activity.toAddress?.toLowerCase();
             const fromAddress = activity.fromAddress?.toLowerCase();
             const rawValue = activity.rawContract?.rawValue;
 
-            if (!toAddress || !rawValue) {
+            if (!toAddress || !rawValue || !txHash) {
                 console.log("Missing required transfer data");
                 continue;
             }
 
-            // Find user by smart address (recipient)
+            // 1. Prevent processing the same tx+recipient combination twice in ONE request
+            const uniqueId = `${txHash}-${toAddress}`;
+            if (processedThisRequest.has(uniqueId)) continue;
+            processedThisRequest.add(uniqueId);
+
+            // 2. Find Recipient (User)
             const user = await prisma.user.findFirst({
                 where: {
-                    smartAddress: {
-                        equals: toAddress,
-                        mode: "insensitive",
-                    },
+                    smartAddress: { equals: toAddress, mode: "insensitive" },
                 },
             });
 
@@ -106,32 +110,58 @@ export const handleAlchemyWebhook = async (
                 continue;
             }
 
-            // Format the amount
-            const amount = formatUSDCAmount(rawValue);
-            const fromAddressShort = shortenAddress(fromAddress);
-
-            // Send notification to user
-            const title = "💰 USDC Received";
-            const body = `You received ${amount} USDC from ${fromAddressShort}`;
-
-            console.log(`Sending notification to user ${user.id}: ${body}`);
-
-            await sendExpoNotificationToAUser(user.id, title, body);
-
-            // Optional: Create a notification record in database
-            // create as a transaction
-
-            await prisma.payment.create({
-                data: {
-                    amount: amount,
-                    txHash: activity.hash,
-                    userId: user.id,
-                    chamaId: null,
-                    description: "Received",
-                    doneAt: new Date(),
-                    receiver: toAddress,
+            // 3. Check for Existing Record (Idempotency check)
+            // This is the most important check for Alchemy retries
+            const existingPayment = await prisma.payment.findFirst({
+                where: {
+                    txHash: { equals: txHash, mode: "insensitive" },
+                    userId: user.id
                 }
-            })
+            });
+
+            if (existingPayment) {
+                console.log(`Transfer ${txHash} already processed for user ${user.id}`);
+                continue;
+            }
+
+            // 4. Data Preparation
+            const senderUser = await prisma.user.findFirst({
+                where: {
+                    smartAddress: { equals: fromAddress, mode: "insensitive" },
+                },
+            });
+
+            const senderDisplayName = senderUser ? `@${senderUser.userName}` : shortenAddress(activity.fromAddress);
+            const amount = formatUSDCAmount(rawValue);
+            const title = "💰 USDC Received";
+            const body = `You've received ${amount} USDC from ${senderDisplayName}`;
+
+            try {
+                // 5. Commit to Database FIRST
+                // If this fails (e.g. unique constraint), it will throw and the code below won't run
+                await prisma.$transaction([
+                    prisma.payment.create({
+                        data: {
+                            amount: amount,
+                            txHash: txHash,
+                            userId: user.id,
+                            chamaId: null,
+                            description: "Received",
+                            doneAt: new Date(),
+                            receiver: toAddress,
+                        }
+                    })
+                ]);
+
+                // 6. Send push notification ONLY after DB commit
+                // If this fails, the DB record still exists, so a retry will be caught by Step 3
+                console.log(`Sending notification to user ${user.id}: ${body}`);
+                await sendExpoNotificationToAUser(user.id, title, body);
+
+            } catch (dbError) {
+                console.error(`Failed to record transfer ${txHash} for user ${user.id}:`, dbError);
+                // We don't continue here - we want the loop to finish other activities if any
+            }
         }
 
         res.status(200).json({ message: "Webhook processed successfully" });
