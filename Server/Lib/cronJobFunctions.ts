@@ -42,6 +42,7 @@ export const checkStartDate = async () => {
         const members = chama.members;
         const addresses = members.map((m) => m.user.smartAddress);
         const shuffledPayoutOrder = shuffleArray(addresses);
+        console.log("shuffledPayoutOrder", shuffledPayoutOrder);
 
         const txHash = await pimlicoSetPayoutOrder(
           Number(chama.blockchainId),

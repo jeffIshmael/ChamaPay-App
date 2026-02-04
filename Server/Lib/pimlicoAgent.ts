@@ -16,10 +16,12 @@ export const pimlicoSetPayoutOrder = async (
   memberAddresses: string[]
 ) => {
   try {
-    const { smartAccountClient } = await getAgentSmartWallet();
+    const { smartAccountClient, agentSmartWallet } = await getAgentSmartWallet();
+    console.log("agentSmartWallet", agentSmartWallet.address);
 
     // we need to map the string array to make it 0x..
     const bcAddresses = memberAddresses.map((addr) => addr as `0x${string}`);
+    console.log("bcAddresses", bcAddresses);
 
     const setPayoutOrderHash = await smartAccountClient.writeContract({
       address: contractAddress,
