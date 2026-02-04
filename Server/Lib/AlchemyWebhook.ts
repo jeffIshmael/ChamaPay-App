@@ -6,18 +6,23 @@ import axios from "axios";
  */
 export const addAddressToWebhook = async (
     address: string,
-    webhookId: string
 ): Promise<boolean> => {
     try {
         const apiKey = process.env.ALCHEMY_API_KEY;
+        const webhookId = process.env.ALCHEMY_WEBHOOK_ID;
 
         if (!apiKey) {
             console.error("ALCHEMY_API_KEY not configured");
             return false;
         }
 
+        if (!webhookId) {
+            console.error("ALCHEMY_WEBHOOK_ID not configured");
+            return false;
+        }
+
         const response = await axios.patch(
-            `https://dashboard.alchemy.com/api/update-webhook-addresses`,
+            "https://dashboard.alchemy.com/api/update-webhook-addresses",
             {
                 webhook_id: webhookId,
                 addresses_to_add: [address.toLowerCase()],
@@ -34,7 +39,11 @@ export const addAddressToWebhook = async (
         console.log(`Successfully added address ${address} to Alchemy webhook`);
         return true;
     } catch (error) {
-        console.error("Error adding address to Alchemy webhook:", error);
+        if (axios.isAxiosError(error)) {
+            console.error("Alchemy API Error:", error.response?.data || error.message);
+        } else {
+            console.error("Error adding address to Alchemy webhook:", error);
+        }
         return false;
     }
 };
@@ -45,18 +54,23 @@ export const addAddressToWebhook = async (
  */
 export const removeAddressFromWebhook = async (
     address: string,
-    webhookId: string
 ): Promise<boolean> => {
     try {
         const apiKey = process.env.ALCHEMY_API_KEY;
+        const webhookId = process.env.ALCHEMY_WEBHOOK_ID;
 
         if (!apiKey) {
             console.error("ALCHEMY_API_KEY not configured");
             return false;
         }
 
+        if (!webhookId) {
+            console.error("ALCHEMY_WEBHOOK_ID not configured");
+            return false;
+        }
+
         const response = await axios.patch(
-            `https://dashboard.alchemy.com/api/update-webhook-addresses`,
+            "https://dashboard.alchemy.com/api/update-webhook-addresses",
             {
                 webhook_id: webhookId,
                 addresses_to_add: [],
@@ -73,7 +87,11 @@ export const removeAddressFromWebhook = async (
         console.log(`Successfully removed address ${address} from Alchemy webhook`);
         return true;
     } catch (error) {
-        console.error("Error removing address from Alchemy webhook:", error);
+        if (axios.isAxiosError(error)) {
+            console.error("Alchemy API Error:", error.response?.data || error.message);
+        } else {
+            console.error("Error removing address from Alchemy webhook:", error);
+        }
         return false;
     }
 };
@@ -81,14 +99,19 @@ export const removeAddressFromWebhook = async (
 /**
  * Get all addresses currently monitored by the webhook
  */
-export const getWebhookAddresses = async (
-    webhookId: string
-): Promise<string[]> => {
+export const getWebhookAddresses = async ():
+    Promise<string[]> => {
     try {
         const apiKey = process.env.ALCHEMY_API_KEY;
+        const webhookId = process.env.ALCHEMY_WEBHOOK_ID;
 
         if (!apiKey) {
             console.error("ALCHEMY_API_KEY not configured");
+            return [];
+        }
+
+        if (!webhookId) {
+            console.error("ALCHEMY_WEBHOOK_ID not configured");
             return [];
         }
 
@@ -101,9 +124,14 @@ export const getWebhookAddresses = async (
             }
         );
 
-        return response.data.addresses || [];
+        // Based on Alchemy docs: response structure is { data: string[], pagination: ... }
+        return response.data.data || [];
     } catch (error) {
-        console.error("Error getting webhook addresses:", error);
+        if (axios.isAxiosError(error)) {
+            console.error("Alchemy API Error:", error.response?.data || error.message);
+        } else {
+            console.error("Error getting webhook addresses:", error);
+        }
         return [];
     }
 };
