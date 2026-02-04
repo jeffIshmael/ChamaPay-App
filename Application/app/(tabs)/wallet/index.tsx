@@ -36,6 +36,7 @@ import {
   View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useUserResolver } from "@/hooks/useUserResolver";
 
 interface Transaction {
   id: number;
@@ -73,6 +74,7 @@ export default function CryptoWallet() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
+  const { isLoading, resolvedName } = useUserResolver();
 
   const fetchBalances = async () => {
     if (!token) return;
@@ -247,9 +249,9 @@ export default function CryptoWallet() {
               </Text>
             ) : (
               <ResolvedAddress
-                address={tx.type === "sent" || tx.type === "withdrew" ? tx.recipient : tx.sender}
-                type={tx.type === "sent" || tx.type === "withdrew" ? "recipient" : "sender"}
-                fallback={tx.type === "sent" || tx.type === "withdrew" ? "Unknown" : tx.type === "received" ? "Unknown" : "On-chain transaction"}
+                address={tx.type === "sent" || tx.type === "withdrew" || tx.type === "received" ? tx.recipient : tx.sender}
+                type={tx.type === "sent" || tx.type === "withdrew" || tx.type === "received" ? "recipient" : "sender"}
+                fallback={tx.type === "sent" || tx.type === "withdrew" || tx.type === "received" ? "Unknown" : tx.type === "received" ? "Unknown" : "On-chain transaction"}
                 textClassName="text-xs text-gray-500 mt-1"
                 showPrefix={true}
               />

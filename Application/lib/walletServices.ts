@@ -43,6 +43,7 @@ interface PaymentData {
   };
   receiver: string;
   description: string;
+  sender?: string;
 }
 
 /**
@@ -115,7 +116,7 @@ const transformPayment = (payment: PaymentData): Transaction => {
     recipient: payment.receiver 
       ? payment.receiver
       : payment.chama.name + " " + "chama",
-    sender: payment.description === "Received" ? "you" : "you",
+    sender: payment.description === "Received" && payment.sender ? payment.sender : "you",
     hash: payment.txHash,
     date: payment.doneAt,
     status: "completed",
