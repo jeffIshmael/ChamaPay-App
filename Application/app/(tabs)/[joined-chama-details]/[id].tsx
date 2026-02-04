@@ -374,7 +374,7 @@ export default function JoinedChamaDetails() {
       nextPayoutAmount={nextPayoutAmount}
       nextPayoutDate={chama.nextPayout!}
       leaveChama={leaveChama}
-      userAddress={(user?.address as `0x${string}`) || ""}
+      userAddress={(user?.smartAddress as `0x${string}`) || ""}
       chamaStatus={chama.status}
       chamaStartDate={chama.startDate}
       currency={chama.currency}

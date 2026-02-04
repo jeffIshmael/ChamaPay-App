@@ -7,6 +7,7 @@ import {
   DollarSign,
   ExternalLink,
   LogOut,
+  Plus,
   Receipt,
   ReceiptIcon
 } from "lucide-react-native";
@@ -482,7 +483,7 @@ const ChamaOverviewTab: FC<Props> = ({
 
       {/* Next Payout Info */}
       <Card className="p-6 mb-6">
-        <View className="flex-row items-center gap-2 mb-4">
+        <View className="flex-row items-center gap-2 mb-1 ">
           <View className="w-12 h-12  items-center justify-center">
             <CalendarCog size={20} color="#059669" />
           </View>
@@ -505,6 +506,8 @@ const ChamaOverviewTab: FC<Props> = ({
             </Text>
           </View>
         </View>
+
+        <View className="h-px bg-gray-200 mb-4" />
 
         {chamaStatus === "not started" ? (
           <View className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-200">
@@ -554,7 +557,7 @@ const ChamaOverviewTab: FC<Props> = ({
 
       {/* Recent Transactions */}
       <Card className="p-6 mb-6">
-        <View className="flex-row items-center justify-between mb-4">
+        <View className="flex-row items-center justify-between mb-2">
           <Text className="text-lg font-semibold text-gray-900">
             Recent Transactions
           </Text>
@@ -566,6 +569,8 @@ const ChamaOverviewTab: FC<Props> = ({
             )
           }
         </View>
+
+         <View className="h-px bg-gray-200 mb-4" />
 
         <View className="gap-3">
           {recentTransactions.length > 0 ? (
@@ -585,13 +590,13 @@ const ChamaOverviewTab: FC<Props> = ({
                     <View className={`w-10 h-10  items-center justify-center`}>
                       {transaction.type === "contribution" ? (
                         <CircleArrowDown
-                          size={24}
+                          size={22}
                           color={"#059669"}
                           className="w-10 h-10"
                         />
                       ) : (
                         <CircleArrowOutUpRight
-                          size={24}
+                          size={22}
                           color={"#ea580c"}
                           className="w-10 h-10"
                         />
