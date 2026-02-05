@@ -4,9 +4,9 @@ import { useAuth } from "@/Contexts/AuthContext";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { getRelativeTime } from "@/Utils/helperFunctions";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, ExternalLink, Minus, Plus, Receipt, Search } from "lucide-react-native"; // ReceiptIcon is not in lucide-react-native, using Receipt
+import { ArrowLeft, CornerUpRight, ExternalLink, Minus, Plus, Receipt } from "lucide-react-native"; // ReceiptIcon is not in lucide-react-native, using Receipt
 import React, { useState } from "react";
-import { FlatList, Linking, Modal, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { FlatList, Linking, Modal, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ChamaTransactions() {
@@ -52,45 +52,63 @@ export default function ChamaTransactions() {
         return (
             <TouchableOpacity
                 onPress={() => handleTransactionPress(transaction)}
-                className={`flex-row items-center justify-between py-3 px-4 rounded-xl mb-3 ${isMyTransaction
-                    ? "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200"
-                    : "bg-white border border-gray-100"
+                className={`flex-row justify-between py-3 px-4 rounded-xl mb-3 ${transaction.type === "payout"
+                        ? "bg-indigo-50 border border-indigo-200"
+                        : isMyTransaction
+                            ? "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200"
+                            : "bg-white border border-gray-100"
                     }`}
                 activeOpacity={0.7}
             >
-                <View className="flex-row items-center gap-2 flex-1">
-                    <View className="flex-1">
-                        <View className="flex-row items-center gap-2">
-                            <Text className="text-base font-medium text-gray-900 capitalize" numberOfLines={1}>
-                                {isMyTransaction ? (
-                                    <Text className="font-bold text-blue-700">You</Text>
-                                ) : (
-                                    <ResolvedAddress
-                                        address={transaction.user.address}
-                                        showPrefix={false}
-                                        textClassName="text-base font-medium text-gray-900 capitalize"
-                                        fallback={transaction.user.name}
-                                    />
-                                )}{" "}
-                                {transaction.description}
+                <View className="flex-1 justify-center mr-4">
+                    <Text className={`text-base font-semibold capitalize mb-1 ${transaction.type === "payout" ? "text-indigo-600" : "text-gray-900"}`} numberOfLines={1}>
+                        {transaction.type === "payout" ? "Cycle & Round Payout" : transaction.description}
+                    </Text>
+
+                    {transaction.type === "payout" ? (
+                        <Text className="text-xs text-gray-500" numberOfLines={1}>
+                            Received by <Text className="font-medium text-gray-700">
+                                {transaction.user.address === user?.smartAddress ? "You" : transaction.user.name || "Member"}
                             </Text>
-                        </View>
-                        <Text className="text-xs text-gray-500 mt-1">
-                            {getRelativeTime(transaction.date)}
                         </Text>
-                    </View>
+                    ) : (
+                        <View className="flex-row items-center">
+                            {isMyTransaction ? (
+                                <Text className="text-xs font-semibold text-blue-700">You</Text>
+                            ) : (
+                                <ResolvedAddress
+                                    address={transaction.user.address}
+                                    showPrefix={false}
+                                    textClassName="text-xs font-medium text-gray-700 capitalize"
+                                    fallback={transaction.user.name}
+                                />
+                            )}
+                        </View>
+                    )}
                 </View>
 
-                <View className="items-end pl-2">
-                    <Text className="text-sm font-semibold text-emerald-700 flex-row items-center">
+                <View className="items-end justify-center">
+                    <Text
+                        className={`text-sm font-bold flex-row items-center mb-1 ${transaction.type === "contribution"
+                            ? "text-emerald-700"
+                            : transaction.type === "payout"
+                                ? "text-purple-700"
+                                : "text-orange-700"
+                            }`}
+                    >
                         {transaction.type === "contribution" ? (
-                            <Plus size={14} color="#059669" style={{ marginRight: 2 }} />
+                            <Plus size={12} color="#059669" style={{ marginRight: 2 }} />
+                        ) : transaction.type === "payout" ? (
+                            <CornerUpRight size={12} color="#7c3aed" style={{ marginRight: 2 }} />
                         ) : (
-                            <Minus size={14} color="#ea580c" style={{ marginRight: 2 }} />
+                            <Minus size={12} color="#ea580c" style={{ marginRight: 2 }} />
                         )}
                         {kesRate > 0 && user?.location === "KE"
                             ? `  ${(Number(transaction.amount) * kesRate).toFixed(2)} KES`
                             : `  ${(transaction.amount || 0).toString()} ${currency}`}
+                    </Text>
+                    <Text className="text-xs text-gray-400">
+                        {getRelativeTime(transaction.date)}
                     </Text>
                 </View>
             </TouchableOpacity>

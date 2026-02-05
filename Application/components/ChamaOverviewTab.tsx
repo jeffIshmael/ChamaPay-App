@@ -3,13 +3,15 @@ import { formatTimeRemaining, getRelativeTime } from "@/Utils/helperFunctions";
 import { useRouter } from "expo-router";
 import {
   CalendarCog,
+  CornerUpRight,
   DollarSign,
   ExternalLink,
   LogOut,
   Minus,
   Plus,
   Receipt,
-  ReceiptIcon
+  ReceiptIcon,
+  TrendingUp
 } from "lucide-react-native";
 import React, { FC, useState } from "react";
 import { Dimensions, Linking, Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
@@ -599,75 +601,76 @@ const ChamaOverviewTab: FC<Props> = ({
                 <TouchableOpacity
                   key={transaction.id}
                   onPress={() => handleTransactionPress(transaction)}
-                  className={`flex-row items-center justify-between py-3 px-4 rounded-xl ${isMyTransaction
+                  className={`flex-row justify-between py-3 px-4 rounded-xl ${isMyTransaction
                     ? "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200"
                     : "bg-gray-50"
                     }`}
                   activeOpacity={0.7}
                 >
-                  <View className="flex-row items-center gap-2">
-                    <View>
-                      <View className="flex-row items-center gap-2">
-                        <Text className="text-base font-medium text-gray-900 capitalize">
-                          {isMyTransaction ? (
-                            <Text className="font-bold text-blue-700">
-                              You
-                            </Text>
-                          ) : (
-                            <ResolvedAddress
-                              address={transaction.user.address}
-                              showPrefix={false}
-                              textClassName="text-base font-medium text-gray-900 capitalize"
-                              fallback={transaction.user.name}
-                            />
-                          )}{" "}
-                          {transaction.description}
+                  <View className="flex-1 justify-center mr-4">
+                    <Text className={`text-base font-semibold capitalize mb-1 ${transaction.type === "payout" ? "text-indigo-600" : "text-gray-900"}`} numberOfLines={1}>
+                      {transaction.type === "payout" ? "Cycle & Round Payout" : transaction.description}
+                    </Text>
+
+                    {transaction.type === "payout" ? (
+                      <Text className="text-xs text-gray-500" numberOfLines={1}>
+                        Received by <Text className="font-medium text-gray-700">
+                          {transaction.user.address === userAddress ? "You" : transaction.user.name || "Member"}
                         </Text>
-                      </View>
-                      <Text className="text-xs text-gray-600 mt-1">
-                        {getRelativeTime(transaction.date)}
                       </Text>
-                    </View>
+                    ) : (
+                      <View className="flex-row items-center">
+                        {isMyTransaction ? (
+                          <Text className="text-xs font-semibold text-blue-700">You</Text>
+                        ) : (
+                          <ResolvedAddress
+                            address={transaction.user.address}
+                            showPrefix={false}
+                            textClassName="text-xs font-medium text-gray-700 capitalize"
+                            fallback={transaction.user.name}
+                          />
+                        )}
+                      </View>
+                    )}
                   </View>
-                  <View className="items-end">
-                    <Text className="text-sm  font-semibold text-emerald-700">
+                  <View className="items-end justify-center">
+                    <Text
+                      className={`text-sm font-bold flex-row items-center mb-1 ${transaction.type === "contribution"
+                        ? "text-emerald-700"
+                        : transaction.type === "payout"
+                          ? "text-purple-700"
+                          : "text-orange-700"
+                        }`}
+                    >
                       {transaction.type === "contribution" ? (
                         <Plus
-                          size={16}
+                          size={12}
                           color={"#059669"}
-                          className="w-10 h-10 mr-2"
+                          style={{ marginRight: 2 }}
+                        />
+                      ) : transaction.type === "payout" ? (
+                        <CornerUpRight
+                          size={12}
+                          color={"#7c3aed"}
+                          style={{ marginRight: 2 }}
                         />
                       ) : (
                         <Minus
-                          size={16}
+                          size={12}
                           color={"#ea580c"}
-                          className="w-10 h-10"
+                          style={{ marginRight: 2 }}
                         />
                       )}
 
                       {kesRate > 0
                         ? `  ${(Number(transaction.amount) * kesRate).toFixed(2)} KES`
                         : `  ${(transaction.amount || 0).toString()} ${currency}`}
-                      {/* {kesRate > 0 && <Text className="text-xs font-medium text-emerald-600"> ({Number(transaction.amount).toLocaleString()} {currency})</Text>} */}
                     </Text>
-                    {/* <View
-                      className={`px-2 py-1 rounded-full ${
-                        transaction.type === "contribution"
-                          ? "bg-emerald-100"
-                          : "bg-orange-100"
-                      }`}
-                    > */}
-                    {/* <Text
-                        className={`text-xs font-medium ${
-                          transaction.type === "contribution"
-                            ? "text-emerald-700"
-                            : "text-orange-700"
-                        }`}
-                      >
-                        {transaction.type === "contribution" ? "In" : "Out"}
-                      </Text> */}
-                    {/* </View> */}
+                    <Text className="text-xs text-gray-400">
+                      {getRelativeTime(transaction.date)}
+                    </Text>
                   </View>
+
                 </TouchableOpacity>
               );
             })
@@ -838,7 +841,7 @@ const ChamaOverviewTab: FC<Props> = ({
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </ScrollView >
   );
 };
 

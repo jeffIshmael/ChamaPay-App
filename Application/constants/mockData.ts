@@ -26,7 +26,7 @@ export interface PayoutScheduleItem {
 }
 
 export interface Transaction {
-  id: number;
+  id: number | string;
   type: string;
   amount: number;
   date: string;
@@ -84,8 +84,8 @@ export interface JoinedChama {
   payoutSchedule: PayoutScheduleItem[];
   members: Member[];
   recentTransactions: Transaction[];
-  userChamaBalance?:[];
-  eachMemberBalance?:[];
+  userChamaBalance?: [];
+  eachMemberBalance?: [];
 }
 
 export type PublicChama = {
@@ -108,7 +108,7 @@ export type PublicChama = {
   adminTerms: string[];
 };
 
-export type User =  {
+export type User = {
   id: number;
   email: string;
   name: string | null;
