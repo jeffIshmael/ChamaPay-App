@@ -250,7 +250,7 @@ export default function CryptoWallet() {
             ) : (
               <ResolvedAddress
                 address={tx.type === "sent" || tx.type === "withdrew" || tx.type === "received" ? tx.recipient : tx.sender}
-                type={tx.type === "sent" || tx.type === "withdrew" || tx.type === "received" ? "recipient" : "sender"}
+                type={tx.type === "sent" || tx.type === "withdrew"  ? "recipient" : "sender"}
                 fallback={tx.type === "sent" || tx.type === "withdrew" || tx.type === "received" ? "Unknown" : tx.type === "received" ? "Unknown" : "On-chain transaction"}
                 textClassName="text-xs text-gray-500 mt-1"
                 showPrefix={true}
@@ -648,10 +648,11 @@ export default function CryptoWallet() {
                           maximumFractionDigits: 2,
                         }).split('.')[0]
                         : balanceVisible && user?.location !== "KE"
-                          ? Number(usdcBalance).toLocaleString(undefined, {
+                          ? Number(usdcBalance) > 0 ? Number(usdcBalance).toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           }).split('.')[0]
+                            : "0"
                           : "---"}
                     </Text>
                     <Text className="text-5xl text-white font-medium">
@@ -661,10 +662,11 @@ export default function CryptoWallet() {
                           maximumFractionDigits: 2,
                         }).split('.')[1] || "00"
                         : balanceVisible && user?.location !== "KE"
-                          ? Number(usdcBalance).toLocaleString(undefined, {
+                          ? Number(usdcBalance) > 0 ? Number(usdcBalance).toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           }).split('.')[1] || "00"
+                            : "00"
                           : ""}
                     </Text>
                     <Text className="text-lg text-white/90 ml-1 font-medium">

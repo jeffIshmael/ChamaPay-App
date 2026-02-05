@@ -1,12 +1,12 @@
 import { Transaction } from "@/constants/mockData";
-import { formatTimeRemaining } from "@/Utils/helperFunctions";
+import { formatTimeRemaining, getRelativeTime } from "@/Utils/helperFunctions";
+import { useRouter } from "expo-router";
 import {
   CalendarCog,
-  CircleArrowDown,
-  CircleArrowOutUpRight,
   DollarSign,
   ExternalLink,
   LogOut,
+  Minus,
   Plus,
   Receipt,
   ReceiptIcon
@@ -14,6 +14,7 @@ import {
 import React, { FC, useState } from "react";
 import { Dimensions, Linking, Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../Contexts/AuthContext";
+import { formatDate } from "../Utils/helperFunctions";
 import { ResolvedAddress } from "./ResolvedAddress";
 import { Card } from "./ui/Card";
 
@@ -38,6 +39,7 @@ type Props = {
   myCollateral: number;
   chamaStartDate: Date;
   collateralAmount: number;
+  chamaName: string;
 };
 
 const ChamaOverviewTab: FC<Props> = ({
@@ -61,7 +63,9 @@ const ChamaOverviewTab: FC<Props> = ({
   kesRate,
   collateralAmount,
   myCollateral,
+  chamaName,
 }) => {
+  const router = useRouter();
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
@@ -79,7 +83,6 @@ const ChamaOverviewTab: FC<Props> = ({
       const url = `https://celoscan.io/tx/${selectedTransaction.txHash}`;
       Linking.openURL(url);
       console.log("View transaction on chain:", selectedTransaction.txHash);
-      // You can implement opening a blockchain explorer URL here
     }
   };
 
@@ -90,24 +93,6 @@ const ChamaOverviewTab: FC<Props> = ({
       {/* Contribution Progress with Balance Cards */}
       <Card className="px-6 py-4 mb-4">
         {/* Section Header */}
-        {/* <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-xl font-semibold text-gray-900">
-            Cycle Overview
-          </Text>
-          <Badge
-            variant={myContributions >= contribution ? "default" : "secondary"}
-          >
-            <Text
-              className={
-                myContributions >= contribution
-                  ? "text-white"
-                  : "text-orange-700"
-              }
-            >
-              {myContributions >= contribution ? "Complete" : "Pending"}
-            </Text>
-          </Badge>
-        </View> */}
 
         {/* Swipeable Balance Cards */}
         <View className="mb-2">
@@ -162,21 +147,18 @@ const ChamaOverviewTab: FC<Props> = ({
                     <View className="mb-4">
                       <Text className="text-3xl font-bold text-gray-900">
                         {kesRate > 0
-                          ? `${(myContributions * kesRate).toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })} KES`
-                          : `${myContributions.toFixed(3)} ${currency}`}
+                          ? `${(myContributions * kesRate).toFixed(2)} KES`
+                          : `${myContributions > 0 ? myContributions.toFixed(3) : 0} ${currency}`}
                       </Text>
                       {kesRate > 0 && (
                         <Text className="text-xs text-gray-500 mt-1">
-                          ≈ {myContributions.toFixed(3)} {currency}
+                          ≈ {myContributions > 0 ? myContributions.toFixed(3) : 0} {currency}
                         </Text>
                       )}
                     </View>
 
                     {/* Payment Warning */}
-                    {remainingAmount > 0 && (
+                    {remainingAmount > 0 ? (
                       <View className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
                         <View className="flex-row items-start gap-2">
                           <View className="w-4 h-4 bg-orange-100 rounded-full items-center justify-center mt-0.5">
@@ -188,13 +170,26 @@ const ChamaOverviewTab: FC<Props> = ({
                             </Text>
                             <Text className="text-orange-700 text-xs">
                               {kesRate > 0
-                                ? `${(remainingAmount * kesRate).toLocaleString()} KES`
+                                ? `${(remainingAmount * kesRate).toFixed(2)} KES`
                                 : `${remainingAmount.toFixed(3)} ${currency}`}
                               {" • Due: "}
-                              {new Date(contributionDueDate).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                              })}
+                              {formatDate(contributionDueDate as unknown as string)}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    ) : (
+                      <View className="bg-gray-100 border border-gray-200 rounded-lg p-3 mb-3">
+                        <View className="flex-row items-start gap-2">
+                          <View className="w-4 h-4 bg-gray-100 items-center justify-center mt-0.5">
+                            <Text className="text-emerald-600 text-xs font-bold">✓</Text>
+                          </View>
+                          <View className="flex-1">
+                            <Text className="text-emerald-700 font-semibold text-xs mb-0.5">
+                              Up to Date
+                            </Text>
+                            <Text className="text-emerald-700 text-xs">
+                              You have no outstanding payments for this cycle.
                             </Text>
                           </View>
                         </View>
@@ -284,15 +279,12 @@ const ChamaOverviewTab: FC<Props> = ({
                       <View className="mb-4">
                         <Text className="text-3xl font-bold text-gray-900">
                           {kesRate > 0 && user?.location === "KE"
-                            ? `${(myCollateral * kesRate).toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })} KES`
-                            : `${myCollateral.toFixed(3)} ${currency}`}
+                            ? `${(myCollateral * kesRate).toFixed(2)} KES`
+                            : `${myCollateral > 0 ? myCollateral.toFixed(3) : 0} ${currency}`}
                         </Text>
                         {kesRate > 0 && user?.location === "KE" && (
                           <Text className="text-xs text-gray-500 mt-1">
-                            ≈ {myCollateral.toFixed(3)} {currency}
+                            ≈ {myCollateral > 0 ? myCollateral.toFixed(3) : 0} {currency}
                           </Text>
                         )}
                       </View>
@@ -307,8 +299,8 @@ const ChamaOverviewTab: FC<Props> = ({
                             </Text>
                             <Text className="text-purple-700 text-xs">
                               {kesRate > 0 && user?.location === "KE"
-                                ? `${(collateralAmount * kesRate).toLocaleString()} KES`
-                                : `${collateralAmount.toFixed(3)} ${currency}`}
+                                ? `${(collateralAmount * kesRate).toFixed(2)} KES`
+                                : `${collateralAmount > 0 ? collateralAmount.toFixed(3) : 0} ${currency}`}
                               {collateralAmount >= (contribution * 10) && (
                                 <Text className="text-emerald-600 font-bold">
                                   {" "}✓ Complete
@@ -378,10 +370,7 @@ const ChamaOverviewTab: FC<Props> = ({
                 <View className="mb-4">
                   <Text className="text-3xl font-bold text-gray-900">
                     {kesRate > 0
-                      ? `${(myContributions * kesRate).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })} KES`
+                      ? `${(myContributions * kesRate).toFixed(2)} KES`
                       : `${myContributions.toFixed(3)} ${currency}`}
                   </Text>
                   {kesRate > 0 && (
@@ -391,7 +380,7 @@ const ChamaOverviewTab: FC<Props> = ({
                   )}
                 </View>
 
-                {remainingAmount > 0 && (
+                {remainingAmount > 0 ? (
                   <View className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
                     <View className="flex-row items-start gap-2">
                       <View className="w-4 h-4 bg-orange-100 rounded-full items-center justify-center mt-0.5">
@@ -403,13 +392,29 @@ const ChamaOverviewTab: FC<Props> = ({
                         </Text>
                         <Text className="text-orange-700 text-xs">
                           {kesRate > 0
-                            ? `${(remainingAmount * kesRate).toLocaleString()} KES`
+                            ? `${(remainingAmount * kesRate).toFixed(2)} KES`
                             : `${remainingAmount.toFixed(3)} ${currency}`}
                           {" • Due: "}
                           {new Date(contributionDueDate).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
                           })}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ) : (
+                  <View className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-3">
+                    <View className="flex-row items-start gap-2">
+                      <View className="w-4 h-4 bg-emerald-100 rounded-full items-center justify-center mt-0.5">
+                        <Text className="text-emerald-600 text-xs font-bold">✓</Text>
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-emerald-800 font-semibold text-xs mb-0.5">
+                          Up to Date
+                        </Text>
+                        <Text className="text-emerald-700 text-xs">
+                          You have no outstanding payments for this cycle.
                         </Text>
                       </View>
                     </View>
@@ -495,19 +500,13 @@ const ChamaOverviewTab: FC<Props> = ({
               {chamaStatus === "not started"
                 ? `Starts in ${formatTimeRemaining(chamaStartDate!)}`
                 : chamaStatus === "active"
-                  ? `${new Date(nextPayoutDate).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}`
+                  ? `Cycle ${currentCycle} . Round ${currentRound}`
                   : "Cycle complete"}
             </Text>
           </View>
         </View>
 
-        <View className="h-px bg-gray-200 mb-4" />
+        <View className="h-px bg-gray-200 mb-2" />
 
         {chamaStatus === "not started" ? (
           <View className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-200">
@@ -530,7 +529,9 @@ const ChamaOverviewTab: FC<Props> = ({
           </View>
         ) : (
           <View className="bg-gradient-to-r from-emerald-50 to-blue-50 rounded-xl p-4">
+
             <View className="gap-3">
+
               <View className="flex-row justify-between items-center">
                 <Text className="text-sm font-medium text-gray-600">
                   Recipient
@@ -545,12 +546,21 @@ const ChamaOverviewTab: FC<Props> = ({
                 </Text>
                 <Text className="text-lg font-bold text-emerald-600">
                   {kesRate > 0
-                    ? `${(nextPayoutAmount * kesRate).toLocaleString()} KES`
-                    : `${nextPayoutAmount.toLocaleString()} ${currency}`}
-                  {kesRate > 0 && <Text className="text-sm font-medium text-emerald-400"> ({nextPayoutAmount.toLocaleString()} {currency})</Text>}
+                    ? `${(nextPayoutAmount * kesRate).toFixed(2)} KES`
+                    : `${nextPayoutAmount.toFixed(3)} ${currency}`}
+                  {/* {kesRate > 0 && <Text className="text-sm font-medium text-emerald-400"> ({nextPayoutAmount.toFixed(3)} {currency})</Text>} */}
+                </Text>
+              </View>
+              <View className="flex-row justify-between items-center">
+                <Text className="text-sm font-medium text-gray-600">
+                  Payout In
+                </Text>
+                <Text className="text-base font-semibold text-gray-900">
+                  {formatTimeRemaining(nextPayoutDate as unknown as string)}
                 </Text>
               </View>
             </View>
+
           </View>
         )}
       </Card>
@@ -563,14 +573,23 @@ const ChamaOverviewTab: FC<Props> = ({
           </Text>
           {
             recentTransactions.length > 3 && (
-              <TouchableOpacity className="bg-gray-100 px-3 py-1 rounded-full">
+              <TouchableOpacity
+                className="bg-gray-100 px-3 py-1 rounded-full"
+                onPress={() => router.push({
+                  pathname: "/chama-transactions",
+                  params: {
+                    transactions: JSON.stringify(recentTransactions),
+                    chamaName: chamaName
+                  }
+                })}
+              >
                 <Text className="text-xs text-gray-600 font-medium">View All</Text>
               </TouchableOpacity>
             )
           }
         </View>
 
-         <View className="h-px bg-gray-200 mb-4" />
+        <View className="h-px bg-gray-200 mb-4" />
 
         <View className="gap-3">
           {recentTransactions.length > 0 ? (
@@ -587,21 +606,6 @@ const ChamaOverviewTab: FC<Props> = ({
                   activeOpacity={0.7}
                 >
                   <View className="flex-row items-center gap-2">
-                    <View className={`w-10 h-10  items-center justify-center`}>
-                      {transaction.type === "contribution" ? (
-                        <CircleArrowDown
-                          size={22}
-                          color={"#059669"}
-                          className="w-10 h-10"
-                        />
-                      ) : (
-                        <CircleArrowOutUpRight
-                          size={22}
-                          color={"#ea580c"}
-                          className="w-10 h-10"
-                        />
-                      )}
-                    </View>
                     <View>
                       <View className="flex-row items-center gap-2">
                         <Text className="text-base font-medium text-gray-900 capitalize">
@@ -620,26 +624,31 @@ const ChamaOverviewTab: FC<Props> = ({
                           {transaction.description}
                         </Text>
                       </View>
-                      <Text className="text-sm text-gray-600">
-                        {new Date(transaction.date).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }
-                        )}
+                      <Text className="text-xs text-gray-600 mt-1">
+                        {getRelativeTime(transaction.date)}
                       </Text>
                     </View>
                   </View>
                   <View className="items-end">
                     <Text className="text-sm  font-semibold text-emerald-700">
+                      {transaction.type === "contribution" ? (
+                        <Plus
+                          size={16}
+                          color={"#059669"}
+                          className="w-10 h-10 mr-2"
+                        />
+                      ) : (
+                        <Minus
+                          size={16}
+                          color={"#ea580c"}
+                          className="w-10 h-10"
+                        />
+                      )}
+
                       {kesRate > 0
-                        ? `${(Number(transaction.amount) * kesRate).toLocaleString()} KES`
-                        : `${(transaction.amount || 0).toString()} ${currency}`}
-                      {kesRate > 0 && <Text className="text-xs font-medium text-emerald-600"> ({Number(transaction.amount).toLocaleString()} {currency})</Text>}
+                        ? `  ${(Number(transaction.amount) * kesRate).toFixed(2)} KES`
+                        : `  ${(transaction.amount || 0).toString()} ${currency}`}
+                      {/* {kesRate > 0 && <Text className="text-xs font-medium text-emerald-600"> ({Number(transaction.amount).toLocaleString()} {currency})</Text>} */}
                     </Text>
                     {/* <View
                       className={`px-2 py-1 rounded-full ${
