@@ -143,14 +143,11 @@ export default function JoinedChamaDetails() {
             string[],
             string[][]
           ];
-          console.log("rawData for members balances", rawData);
           const addresses = rawData[0];
           const balancesStr = rawData[1];
-          console.log("balancesStr", balancesStr);
           const balancesBigInt = balancesStr.map((arr) =>
             arr.map((b) => BigInt(b))
           );
-          console.log("balancesBigInt", balancesBigInt);
           setMemberBalances([addresses, balancesBigInt]);
         } catch (e) {
           console.error("Error parsing member balances", e);
@@ -405,6 +402,7 @@ export default function JoinedChamaDetails() {
       collateralAmount={chama.collateralAmount}
       kesRate={user?.location === "KE" ? kesRate : 0}
       myCollateral={myCollateral}
+      chamaName={chama.name}
     />
   );
 

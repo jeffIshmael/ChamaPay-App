@@ -208,6 +208,18 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
             profileImageUrl: true,
           },
         },
+        payOuts: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                smartAddress: true,
+                userName: true,
+                profileImageUrl: true,
+              },
+            },
+          },
+        }
       },
     });
     if (!chama) {

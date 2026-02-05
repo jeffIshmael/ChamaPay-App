@@ -130,7 +130,7 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
                           <View className="flex-row items-center gap-1">
                             <DollarSign size={14} color="#6b7280" />
                             <Text className="text-sm text-gray-600">
-                              Balance: {memberBalance.balance.toFixed(3)} USDC
+                              Balance: { memberBalance.balance > 0 ? memberBalance.balance.toFixed(3) : "0"} USDC
                             </Text>
                           </View>
                           
@@ -139,7 +139,7 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
                             <View className="flex-row items-center gap-2">
                               <Lock size={14} color="#f59e0b" />
                               <Text className="text-sm text-amber-600">
-                                Locked: {memberBalance.locked.toFixed(3)} USDC
+                                Locked: { memberBalance.locked > 0 ? memberBalance.locked.toFixed(3) : "0"} USDC
                               </Text>
                             </View>
                           )}

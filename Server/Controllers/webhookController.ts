@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
 import { Request, Response } from "express";
-import { USDCAddress } from "../Blockchain/Constants";
+import { USDCAddress, contractAddress } from "../Blockchain/Constants";
 import { sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
 
 const prisma = new PrismaClient();
@@ -136,33 +136,37 @@ export const handleAlchemyWebhook = async (
             const title = "💰 USDC Received";
             const body = `You've received ${amount} USDC from ${senderDisplayName}`;
 
-            try {
-                // 5. Commit to Database FIRST
-                // If this fails (e.g. unique constraint), it will throw and the code below won't run
-                await prisma.$transaction([
-                    prisma.payment.create({
-                        data: {
-                            amount: amount,
-                            txHash: txHash,
-                            userId: user.id,
-                            chamaId: null,
-                            description: "Received",
-                            doneAt: new Date(),
-                            receiver: toAddress,
-                            sender:fromAddress
-                        }
-                    })
-                ]);
+            // ensure its not a chama payment
+            if (fromAddress !== contractAddress.toLowerCase()) {
+                try {
+                    // 5. Commit to Database FIRST
+                    // If this fails (e.g. unique constraint), it will throw and the code below won't run
+                    await prisma.$transaction([
+                        prisma.payment.create({
+                            data: {
+                                amount: amount,
+                                txHash: txHash,
+                                userId: user.id,
+                                chamaId: null,
+                                description: "Received",
+                                doneAt: new Date(),
+                                receiver: toAddress,
+                                sender: fromAddress
+                            }
+                        })
+                    ]);
 
-                // 6. Send push notification ONLY after DB commit
-                // If this fails, the DB record still exists, so a retry will be caught by Step 3
-                console.log(`Sending notification to user ${user.id}: ${body}`);
-                await sendExpoNotificationToAUser(user.id, title, body);
+                    // 6. Send push notification ONLY after DB commit
+                    // If this fails, the DB record still exists, so a retry will be caught by Step 3
+                    console.log(`Sending notification to user ${user.id}: ${body}`);
+                    await sendExpoNotificationToAUser(user.id, title, body);
 
-            } catch (dbError) {
-                console.error(`Failed to record transfer ${txHash} for user ${user.id}:`, dbError);
-                // We don't continue here - we want the loop to finish other activities if any
+                } catch (dbError) {
+                    console.error(`Failed to record transfer ${txHash} for user ${user.id}:`, dbError);
+                    // We don't continue here - we want the loop to finish other activities if any
+                }
             }
+
         }
 
         res.status(200).json({ message: "Webhook processed successfully" });

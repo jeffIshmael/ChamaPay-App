@@ -250,7 +250,7 @@ export default function CryptoWallet() {
             ) : (
               <ResolvedAddress
                 address={tx.type === "sent" || tx.type === "withdrew" || tx.type === "received" ? tx.recipient : tx.sender}
-                type={tx.type === "sent" || tx.type === "withdrew" || tx.type === "received" ? "recipient" : "sender"}
+                type={tx.type === "sent" || tx.type === "withdrew"  ? "recipient" : "sender"}
                 fallback={tx.type === "sent" || tx.type === "withdrew" || tx.type === "received" ? "Unknown" : tx.type === "received" ? "Unknown" : "On-chain transaction"}
                 textClassName="text-xs text-gray-500 mt-1"
                 showPrefix={true}

@@ -1,6 +1,7 @@
 import { useAuth } from "@/Contexts/AuthContext";
 import { BackendChama, getPublicChamas } from "@/lib/chamaService";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
+import { formatDays, formatTimeRemaining } from "@/Utils/helperFunctions";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Calendar, Search, Star, TrendingUp, Users, Zap } from "lucide-react-native";
@@ -65,12 +66,12 @@ export default function DiscoverChamas() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const dateStr = date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    });
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+    const day = date.toLocaleDateString('en-US', { day: '2-digit' });
+    const month = date.toLocaleDateString('en-US', { month: 'short' });
+    const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 
-    return dateStr;
+    return `${dayName}, ${day} ${month} , ${time}`;
   };
 
   const renderStars = (rating: number) => {
@@ -148,15 +149,16 @@ export default function DiscoverChamas() {
         </View>
 
         {/* Amount Highlight */}
-        <View className="bg-emerald-50 rounded-xl p-4 mb-3 border border-emerald-200">
-          <Text className="text-xs text-emerald-700 font-semibold mb-1 uppercase tracking-wide">
+        <View className=" p-4 mb-2 ">
+          <Text className="text-xs text-emerald-700 font-semibold mb-1">
             Contribution Amount
           </Text>
           <Text className="text-3xl font-bold text-emerald-800">
             {kesRate > 0 && user?.location === "KE"
-              ? `${(parseFloat(chama.amount) * kesRate).toLocaleString()} KES`
-              : `${parseFloat(chama.amount).toLocaleString()} USDC`}
-            {kesRate > 0 && user?.location === "KE" && <Text className="text-sm font-medium text-emerald-600 ml-2"> ({parseFloat(chama.amount).toLocaleString()} USDC)</Text>}
+              ? `${(parseFloat(chama.amount) * kesRate).toFixed(2)} KES`
+              : `${parseFloat(chama.amount).toFixed(3)} USDC`}
+            {/* {kesRate > 0 && user?.location === "KE" && <Text className="text-sm font-medium text-emerald-600 ml-2"> ({parseFloat(chama.amount).toFixed(2)} USDC)</Text>} */}
+            {" "}/ {formatDays(chama.cycleTime)}
           </Text>
         </View>
 
@@ -175,23 +177,14 @@ export default function DiscoverChamas() {
           <View className="flex-1 bg-purple-50 rounded-xl p-3 border border-purple-100">
             <View className="flex-row items-center gap-1.5 mb-1">
               <Calendar size={16} color="#a855f7" />
-              <Text className="text-xs text-purple-700 font-semibold">Starts</Text>
+              <Text className="text-xs text-purple-700 font-semibold">{chama.started ? "Starts In:" : "Next Pay Date:"}</Text>
             </View>
             <Text className="text-lg font-bold text-purple-900">
-              {formatDate(chama.payDate as unknown as string)}
-            </Text>
-          </View>
-
-          <View className="flex-1 bg-orange-50 rounded-xl p-3 border border-orange-100">
-            <View className="flex-row items-center gap-1.5 mb-1">
-              <TrendingUp size={16} color="#f97316" />
-              <Text className="text-xs text-orange-700 font-semibold">Cycle</Text>
-            </View>
-            <Text className="text-lg font-bold text-orange-900">
-              {chama.cycleTime}d
+              { chama.started ? formatTimeRemaining(chama.startDate as unknown as string) : formatDate(chama.payDate as unknown as string)}
             </Text>
           </View>
         </View>
+
       </TouchableOpacity>
     );
   };

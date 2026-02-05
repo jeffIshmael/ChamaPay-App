@@ -43,6 +43,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Clipboard from 'expo-clipboard';
+import { formatTimeRemaining } from "@/Utils/helperFunctions";
 
 export default function ChamaDetails() {
   const { slug } = useLocalSearchParams();
@@ -391,7 +392,7 @@ export default function ChamaDetails() {
                   step: "1",
                   title: "Join & Lock Collateral",
                   description: kesRate > 0 && user?.location === "KE"
-                    ? `Lock ${(Number(chama.collateralAmount) * kesRate).toLocaleString()} KES (${chama.collateralAmount} cUSD) as collateral to serve as security in case of default.`
+                    ? `Lock ${(Number(chama.collateralAmount) * kesRate).toFixed(2)} KES (${chama.collateralAmount} USDC) as collateral to serve as security in case of default.`
                     : `Lock ${chama.collateralAmount} ${chama.currency} as collateral to serve as security in case of default.`,
                   icon: "🔒",
                   bgColor: "bg-emerald-50",
@@ -410,7 +411,7 @@ export default function ChamaDetails() {
                 step: "2",
                 title: "Monthly Contributions",
                 description: kesRate > 0 && user?.location === "KE"
-                  ? `Contribute ${(Number(chama.contribution) * kesRate).toLocaleString()} KES (${chama.contribution} USDC) every month on schedule`
+                  ? `Contribute ${(Number(chama.contribution) * kesRate).toFixed(2)} KES (${chama.contribution} USDC) every month on schedule`
                   : `Contribute ${chama.contribution} USDC every month on schedule`,
                 icon: "💰",
                 bgColor: "bg-blue-50",
@@ -451,10 +452,8 @@ export default function ChamaDetails() {
       {chama && chama.adminTerms.length > 0 && (
         <View className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-3xl shadow-sm border border-amber-200 p-6">
           <View className="flex-row items-center gap-3 mb-5">
-            <View className="w-12 h-12 rounded-2xl bg-white shadow-sm items-center justify-center">
-              <Text className="text-2xl">📋</Text>
-            </View>
-            <Text className="text-xl font-bold text-gray-900">
+
+            <Text className="ml-2 text-xl font-bold text-gray-900">
               Admin Requirements
             </Text>
           </View>
@@ -465,7 +464,7 @@ export default function ChamaDetails() {
             ).map((term: string, index: number) => (
               <View
                 key={index}
-                className="flex-row items-start gap-3 bg-white/60 rounded-xl p-3"
+                className="flex-row items-start gap-3  rounded-xl p-3"
               >
                 <CheckCircle2
                   size={18}
@@ -495,7 +494,7 @@ export default function ChamaDetails() {
               </Text>
               <Text className="font-semibold text-gray-900">
                 {kesRate > 0 && user?.location === "KE"
-                  ? `${(Number(chama.contribution) * kesRate).toLocaleString()} KES (${chama.contribution} ${chama.currency})`
+                  ? `${(Number(chama.contribution) * kesRate).toFixed(2)} KES (${chama.contribution} ${chama.currency})`
                   : `${chama.contribution} ${chama.currency}`}
               </Text>
             </View>
@@ -507,7 +506,7 @@ export default function ChamaDetails() {
                 </Text>
                 <Text className="font-semibold text-gray-900">
                   {kesRate > 0 && user?.location === "KE"
-                    ? `${(Number(chama.collateralAmount) * kesRate).toLocaleString()} KES (${chama.collateralAmount} ${chama.currency})`
+                    ? `${(Number(chama.collateralAmount) * kesRate).toFixed(2)} KES (${chama.collateralAmount} ${chama.currency})`
                     : `${chama.collateralAmount} ${chama.currency}`}
                 </Text>
               </View>
@@ -526,7 +525,7 @@ export default function ChamaDetails() {
                 {!chama.isPublic
                   ? "N/A"
                   : kesRate > 0 && user?.location === "KE"
-                    ? `${(Number(chama.collateralAmount) * kesRate).toLocaleString()} KES (${chama.collateralAmount} USDC)`
+                    ? `${(Number(chama.collateralAmount) * kesRate).toFixed(2)} KES (${chama.collateralAmount} USDC)`
                     : `${chama.collateralAmount} USDC`}
               </Text>
             </View>
@@ -685,25 +684,18 @@ export default function ChamaDetails() {
               </Text>
 
               {/* Meta Info Pills */}
-              <View className="flex-row flex-wrap gap-2 mb-6">
+              <View className="flex-row flex-wrap gap-2 mb-2">
                 <View className="flex-row items-center gap-2 bg-white/30 rounded-full px-4 py-2">
-                  <Clock size={16} color="white" />
                   <Text className="text-sm text-white font-semibold">
-                    {chama?.frequency}
+                    Cycle {chama.currentCycle} . Round {chama.currentRound}
                   </Text>
                 </View>
                 <View className="flex-row items-center gap-2 bg-white/30 rounded-full px-4 py-2">
-                  <Calendar size={16} color="white" />
                   <Text className="text-sm text-white font-semibold">
-                    {new Date(chama?.contributionDueDate).toLocaleDateString(
-                      "en-US",
-                      { month: "short", day: "numeric" }
-                    )}
-                    ,{" "}
-                    {new Date(chama?.contributionDueDate).toLocaleTimeString(
-                      "en-US",
-                      { hour: "numeric", minute: "2-digit", hour12: false }
-                    )}
+                    {chama.status !== "active" ? "Starts In:" : "Next Payout In:"}
+                  </Text>
+                  <Text className="text-sm text-white font-semibold">
+                    {chama.status !== "active" ? formatTimeRemaining(chama.startDate as unknown as string) : chama.nextPayoutDate}
                   </Text>
                 </View>
                 <View className="flex-row items-center gap-2  px-4 py-2">
@@ -749,14 +741,14 @@ export default function ChamaDetails() {
                   <View className="flex-row items-center gap-2 mb-2">
                     <Wallet size={18} color="#10b981" />
                     <Text className="text-gray-600 text-xs font-medium">
-                      {chama.frequency}
+                      Contribution amount
                     </Text>
                   </View>
                   <Text className="font-bold text-gray-900 text-lg">
                     {kesRate > 0 && user?.location === "KE"
-                      ? `${(Number(chama.contribution) * kesRate).toLocaleString()} KES`
-                      : `${chama.contribution} ${chama.currency}`}
-                    {kesRate > 0 && user?.location === "KE" && <Text className="text-xs font-medium text-gray-500"> ({chama.contribution} {chama.currency})</Text>}
+                      ? `${(Number(chama.contribution) * kesRate).toFixed(2)} KES`
+                      : `${chama.contribution} ${chama.currency}`} / {chama.frequency}
+                    {/* {kesRate > 0 && user?.location === "KE" && <Text className="text-xs font-medium text-gray-500"> ({chama.contribution} {chama.currency})</Text>} */}
                   </Text>
                 </View>
                 <View className="flex-1 bg-white rounded-2xl p-4 shadow-md">
@@ -770,9 +762,9 @@ export default function ChamaDetails() {
                     {!chama.isPublic
                       ? "N/A"
                       : kesRate > 0 && user?.location === "KE"
-                        ? `${(Number(chama.collateralAmount) * kesRate).toLocaleString()} KES`
+                        ? `${(Number(chama.collateralAmount) * kesRate).toFixed(2)} KES`
                         : `${chama.collateralAmount} ${chama.currency}`}
-                    {chama.isPublic && kesRate > 0 && user?.location === "KE" && <Text className="text-xs font-medium text-gray-500"> ({chama.collateralAmount} {chama.currency})</Text>}
+                    {/* {chama.isPublic && kesRate > 0 && user?.location === "KE" && <Text className="text-xs font-medium text-gray-500"> ({chama.collateralAmount} {chama.currency})</Text>} */}
                   </Text>
                 </View>
               </View>
@@ -802,9 +794,6 @@ export default function ChamaDetails() {
                   // Show disabled state with explanation when user can't join
                   <View className="w-full bg-gray-100 border-2 border-gray-200 rounded-2xl p-6">
                     <View className="items-center mb-4">
-                      <View className="w-16 h-16 bg-amber-100 rounded-full items-center justify-center mb-3">
-                        <Text className="text-3xl">⏰</Text>
-                      </View>
                       <Text className="text-xl font-bold text-gray-900 mb-2 text-center">
                         Joining Not Available
                       </Text>
