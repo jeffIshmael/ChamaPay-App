@@ -478,8 +478,8 @@ export default function SendCryptoScreen() {
               <View className="flex-row items-center">
                 <Text className="text-gray-500 text-sm">Available: </Text>
                 <Text className="text-gray-900 font-semibold text-sm">
-                  {user?.location === "KE" && kesRate > 0
-                    ? `${(parseFloat(tokenBalance as string) * kesRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES (${tokenBalance} USDC)`
+                  {isKESMode && kesRate > 0
+                    ? `${(parseFloat(tokenBalance as string) * kesRate).toFixed(2)} KES`
                     : `${tokenBalance} USDC`}
                 </Text>
               </View>

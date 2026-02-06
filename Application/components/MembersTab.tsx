@@ -133,8 +133,7 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
                               <DollarSign size={14} color="#6b7280" />
                               <Text className="text-sm text-gray-600">
                                 Balance:{" "}
-                                {user?.location === "KE" &&
-                                  currency === "KES" &&
+                                {currency === "KES" &&
                                   kesRate > 0
                                   ? `${(memberBalance.balance * kesRate).toFixed(2)} KES`
                                   : `${memberBalance.balance > 0 ? memberBalance.balance.toFixed(3) : "0"} USDC`}
@@ -147,8 +146,7 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
                                 <Lock size={14} color="#f59e0b" />
                                 <Text className="text-sm text-amber-600">
                                   Locked:{" "}
-                                  {user?.location === "KE" &&
-                                    currency === "KES" &&
+                                  {currency === "KES" &&
                                     kesRate > 0
                                     ? `${(memberBalance.locked * kesRate).toFixed(2)} KES`
                                     : `${memberBalance.locked > 0 ? memberBalance.locked.toFixed(3) : "0"} USDC`}

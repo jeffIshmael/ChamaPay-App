@@ -13,20 +13,21 @@ import {
   requestToJoin,
   shareChamaLink,
 } from "@/lib/userService";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
+import { formatTimeRemaining } from "@/Utils/helperFunctions";
+import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
-  Calendar,
   CheckCircle2,
-  Clock,
   Share,
   Share2,
   Shield,
   Star,
   User,
   Users,
-  Wallet,
+  Wallet
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
@@ -37,13 +38,11 @@ import {
   ScrollView,
   Text,
   TextInput,
+  ToastAndroid,
   TouchableOpacity,
-  View,
-  ToastAndroid
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as Clipboard from 'expo-clipboard';
-import { formatTimeRemaining } from "@/Utils/helperFunctions";
 
 export default function ChamaDetails() {
   const { slug } = useLocalSearchParams();
@@ -81,6 +80,7 @@ export default function ChamaDetails() {
   const [sendingLink, setSendingLink] = useState(false);
   const { token, user } = useAuth();
   const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
+  const { currency } = useCurrencyStore();
   const kesRate = rates["KES"]?.rate || 0;
 
   useEffect(() => {
@@ -391,7 +391,7 @@ export default function ChamaDetails() {
                 ? {
                   step: "1",
                   title: "Join & Lock Collateral",
-                  description: kesRate > 0 && user?.location === "KE"
+                  description: kesRate > 0 && currency === "KES"
                     ? `Lock ${(Number(chama.collateralAmount) * kesRate).toFixed(2)} KES (${chama.collateralAmount} USDC) as collateral to serve as security in case of default.`
                     : `Lock ${chama.collateralAmount} ${chama.currency} as collateral to serve as security in case of default.`,
                   icon: "🔒",
@@ -410,7 +410,7 @@ export default function ChamaDetails() {
               {
                 step: "2",
                 title: "Monthly Contributions",
-                description: kesRate > 0 && user?.location === "KE"
+                description: kesRate > 0 && currency === "KES"
                   ? `Contribute ${(Number(chama.contribution) * kesRate).toFixed(2)} KES (${chama.contribution} USDC) every month on schedule`
                   : `Contribute ${chama.contribution} USDC every month on schedule`,
                 icon: "💰",
@@ -493,7 +493,7 @@ export default function ChamaDetails() {
                 Monthly Contribution
               </Text>
               <Text className="font-semibold text-gray-900">
-                {kesRate > 0 && user?.location === "KE"
+                {kesRate > 0 && currency === "KES"
                   ? `${(Number(chama.contribution) * kesRate).toFixed(2)} KES (${chama.contribution} ${chama.currency})`
                   : `${chama.contribution} ${chama.currency}`}
               </Text>
@@ -505,7 +505,7 @@ export default function ChamaDetails() {
                   Total Pool (when full)
                 </Text>
                 <Text className="font-semibold text-gray-900">
-                  {kesRate > 0 && user?.location === "KE"
+                  {kesRate > 0 && currency === "KES"
                     ? `${(Number(chama.collateralAmount) * kesRate).toFixed(2)} KES (${chama.collateralAmount} ${chama.currency})`
                     : `${chama.collateralAmount} ${chama.currency}`}
                 </Text>
@@ -524,7 +524,7 @@ export default function ChamaDetails() {
               <Text className="font-semibold text-gray-900">
                 {!chama.isPublic
                   ? "N/A"
-                  : kesRate > 0 && user?.location === "KE"
+                  : kesRate > 0 && currency === "KES"
                     ? `${(Number(chama.collateralAmount) * kesRate).toFixed(2)} KES (${chama.collateralAmount} USDC)`
                     : `${chama.collateralAmount} USDC`}
               </Text>
@@ -745,7 +745,7 @@ export default function ChamaDetails() {
                     </Text>
                   </View>
                   <Text className="font-bold text-gray-900 text-lg">
-                    {kesRate > 0 && user?.location === "KE"
+                    {kesRate > 0 && currency === "KES"
                       ? `${(Number(chama.contribution) * kesRate).toFixed(2)} KES`
                       : `${chama.contribution} ${chama.currency}`} / {chama.frequency}
                     {/* {kesRate > 0 && user?.location === "KE" && <Text className="text-xs font-medium text-gray-500"> ({chama.contribution} {chama.currency})</Text>} */}
@@ -761,7 +761,7 @@ export default function ChamaDetails() {
                   <Text className="font-bold text-gray-900 text-lg">
                     {!chama.isPublic
                       ? "N/A"
-                      : kesRate > 0 && user?.location === "KE"
+                      : kesRate > 0 && currency === "KES"
                         ? `${(Number(chama.collateralAmount) * kesRate).toFixed(2)} KES`
                         : `${chama.collateralAmount} ${chama.currency}`}
                     {/* {chama.isPublic && kesRate > 0 && user?.location === "KE" && <Text className="text-xs font-medium text-gray-500"> ({chama.collateralAmount} {chama.currency})</Text>} */}

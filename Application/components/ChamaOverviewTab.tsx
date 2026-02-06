@@ -10,12 +10,12 @@ import {
   Minus,
   Plus,
   Receipt,
-  ReceiptIcon,
-  TrendingUp
+  ReceiptIcon
 } from "lucide-react-native";
 import React, { FC, useState } from "react";
 import { Dimensions, Linking, Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../Contexts/AuthContext";
+import { useCurrencyStore } from "../store/useCurrencyStore";
 import { formatDate } from "../Utils/helperFunctions";
 import { ResolvedAddress } from "./ResolvedAddress";
 import { Card } from "./ui/Card";
@@ -73,6 +73,7 @@ const ChamaOverviewTab: FC<Props> = ({
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const { user } = useAuth();
+  const { currency: userCurrency } = useCurrencyStore();
 
   const handleTransactionPress = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
@@ -148,11 +149,11 @@ const ChamaOverviewTab: FC<Props> = ({
                   <View className="px-4 py-4">
                     <View className="mb-4">
                       <Text className="text-3xl font-bold text-gray-900">
-                        {kesRate > 0
+                        {kesRate > 0 && userCurrency === "KES"
                           ? `${(myContributions * kesRate).toFixed(2)} KES`
                           : `${myContributions > 0 ? myContributions.toFixed(3) : 0} ${currency}`}
                       </Text>
-                      {kesRate > 0 && (
+                      {kesRate > 0 && userCurrency === "KES" && (
                         <Text className="text-xs text-gray-500 mt-1">
                           ≈ {myContributions > 0 ? myContributions.toFixed(3) : 0} {currency}
                         </Text>
@@ -171,7 +172,7 @@ const ChamaOverviewTab: FC<Props> = ({
                               Outstanding Payment
                             </Text>
                             <Text className="text-orange-700 text-xs">
-                              {kesRate > 0
+                              {kesRate > 0 && userCurrency === "KES"
                                 ? `${(remainingAmount * kesRate).toFixed(2)} KES`
                                 : `${remainingAmount.toFixed(3)} ${currency}`}
                               {" • Due: "}
@@ -280,11 +281,11 @@ const ChamaOverviewTab: FC<Props> = ({
                     <View className="px-4 py-4">
                       <View className="mb-4">
                         <Text className="text-3xl font-bold text-gray-900">
-                          {kesRate > 0 && user?.location === "KE"
+                          {kesRate > 0 && userCurrency === "KES"
                             ? `${(myCollateral * kesRate).toFixed(2)} KES`
                             : `${myCollateral > 0 ? myCollateral.toFixed(3) : 0} ${currency}`}
                         </Text>
-                        {kesRate > 0 && user?.location === "KE" && (
+                        {kesRate > 0 && userCurrency === "KES" && (
                           <Text className="text-xs text-gray-500 mt-1">
                             ≈ {myCollateral > 0 ? myCollateral.toFixed(3) : 0} {currency}
                           </Text>
@@ -300,7 +301,7 @@ const ChamaOverviewTab: FC<Props> = ({
                               Required Collateral
                             </Text>
                             <Text className="text-purple-700 text-xs">
-                              {kesRate > 0 && user?.location === "KE"
+                              {kesRate > 0 && userCurrency === "KES"
                                 ? `${(collateralAmount * kesRate).toFixed(2)} KES`
                                 : `${collateralAmount > 0 ? collateralAmount.toFixed(3) : 0} ${currency}`}
                               {collateralAmount >= (contribution * 10) && (
@@ -371,13 +372,13 @@ const ChamaOverviewTab: FC<Props> = ({
               <View className="px-4 py-4">
                 <View className="mb-4">
                   <Text className="text-3xl font-bold text-gray-900">
-                    {kesRate > 0
-                      ? `${(myContributions * kesRate).toFixed(2)} KES`
-                      : `${myContributions.toFixed(3)} ${currency}`}
+                    {kesRate > 0 && userCurrency === "KES"
+                      ? `${myContributions > 0 ? (myContributions * kesRate).toFixed(2) : 0} KES`
+                      : `${myContributions > 0 ? myContributions.toFixed(3) : 0} ${currency}`}
                   </Text>
-                  {kesRate > 0 && (
+                  {kesRate > 0 && userCurrency === "KES" && (
                     <Text className="text-xs text-gray-500 mt-1">
-                      ≈ {myContributions.toFixed(3)} {currency}
+                      ≈ {myContributions > 0 ? myContributions.toFixed(3) : 0} {currency}
                     </Text>
                   )}
                 </View>
@@ -393,7 +394,7 @@ const ChamaOverviewTab: FC<Props> = ({
                           Outstanding Payment
                         </Text>
                         <Text className="text-orange-700 text-xs">
-                          {kesRate > 0
+                          {kesRate > 0 && userCurrency === "KES"
                             ? `${(remainingAmount * kesRate).toFixed(2)} KES`
                             : `${remainingAmount.toFixed(3)} ${currency}`}
                           {" • Due: "}
@@ -547,10 +548,10 @@ const ChamaOverviewTab: FC<Props> = ({
                   Amount
                 </Text>
                 <Text className="text-lg font-bold text-emerald-600">
-                  {kesRate > 0
+                  {kesRate > 0 && userCurrency === "KES"
                     ? `${(nextPayoutAmount * kesRate).toFixed(2)} KES`
                     : `${nextPayoutAmount.toFixed(3)} ${currency}`}
-                  {/* {kesRate > 0 && <Text className="text-sm font-medium text-emerald-400"> ({nextPayoutAmount.toFixed(3)} {currency})</Text>} */}
+                  {/* {kesRate > 0 && userCurrency === "KES" && <Text className="text-sm font-medium text-emerald-400"> ({nextPayoutAmount.toFixed(3)} {currency})</Text>} */}
                 </Text>
               </View>
               <View className="flex-row justify-between items-center">
@@ -662,7 +663,7 @@ const ChamaOverviewTab: FC<Props> = ({
                         />
                       )}
 
-                      {kesRate > 0
+                      {kesRate > 0 && userCurrency === "KES"
                         ? `  ${(Number(transaction.amount) * kesRate).toFixed(2)} KES`
                         : `  ${(transaction.amount || 0).toString()} ${currency}`}
                     </Text>
@@ -743,13 +744,13 @@ const ChamaOverviewTab: FC<Props> = ({
                   <View className="bg-gray-50 rounded-xl p-4">
                     <Text className="text-sm text-gray-600 mb-1">Amount</Text>
                     <Text className="text-xl font-bold text-gray-900">
-                      {kesRate > 0
-                        ? `${(parseFloat(selectedTransaction.amount?.toString() || "0") * kesRate).toLocaleString()} KES`
-                        : `${parseFloat(selectedTransaction.amount?.toString() || "0").toLocaleString()} ${currency}`}
-                      {kesRate > 0 && (
+                      {kesRate > 0 && userCurrency === "KES"
+                        ? `${(parseFloat(selectedTransaction.amount?.toString() || "0") * kesRate).toFixed(2)} KES`
+                        : `${parseFloat(selectedTransaction.amount?.toString() || "0").toFixed(3)} ${currency}`}
+                      {kesRate > 0 && userCurrency === "KES" && (
                         <Text className="text-sm font-medium text-gray-500">
                           {" "}
-                          ({parseFloat(selectedTransaction.amount?.toString() || "0").toLocaleString()} {currency})
+                          ({parseFloat(selectedTransaction.amount?.toString() || "0").toFixed(3)} {currency})
                         </Text>
                       )}
                     </Text>
@@ -802,16 +803,6 @@ const ChamaOverviewTab: FC<Props> = ({
                       {selectedTransaction.txHash}
                     </Text>
                   </View>
-
-                  {/* <View className="bg-gray-50 rounded-xl p-4">
-                    <Text className="text-sm text-gray-600 mb-1">Status</Text>
-                    <View className="flex-row items-center gap-2 mt-1">
-                      <View className="w-2 h-2 bg-emerald-500 rounded-full" />
-                      <Text className="text-base font-semibold text-emerald-700 capitalize">
-                        {selectedTransaction.status}
-                      </Text>
-                    </View>
-                  </View> */}
                 </View>
 
                 <View className="gap-3">

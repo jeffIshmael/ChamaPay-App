@@ -177,3 +177,13 @@ model PretiumTransaction {
   @@index([type])
   @@index([createdAt])
 }
+
+model Refund {
+  id               Int      @id @default(autoincrement())
+  cycle            Int
+  round            Int
+  createdAt        DateTime @default(now())
+  chamaId          Int
+  chama            Chama    @relation(fields: [chamaId], references: [id])
+}
+

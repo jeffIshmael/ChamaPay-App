@@ -213,8 +213,7 @@ const ScheduleTab: FC<Props> = ({
                         }`}
                     >
                       {estimatedPayoutAmount > 0
-                        ? user?.location === "KE" &&
-                          currency === "KES" &&
+                        ? currency === "KES" &&
                           kesRate > 0
                           ? `${(estimatedPayoutAmount * kesRate).toFixed(2)} KES`
                           : `${estimatedPayoutAmount.toFixed(3)} USDC`
