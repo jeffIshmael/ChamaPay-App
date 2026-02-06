@@ -1,6 +1,8 @@
 import { Card } from "@/components/ui/Card";
 import { Member, PayoutScheduleItem } from "@/constants/mockData";
 import { useAuth } from "@/Contexts/AuthContext";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
+import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { CheckCircle, Clock } from "lucide-react-native";
 import React, { FC, useMemo } from "react";
 import { Image, ScrollView, Text, View } from "react-native";
@@ -64,6 +66,9 @@ const ScheduleTab: FC<Props> = ({
   totalPayout,
 }) => {
   const { user } = useAuth();
+  const { currency } = useCurrencyStore();
+  const { rates } = useExchangeRateStore();
+  const kesRate = rates["KES"]?.rate || 0;
 
   // Helper function to find member by address
   const getMemberByAddress = (address: string): Member | undefined => {
@@ -208,7 +213,10 @@ const ScheduleTab: FC<Props> = ({
                         }`}
                     >
                       {estimatedPayoutAmount > 0
-                        ? `${estimatedPayoutAmount.toLocaleString()} USDC`
+                        ? currency === "KES" &&
+                          kesRate > 0
+                          ? `${(estimatedPayoutAmount * kesRate).toFixed(2)} KES`
+                          : `${estimatedPayoutAmount.toFixed(3)} USDC`
                         : "—"}
                     </Text>
                     <View

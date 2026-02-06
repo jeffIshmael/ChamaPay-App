@@ -13,7 +13,7 @@ const getServerUrl = (): string => {
   
   // Fallback to ngrok for development (if no env var is set)
   if (__DEV__) {
-    return "";
+    return "https://chamapay-app.onrender.com";
   }
   
   // Production fallback (should never reach here if env var is set)

@@ -20,6 +20,7 @@ import {
 } from "@/lib/chamaService";
 import { generateChamaShareUrl } from "@/lib/encryption";
 import { shareChamaLink } from "@/lib/userService";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { formatTimeRemaining } from "@/Utils/helperFunctions";
 import { Ionicons } from "@expo/vector-icons";
@@ -74,6 +75,7 @@ export default function JoinedChamaDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [chama, setChama] = useState<JoinedChama | null>(null);
   const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
+  const { currency } = useCurrencyStore();
   const kesRate = rates["KES"]?.rate || 0;
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showUSDCPaymentModal, setShowUSDCPaymentModal] = useState(false);
@@ -212,7 +214,7 @@ export default function JoinedChamaDetails() {
     // }
 
     // Show the payment modal instead of Alert
-    if (user?.location !== "KE") {
+    if (currency !== "KES") {
       setShowUSDCPaymentModal(true);
     } else {
       setShowPaymentModal(true);
@@ -400,7 +402,7 @@ export default function JoinedChamaDetails() {
       currency={chama.currency}
       isPublic={chama.isPublic}
       collateralAmount={chama.collateralAmount}
-      kesRate={user?.location === "KE" ? kesRate : 0}
+      kesRate={kesRate}
       myCollateral={myCollateral}
       chamaName={chama.name}
     />

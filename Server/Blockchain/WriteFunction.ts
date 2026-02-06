@@ -156,3 +156,55 @@ export const bcDeleteChama = async (privateKey: `0x${string}`, chamaBlockchainId
         throw error;
     }
 }
+
+// function to withdraw funds from a chama
+export const bcWithdrawFundsFromChama = async (privateKey: `0x${string}`, chamaBlockchainId: number, amount: string) => {
+    try {
+        // change amount to wei
+        const amountInWei = parseUnits(amount, 6);
+        const bigIntChamaBlockchainId = BigInt(chamaBlockchainId);
+        const { smartAccountClient, safeSmartAccount } = await createSmartAccount(privateKey);
+        const hash = await smartAccountClient.writeContract({
+            address: contractAddress,
+            abi: contractABI,
+            functionName: 'withdrawBalance',
+            args: [bigIntChamaBlockchainId, amountInWei],
+        })
+        const transaction = await publicClient.waitForTransactionReceipt({
+            hash: hash
+        });
+        if (!transaction) {
+            throw new Error("Unable to withdraw funds from chama onchain.");
+        }
+        return transaction.transactionHash;
+    } catch (error) {
+        console.error("Error withdrawing funds from chama:", error);
+        throw error;
+    }
+}
+
+// function to add locked funds to a chama
+export const bcAddLockedFundsToChama = async (privateKey: `0x${string}`,memberAddress: `0x${string}`, chamaBlockchainId: number, amount: string) => {
+    try {
+        // change amount to wei
+        const amountInWei = parseUnits(amount, 6);
+        const { smartAccountClient, safeSmartAccount } = await createSmartAccount(privateKey);
+        const hash = await smartAccountClient.writeContract({
+            address: contractAddress,
+            abi: contractABI,
+            functionName: 'updateLockedAmount',
+            args: [memberAddress,chamaBlockchainId, amountInWei],
+        })
+        const transaction = await publicClient.waitForTransactionReceipt({
+            hash: hash
+        });
+        if (!transaction) {
+            throw new Error("Unable to add locked funds to chama onchain.");
+        }
+        return transaction.transactionHash;
+    } catch (error) {
+        console.error("Error adding locked funds to chama:", error);
+        throw error;
+    }
+}
+

@@ -116,6 +116,31 @@
         {
           "indexed": true,
           "internalType": "uint256",
+          "name": "_chamaId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "_address",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "BalanceWithdrawn",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
           "name": "chamaId",
           "type": "uint256"
         },
@@ -253,14 +278,14 @@
         {
           "indexed": false,
           "internalType": "uint256",
-          "name": "remainingAmount",
+          "name": "amount",
           "type": "uint256"
         },
         {
           "indexed": false,
-          "internalType": "bool",
-          "name": "onramp",
-          "type": "bool"
+          "internalType": "uint256",
+          "name": "remainingAmount",
+          "type": "uint256"
         }
       ],
       "name": "LockedAmountUpdated",
@@ -1369,9 +1394,9 @@
           "type": "uint256"
         },
         {
-          "internalType": "bool",
-          "name": "onramp",
-          "type": "bool"
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
         }
       ],
       "name": "updateLockedAmount",
@@ -1395,6 +1420,24 @@
       "name": "upgradeToAndCall",
       "outputs": [],
       "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_chamaId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "withdrawBalance",
+      "outputs": [],
+      "stateMutability": "nonpayable",
       "type": "function"
     }
   ]

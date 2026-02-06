@@ -3,10 +3,11 @@ import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import { contractAddress } from "../Blockchain/Constants";
 import { bcGetTotalChamas, getEachMemberBalance, getUserChamaBalance } from "../Blockchain/ReadFunctions";
-import { bcCreateChama, bcDepositFundsToChama, bcJoinPublicChama } from "../Blockchain/WriteFunction";
+import { bcCreateChama, bcDepositFundsToChama, bcJoinPublicChama, bcAddLockedFundsToChama, bcWithdrawFundsFromChama } from "../Blockchain/WriteFunction";
 import { approveTx } from "../Blockchain/erc20Functions";
 import { sendExpoNotificationToAllChamaMembers } from "../Lib/ExpoNotificationFunctions";
 import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
+import { pimlicoAddLockedFundsToChama } from "../Lib/pimlicoAgent";
 
 const prisma = new PrismaClient();
 
@@ -607,3 +608,153 @@ export const markMessagesRead = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, error: "Failed to mark messages as read" });
   }
 };
+
+// withdraw from chama balance
+export const withdrawFromChamaBalance = async (req: Request, res: Response) => {
+  try {
+    const { chamaId, amount } = req.body;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
+    if (!chamaId || !amount) {
+      return res.status(400).json({ success: false, error: "Chama ID and amount are required" });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: Number(userId),
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    const chama = await prisma.chama.findUnique({
+      where: {
+        id: Number(chamaId),
+      },
+    });
+
+    if (!chama) {
+      return res.status(404).json({ success: false, error: "Chama not found" });
+    }
+
+    // the onchain function
+    // get the user's private key
+    const privateKey = await getPrivateKey(Number(userId));
+    if (!privateKey.success || privateKey.privateKey === null) {
+      return res.status(400).json({ success: false, error: "Unable to get signing client." });
+    }
+
+    const withdrawTxHash = await bcWithdrawFundsFromChama(privateKey.privateKey, Number(chama.blockchainId), amount);
+    if (!withdrawTxHash) {
+      return res.status(400).json({ success: false, error: "Unable to withdraw from chama." });
+    }
+
+    // record the transaction
+    const payment = await prisma.payment.create({
+      data: {
+        amount: amount,
+        description: `Withdrawal`,
+        txHash: withdrawTxHash,
+        chamaId: Number(chamaId),
+        userId: Number(userId),
+      },
+    });
+
+    if (!payment) {
+      return res.status(400).json({ success: false, error: "Unable to record withdrawal." });
+    }
+
+    return res.status(200).json({ success: true, withdrawal: payment });
+  } catch (error) {
+    console.error("Error withdrawing from chama:", error);
+    return res.status(500).json({ success: false, error: "Failed to withdraw from chama" });
+  }
+};
+
+// add locked amount
+export const addLockedAmount = async (req: Request, res: Response) => {
+  try {
+    const { chamaId, amount, isOnramp } = req.body;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
+    if (!chamaId || !amount || isOnramp === undefined) {
+      return res.status(400).json({ success: false, error: "Chama ID and amount are required" });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: Number(userId),
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    const chama = await prisma.chama.findUnique({
+      where: {
+        id: Number(chamaId),
+      },
+    });
+
+    if (!chama) {
+      return res.status(404).json({ success: false, error: "Chama not found" });
+    }
+
+    let txHash: `0x${string}` | null = null;
+
+    // if its an onramp, we let the agent deposit the funds
+    if (isOnramp) {
+      const agentTxHash = await pimlicoAddLockedFundsToChama(user.smartAddress as `0x${string}`, Number(chama.blockchainId), amount);
+      if (!agentTxHash) {
+        return res.status(400).json({ success: false, error: "Unable to add locked funds to chama with agent." });
+      }
+      txHash = agentTxHash;
+    } else {
+      // the onchain function
+      // get the user's private key
+      const privateKey = await getPrivateKey(Number(userId));
+      if (!privateKey.success || privateKey.privateKey === null) {
+        return res.status(400).json({ success: false, error: "Unable to get signing client." });
+      }
+
+      const withdrawTxHash = await bcAddLockedFundsToChama(privateKey.privateKey, user.smartAddress as `0x${string}`, Number(chama.blockchainId), amount);
+      if (!withdrawTxHash) {
+        return res.status(400).json({ success: false, error: "Unable to add locked funds to chama." });
+      }
+      txHash = withdrawTxHash;
+    }
+
+    // record the transaction
+    const payment = await prisma.payment.create({
+      data: {
+        amount: amount,
+        description: `Locked funds`,
+        txHash: txHash,
+        chamaId: Number(chamaId),
+        userId: Number(userId),
+      },
+    });
+
+    if (!payment) {
+      return res.status(400).json({ success: false, error: "Unable to record locked funds." });
+    }
+
+    return res.status(200).json({ success: true, lockedFunds: payment });
+  } catch (error) {
+    console.error("Error adding locked funds to chama:", error);
+    return res.status(500).json({ success: false, error: "Failed to add locked funds to chama" });
+  }
+};
+
+

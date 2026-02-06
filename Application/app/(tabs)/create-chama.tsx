@@ -109,12 +109,13 @@ export default function CreateChama() {
     contribution: "", // No default
     frequency: "", // No default
     duration: 0,
-    startDate: "", // No default
-    startTime: "", // No default
-    adminTerms: [],
     collateralRequired: false,
     contributionKES: "",
+    startDate: "",
+    startTime: "",
+    adminTerms: [],
   });
+  const [isKESMode, setIsKESMode] = useState(false);
   const [newTerm, setNewTerm] = useState("");
   // Date/Time picker states
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -174,7 +175,10 @@ export default function CreateChama() {
 
   useEffect(() => {
     globalFetchRate("KES");
-  }, []);
+    if (user?.location === "KE") {
+      setIsKESMode(true);
+    }
+  }, [user]);
 
   const updateFormData = (field: keyof FormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -280,11 +284,27 @@ export default function CreateChama() {
       const decimalCount = (text.match(/\./g) || []).length;
       if (decimalCount <= 1) {
         setFormData((prev) => {
-          const usdcValue = text ? (parseFloat(text) / kesRate).toFixed(3) : "";
+          const usdcValue = text && kesRate > 0 ? (parseFloat(text) / kesRate).toFixed(3) : "";
           return {
             ...prev,
             contributionKES: text,
             contribution: usdcValue,
+          };
+        });
+      }
+    }
+  };
+
+  const handleContributionUSDCChange = (text: string) => {
+    if (text === "" || /^\d*\.?\d*$/.test(text)) {
+      const decimalCount = (text.match(/\./g) || []).length;
+      if (decimalCount <= 1) {
+        setFormData((prev) => {
+          const kesValue = text && kesRate > 0 ? (parseFloat(text) * kesRate).toFixed(2) : "";
+          return {
+            ...prev,
+            contribution: text,
+            contributionKES: kesValue,
           };
         });
       }
@@ -649,45 +669,50 @@ export default function CreateChama() {
           <View>
             <View className="flex-row justify-between items-center mb-2">
               <Text className="text-sm font-medium text-gray-700">
-                Contribution Amount ({user?.location === "KE" ? "KES" : "USDC"}){" "}
+                Contribution Amount ({isKESMode ? "KES" : "USDC"}){" "}
                 <Text className="text-red-500">*</Text>
               </Text>
-              {user?.location === "KE" && kesRate > 0 ? (
-                <Text className="text-xs text-gray-500">
-                  Min: {(MINIMUM_CONTRIBUTION * kesRate).toFixed(0)} KES
-                </Text>
-              ) : (
-                <Text className="text-xs text-gray-500">
-                  Min: {MINIMUM_CONTRIBUTION} USDC
-                </Text>
-              )}
+              <View className="flex-row items-center gap-2">
+                {user?.location === "KE" && (
+                  <TouchableOpacity
+                    onPress={() => setIsKESMode(!isKESMode)}
+                    className="bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100"
+                  >
+                    <Text className="text-emerald-700 text-[10px] font-bold">
+                      Switch to {isKESMode ? "USDC" : "KES"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {isKESMode && kesRate > 0 ? (
+                  <Text className="text-xs text-gray-500">
+                    Min: {(MINIMUM_CONTRIBUTION * kesRate).toFixed(0)} KES
+                  </Text>
+                ) : (
+                  <Text className="text-xs text-gray-500">
+                    Min: {MINIMUM_CONTRIBUTION} USDC
+                  </Text>
+                )}
+              </View>
             </View>
             <TextInput
-              placeholder={user?.location === "KE" ? "e.g., 500" : "e.g., 5"}
-              value={user?.location === "KE" ? formData.contributionKES : formData.contribution}
+              placeholder={isKESMode ? "e.g., 500" : "e.g., 5"}
+              value={isKESMode ? formData.contributionKES : formData.contribution}
               onChangeText={(text) => {
-                if (user?.location === "KE") {
+                if (isKESMode) {
                   handleContributionKESChange(text);
                 } else {
-                  // Direct USDC input
-                  if (text === "" || /^\d*\.?\d*$/.test(text)) {
-                    const decimalCount = (text.match(/\./g) || []).length;
-                    if (decimalCount <= 1) {
-                      updateFormData("contribution", text);
-                      // Clear KES if we are in USDC mode effectively (though state keeps it)
-                    }
-                  }
+                  handleContributionUSDCChange(text);
                 }
               }}
               keyboardType="decimal-pad"
               className={`bg-gray-50 border rounded-xl px-4 py-3 text-gray-900 ${getContributionValue() < MINIMUM_CONTRIBUTION &&
-                (user?.location === "KE" ? formData.contributionKES : formData.contribution) !== ""
+                (isKESMode ? formData.contributionKES : formData.contribution) !== ""
                 ? "border-red-300 bg-red-50"
                 : "border-gray-200"
                 }`}
               placeholderTextColor="#9ca3af"
             />
-            {user?.location === "KE" && formData.contributionKES !== "" && getContributionValue() > 0 && (
+            {isKESMode && formData.contributionKES !== "" && getContributionValue() > 0 && (
               <View className="mt-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                 <Text className="text-blue-900 text-xs font-medium">
                   ≈ {formData.contribution} USDC (at 1 USDC = KES{" "}
@@ -695,11 +720,19 @@ export default function CreateChama() {
                 </Text>
               </View>
             )}
+            {!isKESMode && formData.contribution !== "" && kesRate > 0 && (
+              <View className="mt-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                <Text className="text-blue-900 text-xs font-medium">
+                  ≈ {formData.contributionKES} KES (at 1 USDC = KES{" "}
+                  {kesRate.toFixed(2)})
+                </Text>
+              </View>
+            )}
             {getContributionValue() < MINIMUM_CONTRIBUTION &&
-              (user?.location === "KE" ? formData.contributionKES : formData.contribution) !== "" && (
+              (isKESMode ? formData.contributionKES : formData.contribution) !== "" && (
                 <Text className="text-red-600 text-xs mt-1">
                   Minimum contribution is {MINIMUM_CONTRIBUTION} USDC
-                  {user?.location === "KE" && kesRate > 0 ? (
+                  {isKESMode && kesRate > 0 ? (
                     ` (≈ ${(MINIMUM_CONTRIBUTION * kesRate).toFixed(0)} KES)`
                   ) : null}
                 </Text>
@@ -718,7 +751,7 @@ export default function CreateChama() {
                       Financial Summary
                     </Text>
                     <Text className="text-blue-800 text-sm">
-                      {user?.location === "KE" ? (
+                      {isKESMode ? (
                         <>
                           • Total pool per payout:{" "}
                           {Math.ceil(getContributionValue() * getMaxMembersValue() * kesRate).toLocaleString()} KES (≈{" "}
@@ -730,7 +763,9 @@ export default function CreateChama() {
                       ) : (
                         <>
                           • Total pool per payout: {(getContributionValue() * getMaxMembersValue()).toFixed(2)} USDC
+                          {kesRate > 0 && ` (≈ ${Math.ceil(getContributionValue() * getMaxMembersValue() * kesRate).toLocaleString()} KES)`}
                           {"\n"}• Each contribution: {getContributionValue().toFixed(3)} USDC
+                          {kesRate > 0 && ` (≈ ${Math.ceil(getContributionValue() * kesRate).toLocaleString()} KES)`}
                         </>
                       )}
                       {"\n"}• Frequency: {formData.frequency} days

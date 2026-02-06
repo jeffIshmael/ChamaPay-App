@@ -1,10 +1,11 @@
 import { useAuth } from "@/Contexts/AuthContext";
 import { BackendChama, getPublicChamas } from "@/lib/chamaService";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { formatDays, formatTimeRemaining } from "@/Utils/helperFunctions";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Calendar, Search, Star, TrendingUp, Users, Zap } from "lucide-react-native";
+import { Calendar, Search, Star, Users, Zap } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -26,6 +27,7 @@ export default function DiscoverChamas() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
+  const { currency } = useCurrencyStore();
   const kesRate = rates["KES"]?.rate || 0;
 
   React.useEffect(() => {
@@ -154,10 +156,10 @@ export default function DiscoverChamas() {
             Contribution Amount
           </Text>
           <Text className="text-3xl font-bold text-emerald-800">
-            {kesRate > 0 && user?.location === "KE"
+            {kesRate > 0 && currency === "KES"
               ? `${(parseFloat(chama.amount) * kesRate).toFixed(2)} KES`
               : `${parseFloat(chama.amount).toFixed(3)} USDC`}
-            {/* {kesRate > 0 && user?.location === "KE" && <Text className="text-sm font-medium text-emerald-600 ml-2"> ({parseFloat(chama.amount).toFixed(2)} USDC)</Text>} */}
+            {/* {kesRate > 0 && currency === "KES" && <Text className="text-sm font-medium text-emerald-600 ml-2"> ({parseFloat(chama.amount).toFixed(2)} USDC)</Text>} */}
             {" "}/ {formatDays(chama.cycleTime)}
           </Text>
         </View>
@@ -180,7 +182,7 @@ export default function DiscoverChamas() {
               <Text className="text-xs text-purple-700 font-semibold">{chama.started ? "Starts In:" : "Next Pay Date:"}</Text>
             </View>
             <Text className="text-lg font-bold text-purple-900">
-              { chama.started ? formatTimeRemaining(chama.startDate as unknown as string) : formatDate(chama.payDate as unknown as string)}
+              {chama.started ? formatTimeRemaining(chama.startDate as unknown as string) : formatDate(chama.payDate as unknown as string)}
             </Text>
           </View>
         </View>

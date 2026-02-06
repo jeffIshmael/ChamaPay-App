@@ -1,6 +1,7 @@
 import { ResolvedAddress } from "@/components/ResolvedAddress";
 import { useAuth } from "@/Contexts/AuthContext";
 import { getTheUserTx } from "@/lib/walletServices";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { useRouter } from "expo-router";
 import {
@@ -52,6 +53,7 @@ export default function AllTransactions() {
     useState<Transaction | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const { token, user } = useAuth();
+  const { currency } = useCurrencyStore();
   const [refreshing, setRefreshing] = useState(false);
   const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
   const theExhangeQuote = rates["KES"]?.data || null;
@@ -139,8 +141,8 @@ export default function AllTransactions() {
     });
   };
 
-  const getTransactionIcon = (type: string) => {
-    const iconProps = { size: 20, color: getTransactionIconColor(type) };
+  const getTransactionIcon = (type: string, useWhite: boolean = false) => {
+    const iconProps = { size: 20, color: useWhite ? "white" : getTransactionIconColor(type) };
     switch (type) {
       case "sent":
         return <ArrowUpRight {...iconProps} />;
@@ -215,6 +217,8 @@ export default function AllTransactions() {
             className="w-12 h-12 rounded-full items-center justify-center mr-4"
             style={{
               backgroundColor: `${getTransactionIconColor(tx.type)}20`,
+
+
             }}
           >
             {getTransactionIcon(tx.type)}
@@ -256,7 +260,7 @@ export default function AllTransactions() {
             className={`font-bold text-base ${getTransactionTextColor(tx.type)}`}
           >
             {tx.type === "sent" || tx.type === "withdrew" ? "-" : "+"}
-            {user?.location === "KE" && theExhangeQuote?.exchangeRate.selling_rate
+            {currency === "KES" && theExhangeQuote?.exchangeRate.selling_rate
               ? `${(parseFloat(tx.amount) * theExhangeQuote.exchangeRate.selling_rate).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
@@ -264,14 +268,14 @@ export default function AllTransactions() {
               : `${parseFloat(tx.amount).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 4,
-              })} ${tx.token}`}
+              })} USDC`}
           </Text>
-          {user?.location === "KE" && theExhangeQuote?.exchangeRate.selling_rate && (
+          {currency === "KES" && theExhangeQuote?.exchangeRate.selling_rate && (
             <Text className="text-[10px] text-gray-400">
               ({parseFloat(tx.amount).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 4,
-              })} {tx.token})
+              })} USDC)
             </Text>
           )}
           <Text className="text-xs text-gray-400 mt-1">
@@ -349,7 +353,7 @@ export default function AllTransactions() {
                     selectedTransaction.type === "withdrew"
                     ? "-"
                     : "+"}
-                  {user?.location === "KE" && theExhangeQuote?.exchangeRate.selling_rate
+                  {currency === "KES" && theExhangeQuote?.exchangeRate.selling_rate
                     ? `${(parseFloat(selectedTransaction.amount) * theExhangeQuote.exchangeRate.selling_rate).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
@@ -357,14 +361,14 @@ export default function AllTransactions() {
                     : `${parseFloat(selectedTransaction.amount).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 4,
-                    })} ${selectedTransaction.token}`}
+                    })} USDC`}
                 </Text>
-                {user?.location === "KE" && theExhangeQuote?.exchangeRate.selling_rate && (
+                {currency === "KES" && theExhangeQuote?.exchangeRate.selling_rate && (
                   <Text className="text-white/70 text-sm font-medium mt-1">
                     ({parseFloat(selectedTransaction.amount).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 4,
-                    })} {selectedTransaction.token})
+                    })} USDC)
                   </Text>
                 )}
               </View>

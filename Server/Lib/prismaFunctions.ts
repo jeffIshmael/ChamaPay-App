@@ -102,17 +102,27 @@ export async function addMemberToPayout(chamaId: number, userId: number) {
       : [];
     if (payoutOrder.length > 0 && chama.started && chama.round == 1) {
       const newPayOut = {
-        userAddress: user.address!,
+        userAddress: user.smartAddress!,
         payDate: new Date(
-          payoutOrder[payoutOrder.length - 1].payDate.getTime() +
+          new Date(payoutOrder[payoutOrder.length - 1].payDate).getTime() +
           chama.cycleTime * 24 * 60 * 60 * 1000
         ),
         amount: "0",
         paid: false,
       };
       payoutOrder.push(newPayOut);
+
+      await prisma.chama.update({
+        where: {
+          id: chamaId,
+        },
+        data: {
+          payOutOrder: JSON.stringify(payoutOrder),
+        },
+      });
     }
   } catch (error) {
+    console.log(error);
     throw new Error("couldnt add member to payout order");
   }
 }

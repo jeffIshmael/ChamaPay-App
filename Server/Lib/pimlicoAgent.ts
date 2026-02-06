@@ -167,3 +167,35 @@ export const pimlicoDepositForUser = async (
     throw error;
   }
 };
+
+// function to add locked funds to a chama
+export const pimlicoAddLockedFundsToChama = async (
+  memberAddress: `0x${string}`,
+  chamaBlockchainId: number,
+  amount: bigint
+) => {
+  try {
+    const { smartAccountClient } = await getAgentSmartWallet();
+
+    const addLockedFundsToChamaHash = await smartAccountClient.writeContract({
+      address: contractAddress,
+      abi: contractABI,
+      functionName: "updateLockedAmount",
+      args: [memberAddress,chamaBlockchainId, amount],
+    });
+
+    const addLockedFundsToChamaTransaction = await publicClient.waitForTransactionReceipt({
+      hash: addLockedFundsToChamaHash
+    })
+
+    if (!addLockedFundsToChamaTransaction) {
+      throw new Error("unable to get the process add locked funds to chama agent transaction");
+    }
+
+    return addLockedFundsToChamaTransaction.transactionHash;
+  } catch (error) {
+    console.error("Error processing agent add locked funds to chama tx:", error);
+    throw error;
+  }
+};
+

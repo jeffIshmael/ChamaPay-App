@@ -8,7 +8,9 @@ import {
     getChamasUserIsMemberOf,
     getPublicChamasUserIsNotMemberOf,
     markMessagesRead,
-    sendChamaMessage
+    sendChamaMessage,
+    addLockedAmount,
+    withdrawFromChamaBalance
 } from "../Controllers/chamaControllers";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -33,6 +35,12 @@ router.post("/deposit", authenticate, depositToChama);
 
 // add a member to a chama
 router.post("/add-member", authenticate, addMemberToChama);
+
+// add locked funds to a chama
+router.post("/add-locked-amount", authenticate, addLockedAmount);
+
+// withdraw from a chama balance
+router.post("/withdraw", authenticate, withdrawFromChamaBalance);
 
 // add a chama message
 router.post("/send-message", authenticate, sendChamaMessage);

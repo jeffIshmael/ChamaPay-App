@@ -3,6 +3,7 @@ import { formatTimeRemaining, getRelativeTime } from "@/Utils/helperFunctions";
 import { useRouter } from "expo-router";
 import {
   CalendarCog,
+  CornerUpRight,
   DollarSign,
   ExternalLink,
   LogOut,
@@ -14,6 +15,7 @@ import {
 import React, { FC, useState } from "react";
 import { Dimensions, Linking, Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../Contexts/AuthContext";
+import { useCurrencyStore } from "../store/useCurrencyStore";
 import { formatDate } from "../Utils/helperFunctions";
 import { ResolvedAddress } from "./ResolvedAddress";
 import { Card } from "./ui/Card";
@@ -71,6 +73,7 @@ const ChamaOverviewTab: FC<Props> = ({
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const { user } = useAuth();
+  const { currency: userCurrency } = useCurrencyStore();
 
   const handleTransactionPress = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
@@ -146,11 +149,11 @@ const ChamaOverviewTab: FC<Props> = ({
                   <View className="px-4 py-4">
                     <View className="mb-4">
                       <Text className="text-3xl font-bold text-gray-900">
-                        {kesRate > 0
+                        {kesRate > 0 && userCurrency === "KES"
                           ? `${(myContributions * kesRate).toFixed(2)} KES`
                           : `${myContributions > 0 ? myContributions.toFixed(3) : 0} ${currency}`}
                       </Text>
-                      {kesRate > 0 && (
+                      {kesRate > 0 && userCurrency === "KES" && (
                         <Text className="text-xs text-gray-500 mt-1">
                           ≈ {myContributions > 0 ? myContributions.toFixed(3) : 0} {currency}
                         </Text>
@@ -169,7 +172,7 @@ const ChamaOverviewTab: FC<Props> = ({
                               Outstanding Payment
                             </Text>
                             <Text className="text-orange-700 text-xs">
-                              {kesRate > 0
+                              {kesRate > 0 && userCurrency === "KES"
                                 ? `${(remainingAmount * kesRate).toFixed(2)} KES`
                                 : `${remainingAmount.toFixed(3)} ${currency}`}
                               {" • Due: "}
@@ -278,11 +281,11 @@ const ChamaOverviewTab: FC<Props> = ({
                     <View className="px-4 py-4">
                       <View className="mb-4">
                         <Text className="text-3xl font-bold text-gray-900">
-                          {kesRate > 0 && user?.location === "KE"
+                          {kesRate > 0 && userCurrency === "KES"
                             ? `${(myCollateral * kesRate).toFixed(2)} KES`
                             : `${myCollateral > 0 ? myCollateral.toFixed(3) : 0} ${currency}`}
                         </Text>
-                        {kesRate > 0 && user?.location === "KE" && (
+                        {kesRate > 0 && userCurrency === "KES" && (
                           <Text className="text-xs text-gray-500 mt-1">
                             ≈ {myCollateral > 0 ? myCollateral.toFixed(3) : 0} {currency}
                           </Text>
@@ -298,7 +301,7 @@ const ChamaOverviewTab: FC<Props> = ({
                               Required Collateral
                             </Text>
                             <Text className="text-purple-700 text-xs">
-                              {kesRate > 0 && user?.location === "KE"
+                              {kesRate > 0 && userCurrency === "KES"
                                 ? `${(collateralAmount * kesRate).toFixed(2)} KES`
                                 : `${collateralAmount > 0 ? collateralAmount.toFixed(3) : 0} ${currency}`}
                               {collateralAmount >= (contribution * 10) && (
@@ -369,13 +372,13 @@ const ChamaOverviewTab: FC<Props> = ({
               <View className="px-4 py-4">
                 <View className="mb-4">
                   <Text className="text-3xl font-bold text-gray-900">
-                    {kesRate > 0
-                      ? `${(myContributions * kesRate).toFixed(2)} KES`
-                      : `${myContributions.toFixed(3)} ${currency}`}
+                    {kesRate > 0 && userCurrency === "KES"
+                      ? `${myContributions > 0 ? (myContributions * kesRate).toFixed(2) : 0} KES`
+                      : `${myContributions > 0 ? myContributions.toFixed(3) : 0} ${currency}`}
                   </Text>
-                  {kesRate > 0 && (
+                  {kesRate > 0 && userCurrency === "KES" && (
                     <Text className="text-xs text-gray-500 mt-1">
-                      ≈ {myContributions.toFixed(3)} {currency}
+                      ≈ {myContributions > 0 ? myContributions.toFixed(3) : 0} {currency}
                     </Text>
                   )}
                 </View>
@@ -391,7 +394,7 @@ const ChamaOverviewTab: FC<Props> = ({
                           Outstanding Payment
                         </Text>
                         <Text className="text-orange-700 text-xs">
-                          {kesRate > 0
+                          {kesRate > 0 && userCurrency === "KES"
                             ? `${(remainingAmount * kesRate).toFixed(2)} KES`
                             : `${remainingAmount.toFixed(3)} ${currency}`}
                           {" • Due: "}
@@ -545,10 +548,10 @@ const ChamaOverviewTab: FC<Props> = ({
                   Amount
                 </Text>
                 <Text className="text-lg font-bold text-emerald-600">
-                  {kesRate > 0
+                  {kesRate > 0 && userCurrency === "KES"
                     ? `${(nextPayoutAmount * kesRate).toFixed(2)} KES`
                     : `${nextPayoutAmount.toFixed(3)} ${currency}`}
-                  {/* {kesRate > 0 && <Text className="text-sm font-medium text-emerald-400"> ({nextPayoutAmount.toFixed(3)} {currency})</Text>} */}
+                  {/* {kesRate > 0 && userCurrency === "KES" && <Text className="text-sm font-medium text-emerald-400"> ({nextPayoutAmount.toFixed(3)} {currency})</Text>} */}
                 </Text>
               </View>
               <View className="flex-row justify-between items-center">
@@ -599,75 +602,76 @@ const ChamaOverviewTab: FC<Props> = ({
                 <TouchableOpacity
                   key={transaction.id}
                   onPress={() => handleTransactionPress(transaction)}
-                  className={`flex-row items-center justify-between py-3 px-4 rounded-xl ${isMyTransaction
+                  className={`flex-row justify-between py-3 px-4 rounded-xl ${isMyTransaction
                     ? "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200"
                     : "bg-gray-50"
                     }`}
                   activeOpacity={0.7}
                 >
-                  <View className="flex-row items-center gap-2">
-                    <View>
-                      <View className="flex-row items-center gap-2">
-                        <Text className="text-base font-medium text-gray-900 capitalize">
-                          {isMyTransaction ? (
-                            <Text className="font-bold text-blue-700">
-                              You
-                            </Text>
-                          ) : (
-                            <ResolvedAddress
-                              address={transaction.user.address}
-                              showPrefix={false}
-                              textClassName="text-base font-medium text-gray-900 capitalize"
-                              fallback={transaction.user.name}
-                            />
-                          )}{" "}
-                          {transaction.description}
+                  <View className="flex-1 justify-center mr-4">
+                    <Text className={`text-base font-semibold capitalize mb-1 ${transaction.type === "payout" ? "text-indigo-600" : "text-gray-900"}`} numberOfLines={1}>
+                      {transaction.type === "payout" ? "Cycle & Round Payout" : transaction.description}
+                    </Text>
+
+                    {transaction.type === "payout" ? (
+                      <Text className="text-xs text-gray-500" numberOfLines={1}>
+                        Received by <Text className="font-medium text-gray-700">
+                          {transaction.user.address === userAddress ? "You" : transaction.user.name || "Member"}
                         </Text>
-                      </View>
-                      <Text className="text-xs text-gray-600 mt-1">
-                        {getRelativeTime(transaction.date)}
                       </Text>
-                    </View>
+                    ) : (
+                      <View className="flex-row items-center">
+                        {isMyTransaction ? (
+                          <Text className="text-xs font-semibold text-blue-700">You</Text>
+                        ) : (
+                          <ResolvedAddress
+                            address={transaction.user.address}
+                            showPrefix={false}
+                            textClassName="text-xs font-medium text-gray-700 capitalize"
+                            fallback={transaction.user.name}
+                          />
+                        )}
+                      </View>
+                    )}
                   </View>
-                  <View className="items-end">
-                    <Text className="text-sm  font-semibold text-emerald-700">
+                  <View className="items-end justify-center">
+                    <Text
+                      className={`text-sm font-bold flex-row items-center mb-1 ${transaction.type === "contribution"
+                        ? "text-emerald-700"
+                        : transaction.type === "payout"
+                          ? "text-purple-700"
+                          : "text-orange-700"
+                        }`}
+                    >
                       {transaction.type === "contribution" ? (
                         <Plus
-                          size={16}
+                          size={12}
                           color={"#059669"}
-                          className="w-10 h-10 mr-2"
+                          style={{ marginRight: 2 }}
+                        />
+                      ) : transaction.type === "payout" ? (
+                        <CornerUpRight
+                          size={12}
+                          color={"#7c3aed"}
+                          style={{ marginRight: 2 }}
                         />
                       ) : (
                         <Minus
-                          size={16}
+                          size={12}
                           color={"#ea580c"}
-                          className="w-10 h-10"
+                          style={{ marginRight: 2 }}
                         />
                       )}
 
-                      {kesRate > 0
+                      {kesRate > 0 && userCurrency === "KES"
                         ? `  ${(Number(transaction.amount) * kesRate).toFixed(2)} KES`
                         : `  ${(transaction.amount || 0).toString()} ${currency}`}
-                      {/* {kesRate > 0 && <Text className="text-xs font-medium text-emerald-600"> ({Number(transaction.amount).toLocaleString()} {currency})</Text>} */}
                     </Text>
-                    {/* <View
-                      className={`px-2 py-1 rounded-full ${
-                        transaction.type === "contribution"
-                          ? "bg-emerald-100"
-                          : "bg-orange-100"
-                      }`}
-                    > */}
-                    {/* <Text
-                        className={`text-xs font-medium ${
-                          transaction.type === "contribution"
-                            ? "text-emerald-700"
-                            : "text-orange-700"
-                        }`}
-                      >
-                        {transaction.type === "contribution" ? "In" : "Out"}
-                      </Text> */}
-                    {/* </View> */}
+                    <Text className="text-xs text-gray-400">
+                      {getRelativeTime(transaction.date)}
+                    </Text>
                   </View>
+
                 </TouchableOpacity>
               );
             })
@@ -740,13 +744,13 @@ const ChamaOverviewTab: FC<Props> = ({
                   <View className="bg-gray-50 rounded-xl p-4">
                     <Text className="text-sm text-gray-600 mb-1">Amount</Text>
                     <Text className="text-xl font-bold text-gray-900">
-                      {kesRate > 0
-                        ? `${(parseFloat(selectedTransaction.amount?.toString() || "0") * kesRate).toLocaleString()} KES`
-                        : `${parseFloat(selectedTransaction.amount?.toString() || "0").toLocaleString()} ${currency}`}
-                      {kesRate > 0 && (
+                      {kesRate > 0 && userCurrency === "KES"
+                        ? `${(parseFloat(selectedTransaction.amount?.toString() || "0") * kesRate).toFixed(2)} KES`
+                        : `${parseFloat(selectedTransaction.amount?.toString() || "0").toFixed(3)} ${currency}`}
+                      {kesRate > 0 && userCurrency === "KES" && (
                         <Text className="text-sm font-medium text-gray-500">
                           {" "}
-                          ({parseFloat(selectedTransaction.amount?.toString() || "0").toLocaleString()} {currency})
+                          ({parseFloat(selectedTransaction.amount?.toString() || "0").toFixed(3)} {currency})
                         </Text>
                       )}
                     </Text>
@@ -799,16 +803,6 @@ const ChamaOverviewTab: FC<Props> = ({
                       {selectedTransaction.txHash}
                     </Text>
                   </View>
-
-                  {/* <View className="bg-gray-50 rounded-xl p-4">
-                    <Text className="text-sm text-gray-600 mb-1">Status</Text>
-                    <View className="flex-row items-center gap-2 mt-1">
-                      <View className="w-2 h-2 bg-emerald-500 rounded-full" />
-                      <Text className="text-base font-semibold text-emerald-700 capitalize">
-                        {selectedTransaction.status}
-                      </Text>
-                    </View>
-                  </View> */}
                 </View>
 
                 <View className="gap-3">
@@ -838,7 +832,7 @@ const ChamaOverviewTab: FC<Props> = ({
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </ScrollView >
   );
 };
 

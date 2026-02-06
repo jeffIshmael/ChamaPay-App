@@ -1,8 +1,10 @@
 import { ResolvedAddress } from "@/components/ResolvedAddress";
 import { useAuth } from "@/Contexts/AuthContext";
+import { useUserResolver } from "@/hooks/useUserResolver";
 import { CurrencyCode } from "@/lib/pretiumService";
 import { getUserBalance } from "@/lib/userService";
 import { getTheUserTx } from "@/lib/walletServices";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -36,7 +38,6 @@ import {
   View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useUserResolver } from "@/hooks/useUserResolver";
 
 interface Transaction {
   id: number;
@@ -71,6 +72,7 @@ export default function CryptoWallet() {
     useState<Transaction | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const { user, token } = useAuth();
+  const { currency } = useCurrencyStore();
 
   const [refreshing, setRefreshing] = useState(false);
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
@@ -250,7 +252,7 @@ export default function CryptoWallet() {
             ) : (
               <ResolvedAddress
                 address={tx.type === "sent" || tx.type === "withdrew" || tx.type === "received" ? tx.recipient : tx.sender}
-                type={tx.type === "sent" || tx.type === "withdrew"  ? "recipient" : "sender"}
+                type={tx.type === "sent" || tx.type === "withdrew" ? "recipient" : "sender"}
                 fallback={tx.type === "sent" || tx.type === "withdrew" || tx.type === "received" ? "Unknown" : tx.type === "received" ? "Unknown" : "On-chain transaction"}
                 textClassName="text-xs text-gray-500 mt-1"
                 showPrefix={true}
@@ -264,7 +266,7 @@ export default function CryptoWallet() {
             className={`font-bold text-base ${getTransactionTextColor(tx.type)}`}
           >
             {tx.type === "sent" || tx.type === "withdrew" ? "-" : "+"}
-            {user?.location === "KE" && theExhangeQuote?.exchangeRate.selling_rate
+            {currency === "KES" && theExhangeQuote?.exchangeRate.selling_rate
               ? `${(parseFloat(tx.amount) * theExhangeQuote.exchangeRate.selling_rate).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
@@ -272,14 +274,14 @@ export default function CryptoWallet() {
               : `${parseFloat(tx.amount).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 4,
-              })} ${tx.token}`}
+              })} USDC`}
           </Text>
-          {user?.location === "KE" && theExhangeQuote?.exchangeRate.selling_rate && (
+          {currency === "KES" && theExhangeQuote?.exchangeRate.selling_rate && (
             <Text className="text-[10px] text-gray-400">
               ({parseFloat(tx.amount).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 4,
-              })} {tx.token})
+              })} USDC)
             </Text>
           )}
           <Text className="text-xs text-gray-400 mt-1">
@@ -296,7 +298,7 @@ export default function CryptoWallet() {
     }
     switch (type) {
       case "sent":
-        return "#ef4444"; // Red
+        return "#f56c6cff"; // Red
       case "received":
         return "#10b981"; // Emerald
       case "deposited":
@@ -335,15 +337,15 @@ export default function CryptoWallet() {
             style={styles.modalCard}
           >
             {/* Header */}
-            <View className="p-6" style={{ backgroundColor: headerColor }}>
+            <View className="p-6" style={{ borderColor: headerColor, borderWidth: 2, borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
               <View className="items-center">
                 <View
                   className="w-16 h-16 rounded-full items-center justify-center mb-3"
                   style={{
-                    backgroundColor: "rgba(255, 255, 255, 0.2)",
+                    backgroundColor: headerColor,
                   }}
                 >
-                  {getTransactionIcon(selectedTransaction.type)}
+                  {getTransactionIcon(selectedTransaction.type, true)}
                 </View>
                 {selectedTransaction.isPretiumTx && (
                   <View className="bg-white/20 px-3 py-1 rounded-full mb-2">
@@ -352,15 +354,15 @@ export default function CryptoWallet() {
                     </Text>
                   </View>
                 )}
-                <Text className="text-white text-2xl font-bold mb-1 capitalize">
+                <Text className="text-2xl font-bold mb-1 capitalize" style={{ color: headerColor }}>
                   {selectedTransaction.type}
                 </Text>
-                <Text className="text-white text-3xl font-extrabold">
+                <Text className={`text-3xl font-extrabold`} style={{ color: headerColor }}>
                   {selectedTransaction.type === "sent" ||
                     selectedTransaction.type === "withdrew"
                     ? "-"
                     : "+"}
-                  {user?.location === "KE" && theExhangeQuote?.exchangeRate.selling_rate
+                  {currency === "KES" && theExhangeQuote?.exchangeRate.selling_rate
                     ? `${(parseFloat(selectedTransaction.amount) * theExhangeQuote.exchangeRate.selling_rate).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
@@ -368,14 +370,14 @@ export default function CryptoWallet() {
                     : `${parseFloat(selectedTransaction.amount).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 4,
-                    })} ${selectedTransaction.token}`}
+                    })} USDC`}
                 </Text>
-                {user?.location === "KE" && theExhangeQuote?.exchangeRate.selling_rate && (
+                {currency === "KES" && theExhangeQuote?.exchangeRate.selling_rate && (
                   <Text className="text-white/70 text-sm font-medium mt-1">
                     ({parseFloat(selectedTransaction.amount).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 4,
-                    })} {selectedTransaction.token})
+                    })} USDC)
                   </Text>
                 )}
               </View>
@@ -537,8 +539,8 @@ export default function CryptoWallet() {
     });
   };
 
-  const getTransactionIcon = (type: string) => {
-    const iconProps = { size: 20, color: getTransactionIconColor(type) };
+  const getTransactionIcon = (type: string, useWhite: boolean = false) => {
+    const iconProps = { size: 20, color: useWhite ? "white" : getTransactionIconColor(type) };
     switch (type) {
       case "sent":
         return <ArrowUpRight {...iconProps} />;
@@ -642,12 +644,12 @@ export default function CryptoWallet() {
                 <View className="mb-8">
                   <View className="flex-row items-baseline">
                     <Text className="text-5xl text-white font-bold tracking-tight">
-                      {balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && user?.location === "KE"
+                      {balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && currency === "KES"
                         ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         }).split('.')[0]
-                        : balanceVisible && user?.location !== "KE"
+                        : balanceVisible && currency !== "KES"
                           ? Number(usdcBalance) > 0 ? Number(usdcBalance).toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
@@ -656,12 +658,12 @@ export default function CryptoWallet() {
                           : "---"}
                     </Text>
                     <Text className="text-5xl text-white font-medium">
-                      .{balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && user?.location === "KE"
+                      .{balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && currency === "KES"
                         ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         }).split('.')[1] || "00"
-                        : balanceVisible && user?.location !== "KE"
+                        : balanceVisible && currency !== "KES"
                           ? Number(usdcBalance) > 0 ? Number(usdcBalance).toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
@@ -670,11 +672,11 @@ export default function CryptoWallet() {
                           : ""}
                     </Text>
                     <Text className="text-lg text-white/90 ml-1 font-medium">
-                      {user?.location === "KE" ? theExhangeQuote?.currencyCode : "USDC"}
+                      {currency === "KES" ? "KES" : "USDC"}
                     </Text>
                   </View>
 
-                  {balanceVisible && user?.location === "KE" && (
+                  {balanceVisible && currency === "KES" && (
                     <Text className="text-white/60 text-sm mt-2">
                       ≈ {balanceVisible && userBalance ? usdcBalance : "----"} USDC
                     </Text>
@@ -783,7 +785,7 @@ export default function CryptoWallet() {
           </View>
 
           {/* Transaction History Section */}
-          <View className="flex-1 px-6 mt-6 pb-24">
+          <View className="flex-1 px-6 mt-4 pb-24">
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-2xl font-bold text-gray-900">
                 Recent Activity
@@ -800,6 +802,8 @@ export default function CryptoWallet() {
                 </TouchableOpacity>
               )}
             </View>
+
+            <View className="h-px bg-gray-200 mb-4" />
 
             {/* Loading State */}
             {loadingTransactions && !refreshing && <LoadingState />}

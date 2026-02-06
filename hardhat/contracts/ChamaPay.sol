@@ -80,7 +80,8 @@ contract ChamaPay is
     event ChamaRegistered(uint indexed id, uint amount, uint duration, uint maxMembers, uint startDate, bool _isPublic, address indexed admin);
     event CashDeposited(uint indexed chamaId, address indexed receiver, uint amount);
     event OnrampUpdated(uint indexed chamaId, address indexed memberAddress, uint amount);
-    event LockedAmountUpdated(uint indexed chamaId, address indexed memberAddress, uint remainingAmount, bool onramp);
+    event LockedAmountUpdated(uint indexed chamaId, address indexed memberAddress,uint amount, uint remainingAmount);
+    event BalanceWithdrawn(uint indexed _chamaId, address indexed _address, uint _amount);
     event FundsDisbursed(uint indexed chamaId, address indexed recipient, uint amount);
     event RefundIssued(uint indexed chamaId, address indexed member, uint amount);
     event amountWithdrawn(address indexed _address, uint amount);
@@ -228,26 +229,43 @@ contract ChamaPay is
         emit OnrampUpdated(_chamaId, _memberAddress, _amount);
     }
 
-    function updateLockedAmount(address _memberAddress, uint _chamaId, bool onramp) public nonReentrant whenNotPaused {
-        require(_chamaId < totalChamas, "Chama does not exist");
+    function updateLockedAmount(address _memberAddress, uint _chamaId, uint _amount) public memberOrAgent(_chamaId) nonReentrant whenNotPaused {
+        require(_chamaId < totalChamas, "Chama does not exist.");
         require(isMember(_chamaId, _memberAddress), "User is not a member.");
         Chama storage chama = chamas[_chamaId];
 
-        uint requiredAmount = chama.amount * chama.members.length;
+        uint requiredAmount = chama.amount * chama.maxMembers;
         uint userLocked = chama.lockedAmounts[_memberAddress];
 
-        require(userLocked < requiredAmount, "User already has required locked amount.");
+        require(userLocked <= requiredAmount, "User already has required locked amount.");
 
         uint remainingAmount = requiredAmount - userLocked;
+        require(remainingAmount <= _amount, "Amount exceeded.");
 
         require(
-            USDCToken.transferFrom(msg.sender, address(this), remainingAmount),
+            USDCToken.transferFrom(msg.sender, address(this), _amount),
             "Token transfer failed"
         );
        
-        chama.lockedAmounts[_memberAddress] += remainingAmount;
+        chama.lockedAmounts[_memberAddress] += _amount;
 
-        emit LockedAmountUpdated(_chamaId, _memberAddress, remainingAmount, onramp);
+        emit LockedAmountUpdated(_chamaId, _memberAddress, _amount, remainingAmount);
+    }
+
+    function withdrawBalance(uint _chamaId, uint _amount) public onlyMembers(_chamaId) nonReentrant whenNotPaused {
+        require(_chamaId < totalChamas, "Chama does not exist.");
+        Chama storage chama = chamas[_chamaId];
+        require(chama.balances[msg.sender] > 0, "No balance to withdraw.");
+        require(_amount > 0, "Amount must be greater than 0");
+        require(_amount <= chama.balances[msg.sender], "Amount exceeds balance");
+
+        require(
+            USDCToken.transfer(msg.sender, _amount),
+            "Token transfer failed"
+        );
+        
+        chama.balances[msg.sender] -= _amount;
+        emit BalanceWithdrawn(_chamaId, msg.sender, _amount);
     }
 
     function addMemberToPayoutOrder(uint _chamaId, address[] memory _member) public onlyAiAgent whenNotPaused {
@@ -659,6 +677,11 @@ contract ChamaPay is
    
     modifier onlyAdmin(uint _chamaId) {
         require(chamas[_chamaId].admin == msg.sender, "only the admin can add a member");
+        _;
+    }
+
+    modifier memberOrAgent(uint _chamaId) {
+        require(isMember(_chamaId, msg.sender) || msg.sender == aiAgent || msg.sender == owner(), "You are not an agent or member of the chama.");
         _;
     }
 

@@ -6,6 +6,7 @@ import {
   transformChamaData,
 } from "@/lib/chamaService";
 import { decryptChamaSlug, parseChamaShareUrl } from "@/lib/encryption";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { formatDays, formatTimeRemaining } from "@/Utils/helperFunctions";
 import * as Clipboard from "expo-clipboard";
@@ -48,6 +49,7 @@ export default function HomeScreen() {
   const [pasteLink, setPasteLink] = useState("");
   const [isProcessingLink, setIsProcessingLink] = useState(false);
   const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
+  const { currency } = useCurrencyStore();
   const kesRate = rates["KES"]?.rate || 0;
 
   // Fetch user's chamas function
@@ -364,13 +366,13 @@ export default function HomeScreen() {
                         {chama.totalMembers}/{chama.maxMembers}
                       </Text>
                     </View>
-                    <View className="flex-row items-center bg-blue-50 px-3 py-1.5 rounded-lg">
-                      <HandCoins color="#3b82f6" size={16} />
-                      <Text className="text-sm font-semibold text-blue-700 ml-1.5" numberOfLines={1}>
-                        <Text className="text-sm font-semibold text-blue-700 ml-1.5" numberOfLines={1}>
-                          {kesRate > 0 && user?.location === "KE"
-                            ? `${(Number(chama.contribution) * kesRate).toFixed(2)} KES (${chama.contribution?.toLocaleString()} ${chama.currency})`
-                            : `${chama.contribution?.toFixed(3)} ${chama.currency}`}
+                    <View className="flex-row items-center  px-3 py-1.5 rounded-lg">
+                      <HandCoins color="#3b82f6" size={20} />
+                      <Text className=" font-semibold text-blue-700 ml-1.5" numberOfLines={1}>
+                        <Text className="text-lg font-semibold text-blue-700 ml-1.5" numberOfLines={1}>
+                          {kesRate > 0 && currency === "KES"
+                            ? `${(Number(chama.contribution) * kesRate).toFixed(2)} KES`
+                            : `${chama.contribution?.toFixed(3)} USDC`}
                           / {formatDays(Number(chama.duration))}
                         </Text>
                       </Text>
@@ -451,12 +453,15 @@ export default function HomeScreen() {
 
               <View className="flex-row items-center justify-between pt-3 border-t border-gray-100">
                 <View className="flex-row items-center flex-1">
+
                   <Calendar color="#6b7280" size={16} />
                   <Text className="text-sm font-medium text-gray-700 ml-2">
                     {chama.status === "active"
-                      ? `Next: ${chama.currentTurnMember} ${chama.myTurn ? "{You}" : ""} (${chama.nextPayoutDate})`
+                      ? `Next: ${chama.myTurn ? "#You" : chama.currentTurnMember} (${chama.nextPayoutDate})`
                       : `Starts in: ${formatTimeRemaining(chama.startDate)}`}
                   </Text>
+
+
                 </View>
 
                 {chama.myTurn && (

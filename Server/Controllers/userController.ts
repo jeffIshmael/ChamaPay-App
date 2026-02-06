@@ -555,7 +555,9 @@ export const confirmJoinRequest = async (
         adminId: true,
         name: true,
         payOutOrder: true,
-        blockchainId: true
+        blockchainId: true,
+        started: true,
+        round: true,
       },
     });
     if (!chama) {
@@ -573,6 +575,12 @@ export const confirmJoinRequest = async (
     const isApproved = decision === "approve"; // boolean of whether approved
     // if approved add the member onchain
     if (isApproved) {
+      if (chama.started && chama.round !== 1) {
+        res
+          .status(400)
+          .json({ success: false, error: `Cannot add user in the middle of cycle.` });
+        return;
+      }
       // get the requesting User 
       const requestingUser = await prisma.user.findUnique({
         where: {

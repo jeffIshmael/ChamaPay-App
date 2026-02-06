@@ -126,6 +126,7 @@ export interface BackendChama {
   members: ChamaMember[];
   messages: Message[];
   payments?: any[];
+  payOuts?: any[];
   _count?: {
     members: number;
   };
@@ -518,11 +519,11 @@ export const transformChamaData = (
         address: member.user.address || "",
       })) || [],
 
-    recentTransactions:
-      backendChama.payments?.map((payment) => ({
-        id: payment.id,
+    recentTransactions: [
+      ...(backendChama.payments?.map((payment) => ({
+        id: `payment-${payment.id}`,
         amount: payment.amount,
-        type: payment.description ? "contribution" : "payment",
+        type: payment.description ? "contribution" : "contribution", // Default to contribution for payments
         date: payment.doneAt,
         status: "completed",
         description: payment.description || "Contribution",
@@ -535,7 +536,26 @@ export const transformChamaData = (
           profileImageUrl: payment.user.profileImageUrl,
           address: payment.user.smartAddress,
         },
-      })) || [],
+      })) || []),
+      ...(backendChama.payOuts?.map((payout: any) => ({
+        id: `payout-${payout.id}`,
+        amount: payout.amount,
+        type: "payout",
+        date: payout.doneAt,
+        status: "completed",
+        description: "Payout",
+        txHash: payout.txHash,
+        userId: payout.userId,
+        // Pauto user details come from the included user relation
+        user: {
+          id: payout.user.id,
+          name: payout.user.userName,
+          email: "", // email might not be selected in controller, check if needed. MockData says email is required string? Controller selects id, smartAddress, userName, profileImageUrl. Email is missing in controller select!
+          profileImageUrl: payout.user.profileImageUrl,
+          address: payout.user.smartAddress,
+        },
+      })) || [])
+    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     userChamaBalance: backendChama.userBalance,
     eachMemberBalance: backendChama.eachMemberBalance,
   };
