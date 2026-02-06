@@ -162,12 +162,13 @@ export const bcWithdrawFundsFromChama = async (privateKey: `0x${string}`, chamaB
     try {
         // change amount to wei
         const amountInWei = parseUnits(amount, 6);
+        const bigIntChamaBlockchainId = BigInt(chamaBlockchainId);
         const { smartAccountClient, safeSmartAccount } = await createSmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
             functionName: 'withdrawBalance',
-            args: [chamaBlockchainId, amountInWei],
+            args: [bigIntChamaBlockchainId, amountInWei],
         })
         const transaction = await publicClient.waitForTransactionReceipt({
             hash: hash
