@@ -3,8 +3,8 @@ import { Image, Modal, Text, TouchableOpacity, View } from "react-native";
 
 import { useAuth } from "@/Contexts/AuthContext";
 import { getAllBalances } from "@/constants/thirdweb";
-import USDCPay from "./USDCPay";
 import MobileMoneyPay from "./MobileMoneyPay";
+import USDCPay from "./USDCPay";
 
 interface PaymentModalProps {
   visible: boolean;
@@ -40,11 +40,12 @@ const PaymentModal = ({
     setPaymentMethod(method);
   };
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = (data?: any) => {
     // USDCPay will handle its own success modal
     // Just close the USDCPay component and reset
     setShowUSDCPay(false);
     setPaymentMethod("");
+    onSuccess(data);
   };
 
   useEffect(() => {
@@ -120,7 +121,7 @@ const PaymentModal = ({
               chamaBlockchainId={chamaBlockchainId}
               chamaId={chamaId}
               onClose={() => onClose()}
-              onBack={()=>setPaymentMethod("")}
+              onBack={() => setPaymentMethod("")}
               remainingAmount={remainingAmount}
               contributionAmount={paymentAmount}
             /> // MobileMoney Pay component
@@ -130,7 +131,7 @@ const PaymentModal = ({
               onClose={() => {
                 onClose();
               }}
-              onBack={()=>setPaymentMethod("")}
+              onBack={() => setPaymentMethod("")}
               onSuccess={handlePaymentSuccess}
               chamaId={chamaId}
               chamaBlockchainId={chamaBlockchainId}

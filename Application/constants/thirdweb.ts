@@ -18,12 +18,12 @@ export type AllBalances = {
 };
 
 // Environment variables
-const clientId = process.env.EXPO_PUBLIC_THIRDWEB_CLIENT_ID!;
-const secretKey = process.env.EXPO_PUBLIC_THIRDWEB_SECRET_KEY!;
+const clientId = process.env.EXPO_PUBLIC_THIRDWEB_CLIENT_ID || "";
+const secretKey = process.env.EXPO_PUBLIC_THIRDWEB_SECRET_KEY || "";
 
 if (!clientId || !secretKey) {
-  throw new Error(
-    "❌ Missing EXPO_PUBLIC_THIRDWEB_CLIENT_ID or EXPO_PUBLIC_THIRDWEB_SECRET_KEY in .env"
+  console.error(
+    "❌ Missing EXPO_PUBLIC_THIRDWEB_CLIENT_ID or EXPO_PUBLIC_THIRDWEB_SECRET_KEY in .env. Thirdweb features will not work."
   );
 }
 
