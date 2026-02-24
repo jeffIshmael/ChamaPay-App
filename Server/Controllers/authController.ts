@@ -1,15 +1,15 @@
 // controllers/authController.ts
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import emailService from "../Lib/EmailService";
-import { sendWhatsAppOTP } from "../Lib/WhatsAppService";
-import { createUserWallet } from "../Lib/walletService";
-import Encryption from "../Lib/Encryption";
-import crypto from "crypto";
+import { verifyMessage } from "viem";
 import { createSmartAccount } from "../Blockchain/SmartAccount";
 import { addAddressToWebhook } from "../Lib/AlchemyWebhook";
+import emailService from "../Lib/EmailService";
+import Encryption from "../Lib/Encryption";
+import { sendWhatsAppOTP } from "../Lib/WhatsAppService";
+import { createUserWallet } from "../Lib/walletService";
 
 const prisma = new PrismaClient();
 
@@ -49,6 +49,19 @@ interface RegisterRequest {
 
 interface RefreshTokenRequest {
   refreshToken: string;
+}
+
+interface MiniappRegisterRequest {
+  username: string;
+  walletAddress: string;
+  profileImageUrl?: string;
+  fid?: number;
+}
+
+interface MiniappLoginRequest {
+  walletAddress: string;
+  signature: string;
+  message: string;
 }
 
 interface JWTPayload {
@@ -554,6 +567,185 @@ export const refreshToken = async (
     res.status(401).json({
       success: false,
       message: "Invalid or expired refresh token",
+    });
+  }
+};
+
+// Miniapp Registration (Wallet-based)
+export const miniappRegister = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { username, walletAddress, profileImageUrl, fid } = req.body as MiniappRegisterRequest;
+
+    if (!username || !walletAddress) {
+      res.status(400).json({
+        success: false,
+        message: "Username and wallet address are required",
+      });
+      return;
+    }
+
+    const formattedAddress = walletAddress.toLowerCase();
+    const placeholderEmail = `${formattedAddress}@wallet.com`;
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: placeholderEmail },
+          { userName: username },
+          { address: formattedAddress }
+        ],
+      },
+    });
+
+    if (existingUser) {
+      if (existingUser.userName === username) {
+        res.status(409).json({
+          success: false,
+          message: "Username already taken",
+        });
+      } else {
+        res.status(409).json({
+          success: false,
+          message: "Wallet address already registered",
+        });
+      }
+      return;
+    }
+
+    // Create new user
+    const newUser = await prisma.user.create({
+      data: {
+        email: placeholderEmail,
+        userName: username,
+        address: formattedAddress,
+        smartAddress: walletAddress,
+        profileImageUrl: profileImageUrl || null,
+        fid: fid == undefined ? null : fid,
+        hashedPrivkey: "",
+        hashedPassphrase: "",
+      },
+    });
+
+    // add user's wallet to alchemy webhook
+    await addAddressToWebhook(walletAddress);
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET not configured");
+    }
+
+    // Generate tokens
+    const token = jwt.sign(
+      { userId: newUser.id, email: newUser.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    const refreshToken = jwt.sign(
+      { userId: newUser.id, email: newUser.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Miniapp user registered successfully",
+      token,
+      refreshToken,
+      user: excludeSensitiveData(newUser),
+    });
+  } catch (error) {
+    console.error("Miniapp registration error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Registration failed",
+    });
+  }
+};
+
+// Miniapp Login (Wallet-based)
+export const miniappLogin = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { walletAddress, signature, message } = req.body as MiniappLoginRequest;
+
+    if (!walletAddress || !signature || !message) {
+      res.status(400).json({
+        success: false,
+        message: "Wallet address, signature, and message are required",
+      });
+      return;
+    }
+
+    // Verify the signature
+    const isValid = await verifyMessage({
+      address: walletAddress as `0x${string}`,
+      message,
+      signature: signature as `0x${string}`,
+    });
+
+    if (!isValid) {
+      res.status(401).json({
+        success: false,
+        message: "Invalid signature",
+      });
+      return;
+    }
+
+    const formattedAddress = walletAddress.toLowerCase();
+
+    // Find existing user
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { address: formattedAddress },
+          { email: `${formattedAddress}@wallet.com` }
+        ]
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found. Please register first.",
+      });
+      return;
+    }
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET not configured");
+    }
+
+    // Generate tokens
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    const refreshToken = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Miniapp login successful",
+      token,
+      refreshToken,
+      user: excludeSensitiveData(user),
+    });
+  } catch (error) {
+    console.error("Miniapp login error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Login failed",
     });
   }
 };

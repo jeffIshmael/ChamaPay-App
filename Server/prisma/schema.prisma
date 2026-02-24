@@ -14,6 +14,7 @@ model User {
   userName            String               @unique
   phoneNo             Int?
   address             String?
+  fid                 Int?
   smartAddress        String               @unique
   profileImageUrl     String?
   hashedPassphrase    String
@@ -62,6 +63,7 @@ model Chama {
   payOuts       PayOut[]
   payments      Payment[]
   roundOutcome  roundOutcome[]
+  refunds       Refund[]
 }
 
 model ChamaMember {
@@ -179,11 +181,10 @@ model PretiumTransaction {
 }
 
 model Refund {
-  id               Int      @id @default(autoincrement())
-  cycle            Int
-  round            Int
-  createdAt        DateTime @default(now())
-  chamaId          Int
-  chama            Chama    @relation(fields: [chamaId], references: [id])
+  id        Int      @id @default(autoincrement())
+  cycle     Int
+  round     Int
+  createdAt DateTime @default(now())
+  chamaId   Int
+  chama     Chama    @relation(fields: [chamaId], references: [id])
 }
-

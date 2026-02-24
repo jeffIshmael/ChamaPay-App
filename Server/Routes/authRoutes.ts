@@ -1,12 +1,14 @@
 // Routes for authentication i.e login & signup
 import express, { Router } from "express";
 import {
+    miniappLogin,
+    miniappRegister,
+    oauthAuthenticate,
     refreshToken,
     registerUser,
+    sendVerificationCode,
     sendWhatsAppCode,
-    oauthAuthenticate,
-    verifyEmailCode,
-    sendVerificationCode
+    verifyEmailCode
 } from "../Controllers/authController";
 
 const router: Router = express.Router();
@@ -27,6 +29,10 @@ router.post("/register", registerUser);
 
 // Refresh access token using refresh token
 router.post("/refresh", refreshToken);
+
+// Miniapp Auth routes
+router.post("/miniapp/login", miniappLogin);
+router.post("/miniapp/register", miniappRegister);
 
 
 
