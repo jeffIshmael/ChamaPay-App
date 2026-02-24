@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -565,21 +566,26 @@ export default function AuthScreen() {
       </SafeAreaView>
 
       {/* Loading Overlay */}
-      {isLoading && (
+      <Modal
+        visible={isLoading}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent
+      >
         <View
-          className="absolute inset-0 bg-black/20 items-center justify-center"
+          className="flex-1 bg-black/20 items-center justify-center px-6"
           style={{ zIndex: 999 }}
         >
-          <View className="bg-white p-6 rounded-3xl items-center" style={styles.card}>
+          <View className="bg-white p-8 rounded-3xl items-center w-full max-w-[280px]" style={styles.card}>
             <ActivityIndicator size="large" color="#26a6a2" />
             {loadingMessage ? (
-              <Text className="text-gray-600 font-medium mt-4 text-center">
+              <Text className="text-gray-600 font-semibold mt-4 text-center text-base">
                 {loadingMessage}
               </Text>
             ) : null}
           </View>
         </View>
-      )}
+      </Modal>
     </View>
   );
 }

@@ -99,19 +99,20 @@ function RootLayoutNav() {
   // Hide native splash - with robust error handling
   useEffect(() => {
     const hideSplash = async () => {
+      // Only hide when auth is initialized AND custom resources are ready
       if (!isLoading && isReady && !hasSplashHidden) {
         console.log("[RootLayout] 🎯 All ready! Hiding splash...");
 
         try {
-          // Small delay for React to render
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Double check if we're really ready to paint
+          // This prevents a white flash on some devices
+          await new Promise(resolve => setTimeout(resolve, 200));
 
           await SplashScreen.hideAsync();
           setHasSplashHidden(true);
           console.log("[RootLayout] ✅ Splash hidden successfully");
         } catch (error) {
           console.error("[RootLayout] ⚠️ Error hiding splash (non-critical):", error);
-          // Mark as hidden anyway to not block the app
           setHasSplashHidden(true);
         }
       }

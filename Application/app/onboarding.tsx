@@ -2,10 +2,9 @@ import { useRouter } from "expo-router";
 import {
   ChevronLeft,
   ChevronRight,
-  Globe,
-  Shield,
-  Smartphone,
-  Users,
+  ShieldCheck,
+  TrendingUp,
+  Users
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -22,47 +21,33 @@ const { width, height } = Dimensions.get("window");
 const onboardingSlides = [
   {
     icon: Users,
-    title: "Welcome to ChamaPay",
-    subtitle: "A Better Way to Save Together",
+    title: "Create or Join a Chama",
     description:
-      "Create or join digital savings groups where members contribute regularly and receive payouts in a fair rotating order — just like a chama.",
+      "Easily create a private savings group for friends or join public ones to meet your goals.",
     primaryColor: "#26a6a2", // downy-500
     accentColor: "#66d9d0", // downy-300
-    bgColor: "#d1f6f1", // downy-100
+    bgColor: "#ffffff",
     imageSource: require("@/assets/images/welcome.png"),
   },
   {
-    icon: Shield,
-    title: "Your Money Is Safe",
-    subtitle: "Protected by Built-In Rules",
+    icon: TrendingUp,
+    title: "Save in USDC (Digital Dollar)",
     description:
-      "ChamaPay uses automated rules to protect contributions and ensure payouts happen exactly as agreed — no one can change or interfere with them.",
-    primaryColor: "#1c8584", // downy-600
-    accentColor: "#3fc2bb", // downy-400
-    bgColor: "#f1fcfa", // downy-50
+      "Protect your savings from local currency inflation. Save in USDC for global inclusivity and stability.",
+    primaryColor: "#26a6a2",
+    accentColor: "#a3ece4",
+    bgColor: "#ffffff",
     imageSource: require("@/assets/images/secure.png"),
   },
   {
-    icon: Smartphone,
-    title: "Everything Happens Automatically",
-    subtitle: "No Stress, No Follow-Ups",
+    icon: ShieldCheck,
+    title: "Automatic Payouts & Transparency",
     description:
-      "Contributions, records, and payouts are handled automatically, so there's no chasing members or manual tracking.",
-    primaryColor: "#26a6a2", // downy-500
-    accentColor: "#a3ece4", // downy-200
-    bgColor: "#d1f6f1", // downy-100
+      "Enjoy stress-free savings with scheduled payouts and real-time balance tracking. Get notified the moment you receive your payout!",
+    primaryColor: "#26a6a2",
+    accentColor: "#d1f6f1",
+    bgColor: "#ffffff",
     imageSource: require("@/assets/images/payoutProcessed.png"),
-  },
-  {
-    icon: Globe,
-    title: "Save Without Borders",
-    subtitle: "One Group, Any Location",
-    description:
-      "Invite friends or family from different countries. Everyone contributes and gets paid on time, wherever they are.",
-    primaryColor: "#1a6b6b", // downy-700
-    accentColor: "#66d9d0", // downy-300
-    bgColor: "#f1fcfa", // downy-50
-    imageSource: require("@/assets/images/payout.png"),
   },
 ];
 
@@ -89,206 +74,121 @@ export default function Onboarding() {
   };
 
   const slide = onboardingSlides[currentSlide];
-  const IconComponent = slide.icon;
 
   return (
     <View className="flex-1 bg-white">
-      {/* Colored Background Layer with decorative elements */}
-      <View
-        className="absolute top-0 left-0 right-0 bottom-0 overflow-hidden"
-        style={{
-          height: height * 0.65,
-          backgroundColor: slide.bgColor,
-        }}
-      >
-        {/* Decorative circles */}
-        <View
-          className="absolute rounded-full"
-          style={{
-            top: -80,
-            right: -60,
-            width: 200,
-            height: 200,
-            backgroundColor: slide.accentColor,
-            opacity: 0.3,
-          }}
-        />
-        <View
-          className="absolute rounded-full"
-          style={{
-            top: 150,
-            left: -40,
-            width: 150,
-            height: 150,
-            backgroundColor: slide.primaryColor,
-            opacity: 0.15,
-          }}
-        />
-        <View
-          className="absolute rounded-full"
-          style={{
-            bottom: 20,
-            right: 30,
-            width: 100,
-            height: 100,
-            backgroundColor: slide.accentColor,
-            opacity: 0.2,
-          }}
-        />
-      </View>
+      <SafeAreaView className="flex-1">
+        {/* Skip Button - Top Right */}
+        <View className="flex-row justify-end px-6 pt-2">
+          {currentSlide < onboardingSlides.length - 1 ? (
+            <TouchableOpacity onPress={skipToEnd} className="flex-row items-center">
+              <Text className="text-gray-400 text-base font-medium">Skip</Text>
+              <ChevronRight size={18} color="#9ca3af" />
+            </TouchableOpacity>
+          ) : (
+            <View style={{ height: 24 }} />
+          )}
+        </View>
 
-      {/* Full Screen Image */}
-      <View
-        className="absolute top-0 left-0 right-0"
-        style={{ height: height * 0.65 }}
-      >
-        <Image
-          source={slide.imageSource}
-          style={{
-            width: "100%",
-            height: "100%",
-          }}
-          resizeMode="cover"
-        />
-      </View>
+        {/* Visual Content Section - Top Half (Aesthetic cards) */}
+        <View className="flex-1 justify-center items-center px-6">
+          {/* Decorative background elements (circles) */}
+          <View
+            className="absolute rounded-full"
+            style={{
+              width: width * 0.8,
+              height: width * 0.8,
+              backgroundColor: slide.accentColor,
+              opacity: 0.1,
+              top: height * 0.05
+            }}
+          />
 
-      {/* Skip Button */}
-      {currentSlide < onboardingSlides.length - 1 && (
-        <SafeAreaView>
-          <View className="absolute top-4 right-6 z-20">
+          {/* Main Card Image */}
+          <View
+            className="bg-white rounded-3xl overflow-hidden shadow-2xl"
+            style={{
+              width: width * 0.75,
+              height: height * 0.35,
+              elevation: 10,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.1,
+              shadowRadius: 20,
+            }}
+          >
+            <Image
+              source={slide.imageSource}
+              style={{ width: "100%", height: "100%" }}
+              resizeMode="contain"
+            />
+          </View>
+
+          {/* Floating Icon Badge (WanderWise style item) */}
+          <View
+            className="absolute bg-white p-4 rounded-2xl shadow-lg border border-gray-50"
+            style={{
+              top: height * 0.1,
+              right: width * 0.08,
+            }}
+          >
+            <slide.icon size={24} color={slide.primaryColor} />
+          </View>
+        </View>
+
+        {/* Text Content Section */}
+        <View className="px-10 pb-10">
+          <Text className="text-3xl font-extrabold text-[#1a1a1a] mb-4 leading-tight">
+            {slide.title}
+          </Text>
+          <Text className="text-gray-500 text-lg leading-relaxed mb-10">
+            {slide.description}
+          </Text>
+
+          {/* Bottom Navigation Row */}
+          <View className="flex-row items-center justify-between">
+            {/* Back Button */}
             <TouchableOpacity
-              onPress={skipToEnd}
-              className="px-4 py-2 rounded-full"
+              onPress={prevSlide}
+              style={{ opacity: currentSlide === 0 ? 0 : 1 }}
+              disabled={currentSlide === 0}
+              className="flex-row items-center"
+            >
+              <ChevronLeft size={20} color="#9ca3af" />
+              <Text className="text-gray-400 text-lg font-medium ml-1">Prev</Text>
+            </TouchableOpacity>
+
+            {/* Progress Dots */}
+            <View className="flex-row space-x-2 gap-1.5">
+              {onboardingSlides.map((_, index) => (
+                <View
+                  key={index}
+                  className="h-2 rounded-full"
+                  style={{
+                    width: index === currentSlide ? 20 : 8,
+                    backgroundColor: index === currentSlide ? slide.primaryColor : "#e5e7eb",
+                  }}
+                />
+              ))}
+            </View>
+
+            {/* Next/Proceed Button */}
+            <TouchableOpacity
+              onPress={nextSlide}
+              className="px-8 py-3.5 rounded-2xl shadow-md"
               style={{
-                backgroundColor: "rgba(255, 255, 255, 0.95)",
-                borderWidth: 1,
-                borderColor: slide.accentColor,
+                backgroundColor: slide.primaryColor,
+                minWidth: 120,
+                alignItems: "center"
               }}
             >
-              <Text
-                className="text-sm font-semibold"
-                style={{ color: slide.primaryColor }}
-              >
-                Skip
+              <Text className="text-white text-lg font-bold">
+                {currentSlide === onboardingSlides.length - 1 ? "Proceed" : "Next"}
               </Text>
             </TouchableOpacity>
           </View>
-        </SafeAreaView>
-      )}
-
-      {/* Content Card at Bottom with colored accent */}
-      <View
-        className="absolute left-0 right-0 bottom-0 bg-white overflow-hidden"
-        style={{
-          paddingTop: 40,
-          paddingBottom: 40,
-          paddingHorizontal: 24,
-          borderTopLeftRadius: 40,
-          borderTopRightRadius: 40,
-          shadowColor: slide.primaryColor,
-          shadowOffset: {
-            width: 0,
-            height: -8,
-          },
-          shadowOpacity: 0.15,
-          shadowRadius: 16,
-          elevation: 12,
-        }}
-      >
-        {/* Colored accent line at top */}
-        <View
-          className="absolute top-0 left-0 right-0"
-          style={{
-            height: 4,
-            backgroundColor: slide.primaryColor,
-          }}
-        />
-
-        {/* Content */}
-        <View className="items-center mb-6">
-          <Text className="text-2xl mb-2 text-gray-900 text-center font-bold leading-tight px-4">
-            {slide.title}
-          </Text>
-
-          <Text
-            className="text-base mb-4 text-center font-semibold px-4"
-            style={{ color: slide.primaryColor }}
-          >
-            {slide.subtitle}
-          </Text>
-
-          <Text className="text-gray-600 text-sm leading-6 text-center px-6 mb-6">
-            {slide.description}
-          </Text>
         </View>
-
-        {/* Progress Indicators with colors */}
-        <View className="flex-row justify-center space-x-2 mb-6 gap-1">
-          {onboardingSlides.map((_, index) => (
-            <View
-              key={index}
-              className="h-1.5 rounded-full"
-              style={{
-                width: index === currentSlide ? 28 : 8,
-                backgroundColor:
-                  index === currentSlide
-                    ? slide.primaryColor
-                    : slide.accentColor,
-                opacity: index === currentSlide ? 1 : 0.3,
-              }}
-            />
-          ))}
-        </View>
-
-        {/* Navigation Buttons */}
-        <View className="flex-row items-center justify-between">
-          <TouchableOpacity
-            onPress={prevSlide}
-            disabled={currentSlide === 0}
-            className="px-6 py-3 rounded-full flex-row items-center"
-            style={{
-              opacity: currentSlide === 0 ? 0 : 1,
-              backgroundColor:
-                currentSlide === 0 ? "transparent" : slide.bgColor,
-              borderWidth: currentSlide === 0 ? 0 : 1,
-              borderColor: slide.accentColor,
-            }}
-          >
-            <ChevronLeft
-              size={20}
-              style={{ borderColor: slide.primaryColor }}
-            />
-            <Text
-              className="ml-1 text-base font-medium"
-              style={{ color: slide.primaryColor }}
-            >
-              Back
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={nextSlide}
-            className="px-8 py-4 rounded-full flex-row items-center shadow-lg"
-            style={{
-              backgroundColor: slide.primaryColor,
-              minWidth: 140,
-              justifyContent: "center",
-              shadowColor: slide.primaryColor,
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.3,
-              shadowRadius: 8,
-              elevation: 8,
-            }}
-          >
-            <Text className="text-white text-base font-semibold mr-1">
-              {currentSlide === onboardingSlides.length - 1
-                ? "Get Started"
-                : "Next"}
-            </Text>
-            <ChevronRight size={20} color="white" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      </SafeAreaView>
     </View>
   );
 }

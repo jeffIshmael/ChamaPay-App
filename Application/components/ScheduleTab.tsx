@@ -14,6 +14,8 @@ type Props = {
   members: Member[];
   contributionAmount: number; // Amount each member contributes
   totalPayout: number; // Total payout per round
+  currentCycle?: number;
+  currentRound?: number;
 };
 
 type PayoutStatus = "completed" | "next" | "upcoming" | "pending";
@@ -64,6 +66,8 @@ const ScheduleTab: FC<Props> = ({
   members,
   contributionAmount,
   totalPayout,
+  currentCycle,
+  currentRound,
 }) => {
   const { user } = useAuth();
   const { currency } = useCurrencyStore();
@@ -154,6 +158,15 @@ const ScheduleTab: FC<Props> = ({
   return (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
       <View className="gap-3">
+        {(currentCycle !== undefined || currentRound !== undefined) && (
+          <Card className="w-fit mx-auto">
+            <View className="border border-downy-500 w-fit px-4 py-2 rounded-lg">
+              <Text className="text-downy-500 font-bold">
+                Cycle {currentCycle || 1} • Round {currentRound || 1}
+              </Text>
+            </View>
+          </Card>
+        )}
         {payoutSchedule && payoutSchedule.length > 0 ? (
           payoutSchedule.map((payout, index) => {
             const status = getPayoutStatus(payout, index);

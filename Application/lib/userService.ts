@@ -31,6 +31,16 @@ interface updateNotificationSettingsResponse {
   success: boolean;
   user: {};
 }
+interface withdrawFromChamaBalanceResponse {
+  success: boolean;
+  withdrawal: {} | null;
+}
+
+interface addLockedFundsToChamaResponse {
+  success: boolean;
+  lockedFunds: {} | null;
+}
+
 // function to register a payment to the database
 export async function registerPayment(
   receiver: string,
@@ -236,3 +246,60 @@ export async function updateUserPushToken(
   }
 
 }
+
+// function to withdraw from chama balance
+export async function withdrawFromChamaBalance(
+  chamaId: number,
+  amount: string,
+  token: string
+): Promise<withdrawFromChamaBalanceResponse> {
+  try {
+    const response = await fetch(`${serverUrl}/chama/withdraw`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        chamaId,
+        amount,
+      }),
+    });
+    const data = await response.json();
+    console.log(data);
+    return data;
+  } catch (error) {
+    console.error("Error withdrawing from chama balance:", error);
+    return { success: false, withdrawal: null };
+  }
+}
+
+// function to add locked funds to chama balance
+export async function addLockedFundsToChama(
+  chamaId: number,
+  amount: string,
+  isOnramp: boolean,
+  token: string
+): Promise<addLockedFundsToChamaResponse> {
+  try {
+    const response = await fetch(`${serverUrl}/chama/add-locked-amount`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        chamaId,
+        amount,
+        isOnramp
+      }),
+    });
+    const data = await response.json();
+    console.log(data);
+    return data;
+  } catch (error) {
+    console.error("Error adding locked funds to chama:", error);
+    return { success: false, lockedFunds: null };
+  }
+}
+

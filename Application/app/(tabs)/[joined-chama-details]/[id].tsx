@@ -224,9 +224,8 @@ export default function JoinedChamaDetails() {
   const handlePaymentSuccess = () => {
     // Close payment modal and reload page data
     setShowPaymentModal(false);
-    // refetchBalance();
+    setActiveTab("overview");
     fetchChama();
-    // refetchEachMemberBalance();
   };
 
   const handlePaymentClose = () => {
@@ -256,6 +255,7 @@ export default function JoinedChamaDetails() {
     setShowUSDCPaymentModal(false);
     setSuccessMessage(data?.message || "Payment successful!");
     setShowSuccessModal(true);
+    setActiveTab("overview");
     fetchChama();
     fetchMyWalletBalance();
   };
@@ -405,6 +405,8 @@ export default function JoinedChamaDetails() {
       kesRate={kesRate}
       myCollateral={myCollateral}
       chamaName={chama.name}
+      chamaId={Number(chama.id)}
+      onRefresh={fetchChama}
     />
   );
 
@@ -420,6 +422,8 @@ export default function JoinedChamaDetails() {
       members={chama.members}
       contributionAmount={chama.contribution}
       totalPayout={chama.nextPayoutAmount}
+      currentCycle={chama.currentCycle}
+      currentRound={chama.currentRound}
     />
   );
 
@@ -516,7 +520,7 @@ export default function JoinedChamaDetails() {
         <View className={`flex-1 pt-4 ${activeTab === "chat" ? "" : "px-6"}`}>
           {/* Tab Navigation */}
           <View
-            className={`flex-row bg-gray-100 rounded-lg p-1 mb-4 ${activeTab === "chat" ? "mx-6" : ""
+            className={`flex-row bg-gray-100 rounded-lg px-1 py-2 mb-4 ${activeTab === "chat" ? "mx-6" : ""
               }`}
           >
             <TabButton
@@ -788,7 +792,10 @@ export default function JoinedChamaDetails() {
               </Text>
             </View>
             <TouchableOpacity
-              onPress={() => setShowSuccessModal(false)}
+              onPress={() => {
+                setShowSuccessModal(false);
+                setActiveTab("overview");
+              }}
               className="bg-emerald-600 py-3 rounded-xl"
               activeOpacity={0.8}
             >

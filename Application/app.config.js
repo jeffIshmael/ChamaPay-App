@@ -1,4 +1,4 @@
-{
+export default {
   "expo": {
     "name": "chamapay-app",
     "slug": "chamapay-app",
@@ -91,7 +91,7 @@
           ]
         }
       ],
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": process.env.GOOGLE_SERVICES_JSON || "./google-services.json"
     },
     "web": {
       "bundler": "metro",

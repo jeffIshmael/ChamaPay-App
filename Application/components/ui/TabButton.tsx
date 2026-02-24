@@ -20,12 +20,12 @@ export const TabButton = ({
   return (
     <TouchableOpacity
       onPress={onPress}
-      className={`flex-1 py-2 px-1 rounded-lg ${isActive ? "bg-downy-100" : "bg-gray-100"
+      className={`flex-1 py-3 px-1 rounded-lg ${isActive ? "bg-downy-200" : "bg-gray-100"
         }`}
     >
       <View className="items-center">
         <Text
-          className={`text-xs font-medium ${isActive ? "text-downy-700" : "text-gray-600"
+          className={`text-sm font-medium ${isActive ? "text-downy-700" : "text-gray-600"
             }`}
         >
           {labelText}

@@ -4,6 +4,7 @@ import express, { Application } from "express";
 import authRoutes from "./Routes/authRoutes";
 import chamaRoutes from "./Routes/chamaRoutes";
 import cronRoutes from "./Routes/cronRoutes";
+import miniappRoutes from "./Routes/miniappRoutes";
 import pretiumRoutes from "./Routes/pretiumRoutes";
 import userRoutes from "./Routes/userRoutes";
 import webhookRoutes from "./Routes/webhookRoutes";
@@ -29,6 +30,7 @@ app.use("/chama", chamaRoutes); // All chama-related routes
 app.use("/cron", cronRoutes);
 app.use("/pretium", pretiumRoutes);
 app.use("/webhooks", webhookRoutes); // Webhook routes for external services
+app.use("/miniapp", miniappRoutes); // Miniapp-specific endpoints
 
 // Health check endpoint
 app.get("/health", (req, res) => {

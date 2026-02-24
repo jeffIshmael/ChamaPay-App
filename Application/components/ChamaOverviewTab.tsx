@@ -17,6 +17,7 @@ import { Dimensions, Linking, Modal, ScrollView, Text, TouchableOpacity, View } 
 import { useAuth } from "../Contexts/AuthContext";
 import { useCurrencyStore } from "../store/useCurrencyStore";
 import { formatDate } from "../Utils/helperFunctions";
+import { AddLockedFundsModal, WithdrawModal } from "./ChamaBalanceModals";
 import { ResolvedAddress } from "./ResolvedAddress";
 import { Card } from "./ui/Card";
 
@@ -42,6 +43,8 @@ type Props = {
   chamaStartDate: Date;
   collateralAmount: number;
   chamaName: string;
+  chamaId: number;
+  onRefresh?: () => void;
 };
 
 const ChamaOverviewTab: FC<Props> = ({
@@ -66,12 +69,16 @@ const ChamaOverviewTab: FC<Props> = ({
   collateralAmount,
   myCollateral,
   chamaName,
+  chamaId,
+  onRefresh,
 }) => {
   const router = useRouter();
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [activeCardIndex, setActiveCardIndex] = useState(0);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [showAddLockedModal, setShowAddLockedModal] = useState(false);
   const { user } = useAuth();
   const { currency: userCurrency } = useCurrencyStore();
 
@@ -213,6 +220,7 @@ const ChamaOverviewTab: FC<Props> = ({
                             </Text>
                           </TouchableOpacity>
                           <TouchableOpacity
+                            onPress={() => setShowWithdrawModal(true)}
                             className="flex-1 bg-gray-200 py-3 rounded-lg"
                             activeOpacity={0.8}
                             disabled
@@ -234,6 +242,7 @@ const ChamaOverviewTab: FC<Props> = ({
                             </Text>
                           </TouchableOpacity>
                           <TouchableOpacity
+                            onPress={() => setShowWithdrawModal(true)}
                             className="flex-1 bg-downy-600 py-3 rounded-lg"
                             activeOpacity={0.8}
                           >
@@ -320,6 +329,7 @@ const ChamaOverviewTab: FC<Props> = ({
                           ? "bg-gray-200"
                           : "bg-purple-600"
                           }`}
+                        onPress={() => setShowAddLockedModal(true)}
                         activeOpacity={0.8}
                         disabled={myCollateral >= collateralAmount}
                       >
@@ -714,6 +724,32 @@ const ChamaOverviewTab: FC<Props> = ({
       </Card>
 
       <View className="h-20" />
+
+      {/* Action Modals */}
+      <WithdrawModal
+        visible={showWithdrawModal}
+        onClose={() => setShowWithdrawModal(false)}
+        onSuccess={() => {
+          setShowWithdrawModal(false);
+          onRefresh?.();
+        }}
+        chamaId={chamaId}
+        chamaName={chamaName}
+        balance={myContributions}
+        currency={currency}
+      />
+
+      <AddLockedFundsModal
+        visible={showAddLockedModal}
+        onClose={() => setShowAddLockedModal(false)}
+        onSuccess={() => {
+          setShowAddLockedModal(false);
+          onRefresh?.();
+        }}
+        chamaId={chamaId}
+        chamaName={chamaName}
+        currency={currency}
+      />
 
       {/* Transaction Details Modal */}
       <Modal

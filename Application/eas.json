@@ -12,6 +12,12 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "GOOGLE_SERVICES_JSON": "file:GOOGLE_SERVICES_JSON",
+        "EXPO_PUBLIC_SERVER_URL": "REPLACE_ME_IN_EAS_SECRETS",
+        "EXPO_PUBLIC_THIRDWEB_CLIENT_ID": "REPLACE_ME_IN_EAS_SECRETS",
+        "EXPO_PUBLIC_THIRDWEB_SECRET_KEY": "REPLACE_ME_IN_EAS_SECRETS"
       }
     },
     "production": {

@@ -785,7 +785,7 @@ export default function CryptoWallet() {
           </View>
 
           {/* Transaction History Section */}
-          <View className="flex-1 px-6 mt-4 pb-24">
+          <View className="flex-1 px-6 mt-6 pb-24">
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-2xl font-bold text-gray-900">
                 Recent Activity
@@ -796,7 +796,7 @@ export default function CryptoWallet() {
                   className="underline"
                   activeOpacity={0.8}
                 >
-                  <Text className="text-downy-600 text-sm font-semibold">
+                  <Text className="text-downy-600 text-md font-semibold">
                     View All
                   </Text>
                 </TouchableOpacity>
