@@ -1,6 +1,7 @@
 // This file has routes for user operations
 import express, { Request, Router } from "express";
 import multer from "multer";
+import { miniappGetUserByAddress, miniappGetUserNotifications } from "../Controllers/miniappController";
 import {
   checkHasJoinRequest,
   checkUserExists,
@@ -60,6 +61,8 @@ router.get("/search", searchUsers);
 router.get("/balance", authenticate, getUserUsdcBalance);
 router.get("/joinRequest", authenticate, sendJoinRequest);
 router.get("/by-address", getUserByAddress);
+router.get("/address/:address", miniappGetUserByAddress);
+router.get("/notifications/:userId", miniappGetUserNotifications);
 
 // put routes
 router.put("/profile", authenticate, updatePhoneNumber);
