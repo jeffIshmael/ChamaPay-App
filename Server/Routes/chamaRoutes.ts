@@ -1,6 +1,7 @@
 // Routes for chama related functions
 import express, { Router } from "express";
 import {
+    addLockedAmount,
     addMemberToChama,
     createChama,
     depositToChama,
@@ -9,9 +10,9 @@ import {
     getPublicChamasUserIsNotMemberOf,
     markMessagesRead,
     sendChamaMessage,
-    addLockedAmount,
     withdrawFromChamaBalance
 } from "../Controllers/chamaControllers";
+import { miniappCheckHasJoinRequest, miniappGetChamaBySlug, miniappGetPendingRequests } from "../Controllers/miniappController";
 import authenticate from "../Middlewares/authMiddleware";
 
 const router: Router = express.Router();
@@ -45,6 +46,10 @@ router.post("/withdraw", authenticate, withdrawFromChamaBalance);
 // add a chama message
 router.post("/send-message", authenticate, sendChamaMessage);
 router.post("/mark-messages-read", authenticate, markMessagesRead);
+
+router.get("/pending-requests/:userId", miniappGetPendingRequests);
+router.get("/check-request/:address/:chamaId", miniappCheckHasJoinRequest);
+router.get("/slug/:slug", miniappGetChamaBySlug);
 
 // get chama by slug
 router.get("/:slug", authenticate, getChamaBySlug);

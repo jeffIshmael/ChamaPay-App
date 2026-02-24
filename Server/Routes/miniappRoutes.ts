@@ -6,12 +6,12 @@ import {
 import {
     miniappConfirmJoinRequest,
     miniappCreateChama,
+    miniappGetUserDetails,
     miniappJoinChama,
+    miniappSendJoinRequest,
 } from "../Controllers/miniappController";
 import {
-    getUserDetails,
     registerPayment,
-    sendJoinRequest,
 } from "../Controllers/userController";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -27,11 +27,11 @@ router.post("/create-chama", miniappCreateChama);
 router.post("/join-chama", miniappJoinChama);
 
 // Request management
-router.post("/send-request", sendJoinRequest);
+router.post("/send-request", miniappSendJoinRequest);
 router.post("/confirm-request", miniappConfirmJoinRequest);
 
 // User & Payments
-router.get("/user-details", getUserDetails);
+router.get("/user-details", miniappGetUserDetails);
 router.post("/register-payment", registerPayment);
 
 export default router;
