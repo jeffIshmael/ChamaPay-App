@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-import { getEachMemberBalance } from "../Blockchain/ReadFunctions";
+import { getEachMemberBalance, getUserChamaBalance } from "../Blockchain/ReadFunctions";
 import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
 import { generateUniqueSlug } from "../Lib/HelperFunctions";
 import { addMemberToPayout, checkHasPendingRequest, getSentRequests, handleRequest, requestToJoin } from "../Lib/prismaFunctions";
@@ -20,6 +20,7 @@ export const miniappCreateChama = async (req: Request, res: Response) => {
             maxNo,
             startDate,
             blockchainId,
+            txHash
         } = req.body;
 
         const userId = req.user?.userId;
@@ -62,6 +63,17 @@ export const miniappCreateChama = async (req: Request, res: Response) => {
                 payDate: new Date(),
             },
         });
+        if (type == "Public") {
+            await prisma.payment.create({
+                data: {
+                    amount: amount,
+                    description: "Chama creation collateral",
+                    txHash: txHash,
+                    chamaId: chama.id,
+                    userId: userId,
+                },
+            });
+        }
 
         return res.status(201).json({ success: true, chama });
     } catch (error) {
@@ -213,6 +225,9 @@ export const miniappGetUserByAddress = async (req: Request, res: Response) => {
 export const miniappGetUserNotifications = async (req: Request, res: Response) => {
     try {
         const { userId } = req.params;
+        if (!userId) {
+            return res.status(400).json({ success: false, error: "User ID is required" });
+        }
         const notifications = await prisma.notification.findMany({
             where: { userId: Number(userId) },
             include: {
@@ -225,6 +240,60 @@ export const miniappGetUserNotifications = async (req: Request, res: Response) =
         return res.status(200).json(notifications);
     } catch (error) {
         console.error("Miniapp get notifications error:", error);
+        return res.status(500).json({ success: false, error: "Internal server error" });
+    }
+};
+
+// Get recent payments for a user (payouts and payments)
+export const miniappGetRecentPayments = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+        if (!userId) {
+            return res.status(400).json({ success: false, error: "User ID is required" });
+        }
+
+        const payments = await prisma.payment.findMany({
+            where: { userId: Number(userId) },
+            include: {
+                chama: {
+                    select: {
+                        id: true,
+                        name: true,
+                        slug: true
+                    }
+                }
+            },
+            orderBy: { doneAt: "desc" },
+            take: 20
+        });
+
+        const payouts = await prisma.payOut.findMany({
+            where: { userId: Number(userId) },
+            include: {
+                chama: {
+                    select: {
+                        id: true,
+                        name: true,
+                        slug: true
+                    }
+                }
+            },
+            orderBy: { doneAt: "desc" },
+            take: 20
+        });
+
+        // Combine and sort by date
+        const recentActivity = [...payments.map(p => ({ ...p, type: 'payment' })), ...payouts.map(p => ({ ...p, type: 'payout' }))]
+            .sort((a, b) => new Date(b.doneAt).getTime() - new Date(a.doneAt).getTime())
+            .slice(0, 20);
+
+        // Helper for BigInt serialization
+        const bigIntReplacer = (_key: string, value: any) =>
+            typeof value === "bigint" ? value.toString() : value;
+
+        return res.status(200).json(JSON.parse(JSON.stringify(recentActivity, bigIntReplacer)));
+    } catch (error) {
+        console.error("Miniapp get recent payments error:", error);
         return res.status(500).json({ success: false, error: "Internal server error" });
     }
 };
@@ -300,10 +369,52 @@ export const miniappGetChamaBySlug = async (req: Request, res: Response) => {
                         },
                     },
                 },
+                payments: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                smartAddress: true,
+                                userName: true,
+                                profileImageUrl: true,
+                            },
+                        },
+                    },
+                    orderBy: {
+                        doneAt: "desc",
+                    },
+                },
+                messages: {
+                    include: {
+                        sender: {
+                            select: {
+                                id: true,
+                                smartAddress: true,
+                                userName: true,
+                                profileImageUrl: true,
+                            },
+                        },
+                    },
+                },
                 admin: {
                     select: {
-                        smartAddress: true
-                    }
+                        id: true,
+                        smartAddress: true,
+                        userName: true,
+                        profileImageUrl: true,
+                    },
+                },
+                payOuts: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                smartAddress: true,
+                                userName: true,
+                                profileImageUrl: true,
+                            },
+                        },
+                    },
                 }
             },
         });
@@ -313,8 +424,16 @@ export const miniappGetChamaBySlug = async (req: Request, res: Response) => {
         }
 
         let isMember = false;
+        let userBalance = "0";
         if (address) {
             isMember = chama.members.some(m => m.user.smartAddress === address);
+            // Fetch blockchain balance if address provided
+            try {
+                const balance = await getUserChamaBalance(address as string, BigInt(Number(chama.blockchainId))) as any;
+                userBalance = balance.toString();
+            } catch (e) {
+                console.warn("Failed to fetch onchain balance for miniapp:", e);
+            }
         }
 
         // Helper for BigInt serialization
@@ -327,6 +446,7 @@ export const miniappGetChamaBySlug = async (req: Request, res: Response) => {
             success: true,
             chama: JSON.parse(JSON.stringify({
                 ...chama,
+                userBalance,
                 eachMemberBalance
             }, bigIntReplacer)),
             isMember,
