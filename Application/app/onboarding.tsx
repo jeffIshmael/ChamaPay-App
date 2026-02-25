@@ -1,52 +1,51 @@
+import { storage } from "@/Utils/storage";
 import { useRouter } from "expo-router";
 import {
   ChevronLeft,
   ChevronRight,
-  ShieldCheck,
-  TrendingUp,
-  Users
 } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Dimensions,
+  FlatList,
   Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  StatusBar,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get("window");
 
 const onboardingSlides = [
   {
-    icon: Users,
+    id: "1",
     title: "Create or Join a Chama",
     description:
       "Easily create a private savings group for friends or join public ones to meet your goals.",
-    primaryColor: "#26a6a2", // downy-500
-    accentColor: "#66d9d0", // downy-300
-    bgColor: "#ffffff",
-    imageSource: require("@/assets/images/welcome.png"),
+    primaryColor: "#26a6a2",
+    accentColor: "#E6F7F6",
+    imageSource: require("@/assets/images/creat.png"),
   },
   {
-    icon: TrendingUp,
+    id: "2",
     title: "Save in USDC (Digital Dollar)",
     description:
-      "Protect your savings from local currency inflation. Save in USDC for global inclusivity and stability.",
+      "Save in USDC — a stable digital dollar that protects your money from inflation and works globally.",
     primaryColor: "#26a6a2",
-    accentColor: "#a3ece4",
-    bgColor: "#ffffff",
-    imageSource: require("@/assets/images/secure.png"),
+    accentColor: "#E8FBF9",
+    imageSource: require("@/assets/images/stable.png"),
   },
   {
-    icon: ShieldCheck,
+    id: "3",
     title: "Automatic Payouts & Transparency",
     description:
-      "Enjoy stress-free savings with scheduled payouts and real-time balance tracking. Get notified the moment you receive your payout!",
+      "Enjoy stress-free savings with scheduled payouts and real-time balance tracking.",
     primaryColor: "#26a6a2",
-    accentColor: "#d1f6f1",
-    bgColor: "#ffffff",
+    accentColor: "#F0FDFA",
     imageSource: require("@/assets/images/payoutProcessed.png"),
   },
 ];
@@ -54,141 +53,254 @@ const onboardingSlides = [
 export default function Onboarding() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const router = useRouter();
+  const flatListRef = useRef<FlatList>(null);
 
-  const nextSlide = () => {
-    if (currentSlide < onboardingSlides.length - 1) {
-      setCurrentSlide(currentSlide + 1);
+  const updateCurrentSlideIndex = (
+    e: NativeSyntheticEvent<NativeScrollEvent>
+  ) => {
+    const contentOffsetX = e.nativeEvent.contentOffset.x;
+    const currentIndex = Math.round(contentOffsetX / width);
+    setCurrentSlide(currentIndex);
+  };
+
+  const nextSlide = async () => {
+    const nextIndex = currentSlide + 1;
+    if (nextIndex < onboardingSlides.length) {
+      flatListRef.current?.scrollToIndex({
+        index: nextIndex,
+        animated: true,
+      });
+      setCurrentSlide(nextIndex);
     } else {
-      router.push("/auth-screen");
+      await storage.setHasSeenOnboarding(true);
+      router.replace("/new-auth-screen");
     }
   };
 
   const prevSlide = () => {
-    if (currentSlide > 0) {
-      setCurrentSlide(currentSlide - 1);
+    const prevIndex = currentSlide - 1;
+    if (prevIndex >= 0) {
+      flatListRef.current?.scrollToIndex({
+        index: prevIndex,
+        animated: true,
+      });
+      setCurrentSlide(prevIndex);
     }
   };
 
-  const skipToEnd = () => {
-    router.push("/auth-screen");
+  const skipToEnd = async () => {
+    await storage.setHasSeenOnboarding(true);
+    router.replace("/new-auth-screen");
   };
 
-  const slide = onboardingSlides[currentSlide];
+  const Slide = ({ item }: { item: typeof onboardingSlides[0] }) => {
+    return (
+      <View style={{ width, height }} className="bg-white">
+        {/* Top Image Section */}
+        <View
+          style={{
+            height: height * 0.6,
+            width: width,
+            borderBottomLeftRadius: 60,
+            borderBottomRightRadius: 60,
+            overflow: "hidden",
+            backgroundColor: item.accentColor,
+          }}
+        >
+          <Image
+            source={item.imageSource}
+            style={{ width: "100%", height: "100%" }}
+            resizeMode="cover"
+          />
+
+          {/* Soft overlay */}
+          <View style={styles.overlay} />
+        </View>
+
+        {/* Text Section */}
+        <View
+          className="flex-1 bg-white"
+          style={{
+            paddingTop: 50,
+            paddingHorizontal: 30,
+          }}
+        >
+          <Text className="text-[34px] font-extrabold text-center text-[#111827] leading-tight tracking-tight">
+            {item.title}
+          </Text>
+
+          <Text className="text-gray-500 text-lg text-center leading-relaxed font-medium mt-6">
+            {item.description}
+          </Text>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View className="flex-1 bg-white">
-      <SafeAreaView className="flex-1">
-        {/* Skip Button - Top Right */}
-        <View className="flex-row justify-end px-6 pt-2">
-          {currentSlide < onboardingSlides.length - 1 ? (
-            <TouchableOpacity onPress={skipToEnd} className="flex-row items-center">
-              <Text className="text-gray-400 text-base font-medium">Skip</Text>
-              <ChevronRight size={18} color="#9ca3af" />
-            </TouchableOpacity>
-          ) : (
-            <View style={{ height: 24 }} />
-          )}
-        </View>
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
 
-        {/* Visual Content Section - Top Half (Aesthetic cards) */}
-        <View className="flex-1 justify-center items-center px-6">
-          {/* Decorative background elements (circles) */}
-          <View
-            className="absolute rounded-full"
-            style={{
-              width: width * 0.8,
-              height: width * 0.8,
-              backgroundColor: slide.accentColor,
-              opacity: 0.1,
-              top: height * 0.05
-            }}
-          />
+      {/* Skip Button */}
+      <View className="absolute top-14 right-6 z-20">
+        <TouchableOpacity
+          onPress={skipToEnd}
+          activeOpacity={0.7}
+          style={styles.skipButton}
+        >
+          <Text style={styles.skipText}>Skip</Text>
+          
+        </TouchableOpacity>
+      </View>
 
-          {/* Main Card Image */}
-          <View
-            className="bg-white rounded-3xl overflow-hidden shadow-2xl"
-            style={{
-              width: width * 0.75,
-              height: height * 0.35,
-              elevation: 10,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.1,
-              shadowRadius: 20,
-            }}
-          >
-            <Image
-              source={slide.imageSource}
-              style={{ width: "100%", height: "100%" }}
-              resizeMode="contain"
+      <FlatList
+        ref={flatListRef}
+        onMomentumScrollEnd={updateCurrentSlideIndex}
+        data={onboardingSlides}
+        renderItem={({ item }) => <Slide item={item} />}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        bounces={false}
+        keyExtractor={(item) => item.id}
+      />
+
+      {/* Footer */}
+      <View style={styles.footer}>
+        {/* Progress Dots */}
+        <View style={styles.dotsContainer}>
+          {onboardingSlides.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.dot,
+                {
+                  width: index === currentSlide ? 28 : 8,
+                  backgroundColor:
+                    index === currentSlide
+                      ? onboardingSlides[currentSlide].primaryColor
+                      : "#E5E7EB",
+                  opacity: index === currentSlide ? 1 : 0.5,
+                },
+              ]}
             />
-          </View>
-
-          {/* Floating Icon Badge (WanderWise style item) */}
-          <View
-            className="absolute bg-white p-4 rounded-2xl shadow-lg border border-gray-50"
-            style={{
-              top: height * 0.1,
-              right: width * 0.08,
-            }}
-          >
-            <slide.icon size={24} color={slide.primaryColor} />
-          </View>
+          ))}
         </View>
 
-        {/* Text Content Section */}
-        <View className="px-10 pb-10">
-          <Text className="text-3xl font-extrabold text-[#1a1a1a] mb-4 leading-tight">
-            {slide.title}
-          </Text>
-          <Text className="text-gray-500 text-lg leading-relaxed mb-10">
-            {slide.description}
-          </Text>
+        {/* Navigation */}
+        <View style={styles.navigationRow}>
+          <View style={{ flex: 1 }}>
+            {currentSlide > 0 && (
+              <TouchableOpacity
+                onPress={prevSlide}
+                style={styles.prevButton}
+              >
+                <ChevronLeft size={20} color="#9ca3af" />
+                <Text style={styles.prevText}>Back</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
-          {/* Bottom Navigation Row */}
-          <View className="flex-row items-center justify-between">
-            {/* Back Button */}
-            <TouchableOpacity
-              onPress={prevSlide}
-              style={{ opacity: currentSlide === 0 ? 0 : 1 }}
-              disabled={currentSlide === 0}
-              className="flex-row items-center"
-            >
-              <ChevronLeft size={20} color="#9ca3af" />
-              <Text className="text-gray-400 text-lg font-medium ml-1">Prev</Text>
-            </TouchableOpacity>
-
-            {/* Progress Dots */}
-            <View className="flex-row space-x-2 gap-1.5">
-              {onboardingSlides.map((_, index) => (
-                <View
-                  key={index}
-                  className="h-2 rounded-full"
-                  style={{
-                    width: index === currentSlide ? 20 : 8,
-                    backgroundColor: index === currentSlide ? slide.primaryColor : "#e5e7eb",
-                  }}
-                />
-              ))}
-            </View>
-
-            {/* Next/Proceed Button */}
+          <View style={{ flex: 1, alignItems: "flex-end" }}>
             <TouchableOpacity
               onPress={nextSlide}
-              className="px-8 py-3.5 rounded-2xl shadow-md"
-              style={{
-                backgroundColor: slide.primaryColor,
-                minWidth: 120,
-                alignItems: "center"
-              }}
+              activeOpacity={0.85}
+              style={[
+                styles.nextButton,
+                {
+                  backgroundColor:
+                    onboardingSlides[currentSlide].primaryColor,
+                },
+              ]}
             >
-              <Text className="text-white text-lg font-bold">
-                {currentSlide === onboardingSlides.length - 1 ? "Proceed" : "Next"}
+              <Text style={styles.nextText}>
+                {currentSlide === onboardingSlides.length - 1
+                  ? "Get Started"
+                  : "Next"}
               </Text>
+              <ChevronRight size={18} color="white" style={{ marginLeft: 6 }} />
             </TouchableOpacity>
           </View>
         </View>
-      </SafeAreaView>
+      </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+  skipButton: {
+    backgroundColor: "rgba(255,255,255,0.95)",
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 999,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  skipText: {
+    color: "#26a6a2",
+    fontWeight: "800",
+    fontSize: 13,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 30,
+    paddingBottom: 50,
+    paddingTop: 10,
+    backgroundColor: "#fff",
+  },
+  dotsContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 30,
+    gap: 8,
+  },
+  dot: {
+    height: 8,
+    borderRadius: 20,
+  },
+  navigationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  prevButton: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  prevText: {
+    marginLeft: 4,
+    color: "#9ca3af",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  nextButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    minWidth: 130,
+    justifyContent: "center",
+    shadowColor: "#26a6a2",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  nextText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+});

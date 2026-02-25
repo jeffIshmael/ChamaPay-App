@@ -5,6 +5,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { makeRedirectUri } from "expo-auth-session";
 import * as Google from "expo-auth-session/providers/google";
 import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
 import { Mail, Shield } from "lucide-react-native";
 import { useEffect, useState } from "react";
@@ -146,7 +147,14 @@ export default function AuthScreen() {
         if (resp.ok && data?.token && data?.user) {
           setLoadingMessage("Finalizing...");
           await setAuth(data.token, data.user, data.refreshToken || null);
-          router.replace("/(tabs)");
+
+          // Check if PIN is set
+          const storedPin = await SecureStore.getItemAsync("user_pin");
+          if (storedPin) {
+            router.replace("/(tabs)");
+          } else {
+            router.replace("/pin-setup");
+          }
         } else {
           setErrorText(data?.message || "Authentication failed");
         }
@@ -230,7 +238,14 @@ export default function AuthScreen() {
         if (resp.ok && data?.token && data?.user) {
           setLoadingMessage("Finalizing...");
           await setAuth(data.token, data.user, data.refreshToken || null);
-          router.replace("/(tabs)");
+
+          // Check if PIN is set
+          const storedPin = await SecureStore.getItemAsync("user_pin");
+          if (storedPin) {
+            router.replace("/(tabs)");
+          } else {
+            router.replace("/pin-setup");
+          }
         } else {
           setErrorText(data?.message || "Authentication failed");
         }

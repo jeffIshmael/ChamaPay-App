@@ -38,7 +38,7 @@ import { registerChamaToDatabase } from "@/lib/chamaService";
 import { client } from "../../constants/thirdweb";
 
 // Exchange rate constant (KES per 1 USDC);
-const MINIMUM_CONTRIBUTION = 0.001;
+const MINIMUM_CONTRIBUTION = 0.01;
 
 interface FormData {
   name: string;
@@ -720,7 +720,7 @@ export default function CreateChama() {
                 </Text>
               </View>
             )}
-            {!isKESMode && formData.contribution !== "" && kesRate > 0 && (
+            {isKESMode && formData.contribution !== "" && kesRate > 0 && (
               <View className="mt-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                 <Text className="text-blue-900 text-xs font-medium">
                   ≈ {formData.contributionKES} KES (at 1 USDC = KES{" "}
@@ -757,15 +757,15 @@ export default function CreateChama() {
                           {Math.ceil(getContributionValue() * getMaxMembersValue() * kesRate).toLocaleString()} KES (≈{" "}
                           {(getContributionValue() * getMaxMembersValue()).toFixed(2)} USDC)
                           {"\n"}• Each contribution:{" "}
-                          {Math.ceil(getContributionValue() * kesRate).toLocaleString()} KES (≈{" "}
+                          {Math.ceil(getContributionValue() * kesRate).toFixed(2)} KES (≈{" "}
                           {getContributionValue().toFixed(3)} USDC)
                         </>
                       ) : (
                         <>
                           • Total pool per payout: {(getContributionValue() * getMaxMembersValue()).toFixed(2)} USDC
-                          {kesRate > 0 && ` (≈ ${Math.ceil(getContributionValue() * getMaxMembersValue() * kesRate).toLocaleString()} KES)`}
-                          {"\n"}• Each contribution: {getContributionValue().toFixed(3)} USDC
-                          {kesRate > 0 && ` (≈ ${Math.ceil(getContributionValue() * kesRate).toLocaleString()} KES)`}
+                          {kesRate > 0 && isKESMode && ` (≈ ${Math.ceil(getContributionValue() * getMaxMembersValue() * kesRate).toLocaleString()} KES)`}
+                          {"\n"}• Each contribution: {getContributionValue().toFixed(2)} USDC
+                          {kesRate > 0 && isKESMode && ` (≈ ${Math.ceil(getContributionValue() * kesRate).toLocaleString()} KES)`}
                         </>
                       )}
                       {"\n"}• Frequency: {formData.frequency} days
@@ -903,7 +903,7 @@ export default function CreateChama() {
           )}
         </View>
 
-        <View className="bg-emerald-50 border border-emerald-200 rounded-xl p-5">
+        <View className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 mt-4">
           <Text className="text-emerald-900 font-semibold mb-3 text-base">
             Summary
           </Text>
