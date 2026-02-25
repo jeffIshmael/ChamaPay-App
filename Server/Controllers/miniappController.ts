@@ -415,7 +415,8 @@ export const miniappGetChamaBySlug = async (req: Request, res: Response) => {
                             },
                         },
                     },
-                }
+                },
+                roundOutcome: true
             },
         });
 
@@ -537,6 +538,154 @@ export const miniappSendJoinRequest = async (req: Request, res: Response) => {
         return res.status(200).json({ success: true, request });
     } catch (error) {
         console.error("Miniapp send join request error:", error);
+        return res.status(500).json({ success: false, error: "Internal server error" });
+    }
+};
+
+// Get messages for a specific chama
+export const miniappGetMessages = async (req: Request, res: Response) => {
+    try {
+        const { chamaId } = req.params;
+        if (!chamaId) {
+            return res.status(400).json({ success: false, error: "Chama ID is required" });
+        }
+
+        const messages = await prisma.message.findMany({
+            where: { chamaId: Number(chamaId) },
+            include: {
+                sender: {
+                    select: {
+                        id: true,
+                        userName: true,
+                    }
+                }
+            },
+            orderBy: { timestamp: "asc" }
+        });
+
+        const formattedMessages = messages.map(msg => ({
+            id: msg.id,
+            text: msg.text,
+            sender: msg.sender.userName,
+            senderId: msg.senderId,
+            timestamp: msg.timestamp
+        }));
+
+        return res.status(200).json({ success: true, messages: formattedMessages });
+    } catch (error) {
+        console.error("Miniapp get messages error:", error);
+        return res.status(500).json({ success: false, error: "Internal server error" });
+    }
+};
+
+// Send a message to a chama
+export const miniappSendMessage = async (req: Request, res: Response) => {
+    try {
+        const { chamaId, userId, message } = req.body;
+        if (!chamaId || !userId || !message) {
+            return res.status(400).json({ success: false, error: "chamaId, userId, and message are required" });
+        }
+
+        const newMessage = await prisma.message.create({
+            data: {
+                chamaId: Number(chamaId),
+                senderId: Number(userId),
+                text: message
+            },
+            include: {
+                sender: {
+                    select: {
+                        userName: true
+                    }
+                },
+                chama: {
+                    select: {
+                        name: true
+                    }
+                }
+            }
+        });
+
+        // Notify all members
+        await sendExpoNotificationToAllChamaMembers(
+            "New message",
+            `There's a new message in the ${newMessage.chama.name} chama.`,
+            Number(chamaId),
+            Number(userId)
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: {
+                id: newMessage.id,
+                text: newMessage.text,
+                sender: newMessage.sender.userName,
+                senderId: newMessage.senderId,
+                timestamp: newMessage.timestamp
+            }
+        });
+    } catch (error) {
+        console.error("Miniapp send message error:", error);
+        return res.status(500).json({ success: false, error: "Internal server error" });
+    }
+};
+
+// Register a chama payment (after on-chain deposit)
+export const miniappRegisterChamaPayment = async (req: Request, res: Response) => {
+    try {
+        const { chamaId, amount, txHash, description } = req.body;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            return res.status(401).json({ success: false, error: "Unauthorized" });
+        }
+
+        if (!chamaId || !amount || !txHash) {
+            return res.status(400).json({ success: false, error: "chamaId, amount, and txHash are required" });
+        }
+
+        // Validate membership
+        const member = await prisma.chamaMember.findFirst({
+            where: {
+                chamaId: Number(chamaId),
+                userId: userId
+            }
+        });
+
+        if (!member) {
+            return res.status(403).json({ success: false, error: "You are not a member of this chama" });
+        }
+
+        const chama = await prisma.chama.findUnique({
+            where: { id: Number(chamaId) }
+        });
+
+        if (!chama) {
+            return res.status(404).json({ success: false, error: "Chama not found" });
+        }
+
+        // Record the payment
+        const payment = await prisma.payment.create({
+            data: {
+                amount: amount.toString(),
+                description: description || "Chama deposit",
+                txHash: txHash,
+                chamaId: Number(chamaId),
+                userId: userId,
+            },
+        });
+
+        // Notify all members
+        await sendExpoNotificationToAllChamaMembers(
+            "New contribution",
+            `A member has made a contribution to ${chama.name}.`,
+            Number(chamaId),
+            userId
+        );
+
+        return res.status(200).json({ success: true, payment });
+    } catch (error) {
+        console.error("Miniapp register chama payment error:", error);
         return res.status(500).json({ success: false, error: "Internal server error" });
     }
 };

@@ -227,6 +227,25 @@
       "inputs": [
         {
           "indexed": true,
+          "internalType": "address",
+          "name": "_address",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "FeesWithdrawn",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
           "internalType": "uint256",
           "name": "chamaId",
           "type": "uint256"
@@ -888,6 +907,11 @@
           "internalType": "uint256",
           "name": "_amount",
           "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "fromMiniapp",
+          "type": "bool"
         }
       ],
       "name": "depositCash",
@@ -932,6 +956,24 @@
         }
       ],
       "name": "emergencyWithdraw",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_address",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "emergencyWithdrawFees",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
