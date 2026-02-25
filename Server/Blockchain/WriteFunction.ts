@@ -96,7 +96,7 @@ export const bcDepositFundsToChama = async (privateKey: `0x${string}`, chamaBloc
             address: contractAddress,
             abi: contractABI,
             functionName: 'depositCash',
-            args: [chamaBlockchainId, amountInWei],
+            args: [chamaBlockchainId, amountInWei, false],
         })
         const transaction = await publicClient.waitForTransactionReceipt({
             hash: hash

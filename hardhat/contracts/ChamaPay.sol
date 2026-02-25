@@ -97,6 +97,7 @@ contract ChamaPay is
     event PayDateChecked(uint indexed _chamaId, bool _isPastPayDate, bool _isAllMembersContributed, bool isDisbursed);
     event TransferDone(address indexed _receiver, uint _amount, bool _success, uint _contractBal, uint _receiverBalBefore);
     event PayoutDone(uint indexed _chamaId, address indexed _receiver, uint _amount);
+    event FeesWithdrawn(address indexed _address, uint amount);
 
     function registerChama(
         uint _amount, 
@@ -184,7 +185,7 @@ contract ChamaPay is
         emit MemberAdded(_chamaId, msg.sender);
     }
 
-    function depositCash(uint _chamaId, uint _amount) 
+    function depositCash(uint _chamaId, uint _amount, bool fromMiniapp) 
         public 
         onlyMembers(_chamaId) 
         nonReentrant 
@@ -199,8 +200,14 @@ contract ChamaPay is
             "Token transfer failed"
         );
 
-
-        chama.balances[msg.sender] += _amount;
+        // if its from a miniapp, we will have charged a 0.5% tx fee already
+        if (fromMiniapp) {
+            uint txFee = _amount / 200;
+            chama.balances[msg.sender] += _amount - txFee;
+            totalFees += txFee;
+        } else {
+            chama.balances[msg.sender] += _amount;
+        }
 
         if (chama.balances[msg.sender] >= chama.amount) {
             chama.hasSent[msg.sender] = true;
@@ -664,12 +671,19 @@ contract ChamaPay is
         _;
     }
 
-    function emergencyWithdraw(address _address, uint _amount) public onlyOwner {
+    function emergencyWithdraw(address _address, uint _amount) public onlyOwner nonReentrant whenNotPaused {
         USDCToken.transfer(_address, _amount);
         emit amountWithdrawn(_address, _amount);
     }
 
-    function setAiAgent(address _aiAgent) public onlyOwner {
+    function emergencyWithdrawFees(address _address, uint _amount) public onlyOwner nonReentrant whenNotPaused {
+        require(_amount <= totalFees, "Insufficient fees");
+        USDCToken.transfer(_address, _amount);
+        totalFees -= _amount;
+        emit FeesWithdrawn(_address, _amount);
+    }
+
+    function setAiAgent(address _aiAgent) public onlyOwner whenNotPaused {
         require(_aiAgent != address(0), "Invalid address");
         aiAgent = _aiAgent;
         emit aiAgentSet(_aiAgent);

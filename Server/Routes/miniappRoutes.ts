@@ -7,11 +7,14 @@ import {
     miniappConfirmJoinRequest,
     miniappCreateChama,
     miniappGetChamaBySlug,
+    miniappGetMessages,
     miniappGetRecentPayments,
     miniappGetUserDetails,
     miniappGetUserNotifications,
     miniappJoinChama,
-    miniappSendJoinRequest
+    miniappRegisterChamaPayment,
+    miniappSendJoinRequest,
+    miniappSendMessage
 } from "../Controllers/miniappController";
 import {
     registerPayment,
@@ -38,8 +41,13 @@ router.get("/user-details", miniappGetUserDetails);
 router.get("/notifications/:userId", miniappGetUserNotifications);
 router.get("/payments/:userId", miniappGetRecentPayments);
 router.post("/register-payment", registerPayment);
+router.post("/register-chama-payment", miniappRegisterChamaPayment);
 
 // Chama Details
 router.get("/chama/slug/:slug", miniappGetChamaBySlug);
+
+// Chat
+router.get("/chama/:chamaId/messages", miniappGetMessages);
+router.post("/chama/send-message", miniappSendMessage);
 
 export default router;
