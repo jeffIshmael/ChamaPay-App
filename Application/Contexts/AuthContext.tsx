@@ -353,25 +353,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Background refresh
     fetchUserData(newToken).catch(() => { });
 
-    // Check/Register for notifications if user has them enabled or hasn't set a preference yet
-    // This provides the "automatic" prompting behavior at the right time (after login)
-    try {
-      if (userData.pushNotify !== false) { // Default to true if undefined or already true
-        console.log("[Auth] Checking notification permissions...");
-        const pushToken = await registerForPushNotificationsAsync();
-        if (pushToken && pushToken !== userData.pushToken) {
-          console.log("[Auth] Updating push token:", pushToken);
-          // Update backend
-          await updateUserPushToken(pushToken, newToken);
-          // Update local state
-          const updatedUser = { ...userData, pushToken, pushNotify: true };
-          setUser(updatedUser);
-          await storage.setUser(updatedUser);
-        }
-      }
-    } catch (error) {
-      console.error("[Auth] Error registering push notifications:", error);
-    }
+    // Background refresh
+    fetchUserData(newToken).catch(() => { });
   };
 
   const getToken = async () => {

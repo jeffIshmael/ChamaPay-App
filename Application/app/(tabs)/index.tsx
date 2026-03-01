@@ -6,6 +6,8 @@ import {
   transformChamaData,
 } from "@/lib/chamaService";
 import { decryptChamaSlug, parseChamaShareUrl } from "@/lib/encryption";
+import { registerForPushNotificationsAsync } from "@/lib/notificationUtils";
+import { updateUserPushToken } from "@/lib/userService";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { formatDays, formatTimeRemaining } from "@/Utils/helperFunctions";
@@ -51,6 +53,7 @@ export default function HomeScreen() {
   const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
   const { currency } = useCurrencyStore();
   const kesRate = rates["KES"]?.rate || 0;
+  const hasInitialized = React.useRef(false);
 
   // Fetch user's chamas function
   const fetchChamas = useCallback(async () => {
@@ -81,11 +84,31 @@ export default function HomeScreen() {
     }
   }, [token, user]);
 
-  // Fetch chamas and update rates on component mount
+  // Update rates on component mount
   useEffect(() => {
-    fetchChamas();
     globalFetchRate("KES");
-  }, [fetchChamas]);
+
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
+    // Request notification permissions with delay
+    const timer = setTimeout(async () => {
+      if (user && token && !user.pushToken) {
+        console.log("[Home] Requesting notification permissions...");
+        try {
+          const pushToken = await registerForPushNotificationsAsync();
+          if (pushToken) {
+            console.log("[Home] Updating push token:", pushToken);
+            await updateUserPushToken(pushToken, token);
+          }
+        } catch (error) {
+          console.error("[Home] Error requesting notifications:", error);
+        }
+      }
+    }, 2000); // 2-second delay
+
+    return () => clearTimeout(timer);
+  }, [user, token]);
 
   // Refresh chamas when screen comes into focus
   useFocusEffect(
@@ -238,7 +261,7 @@ export default function HomeScreen() {
       >
         <View className="flex-row items-center">
           <TouchableOpacity
-            onPress={() => router.push("/onboarding")}
+            onPress={() => router.push("/profile-settings")}
             className="mr-3"
             activeOpacity={0.8}
           >
@@ -503,8 +526,16 @@ export default function HomeScreen() {
         animationType="fade"
         onRequestClose={() => setShowPasteModal(false)}
       >
-        <View className="flex-1 items-center justify-center bg-black/50 px-6">
-          <View className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setShowPasteModal(false)}
+          className="flex-1 items-center justify-center bg-black/50 px-6"
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"
+          >
             <Text className="text-2xl font-bold text-gray-900 mb-2">
               Paste Invite Link
             </Text>
@@ -528,14 +559,14 @@ export default function HomeScreen() {
               <View className="mb-4">
                 {isValidChamaLink(pasteLink) ? (
                   <View className="flex-row items-center gap-2 bg-emerald-50 px-3 py-2 rounded-lg">
-                    <Text className="text-downy-600 text-lg">✓</Text>
+                    {/* <Text className="text-downy-600 text-lg">✓</Text> */}
                     <Text className="text-downy-700 text-sm font-medium">
                       Valid Chamapay link
                     </Text>
                   </View>
                 ) : (
                   <View className="flex-row items-center gap-2 bg-red-50 px-3 py-2 rounded-lg">
-                    <Text className="text-red-600 text-lg">✗</Text>
+                    {/* <Text className="text-red-600 text-lg">✗</Text> */}
                     <Text className="text-red-700 text-sm font-medium">
                       Invalid link format
                     </Text>
@@ -546,14 +577,15 @@ export default function HomeScreen() {
 
             <View className="flex-row gap-3">
               <TouchableOpacity
+                disabled={isProcessingLink}
                 onPress={() => {
                   setShowPasteModal(false);
                   setPasteLink("");
                 }}
-                className="flex-1 bg-gray-200 py-3 rounded-xl"
+                className="flex-1 bg-gray-700 py-3 rounded-xl"
                 activeOpacity={0.7}
               >
-                <Text className="text-gray-700 font-semibold text-center">
+                <Text className="text-gray-100 font-semibold text-center">
                   Cancel
                 </Text>
               </TouchableOpacity>
@@ -580,8 +612,8 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </View>
   );

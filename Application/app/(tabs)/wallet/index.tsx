@@ -165,6 +165,9 @@ export default function CryptoWallet() {
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      hour12: false,
     });
   };
 
@@ -251,7 +254,7 @@ export default function CryptoWallet() {
               </Text>
             ) : (
               <ResolvedAddress
-                address={tx.type === "sent" || tx.type === "withdrew" || tx.type === "received" ? tx.recipient : tx.sender}
+                address={tx.type === "sent" || tx.type === "withdrew"  ? tx.recipient : tx.sender}
                 type={tx.type === "sent" || tx.type === "withdrew" ? "recipient" : "sender"}
                 fallback={tx.type === "sent" || tx.type === "withdrew" || tx.type === "received" ? "Unknown" : tx.type === "received" ? "Unknown" : "On-chain transaction"}
                 textClassName="text-xs text-gray-500 mt-1"

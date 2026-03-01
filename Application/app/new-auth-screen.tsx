@@ -488,7 +488,11 @@ export default function AuthScreen() {
                         (isLoading || !request) && { opacity: 0.6 },
                       ]}
                     >
-                      <GoogleIcon />
+                      {isLoading ? (
+                        <ActivityIndicator color="#4285F4" size="small" />
+                      ) : (
+                        <GoogleIcon />
+                      )}
                       <View className="ml-3 items-start justify-center">
                         {Platform.OS === "android" ? (
                           <Text className="text-gray-900 font-bold text-sm">
@@ -519,7 +523,11 @@ export default function AuthScreen() {
                           isLoading && { opacity: 0.6 },
                         ]}
                       >
-                        <AppleIcon />
+                        {isLoading ? (
+                          <ActivityIndicator color="white" size="small" />
+                        ) : (
+                          <AppleIcon />
+                        )}
                         <View className="ml-3 items-start justify-center">
                           <Text className="text-gray-300 font-semibold text-xs mt-2">
                             Continue with
@@ -588,16 +596,14 @@ export default function AuthScreen() {
         statusBarTranslucent
       >
         <View
-          className="flex-1 bg-black/20 items-center justify-center px-6"
+          className="flex-1 bg-black/60 items-center justify-center px-6"
           style={{ zIndex: 999 }}
         >
           <View className="bg-white p-8 rounded-3xl items-center w-full max-w-[280px]" style={styles.card}>
             <ActivityIndicator size="large" color="#26a6a2" />
-            {loadingMessage ? (
-              <Text className="text-gray-600 font-semibold mt-4 text-center text-base">
-                {loadingMessage}
-              </Text>
-            ) : null}
+            <Text className="text-gray-600 font-semibold mt-4 text-center text-base">
+              {loadingMessage || "Processing..."}
+            </Text>
           </View>
         </View>
       </Modal>

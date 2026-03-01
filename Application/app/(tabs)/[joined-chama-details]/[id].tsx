@@ -607,8 +607,16 @@ export default function JoinedChamaDetails() {
           setSelectedShareUser(null);
         }}
       >
-        <View className="flex-1 items-center justify-center bg-black/70 px-6">
-          <View className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setShowShareModal(false)}
+          className="flex-1 items-center justify-center bg-black/70 px-6"
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"
+          >
             {/* Header */}
             <View className="items-center mb-6">
               <View className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-full items-center justify-center mb-3 shadow-sm">
@@ -767,8 +775,8 @@ export default function JoinedChamaDetails() {
                 Close
               </Text>
             </TouchableOpacity>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
 
       {/* Success Modal */}

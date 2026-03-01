@@ -38,10 +38,10 @@ export default function Index() {
     );
   }
 
-  // 1. If NOT authenticated and NEVER seen onboarding -> Start Screen
+  // 1. If NOT authenticated and NEVER seen onboarding -> Onboarding
   if (!isAuthenticated && !hasSeenOnboarding) {
-    console.log("[Index] Redirect -> Start Screen");
-    return <Redirect href="/start-screen" />;
+    console.log("[Index] Redirect -> Onboarding");
+    return <Redirect href="/onboarding" />;
   }
 
   // 2. If NOT authenticated and HAS seen onboarding -> Auth Screen
