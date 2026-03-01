@@ -5,9 +5,10 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { makeRedirectUri } from "expo-auth-session";
 import * as Google from "expo-auth-session/providers/google";
 import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
 import { Mail, Shield } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -77,32 +78,16 @@ export default function AuthScreen() {
     }),
   });
 
-  // Handle Google OAuth response
-  useEffect(() => {
-    if (response?.type === "success") {
-      // Immediate feedback
-      setIsLoading(true);
-      setLoadingMessage("Signing in...");
-      const { authentication } = response;
-      handleGoogleAuth(authentication?.accessToken);
-    } else if (response?.type === "error") {
-      console.error("Authentication error:", response.error);
-      setErrorText("Authentication failed. Please try again.");
-      setIsLoading(false);
-    } else if (response?.type === "dismiss" || response?.type === "cancel") {
-      console.log("Authentication cancelled by user");
-      setIsLoading(false);
-    }
-  }, [response]);
+  // Handle Google OAuth response logic is now inside handleGoogleSignIn
 
   const handleGoogleAuth = async (accessToken: string | undefined) => {
     if (!accessToken) {
       setErrorText("Failed to get access token from Google");
       setIsLoading(false);
+      setLoadingMessage("");
       return;
     }
 
-    // isLoading checks are handled in useEffect for immediate feedback
     setErrorText("");
 
     try {
@@ -124,13 +109,13 @@ export default function AuthScreen() {
       if (!email) {
         setErrorText("Could not retrieve email from Google");
         setIsLoading(false);
+        setLoadingMessage("");
         return;
       }
 
       setLoadingMessage("Checking account...");
       // Check if user exists
       const userDetails = await checkUserDetails(email);
-      console.log("User details:", userDetails);
 
       if (userDetails.success) {
         setLoadingMessage("Logging in...");
@@ -145,14 +130,26 @@ export default function AuthScreen() {
 
         if (resp.ok && data?.token && data?.user) {
           setLoadingMessage("Finalizing...");
+          // We wait for setAuth but WE DO NOT clear isLoading here
+          // This keeps the modal up while router.replace performs the transition
           await setAuth(data.token, data.user, data.refreshToken || null);
-          router.replace("/(tabs)");
+
+          // Check if PIN is set
+          const storedPin = await SecureStore.getItemAsync("user_pin");
+          if (storedPin) {
+            router.replace("/(tabs)");
+          } else {
+            router.replace("/pin-setup");
+          }
         } else {
           setErrorText(data?.message || "Authentication failed");
+          setIsLoading(false);
+          setLoadingMessage("");
         }
       } else {
         // New user, redirect to setup
-        console.log("New user, redirecting to setup...");
+        setLoadingMessage("Setting up wallet...");
+        // Same here, keep modal up until push/replace happens
         router.push({
           pathname: "/wallet-setup",
           params: {
@@ -166,7 +163,6 @@ export default function AuthScreen() {
     } catch (error) {
       console.error("Google auth error:", error);
       setErrorText("Failed to sign in with Google. Please try again.");
-    } finally {
       setIsLoading(false);
       setLoadingMessage("");
     }
@@ -174,18 +170,36 @@ export default function AuthScreen() {
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
+    setLoadingMessage("Opening Google...");
     setErrorText("");
     try {
-      await promptAsync();
+      const result = await promptAsync();
+
+      if (result?.type === "success") {
+        setLoadingMessage("Signing in...");
+        const { authentication } = result;
+        await handleGoogleAuth(authentication?.accessToken);
+      } else if (result?.type === "error") {
+        console.error("Google Auth error:", result.error);
+        setErrorText("Authentication failed. Please try again.");
+        setIsLoading(false);
+        setLoadingMessage("");
+      } else {
+        // Dismissed or canceled
+        setIsLoading(false);
+        setLoadingMessage("");
+      }
     } catch (error) {
       console.error("Error prompting Google auth:", error);
       setErrorText("Failed to start Google sign in");
       setIsLoading(false);
+      setLoadingMessage("");
     }
   };
 
   const handleAppleAuth = async () => {
     setIsLoading(true);
+    setLoadingMessage("Opening Apple...");
     setErrorText("");
 
     try {
@@ -201,6 +215,7 @@ export default function AuthScreen() {
       if (!email) {
         setErrorText("Could not retrieve email from Apple");
         setIsLoading(false);
+        setLoadingMessage("");
         return;
       }
 
@@ -230,12 +245,22 @@ export default function AuthScreen() {
         if (resp.ok && data?.token && data?.user) {
           setLoadingMessage("Finalizing...");
           await setAuth(data.token, data.user, data.refreshToken || null);
-          router.replace("/(tabs)");
+
+          // Check if PIN is set
+          const storedPin = await SecureStore.getItemAsync("user_pin");
+          if (storedPin) {
+            router.replace("/(tabs)");
+          } else {
+            router.replace("/pin-setup");
+          }
         } else {
           setErrorText(data?.message || "Authentication failed");
+          setIsLoading(false);
+          setLoadingMessage("");
         }
       } else {
         // New user, redirect to setup
+        setLoadingMessage("Setting up wallet...");
         router.push({
           pathname: "/wallet-setup",
           params: {
@@ -249,12 +274,13 @@ export default function AuthScreen() {
       if (error.code === "ERR_REQUEST_CANCELED") {
         // User canceled the sign-in flow
         setIsLoading(false);
+        setLoadingMessage("");
         return;
       }
       console.error("Apple auth error:", error);
       setErrorText("Failed to sign in with Apple. Please try again.");
-    } finally {
       setIsLoading(false);
+      setLoadingMessage("");
     }
   };
 
@@ -473,7 +499,11 @@ export default function AuthScreen() {
                         (isLoading || !request) && { opacity: 0.6 },
                       ]}
                     >
-                      <GoogleIcon />
+                      {isLoading ? (
+                        <ActivityIndicator color="#4285F4" size="small" />
+                      ) : (
+                        <GoogleIcon />
+                      )}
                       <View className="ml-3 items-start justify-center">
                         {Platform.OS === "android" ? (
                           <Text className="text-gray-900 font-bold text-sm">
@@ -504,7 +534,11 @@ export default function AuthScreen() {
                           isLoading && { opacity: 0.6 },
                         ]}
                       >
-                        <AppleIcon />
+                        {isLoading ? (
+                          <ActivityIndicator color="white" size="small" />
+                        ) : (
+                          <AppleIcon />
+                        )}
                         <View className="ml-3 items-start justify-center">
                           <Text className="text-gray-300 font-semibold text-xs mt-2">
                             Continue with
@@ -573,16 +607,14 @@ export default function AuthScreen() {
         statusBarTranslucent
       >
         <View
-          className="flex-1 bg-black/20 items-center justify-center px-6"
+          className="flex-1 bg-black/60 items-center justify-center px-6"
           style={{ zIndex: 999 }}
         >
           <View className="bg-white p-8 rounded-3xl items-center w-full max-w-[280px]" style={styles.card}>
             <ActivityIndicator size="large" color="#26a6a2" />
-            {loadingMessage ? (
-              <Text className="text-gray-600 font-semibold mt-4 text-center text-base">
-                {loadingMessage}
-              </Text>
-            ) : null}
+            <Text className="text-gray-600 font-semibold mt-4 text-center text-base">
+              {loadingMessage || "Processing..."}
+            </Text>
           </View>
         </View>
       </Modal>

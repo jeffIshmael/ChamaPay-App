@@ -825,7 +825,7 @@ export default function ChamaDetails() {
                   <TouchableOpacity
                     onPress={handleJoinChama}
                     disabled={isJoining || hasRequest}
-                    className={`w-full py-4 rounded-2xl items-center justify-center flex-row gap-3 shadow-md ${isJoining || hasRequest ? "bg-gray-400" : "bg-emerald-600"
+                    className={`w-full py-4 rounded-2xl items-center justify-center flex-row gap-3 shadow-md ${isJoining || hasRequest ? "bg-gray-400" : "bg-downy-600"
                       }`}
                     activeOpacity={0.85}
                   >

@@ -2,9 +2,11 @@ import { serverUrl } from "@/constants/serverUrl";
 import { useAuth } from "@/Contexts/AuthContext";
 import { checkUserDetails } from "@/lib/chamaService";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Shield, Mail, ArrowLeft } from "lucide-react-native";
-import { useState, useRef, useEffect } from "react";
+import * as SecureStore from "expo-secure-store";
+import { ArrowLeft, Mail, Shield } from "lucide-react-native";
+import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -12,7 +14,6 @@ import {
   Text,
   TextInput,
   View,
-  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -23,7 +24,7 @@ export default function VerifyEmailScreen() {
   const email = params.email as string;
   const router = useRouter();
   const { setAuth } = useAuth();
-  
+
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [errorText, setErrorText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -101,7 +102,14 @@ export default function VerifyEmailScreen() {
         if (userDetails.success && data?.token && data?.user) {
           // Existing user - log them in
           await setAuth(data.token, data.user, data.refreshToken || null);
-          router.replace("/(tabs)");
+
+          // Check if PIN is set
+          const storedPin = await SecureStore.getItemAsync("user_pin");
+          if (storedPin) {
+            router.replace("/(tabs)");
+          } else {
+            router.replace("/pin-setup");
+          }
         } else {
           // New user - redirect to setup
           router.replace({

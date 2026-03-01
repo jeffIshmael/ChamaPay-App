@@ -91,7 +91,7 @@ const USDCPay = ({
 
       const data = {
         txHash: response.data.txHash || "",
-        message: `Successfully deposited ${amount} USDC to ${chamaName}`,
+        message: `Successfully deposited ${amount} USDC to ${chamaName} chama`,
         amount: amount.toString(),
       };
 
