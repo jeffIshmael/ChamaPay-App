@@ -3,8 +3,17 @@ import crypto from "crypto";
 import { Request, Response } from "express";
 import { USDCAddress, contractAddress } from "../Blockchain/Constants";
 import { sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
+import dotenv from "dotenv";
+dotenv.config();
 
 const prisma = new PrismaClient();
+
+const pretium_address = process.env.SETTLEMENT_ADDRESS;
+
+if(!pretium_address){
+    console.error("SETTLEMENT_ADDRESS not configured");
+    process.exit(1);
+}
 
 // Alchemy webhook signature validation
 const validateAlchemySignature = (
@@ -137,7 +146,7 @@ export const handleAlchemyWebhook = async (
             const body = `You've received ${amount} USDC from ${senderDisplayName}`;
 
             // ensure its not a chama payment
-            if (fromAddress !== contractAddress.toLowerCase()) {
+            if (fromAddress !== contractAddress.toLowerCase() || fromAddress !== pretium_address.toLowerCase()) {
                 try {
                     // 5. Commit to Database FIRST
                     // If this fails (e.g. unique constraint), it will throw and the code below won't run
