@@ -53,7 +53,7 @@ export default function PinSetup() {
         }
     };
 
-    const handlePress = (key: string) => {
+    const handlePress = React.useCallback((key: string) => {
         const currentPin = step === "enter" ? pin : confirmPin;
         const setCurrentPin = step === "enter" ? setPin : setConfirmPin;
 
@@ -71,14 +71,13 @@ export default function PinSetup() {
                 }
             }
         }
-    };
+    }, [step, pin, confirmPin]);
 
     const proceedToConfirm = () => {
         if (pin.length === PIN_LENGTH) {
             setStep("confirm");
         }
     };
-
     const validateAndSave = async (enteredConfirmPin: string[]) => {
         if (pin.join("") === enteredConfirmPin.join("")) {
             await savePin(pin.join(""));
@@ -129,63 +128,6 @@ export default function PinSetup() {
     const finishSetup = () => {
         ToastAndroid.show("Security setup complete!", ToastAndroid.SHORT);
         router.replace("/(tabs)");
-    };
-
-    const NumberPad = () => {
-        const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "biometric-slot", "0", "backspace", "arrow-slot"];
-
-        return (
-            <View className="flex-row flex-wrap justify-center gap-6 mt-8 max-w-[310px]">
-                {keys.map((key, index) => {
-                    if (key === "biometric-slot") {
-                        return (
-                            <View key={key} className="w-[70px] h-[70px] items-center justify-center">
-                                {step === "enter" && biometricSupported && (
-                                    <TouchableOpacity
-                                        onPress={handleBiometricSetup}
-                                        activeOpacity={0.7}
-                                        className="w-[70px] h-[70px] rounded-full  items-center justify-center border border-emerald-200"
-                                    >
-                                        <Fingerprint size={28} color="#059669" />
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                        );
-                    }
-
-                    if (key === "arrow-slot") {
-                        return (
-                            <View key={key} className="w-[70px] h-[70px] items-center justify-center mt-20">
-                                {step === "enter" && pin.length === PIN_LENGTH && (
-                                    <TouchableOpacity
-                                        onPress={proceedToConfirm}
-                                        activeOpacity={0.7}
-                                        className="w-[70px] h-[70px] rounded-full bg-downy-600 items-center justify-center shadow-sm"
-                                    >
-                                        <ArrowRight size={24} color="white" />
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                        );
-                    }
-
-                    return (
-                        <TouchableOpacity
-                            key={key}
-                            onPress={() => handlePress(key)}
-                            activeOpacity={0.7}
-                            className="w-[70px] h-[70px] rounded-full bg-gray-100 items-center justify-center border border-gray-200 shadow-sm"
-                        >
-                            {key === "backspace" ? (
-                                <Delete size={24} color="#374151" />
-                            ) : (
-                                <Text className="text-2xl font-semibold text-gray-900">{key}</Text>
-                            )}
-                        </TouchableOpacity>
-                    );
-                })}
-            </View>
-        );
     };
 
     return (
@@ -246,9 +188,87 @@ export default function PinSetup() {
                 </View>
 
                 <View className="items-center">
-                    <NumberPad />
+                    <NumberPad
+                        onPress={handlePress}
+                        step={step}
+                        biometricSupported={biometricSupported}
+                        pinLength={pin.length}
+                        onBiometricSetup={handleBiometricSetup}
+                        onProceed={proceedToConfirm}
+                    />
                 </View>
             </View>
         </View>
     );
 }
+
+const NumberPad = React.memo(({
+    onPress,
+    step,
+    biometricSupported,
+    pinLength,
+    onBiometricSetup,
+    onProceed
+}: {
+    onPress: (key: string) => void,
+    step: "enter" | "confirm",
+    biometricSupported: boolean,
+    pinLength: number,
+    onBiometricSetup: () => void,
+    onProceed: () => void
+}) => {
+    const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "biometric-slot", "0", "backspace", "arrow-slot"];
+
+    return (
+        <View className="flex-row flex-wrap justify-center gap-6 mt-8 max-w-[310px]">
+            {keys.map((key) => {
+                if (key === "biometric-slot") {
+                    return (
+                        <View key={key} className="w-[70px] h-[70px] items-center justify-center">
+                            {step === "enter" && biometricSupported && (
+                                <TouchableOpacity
+                                    onPress={onBiometricSetup}
+                                    activeOpacity={0.7}
+                                    className="w-[70px] h-[70px] rounded-full  items-center justify-center border border-emerald-200"
+                                >
+                                    <Fingerprint size={28} color="#059669" />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    );
+                }
+
+                if (key === "arrow-slot") {
+                    return (
+                        <View key={key} className="w-[70px] h-[70px] items-center justify-center mt-20">
+                            {step === "enter" && pinLength === PIN_LENGTH && (
+                                <TouchableOpacity
+                                    onPress={onProceed}
+                                    activeOpacity={0.7}
+                                    className="w-[70px] h-[70px] rounded-full bg-downy-600 items-center justify-center shadow-sm"
+                                >
+                                    <ArrowRight size={24} color="white" />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    );
+                }
+
+                return (
+                    <TouchableOpacity
+                        key={key}
+                        onPress={() => onPress(key)}
+                        activeOpacity={0.7}
+                        className="w-[70px] h-[70px] rounded-full bg-gray-100 items-center justify-center border border-gray-200 shadow-sm"
+                    >
+                        {key === "backspace" ? (
+                            <Delete size={24} color="#374151" />
+                        ) : (
+                            <Text className="text-2xl font-semibold text-gray-900">{key}</Text>
+                        )}
+                    </TouchableOpacity>
+                );
+            })}
+        </View>
+    );
+});

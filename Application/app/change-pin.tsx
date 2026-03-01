@@ -7,6 +7,7 @@ import {
     Animated,
     Image,
     Text,
+    ToastAndroid,
     TouchableOpacity,
     Vibration,
     View
@@ -25,23 +26,23 @@ export default function ChangePin() {
     const [showSuccess, setShowSuccess] = useState(false);
 
     // Animation for shake effect on error
-    const shakeAnimation = new Animated.Value(0);
+    const shakeAnimation = React.useRef(new Animated.Value(0)).current;
 
-    const handlePress = (key: string) => {
-        const pin = step === "current" ? currentPin : step === "new" ? newPin : confirmPin;
-        const setPin = step === "current" ? setCurrentPin : step === "new" ? setNewPin : setConfirmPin;
+    const handlePress = React.useCallback((key: string) => {
+        const pinArr = step === "current" ? currentPin : step === "new" ? newPin : confirmPin;
+        const setPinArr = step === "current" ? setCurrentPin : step === "new" ? setNewPin : setConfirmPin;
 
         if (key === "backspace") {
-            setPin((prev) => prev.slice(0, -1));
-        } else if (pin.length < PIN_LENGTH) {
-            const nextPin = [...pin, key];
-            setPin(nextPin);
+            setPinArr((prev) => prev.slice(0, -1));
+        } else if (pinArr.length < PIN_LENGTH) {
+            const nextPin = [...pinArr, key];
+            setPinArr(nextPin);
 
             if (nextPin.length === PIN_LENGTH) {
                 processStep(nextPin);
             }
         }
-    };
+    }, [step, currentPin, newPin, confirmPin]);
 
     const processStep = async (enteredPin: string[]) => {
         const pinStr = enteredPin.join("");
@@ -69,7 +70,7 @@ export default function ChangePin() {
     const handleError = (message: string) => {
         Vibration.vibrate(100);
         shake();
-        Alert.alert("Error", message);
+        ToastAndroid.show(message, ToastAndroid.SHORT);
     };
 
     const saveNewPin = async (pin: string) => {
@@ -108,33 +109,6 @@ export default function ChangePin() {
             case "new": return "Enter a 4-digit PIN for security";
             case "confirm": return "Process confirmed. Please re-enter PIN";
         }
-    };
-
-    const NumberPad = () => {
-        const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "backspace"];
-
-        return (
-            <View className="flex-row flex-wrap justify-center gap-6 mt-8 max-w-[300px]">
-                {keys.map((key, index) => {
-                    if (key === "") return <View key={index} className="w-[70px] h-[70px]" />;
-
-                    return (
-                        <TouchableOpacity
-                            key={index}
-                            onPress={() => handlePress(key)}
-                            activeOpacity={0.7}
-                            className="w-[70px] h-[70px] rounded-full bg-gray-100 items-center justify-center border border-gray-200 shadow-sm"
-                        >
-                            {key === "backspace" ? (
-                                <Delete size={24} color="#374151" />
-                            ) : (
-                                <Text className="text-2xl font-semibold text-gray-900">{key}</Text>
-                            )}
-                        </TouchableOpacity>
-                    );
-                })}
-            </View>
-        );
     };
 
     if (showSuccess) {
@@ -193,9 +167,36 @@ export default function ChangePin() {
                 </View>
 
                 <View className="items-center">
-                    <NumberPad />
+                    <NumberPad onPress={handlePress} />
                 </View>
             </View>
         </View>
     );
 }
+
+const NumberPad = React.memo(({ onPress }: { onPress: (key: string) => void }) => {
+    const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "backspace"];
+
+    return (
+        <View className="flex-row flex-wrap justify-center gap-6 mt-8 max-w-[300px]">
+            {keys.map((key, index) => {
+                if (key === "") return <View key={index} className="w-[70px] h-[70px]" />;
+
+                return (
+                    <TouchableOpacity
+                        key={index}
+                        onPress={() => onPress(key)}
+                        activeOpacity={0.7}
+                        className="w-[70px] h-[70px] rounded-full bg-gray-100 items-center justify-center border border-gray-200 shadow-sm"
+                    >
+                        {key === "backspace" ? (
+                            <Delete size={24} color="#374151" />
+                        ) : (
+                            <Text className="text-2xl font-semibold text-gray-900">{key}</Text>
+                        )}
+                    </TouchableOpacity>
+                );
+            })}
+        </View>
+    );
+});
