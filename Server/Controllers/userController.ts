@@ -233,11 +233,7 @@ export const updateUserProfile = async (
       },
     });
 
-    const nonSensitiveUser = {
-      hashedPrivKey: updatedUser.hashedPrivkey,
-      hashedPassPhrase: updatedUser.hashedPassphrase,
-      ...updatedUser
-    }
+    const { hashedPrivkey, hashedPassphrase, ...nonSensitiveUser } = updatedUser;
     res.status(200).json({
       message: "Profile updated successfully",
       user: nonSensitiveUser,
@@ -993,12 +989,8 @@ export const updateUserPushToken = async (
       res.status(400).json({ success: false, error: "User not found" });
       return;
     }
-    const nonSensitiveUser = {
-      hashedPrivKey: user.hashedPrivkey,
-      hashedPassPhrase: user.hashedPassphrase,
-      ...user
-    }
-    res.status(200).json({ success: true, user: nonSensitiveUser });
+    const { hashedPrivkey, hashedPassphrase, ...nonSensitiveUser } = user;
+    res.status(200).json({ success: true, user: nonSensitiveUser });  
   } catch (error) {
     console.error("Update user push token error:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
@@ -1037,11 +1029,7 @@ export const updateUserNotificationSettings = async (
       res.status(400).json({ success: false, error: "User not found" });
       return;
     }
-    const nonSensitiveUser = {
-      hashedPrivKey: user.hashedPrivkey,
-      hashedPassPhrase: user.hashedPassphrase,
-      ...user
-    }
+    const { hashedPrivkey, hashedPassphrase, ...nonSensitiveUser } = user;
     res.status(200).json({ success: true, user: nonSensitiveUser });
   } catch (error) {
     console.error("Update user notification settings error:", error);

@@ -14,12 +14,12 @@ import {
 import { celo } from "thirdweb/chains";
 import { Abi } from "thirdweb/utils";
 import { privateKeyToAccount, smartWallet } from "thirdweb/wallets";
+import { erc20Abi } from "viem";
 import {
   contractABI,
   contractAddress,
   cUSDAddress,
 } from "../Blockchain/Constants";
-import { erc20Abi } from "viem";
 
 configDotenv();
 
@@ -32,7 +32,10 @@ if (!thirdwebClientId || !thirdwebSecretKey || !agentPrivateKey) {
   );
 }
 
-const client = createThirdwebClient({ secretKey: thirdwebSecretKey });
+const client = createThirdwebClient({
+  clientId: thirdwebClientId,
+  secretKey: thirdwebSecretKey,
+});
 
 const contract = getContract({
   client,
