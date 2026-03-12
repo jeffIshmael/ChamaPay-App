@@ -61,6 +61,7 @@ export const getUser = async (req: Request, res: Response): Promise<void> => {
       where: { id: req.user.userId },
       include: {
         joinRequests: {
+          where: { status: "pending" },
           include: {
             chama: true,
           },
@@ -118,6 +119,7 @@ export const getUserDetails = async (
       where: { id: req.user.userId },
       include: {
         joinRequests: {
+          where: { status: "pending" },
           include: {
             chama: true,
             user: true,
@@ -991,7 +993,7 @@ export const updateUserPushToken = async (
       return;
     }
     const { hashedPrivkey, hashedPassphrase, ...nonSensitiveUser } = user;
-    res.status(200).json({ success: true, user: nonSensitiveUser });  
+    res.status(200).json({ success: true, user: nonSensitiveUser });
   } catch (error) {
     console.error("Update user push token error:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
