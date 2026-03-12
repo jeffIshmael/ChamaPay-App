@@ -130,6 +130,20 @@ export async function addMemberToPayout(chamaId: number, userId: number) {
 // function to send admin request to join
 export async function requestToJoin(userId: number, chamaId: number) {
   try {
+    // Check if there is already a pending request for this user and chama
+    const existingRequest = await prisma.chamaRequest.findFirst({
+      where: {
+        userId: userId,
+        chamaId: chamaId,
+        status: "pending",
+      },
+    });
+
+    if (existingRequest) {
+      console.log("A pending request already exists for this user and chama.");
+      return existingRequest;
+    }
+
     const request = await prisma.chamaRequest.create({
       data: {
         userId: userId,
@@ -154,43 +168,61 @@ export async function handleRequest(
   approve: boolean
 ) {
   try {
-    const request = await prisma.chamaRequest.update({
+    // Use updateMany to mark all pending requests for this user/chama as handled
+    // This cleans up any existing duplicates
+    const request = await prisma.chamaRequest.findUnique({
+      where: { id: requestId },
+      select: { userId: true, chamaId: true }
+    });
+
+    if (!request) {
+      throw new Error("Unable to find request.");
+    }
+
+    await prisma.chamaRequest.updateMany({
       where: {
-        id: requestId,
+        userId: request.userId,
+        chamaId: request.chamaId,
+        status: "pending",
       },
       data: {
         status: approve ? "approved" : "rejected",
       },
     });
-    if (!request) {
+
+    // Re-fetch the updated primary request to return
+    const updatedRequest = await prisma.chamaRequest.findUnique({
+      where: { id: requestId }
+    });
+    if (!updatedRequest) {
       throw new Error("Unable to update request.");
     }
     if (approve) {
       // add member if approve
       await prisma.chamaMember.create({
         data: {
-          chamaId: request.chamaId,
-          userId: request.userId,
+          chamaId: updatedRequest.chamaId,
+          userId: updatedRequest.userId,
           payDate: new Date(Date.now()),
         },
       });
 
-      await addMemberToPayout(request.chamaId, request.userId);
+      await addMemberToPayout(updatedRequest.chamaId, updatedRequest.userId);
 
       // send members of the new member
       const message = `${userName} has joined the ${chamaName} chama.`;
       await notifyAllChamaMembers(
-        request.chamaId,
+        updatedRequest.chamaId,
         message,
         "member_joined",
-        request.userId,
+        updatedRequest.userId,
       );
       // expo notify all members
       await sendExpoNotificationToAllChamaMembers(
         `New member joined.`,
         message,
-        request.chamaId,
-        request.userId
+        updatedRequest.userId,
+        updatedRequest.chamaId
       );
     }
     const title = approve
@@ -201,14 +233,14 @@ export async function handleRequest(
     const message = approve
       ? `Your request to join the ${chamaName} chama has been approved. Welcome aboard!`
       : `Your request to join the ${chamaName} chama was not approved at this time.`;
-    await notifyUser(request.userId, message, "new_message");
+    await notifyUser(updatedRequest.userId, message, "new_message");
     // expo notify the sender
     await sendExpoNotificationToAUser(
-      request.userId,
+      updatedRequest.userId,
       title,
       message
     );
-    return request;
+    return updatedRequest;
   } catch (error) {
     console.error("approve request error", error);
     return null;
@@ -220,6 +252,7 @@ export async function getSentRequests(userId: number) {
   try {
     return await prisma.chamaRequest.findMany({
       where: {
+        status: "pending",
         chama: {
           adminId: userId,
         },

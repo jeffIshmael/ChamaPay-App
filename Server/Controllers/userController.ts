@@ -120,6 +120,7 @@ export const getUserDetails = async (
         joinRequests: {
           include: {
             chama: true,
+            user: true,
           },
         },
         notifications: {
