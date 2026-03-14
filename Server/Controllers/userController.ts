@@ -92,12 +92,8 @@ export const getUser = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const nonSensitiveUser = {
-      hashedPrivKey: user.hashedPrivkey,
-      hashedPassPhrase: user.hashedPassphrase,
-      ...user
-    }
-    res.status(200).json({ user: nonSensitiveUser });
+    const { hashedPrivkey, hashedPassphrase, ...safeUser } = user;
+    res.status(200).json({ user: safeUser });
   } catch (error: unknown) {
     console.error("Get user error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -161,7 +157,8 @@ export const getUserDetails = async (
     //check if the user has requests they need to approve
     const sentRequests = await getSentRequests(userResults.id);
 
-    const user = { ...userResults, sentRequests };
+    const { hashedPrivkey, hashedPassphrase, ...safeUserResults } = userResults;
+    const user = { ...safeUserResults, sentRequests };
 
     res.status(200).json({ user: user });
   } catch (error: unknown) {
@@ -1056,7 +1053,7 @@ export const getUserByAddress = async (
     const user = await prisma.user.findFirst({
       where: {
         OR: [
-          { smartAddress: address },
+          { smartAddress: address, },
           { address: address }
         ]
       },

@@ -146,7 +146,7 @@ export const handleAlchemyWebhook = async (
             const body = `You've received ${amount} USDC from ${senderDisplayName}`;
 
             // ensure its not a chama payment
-            if (fromAddress !== contractAddress.toLowerCase() || fromAddress !== pretium_address.toLowerCase()) {
+            if (fromAddress !== contractAddress.toLowerCase() && fromAddress !== pretium_address.toLowerCase()) {
                 try {
                     // 5. Commit to Database FIRST
                     // If this fails (e.g. unique constraint), it will throw and the code below won't run
@@ -159,8 +159,8 @@ export const handleAlchemyWebhook = async (
                                 chamaId: null,
                                 description: "Received",
                                 doneAt: new Date(),
-                                receiver: toAddress,
-                                sender: fromAddress
+                                receiver: activity.toAddress,
+                                sender: activity.fromAddress
                             }
                         })
                     ]);
