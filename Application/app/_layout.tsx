@@ -143,7 +143,6 @@ function RootLayoutNav() {
         <Stack.Screen name="index" options={{ animation: "none" }} />
         <Stack.Screen name="auth-screen" />
         <Stack.Screen name="new-auth-screen" />
-        <Stack.Screen name="oauth-redirect" />
         <Stack.Screen name="auth-form-screen" />
         <Stack.Screen name="wallet-setup" />
         <Stack.Screen name="(tabs)" />

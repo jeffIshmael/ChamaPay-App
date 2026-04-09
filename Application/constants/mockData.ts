@@ -4,6 +4,7 @@ export interface Member {
   phone: string;
   email: string;
   smartAddress: string;
+  profilePicture: string;
   role: string;
   contributions: number;
   address?: string;

@@ -26,6 +26,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   getContract
@@ -97,6 +98,7 @@ const CustomCheckbox = ({
 export default function CreateChama() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const { user, token } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -395,6 +397,8 @@ export default function CreateChama() {
       setStep(1);
       setLoadingState("");
       ToastAndroid.show("Chama created successfully", ToastAndroid.SHORT);
+      // Invalidate chamas cache to show new chama on Home
+      queryClient.invalidateQueries({ queryKey: ["userChamas"] });
       router.push("/(tabs)");
     } catch (error: any) {
       console.error("Error creating chama:", error);

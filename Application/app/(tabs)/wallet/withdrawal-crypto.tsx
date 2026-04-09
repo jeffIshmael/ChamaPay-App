@@ -562,202 +562,274 @@ export default function WithdrawCryptoScreen() {
       <Modal
         visible={showVerificationModal}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowVerificationModal(false)}
       >
-        <View className="flex-1 bg-black/50 items-center justify-center px-6">
+        <View className="flex-1 bg-black/60 items-center justify-center px-6">
           <View
-            className="bg-white rounded-3xl p-6 w-full shadow-2xl"
+            className="bg-white rounded-[32px] w-full shadow-2xl overflow-hidden"
             style={{ maxWidth: 400 }}
           >
-            <Text className="text-xl font-bold text-gray-900 mb-4 text-center">
-              Verify M-Pesa Number
-            </Text>
-            {isVerifying ? (
-              <View className="items-center py-4">
-                <ActivityIndicator size="large" color="#059669" />
-                <Text className="mt-3 text-sm text-gray-700">
-                  Verifying your M-Pesa details...
-                </Text>
+            {/* Modal Header */}
+            <View className="bg-downy-50 py-6 px-6 border-b border-downy-100 items-center">
+              <View className="w-16 h-16 bg-white rounded-2xl items-center justify-center shadow-sm mb-3">
+                <Image
+                  source={require("@/assets/images/mpesa.png")}
+                  className="w-12 h-12"
+                  resizeMode="contain"
+                />
               </View>
-            ) : verificationError ? (
-              <View className="py-3">
-                <Text className="text-sm text-red-600 text-center mb-3">
-                  {verificationError}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setShowVerificationModal(false)}
-                  className="mt-2 py-3 rounded-xl bg-gray-200"
-                  activeOpacity={0.8}
-                >
-                  <Text className="text-center font-semibold text-gray-800">
-                    Close
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <>
-                {!!getMobileDetails(verifiedPhoneData) && (
-                  <View className="bg-gray-50 rounded-2xl p-4 mb-4 border border-gray-200">
-                    {(() => {
-                      const md = getMobileDetails(verifiedPhoneData);
-                      if (!md) return null;
-                      return (
-                        <>
-                          <Text className="text-sm text-gray-600 mb-1">
-                            Phone Number
-                          </Text>
-                          <Text className="text-base font-semibold text-gray-900 mb-3">
-                            {formatPhoneNumber(KENYA_PHONE_CODE, phoneNumber)}
-                          </Text>
-                          <Text className="text-sm text-gray-600 mb-1">
-                            Account Name
-                          </Text>
-                          <Text className="text-base font-semibold text-gray-900 mb-3">
-                            {md.public_name || "—"}
-                          </Text>
-                          <Text className="text-sm text-gray-600 mb-1">
-                            Mobile Network
-                          </Text>
-                          <Text className="text-base font-semibold text-gray-900 mb-3">
-                            {MOBILE_NETWORK}
-                          </Text>
-                          <Text className="text-sm text-blue-700 mb-1">
-                            Amount
-                          </Text>
-                          <View className="flex-row items-center gap-4">
-                            <Text className="text-lg font-bold text-blue-700 mb-1">
-                              {CURRENCY} {formatCurrency(amountKES)}
-                            </Text>
-                            <Text className="text-sm text-blue-800">
-                              ≈ {parseFloat(usdcAmount).toFixed(4)} USDC
-                            </Text>
-                          </View>
-                        </>
-                      );
-                    })()}
-                  </View>
-                )}
+              <Text className="text-xl font-bold text-gray-900">
+                Confirm Details
+              </Text>
+              <Text className="text-xs text-gray-500 mt-1 uppercase tracking-widest font-semibold">
+                Withdrawal Verification
+              </Text>
+            </View>
 
-                <View className="flex-row gap-3 mt-2">
+            <View className="p-6">
+              {isVerifying ? (
+                <View className="items-center py-8">
+                  <ActivityIndicator size="large" color="#059669" />
+                  <Text className="mt-4 text-sm font-medium text-gray-600">
+                    Verifying M-Pesa details...
+                  </Text>
+                </View>
+              ) : verificationError ? (
+                <View className="items-center py-4">
+                  <View className="w-12 h-12 bg-red-50 rounded-full items-center justify-center mb-3">
+                    <Text className="text-xl">⚠️</Text>
+                  </View>
+                  <Text className="text-sm text-red-600 text-center font-medium px-4">
+                    {verificationError}
+                  </Text>
                   <TouchableOpacity
                     onPress={() => setShowVerificationModal(false)}
-                    className="flex-1 py-3 px-1 rounded-xl border border-gray-300"
+                    className="mt-6 w-full py-3.5 rounded-2xl bg-gray-100 active:bg-gray-200"
                     activeOpacity={0.8}
                   >
-                    <Text className="text-center font-semibold text-gray-700">
-                      Cancel
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleConfirmedWithdraw}
-                    disabled={!canConfirmWithdraw}
-                    className={`flex-1 py-3 px-1 rounded-xl ${canConfirmWithdraw ? "bg-downy-600" : "bg-gray-300"
-                      }`}
-                    activeOpacity={0.8}
-                  >
-                    <Text
-                      className={`text-center font-semibold ${canConfirmWithdraw ? "text-white" : "text-gray-600"
-                        }`}
-                    >
-                      Confirm Withdrawal
+                    <Text className="text-center font-bold text-gray-800">
+                      Try Again
                     </Text>
                   </TouchableOpacity>
                 </View>
-              </>
-            )}
+              ) : (
+                <>
+                  {!!getMobileDetails(verifiedPhoneData) && (
+                    <View className="space-y-4">
+                      {/* Recipient Card */}
+                      <View className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                        <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Recipient</Text>
+                        <View className="flex-row items-center justify-between mb-3">
+                          <Text className="text-sm text-gray-600">Account Name</Text>
+                          <Text className="text-sm font-bold text-gray-900">
+                            {getMobileDetails(verifiedPhoneData)?.public_name || "—"}
+                          </Text>
+                        </View>
+                        <View className="flex-row items-center justify-between">
+                          <Text className="text-sm text-gray-600">M-Pesa Number</Text>
+                          <Text className="text-sm font-bold text-emerald-700">
+                            {formatPhoneNumber(KENYA_PHONE_CODE, phoneNumber)}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Amount Details */}
+                      <View className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-100 my-4">
+                        <Text className="text-[10px] font-bold text-emerald-600/50 uppercase tracking-wider mb-2">Withdrawal Amount</Text>
+                        <View className="flex-row items-center justify-between mb-1">
+                          <Text className="text-sm text-gray-600">You Receive</Text>
+                          <Text className="text-lg font-bold text-emerald-800">
+                            {CURRENCY} {formatCurrency(amountKES)}
+                          </Text>
+                        </View>
+                        <View className="flex-row items-center justify-between">
+                          <Text className="text-xs text-gray-500">Total Deduction</Text>
+                          <Text className="text-xs font-medium text-gray-700">
+                            {parseFloat(usdcAmount).toFixed(4)} USDC
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Info Alert */}
+                      <View className="bg-blue-50 p-3 rounded-xl flex-row items-center mb-6">
+                        <Text className="text-lg mr-2">ℹ️</Text>
+                        <Text className="text-[11px] text-blue-800 flex-1 leading-4">
+                          Funds will be sent immediately to the registered M-Pesa account above.
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  <View className="flex-row gap-3">
+                    <TouchableOpacity
+                      onPress={() => setShowVerificationModal(false)}
+                      className="flex-1 py-4 rounded-2xl border border-gray-200 active:bg-gray-50"
+                      activeOpacity={0.8}
+                    >
+                      <Text className="text-center font-bold text-gray-600">
+                        Cancel
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={handleConfirmedWithdraw}
+                      disabled={!canConfirmWithdraw}
+                      className={`flex-[1.5] py-4 rounded-2xl shadow-sm ${canConfirmWithdraw ? "bg-emerald-600 shadow-emerald-200" : "bg-gray-200"
+                        }`}
+                      activeOpacity={0.8}
+                    >
+                      <Text
+                        className={`text-center font-bold ${canConfirmWithdraw ? "text-white" : "text-gray-400"
+                          }`}
+                      >
+                        Confirm Withdraw
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
           </View>
         </View>
       </Modal>
 
-      {/* Processing Modal - Keep inline as it's specific to withdraw */}
+      {/* Processing Modal */}
       <Modal visible={isProcessing} transparent animationType="fade">
         <View className="flex-1 bg-black/70 items-center justify-center px-6">
           <View
-            className="bg-white rounded-3xl p-8 w-full shadow-2xl"
+            className="bg-white rounded-[32px] w-full shadow-2xl overflow-hidden"
             style={{ maxWidth: 400 }}
           >
             {processingStep === "processing" && (
-              <>
-                <ActivityIndicator size="large" color="#059669" />
-                <Text className="text-xl font-bold text-center mt-4 text-gray-900">
-                  Processing Withdrawal
-                </Text>
-                <Text className="text-sm text-gray-600 text-center mt-2">
-                  Sending {CURRENCY} {formatCurrency(amountKES)} to{" "}
-                  {formatPhoneNumber(KENYA_PHONE_CODE, phoneNumber)}
-                </Text>
-                <View className="mt-4 bg-blue-50 p-3 rounded-xl">
-                  <Text className="text-xs text-blue-800 text-center">
-                    ⏱️ This may take a few moments...
+              <View className="p-8">
+                <View className="items-center mb-6">
+                  <View className="w-20 h-20 bg-emerald-50 rounded-full items-center justify-center relative">
+                    <ActivityIndicator size="large" color="#059669" />
+                    <View className="absolute inset-0 items-center justify-center">
+                      {/* Subtle inner icon or text could go here */}
+                    </View>
+                  </View>
+                  <Text className="text-2xl font-bold text-center mt-6 text-gray-900">
+                    Processing
+                  </Text>
+                  <Text className="text-sm text-gray-500 text-center mt-2 font-medium px-4">
+                    Sending <Text className="text-gray-900 font-bold">{CURRENCY} {formatCurrency(amountKES)}</Text> to your M-Pesa account
                   </Text>
                 </View>
 
-                {/* Progress indicators */}
-                <View className="mt-6 space-y-3">
-                  <View className="flex-row items-center">
-                    <View className="w-6 h-6 rounded-full bg-emerald-600 items-center justify-center mr-3">
-                      <Check size={14} color="white" strokeWidth={3} />
+                {/* Status Timeline */}
+                <View className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+                  <View className="space-y-6">
+                    {/* Step 1: Initialized */}
+                    <View className="flex-row items-center">
+                      <View className="w-8 h-8 rounded-full bg-emerald-500 items-center justify-center mr-4 shadow-sm shadow-emerald-200">
+                        <Check size={16} color="white" strokeWidth={3} />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-sm font-bold text-gray-900">Transfer Initialized</Text>
+                        <Text className="text-[10px] text-gray-500 uppercase font-bold tracking-tighter">Completed</Text>
+                      </View>
                     </View>
-                    <Text className="text-sm text-gray-700">
-                      USDC transferred
-                    </Text>
-                  </View>
-                  <View className="flex-row items-center">
-                    <ActivityIndicator size="small" color="#059669" />
-                    <Text className="text-sm text-gray-700 ml-3">
-                      Converting to KES
-                    </Text>
-                  </View>
-                  <View className="flex-row items-center">
-                    <View className="w-6 h-6 rounded-full bg-gray-300 items-center justify-center mr-3">
-                      <Text className="text-xs text-gray-500">3</Text>
+
+                    {/* Step 2: Conversion */}
+                    <View className="flex-row items-center">
+                      <View className="w-8 h-8 rounded-full bg-emerald-100 items-center justify-center mr-4">
+                        <ActivityIndicator size="small" color="#059669" />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-sm font-bold text-gray-900">Off-ramping USDC</Text>
+                        <Text className="text-[10px] text-emerald-600 uppercase font-bold tracking-tighter">In Progress</Text>
+                      </View>
                     </View>
-                    <Text className="text-sm text-gray-500">
-                      Sending to M-Pesa
-                    </Text>
+
+                    {/* Step 3: Payout */}
+                    <View className="flex-row items-center opacity-40">
+                      <View className="w-8 h-8 rounded-full bg-gray-200 items-center justify-center mr-4">
+                        <View className="w-2 h-2 bg-gray-400 rounded-full" />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-sm font-bold text-gray-900">M-Pesa Payout</Text>
+                        <Text className="text-[10px] text-gray-500 uppercase font-bold tracking-tighter">Pending</Text>
+                      </View>
+                    </View>
                   </View>
                 </View>
-              </>
+
+                <View className="mt-8 bg-blue-50 py-3 px-4 rounded-2xl flex-row items-center justify-center">
+                  <Text className="text-blue-700 font-bold text-[11px] uppercase tracking-wider">⏱️ SECURING TRANSACTION...</Text>
+                </View>
+              </View>
             )}
 
             {processingStep === "completed" && (
-              <>
-                <View className="w-20 h-20 bg-emerald-100 rounded-full items-center justify-center mx-auto">
-                  <Check size={40} color="#059669" strokeWidth={3} />
+              <View className="p-8 items-center">
+                <View className="w-24 h-24 bg-emerald-100 rounded-full items-center justify-center mb-6">
+                  <View className="w-16 h-16 bg-emerald-500 rounded-full items-center justify-center shadow-lg shadow-emerald-200">
+                    <Check size={40} color="white" strokeWidth={3} />
+                  </View>
                 </View>
-                <Text className="text-xl font-bold text-center mt-4 text-emerald-600">
-                  Success!
+
+                <Text className="text-2xl font-bold text-center text-gray-900">
+                  Withdrawal Successful
                 </Text>
-                <Text className="text-sm text-gray-600 text-center mt-2">
-                  KES {formatCurrency(amountKES)} sent successfully
+                <Text className="text-sm text-gray-500 text-center mt-2 px-4 leading-5">
+                  Your funds are on their way to your M-Pesa account. You will receive a confirmation message shortly.
                 </Text>
-                <View className="mt-4 bg-emerald-50 p-4 rounded-xl border border-emerald-200">
-                  <Text className="text-xs text-emerald-800 text-center">
-                    ✓ Withdrawal completed to{" "}
-                    {formatPhoneNumber(KENYA_PHONE_CODE, phoneNumber)}
-                  </Text>
+
+                <View className="bg-gray-50 w-full mt-8 rounded-2xl p-5 border border-gray-100">
+                  <View className="flex-row justify-between mb-3">
+                    <Text className="text-xs text-gray-500 font-bold uppercase tracking-wider">Amount Sent</Text>
+                    <Text className="text-sm font-black text-gray-900">{CURRENCY} {formatCurrency(amountKES)}</Text>
+                  </View>
+                  <View className="flex-row justify-between">
+                    <Text className="text-xs text-gray-500 font-bold uppercase tracking-wider">Recipient No.</Text>
+                    <Text className="text-sm font-black text-emerald-700">{formatPhoneNumber(KENYA_PHONE_CODE, phoneNumber)}</Text>
+                  </View>
                 </View>
-              </>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setIsProcessing(false);
+                    router.push("/wallet");
+                  }}
+                  className="w-full bg-emerald-600 py-4 rounded-2xl mt-8 shadow-sm active:bg-emerald-700 shadow-emerald-100"
+                >
+                  <Text className="text-center text-white font-bold">Done</Text>
+                </TouchableOpacity>
+              </View>
             )}
 
             {processingStep === "failed" && (
-              <>
-                <View className="w-20 h-20 bg-red-100 rounded-full items-center justify-center mx-auto">
-                  <Text className="text-3xl">✕</Text>
+              <View className="p-8 items-center">
+                <View className="w-24 h-24 bg-red-50 rounded-full items-center justify-center mb-6">
+                  <View className="w-16 h-16 bg-red-100 rounded-full items-center justify-center">
+                    <Text className="text-4xl">❌</Text>
+                  </View>
                 </View>
-                <Text className="text-xl font-bold text-center mt-4 text-red-600">
-                  Failed
+
+                <Text className="text-2xl font-bold text-center text-gray-900">
+                  Withdrawal Failed
                 </Text>
-                <Text className="text-sm text-gray-600 text-center mt-2">
-                  Withdrawal failed. Please try again.
+                <Text className="text-sm text-gray-500 text-center mt-2 px-6">
+                  We encountered an error while processing your withdrawal.
                 </Text>
-                <View className="mt-4 bg-red-50 p-4 rounded-xl border border-red-200">
-                  <Text className="text-xs text-red-800 text-center">
-                    If funds were deducted, please contact support
+
+                <View className="bg-red-50 w-full mt-8 rounded-2xl p-5 border border-red-100">
+                  <Text className="text-xs text-red-800 text-center font-medium leading-5">
+                    Your funds are safe. If USDC was deducted and you didn't receive KES, please contact our support team immediately.
                   </Text>
                 </View>
-              </>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setIsProcessing(false);
+                    setProcessingStep("idle");
+                  }}
+                  className="w-full bg-gray-900 py-4 rounded-2xl mt-8 active:bg-gray-800 shadow-md"
+                >
+                  <Text className="text-center text-white font-bold">Try Again</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
         </View>

@@ -16,6 +16,7 @@ import {
 import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { formatTimeRemaining } from "@/Utils/helperFunctions";
+import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -48,6 +49,7 @@ export default function ChamaDetails() {
   const { slug } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [chama, setChama] = useState<JoinedChama>();
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
@@ -270,6 +272,8 @@ export default function ChamaDetails() {
 
       ToastAndroid.show(`You are now a member of ${chama.name} chama`, ToastAndroid.SHORT);
       setShowCollateralModal(false);
+      // Invalidate chamas cache
+      queryClient.invalidateQueries({ queryKey: ["userChamas"] });
       router.replace(`/(tabs)/[joined-chama-details]/${chama.slug}`);
     } catch (error) {
       console.log(error);
@@ -392,8 +396,8 @@ export default function ChamaDetails() {
                   step: "1",
                   title: "Join & Lock Collateral",
                   description: kesRate > 0 && currency === "KES"
-                    ? `Lock ${(Number(chama.collateralAmount) * kesRate).toFixed(2)} KES (${chama.collateralAmount} USDC) as collateral to serve as security in case of default.`
-                    : `Lock ${chama.collateralAmount} ${chama.currency} as collateral to serve as security in case of default.`,
+                    ? `Lock ${(Number(chama.collateralAmount) * kesRate).toFixed(2)} KES (${chama.collateralAmount?.toFixed(3)} USDC) as collateral to serve as security in case of default.`
+                    : `Lock ${chama.collateralAmount?.toFixed(3)} ${chama.currency} as collateral to serve as security in case of default.`,
                   icon: "🔒",
                   bgColor: "bg-emerald-50",
                   borderColor: "border-emerald-100",
@@ -411,8 +415,8 @@ export default function ChamaDetails() {
                 step: "2",
                 title: "Monthly Contributions",
                 description: kesRate > 0 && currency === "KES"
-                  ? `Contribute ${(Number(chama.contribution) * kesRate).toFixed(2)} KES (${chama.contribution} USDC) every month on schedule`
-                  : `Contribute ${chama.contribution} USDC every month on schedule`,
+                  ? `Contribute ${(Number(chama.contribution) * kesRate).toFixed(2)} KES (${chama.contribution?.toFixed(3)} USDC) every month on schedule`
+                  : `Contribute ${chama.contribution?.toFixed(3)} ${chama.currency} every month on schedule`,
                 icon: "💰",
                 bgColor: "bg-blue-50",
                 borderColor: "border-blue-100",
@@ -494,8 +498,8 @@ export default function ChamaDetails() {
               </Text>
               <Text className="font-semibold text-gray-900">
                 {kesRate > 0 && currency === "KES"
-                  ? `${(Number(chama.contribution) * kesRate).toFixed(2)} KES (${chama.contribution} ${chama.currency})`
-                  : `${chama.contribution} ${chama.currency}`}
+                  ? `${(Number(chama.contribution) * kesRate).toFixed(2)} KES (${chama.contribution?.toFixed(3)} ${chama.currency})`
+                  : `${chama.contribution?.toFixed(3)} ${chama.currency}`}
               </Text>
             </View>
 
@@ -506,8 +510,8 @@ export default function ChamaDetails() {
                 </Text>
                 <Text className="font-semibold text-gray-900">
                   {kesRate > 0 && currency === "KES"
-                    ? `${(Number(chama.collateralAmount) * kesRate).toFixed(2)} KES (${chama.collateralAmount} ${chama.currency})`
-                    : `${chama.collateralAmount} ${chama.currency}`}
+                    ? `${(Number(chama.collateralAmount) * kesRate).toFixed(2)} KES (${chama.collateralAmount?.toFixed(3)} ${chama.currency})`
+                    : `${chama.collateralAmount?.toFixed(3)} ${chama.currency}`}
                 </Text>
               </View>
             )}

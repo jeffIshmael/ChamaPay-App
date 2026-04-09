@@ -33,7 +33,7 @@ const tabs = [
   { name: "index", label: "Home", icon: HomeIcon },
   { name: "discover-chamas", label: "Discover", icon: Search },
   { name: "create-chama", label: "Create", icon: Plus, isCenter: true },
-  { name: "notifications", label: "Notifications", icon: Bell, badge: 2 },
+  { name: "notifications", label: "Notifications", icon: Bell },
   { name: "wallet/index", label: "Wallet", icon: Wallet },
 ];
 

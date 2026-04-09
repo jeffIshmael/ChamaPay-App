@@ -11,6 +11,7 @@ import { updateUserPushToken } from "@/lib/userService";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { formatDays, formatTimeRemaining } from "@/Utils/helperFunctions";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -42,11 +43,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, token } = useAuth();
+  const { user, token, unReadNotificationCount } = useAuth();
   const insets = useSafeAreaInsets();
-  const [chamas, setChamas] = useState<JoinedChama[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [pasteLink, setPasteLink] = useState("");
   const [isProcessingLink, setIsProcessingLink] = useState(false);
@@ -55,34 +54,30 @@ export default function HomeScreen() {
   const kesRate = rates["KES"]?.rate || 0;
   const hasInitialized = React.useRef(false);
 
-  // Fetch user's chamas function
-  const fetchChamas = useCallback(async () => {
-    if (!token || !user) {
-      setLoading(false);
-      return;
-    }
-    try {
-      setLoading(true);
+  // Fetch user's chamas using React Query
+  const {
+    data: chamas = [],
+    isLoading: loading,
+    error: queryError,
+    refetch: fetchChamas
+  } = useQuery({
+    queryKey: ["userChamas", user?.id],
+    queryFn: async () => {
+      if (!token || !user) return [];
       const response = await getUserChamas(token);
       if (response.success && response.chamas) {
-        const transformed = response.chamas.map((member: any) =>
+        return response.chamas.map((member: any) =>
           transformChamaData(member.chama, user.smartAddress)
         );
-        // Sort chamas by unread messages (optional, or stick to default order)
-        setChamas(transformed);
-        setError(null);
-      } else {
-        setChamas([]);
-        setError(response.error || "No chamas found");
       }
-    } catch (err) {
-      console.error(err);
-      setError("Failed to fetch chamas");
-      setChamas([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [token, user]);
+      return [];
+    },
+    enabled: !!token && !!user,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 30, // 30 minutes
+  });
+
+  const error = queryError ? "Failed to fetch chamas" : null;
 
   // Update rates on component mount
   useEffect(() => {
@@ -291,10 +286,17 @@ export default function HomeScreen() {
         <View className="flex-row">
           <TouchableOpacity
             onPress={() => router.push("/notifications")}
-            className="p-2 mr-2"
+            className="p-2 mr-2 relative"
             activeOpacity={0.7}
           >
             <Bell color="white" size={22} />
+            {unReadNotificationCount > 0 && (
+              <View className="absolute top-1 right-1 bg-red-500 rounded-full w-4 h-4 items-center justify-center border border-downy-800">
+                <Text className="text-white text-[9px] font-bold">
+                  {unReadNotificationCount > 9 ? "9+" : unReadNotificationCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => router.push("/profile-settings")}

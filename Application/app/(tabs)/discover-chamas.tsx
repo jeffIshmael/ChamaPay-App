@@ -129,7 +129,7 @@ export default function DiscoverChamas() {
               {chama.description}
             </Text>
             {/* Rating Section */}
-            <View className="flex-row items-center gap-2 mt-2">
+            {/* <View className="flex-row items-center gap-2 mt-2">
               <View className="flex-row items-center gap-1">
                 {renderStars((chama.rating ?? 0))}
               </View>
@@ -139,7 +139,7 @@ export default function DiscoverChamas() {
               <Text className="text-xs text-gray-500">
                 ({chama.raterCount ?? 0})
               </Text>
-            </View>
+            </View> */}
           </View>
 
           {isFilling && (

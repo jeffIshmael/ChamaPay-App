@@ -200,6 +200,9 @@ export default function SendCryptoScreen() {
         return;
       }
       ToastAndroid.show(`${isKESMode ? "KES" : "USDC"} sent successfully`, ToastAndroid.SHORT);
+      setAmount("");
+      setRecipient("");
+      setSelectedUser(null);
       router.push("/wallet");
 
     } catch (error) {
@@ -469,7 +472,7 @@ export default function SendCryptoScreen() {
                 <Text className="text-sm text-emerald-700 font-medium">
                   {isKESMode
                     ? `≈ ${amount || "0.00"} USDC`
-                    : `≈ ${amountKES || "0.00"} KES`}
+                    : `≈ ${amountKES || "0"} KES`}
                 </Text>
               </View>
             )}

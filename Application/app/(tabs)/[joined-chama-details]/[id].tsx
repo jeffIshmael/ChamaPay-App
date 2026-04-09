@@ -24,6 +24,7 @@ import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { formatTimeRemaining } from "@/Utils/helperFunctions";
 import { Ionicons } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Share, Share2, User } from "lucide-react-native";
@@ -67,6 +68,7 @@ export default function JoinedChamaDetails() {
   const { id, tab } = useLocalSearchParams();
   const router = useRouter();
   const { user, token } = useAuth();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState(
     tab ? tab : "overview"
   );
@@ -225,6 +227,8 @@ export default function JoinedChamaDetails() {
     // Close payment modal and reload page data
     setShowPaymentModal(false);
     setActiveTab("overview");
+    // Invalidate chamas cache
+    queryClient.invalidateQueries({ queryKey: ["userChamas"] });
     fetchChama();
   };
 
@@ -241,6 +245,8 @@ export default function JoinedChamaDetails() {
         style: "destructive",
         onPress: () => {
           Alert.alert("Success", "Left chama successfully");
+          // Invalidate chamas cache
+          queryClient.invalidateQueries({ queryKey: ["userChamas"] });
           router.back();
         },
       },
@@ -256,6 +262,8 @@ export default function JoinedChamaDetails() {
     setSuccessMessage(data?.message || "Payment successful!");
     setShowSuccessModal(true);
     setActiveTab("overview");
+    // Invalidate chamas cache
+    queryClient.invalidateQueries({ queryKey: ["userChamas"] });
     fetchChama();
     fetchMyWalletBalance();
   };
