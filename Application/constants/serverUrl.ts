@@ -18,7 +18,7 @@ const getServerUrl = (): string => {
 
   // Production fallback
   console.error("❌ EXPO_PUBLIC_SERVER_URL is not set. API calls will fail.");
-  return "https://fallback-url-not-set.com";
+  return "https://chamapay-app.onrender.com";
 };
 
 export const serverUrl = getServerUrl();

@@ -143,6 +143,8 @@ chamapay-mobile/
 - Follow the established code style
 - Update documentation as needed
 
+<!-- eas build --profile preview --platform android -->
+
 ## 📞 Support
 
 - **Issues**: [GitHub Issues](https://github.com/jeffIshmael/chamapay-app/issues)

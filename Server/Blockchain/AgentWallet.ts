@@ -1,7 +1,7 @@
 // this file contains a functiomn that return the agent account and agent smart account
 import dotenv from "dotenv";
 import { privateKeyToAccount } from "viem/accounts";
-import { createSmartAccount } from "./SmartAccount";
+import { createEIP7702SmartAccount } from "./EIP7702Client";
 
 dotenv.config();
 
@@ -12,8 +12,8 @@ if (!agentPrivateKey) {
 
 export const getAgentSmartWallet = async () => {
     try {
-        const { smartAccountClient, safeSmartAccount } = await createSmartAccount(agentPrivateKey as `0x${string}`);
-        return { smartAccountClient, agentSmartWallet: safeSmartAccount };
+        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(agentPrivateKey as `0x${string}`);
+        return { smartAccountClient, agentSmartWallet: safeSmartAccount, authorization };
     } catch (error) {
         console.error("Error getting agent wallet:", error);
         throw error;

@@ -1,28 +1,30 @@
 import { serverUrl } from "@/constants/serverUrl";
 import { useAuth } from "@/Contexts/AuthContext";
 import { checkUserDetails } from "@/lib/chamaService";
+import { Buffer } from "buffer";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { makeRedirectUri } from "expo-auth-session";
 import * as Google from "expo-auth-session/providers/google";
+import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
 import { Mail, Shield } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
+import AuthLoadingView from "@/components/AuthLoadingView";
 
 const GoogleIcon = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24">
@@ -66,7 +68,8 @@ export default function AuthScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const router = useRouter();
-  const { setAuth } = useAuth();
+
+  const { setAuth, isAuthenticated } = useAuth();
   const insets = useSafeAreaInsets();
 
   const [request, response, promptAsync] = Google.useAuthRequest({
@@ -78,33 +81,179 @@ export default function AuthScreen() {
     }),
   });
 
-  // Handle Google OAuth response logic is now inside handleGoogleSignIn
+  // CRITICAL: Detect deep link on mount to prevent flicker
+  useEffect(() => {
+    const handleUrl = (event: { url: string }) => {
+      console.log("[GoogleAuth] URL Event Check:", event.url);
+      const url = event.url;
+      if (url && (url.includes("code=") || url.includes("token=") || url.includes("state=") || url.includes("prompt="))) {
+        console.log("[GoogleAuth] Deep link detected from event, forcing loading state");
+        setIsLoading(true);
+        setLoadingMessage("Signing in...");
+      }
+    };
 
-  const handleGoogleAuth = async (accessToken: string | undefined) => {
-    if (!accessToken) {
-      setErrorText("Failed to get access token from Google");
+    const subscription = Linking.addEventListener("url", handleUrl);
+
+    const checkDeepLinkAndPendingAuth = async () => {
+      // 1. Check if auth was in progress before app backgrounded/killed
+      const isAuthPending = await SecureStore.getItemAsync("google_auth_pending");
+      if (isAuthPending === "true") {
+        console.log("[GoogleAuth] Found pending auth state, maintaining loading screen");
+        setIsLoading(true);
+        setLoadingMessage("Signing in...");
+        
+        // Safety timeout to clear it if response never arrives
+        setTimeout(async () => {
+          const stillPending = await SecureStore.getItemAsync("google_auth_pending");
+          if (stillPending === "true") {
+            await SecureStore.deleteItemAsync("google_auth_pending");
+            setIsLoading((prev) => {
+              if (prev) {
+                setLoadingMessage("");
+                return false;
+              }
+              return prev;
+            });
+          }
+        }, 12000);
+      }
+
+      // 2. Check initial URL just in case
+      const url = await Linking.getInitialURL();
+      console.log("[GoogleAuth] Mount Deep Link Check:", url);
+      if (url && (url.includes("code=") || url.includes("token=") || url.includes("state=") || url.includes("prompt="))) {
+        console.log("[GoogleAuth] Deep link detected on mount, forcing loading state");
+        setIsLoading(true);
+        setLoadingMessage("Signing in...");
+      }
+    };
+    checkDeepLinkAndPendingAuth();
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  console.log("[GoogleAuth] Client IDs:", {
+    android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    web: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+  });
+  console.log("[GoogleAuth] Request built:", !!request);
+
+  // Handle Google OAuth response logic reactively
+  useEffect(() => {
+    const handleResponse = async () => {
+      if (response) {
+        console.log("[GoogleAuth] Response Received:", JSON.stringify(response, null, 2));
+        
+        // Clear pending auth state since we have a response
+        await SecureStore.deleteItemAsync("google_auth_pending");
+
+        if (response.type === "success") {
+          setIsLoading(true);
+          setLoadingMessage("Redirecting...");
+          const { authentication, params } = response;
+
+          try {
+            if (authentication?.accessToken) {
+              console.log("[GoogleAuth] Using accessToken from authentication object");
+              await handleGoogleAuth(authentication.accessToken, 'access');
+            } else if (authentication?.idToken) {
+              console.log("[GoogleAuth] Using idToken from authentication object");
+              await handleGoogleAuth(authentication.idToken, 'id');
+            } else if (params?.id_token) {
+              console.log("[GoogleAuth] Using id_token from params");
+              await handleGoogleAuth(params.id_token, 'id');
+            } else if (params?.access_token) {
+              console.log("[GoogleAuth] Using access_token from params");
+              await handleGoogleAuth(params.access_token, 'access');
+            } else {
+              console.error("[GoogleAuth] Success but no token found in response");
+              setErrorText("Authentication successful but no tokens found.");
+              setIsLoading(false);
+              setLoadingMessage("");
+            }
+          } catch (err) {
+            console.error("[GoogleAuth] Error processing success response:", err);
+            setErrorText("Error completing sign in.");
+            setIsLoading(false);
+            setLoadingMessage("");
+          }
+        } else if (response.type === "error") {
+          console.error("[GoogleAuth] Error details:", response.error, response.errorCode);
+          setErrorText(`Google Auth Error: ${response.error?.message || 'Unknown error'}`);
+          setIsLoading(false);
+          setLoadingMessage("");
+        } else if (response.type === "cancel" || response.type === "dismiss") {
+          console.log(`[GoogleAuth] User ${response.type}. Waiting slightly to ensure it's not a false positive from a deep link redirect.`);
+          // Delay hiding the loading screen in case this "dismiss" is just the browser closing 
+          // automatically during a successful deep-link redirect on Android.
+          // We change the message so the user knows something is happening.
+          setLoadingMessage("Finishing sign in...");
+
+          setTimeout(() => {
+            // We only clear it if we are still stuck on "Finishing sign in..."
+            // If success arrived, setLoadingMessage was called with "Redirecting..." etc.
+            setLoadingMessage((currentMsg) => {
+              if (currentMsg === "Finishing sign in...") {
+                console.log("[GoogleAuth] Clearing loading state after dismiss timeout");
+                setIsLoading(false);
+                return "";
+              }
+              return currentMsg;
+            });
+          }, 8000); // 8 seconds gives expo-auth-session enough time to parse the deep-link
+        }
+      }
+    };
+
+    handleResponse();
+  }, [response]);
+
+  useEffect(() => {
+    console.log("[GoogleAuth] isLoading changed:", isLoading, "message:", loadingMessage);
+  }, [isLoading, loadingMessage]);
+
+  const handleGoogleAuth = async (token: string | undefined, type: 'access' | 'id' = 'access') => {
+    console.log(`[GoogleAuth] handleGoogleAuth started - Type: ${type}, Token present: ${!!token}`);
+    if (!token) {
+      console.error("[GoogleAuth] No token provided to handleGoogleAuth");
+      setErrorText(`Failed to get ${type} token from Google`);
       setIsLoading(false);
       setLoadingMessage("");
       return;
     }
 
     setErrorText("");
-
     try {
-      // Get user info from Google
-      setLoadingMessage("Getting profile...");
-      const userInfoResponse = await fetch(
-        "https://www.googleapis.com/userinfo/v2/me",
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      );
+      setLoadingMessage("Fetching details...");
+      let googleEmail, googleName, googlePicture;
 
-      setLoadingMessage("Verifying details...");
-      const userInfo = await userInfoResponse.json();
-      const email = userInfo.email;
-      const name = userInfo.name;
-      const picture = userInfo.picture;
+      if (type === 'id') {
+        const payloadBase64 = token.split('.')[1];
+        const payload = JSON.parse(Buffer.from(payloadBase64, 'base64').toString());
+        googleEmail = payload.email;
+        googleName = payload.name;
+        googlePicture = payload.picture;
+      } else {
+        const response = await fetch(
+          "https://www.googleapis.com/userinfo/v2/me",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        const userInfo = await response.json();
+        googleEmail = userInfo.email;
+        googleName = userInfo.name;
+        googlePicture = userInfo.picture;
+      }
+
+      setLoadingMessage("Verifying account...");
+      const email = googleEmail;
+      const name = googleName;
+      const picture = googlePicture;
 
       if (!email) {
         setErrorText("Could not retrieve email from Google");
@@ -114,12 +263,13 @@ export default function AuthScreen() {
       }
 
       setLoadingMessage("Checking account...");
-      // Check if user exists
+      console.log("[GoogleAuth] Calling checkUserDetails for:", email);
       const userDetails = await checkUserDetails(email);
+      console.log("[GoogleAuth] checkUserDetails result:", JSON.stringify(userDetails));
 
       if (userDetails.success) {
-        setLoadingMessage("Logging in...");
-        // User exists, authenticate
+        setLoadingMessage("Taking you to your account...");
+        console.log("[GoogleAuth] Existing user found, authenticating...");
         const resp = await fetch(`${serverUrl}/auth/authenticate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -127,14 +277,13 @@ export default function AuthScreen() {
         });
 
         const data = await resp.json();
+        console.log("[GoogleAuth] Backend auth result:", JSON.stringify(data));
 
         if (resp.ok && data?.token && data?.user) {
-          setLoadingMessage("Finalizing...");
-          // We wait for setAuth but WE DO NOT clear isLoading here
-          // This keeps the modal up while router.replace performs the transition
+          setLoadingMessage("Almost there...");
+          console.log("[GoogleAuth] Setting auth state and routing to tabs");
           await setAuth(data.token, data.user, data.refreshToken || null);
 
-          // Check if PIN is set
           const storedPin = await SecureStore.getItemAsync("user_pin");
           if (storedPin) {
             router.replace("/(tabs)");
@@ -142,26 +291,25 @@ export default function AuthScreen() {
             router.replace("/pin-setup");
           }
         } else {
-          setErrorText(data?.message || "Authentication failed");
+          console.error("[GoogleAuth] Backend auth failed:", data);
+          setErrorText(data?.message || "Authentication failed on server.");
           setIsLoading(false);
           setLoadingMessage("");
         }
       } else {
-        // New user, redirect to setup
-        setLoadingMessage("Setting up wallet...");
-        // Same here, keep modal up until push/replace happens
+        setLoadingMessage("Preparing your wallet...");
+        console.log("[GoogleAuth] New user, routing to wallet-setup");
         router.push({
           pathname: "/wallet-setup",
           params: {
-            mode: "google",
             email,
             name: name || "",
             picture: picture || "",
           },
-        });
+        } as any);
       }
     } catch (error) {
-      console.error("Google auth error:", error);
+      console.error("[GoogleAuth] Error in handleGoogleAuth:", error);
       setErrorText("Failed to sign in with Google. Please try again.");
       setIsLoading(false);
       setLoadingMessage("");
@@ -169,29 +317,20 @@ export default function AuthScreen() {
   };
 
   const handleGoogleSignIn = async () => {
+    console.log("[GoogleAuth] handleGoogleSignIn triggered");
     setIsLoading(true);
     setLoadingMessage("Opening Google...");
     setErrorText("");
     try {
+      await SecureStore.setItemAsync("google_auth_pending", "true");
       const result = await promptAsync();
-
-      if (result?.type === "success") {
-        setLoadingMessage("Signing in...");
-        const { authentication } = result;
-        await handleGoogleAuth(authentication?.accessToken);
-      } else if (result?.type === "error") {
-        console.error("Google Auth error:", result.error);
-        setErrorText("Authentication failed. Please try again.");
-        setIsLoading(false);
-        setLoadingMessage("");
-      } else {
-        // Dismissed or canceled
-        setIsLoading(false);
-        setLoadingMessage("");
-      }
+      console.log("[GoogleAuth] promptAsync call finished. Result type:", result?.type);
+      // Removed immediate setIsLoading(false) on cancel/dismiss here because 
+      // Android Custom Tabs often return "dismiss" when closing automatically for a deep link.
+      // The useEffect watching 'response' will handle true cancellations with a timeout.
     } catch (error) {
-      console.error("Error prompting Google auth:", error);
-      setErrorText("Failed to start Google sign in");
+      console.error("[GoogleAuth] Error prompting Google auth:", error);
+      setErrorText(`Failed to start Google sign in: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setIsLoading(false);
       setLoadingMessage("");
     }
@@ -488,7 +627,7 @@ export default function AuthScreen() {
                     {/* Google Button */}
                     <Pressable
                       onPress={handleGoogleSignIn}
-                      disabled={isLoading || !request}
+                      disabled={isLoading || !request || isAuthenticated}
                       className="flex-1 bg-white p-4 rounded-2xl flex-row items-center justify-center"
                       style={[
                         styles.authButton,
@@ -496,10 +635,10 @@ export default function AuthScreen() {
                           borderWidth: 2,
                           borderColor: "#a3ece4",
                         },
-                        (isLoading || !request) && { opacity: 0.6 },
+                        (isLoading || !request || isAuthenticated) && { opacity: 0.6 },
                       ]}
                     >
-                      {isLoading ? (
+                      {isLoading || isAuthenticated ? (
                         <ActivityIndicator color="#4285F4" size="small" />
                       ) : (
                         <GoogleIcon />
@@ -507,7 +646,7 @@ export default function AuthScreen() {
                       <View className="ml-3 items-start justify-center">
                         {Platform.OS === "android" ? (
                           <Text className="text-gray-900 font-bold text-sm">
-                            Continue with Google
+                            {isLoading || isAuthenticated ? "Signing in..." : "Continue with Google"}
                           </Text>
                         ) : (
                           <>
@@ -599,25 +738,12 @@ export default function AuthScreen() {
         </ScrollView>
       </SafeAreaView>
 
-      {/* Loading Overlay */}
-      <Modal
-        visible={isLoading}
-        transparent={true}
-        animationType="fade"
-        statusBarTranslucent
-      >
-        <View
-          className="flex-1 bg-black/60 items-center justify-center px-6"
-          style={{ zIndex: 999 }}
-        >
-          <View className="bg-white p-8 rounded-3xl items-center w-full max-w-[280px]" style={styles.card}>
-            <ActivityIndicator size="large" color="#26a6a2" />
-            <Text className="text-gray-600 font-semibold mt-4 text-center text-base">
-              {loadingMessage || "Processing..."}
-            </Text>
-          </View>
-        </View>
-      </Modal>
+      {/* Loading Overlay - Using Video-based AuthLoadingView */}
+      {(isLoading || isAuthenticated) && (
+        <AuthLoadingView 
+          message={loadingMessage || (isAuthenticated ? "Completing sign in..." : "Processing...")} 
+        />
+      )}
     </View>
   );
 }

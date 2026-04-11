@@ -26,6 +26,7 @@ export interface User {
   pushNotify: boolean;
   emailNotify: boolean;
   notifications?: any[]; // added for unread count calculation
+  joinRequests?: any[]; // added for unread count calculation
 }
 
 interface AuthContextType {
@@ -84,9 +85,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Update unread count whenever user changes
   useEffect(() => {
-    if (user?.notifications) {
-      const count = user.notifications.filter((n: any) => !n.read).length;
-      setUnReadNotificationCount(count);
+    if (user) {
+      const notifCount = user.notifications?.filter((n: any) => !n.read).length || 0;
+      // Also count pending join requests
+      const requestCount = user.joinRequests?.filter((r: any) => r.status === "pending").length || 0;
+      setUnReadNotificationCount(notifCount + requestCount);
     }
   }, [user]);
 
@@ -153,13 +156,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       clearAuth().catch(() => { });
       setIsLoading(false);
     } finally {
-      // Safety net: ALWAYS set loading to false after 3 seconds max
+      // Safety net: ALWAYS set loading to false after 5 seconds max
       setTimeout(() => {
         if (isLoading) {
-          console.warn("[Auth] Safety timeout - forcing isLoading to false");
+          console.warn("[Auth] Safety timeout - forcing isLoading to false after 5s");
           setIsLoading(false);
         }
-      }, 3000);
+      }, 5000);
     }
   };
 
@@ -341,20 +344,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     userData: User,
     newRefreshToken?: string | null
   ) => {
-    await storage.setToken(newToken);
-    await storage.setUser(userData);
-    await connectSocket(newToken);
-    if (newRefreshToken) await storage.setRefreshToken?.(newRefreshToken);
+    console.log("[Auth] Setting auth state for user:", userData.email);
+    try {
+      await storage.setToken(newToken);
+      await storage.setUser(userData);
+      await connectSocket(newToken);
+      if (newRefreshToken) await storage.setRefreshToken?.(newRefreshToken);
 
-    setToken(newToken);
-    setUser(userData);
-    if (newRefreshToken) setRefreshToken(newRefreshToken);
+      setToken(newToken);
+      setUser(userData);
+      if (newRefreshToken) setRefreshToken(newRefreshToken);
 
-    // Background refresh
-    fetchUserData(newToken).catch(() => { });
-
-    // Background refresh
-    fetchUserData(newToken).catch(() => { });
+      // Background refresh
+      fetchUserData(newToken).catch((err) => {
+        console.warn("[Auth] Background user data fetch failed:", err);
+      });
+    } catch (error) {
+      console.error("[Auth] Error in setAuth:", error);
+      throw error;
+    }
   };
 
   const getToken = async () => {
