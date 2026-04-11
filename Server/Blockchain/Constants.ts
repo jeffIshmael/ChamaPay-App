@@ -10,7 +10,7 @@ export const cUSDAddress = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // base
 export const USDCAddress = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // base
 export const contractABI = contractABI_data;
 
-export const EIP7702_IMPLEMENTATION_ADDRESS = "0x7702cb554e6bFb442cb743A7dF23154544a7176C";
+export const EIP7702_IMPLEMENTATION_ADDRESS = "0xe6Cae83BdE06E4c305530e199D7217f42808555B";
 
 const builderCode = process.env.BUILDER_CODE || "bc_b7k3p9da";
 export const builderCodeDataSuffix = Attribution.toDataSuffix({
