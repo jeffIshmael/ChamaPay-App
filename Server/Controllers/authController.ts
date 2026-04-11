@@ -413,15 +413,15 @@ export const registerUser = async (
     // create the wallet
     const newWallet = await createUserWallet();
 
-    const { safeSmartAccount } = await createSmartAccount(newWallet.privateKey);
+    // const { safeSmartAccount } = await createSmartAccount(newWallet.privateKey);
 
-    if (!safeSmartAccount) {
-      res.status(500).json({
-        success: false,
-        message: "Failed to create smart account",
-      });
-      return;
-    }
+    // if (!safeSmartAccount) {
+    //   res.status(500).json({
+    //     success: false,
+    //     message: "Failed to create smart account",
+    //   });
+    //   return;
+    // }
 
     const masterKey = process.env.ENCRYPTION_SECRET;
     if (!masterKey) {
@@ -449,7 +449,7 @@ export const registerUser = async (
         email: formattedEmail,
         userName,
         address: newWallet.address,
-        smartAddress: safeSmartAccount.address,
+        smartAddress: newWallet.address,
         profileImageUrl: profileImageUrl || null,
         hashedPrivkey: hashedPrivkey,
         hashedPassphrase: hashedPassphrase,
