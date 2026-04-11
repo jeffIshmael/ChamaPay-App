@@ -1,5 +1,5 @@
 /**
- * @title ChamaPay - Circular Savings management smart contract (Upgradeable)
+ * @title ChamaPay - Circular Savings management smart contract - based (Upgradeable)
  * @author Jeff Muchiri
  */
 
@@ -42,7 +42,7 @@ contract ChamaPay is
         __UUPSUpgradeable_init();
 
         aiAgent = msg.sender;
-        USDCToken = IERC20(0xcebA9300f2b948710d2653dD7B07f33A8B32118C);
+        USDCToken = IERC20(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913);
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
