@@ -11,7 +11,7 @@ import {
   toWei,
   waitForReceipt,
 } from "thirdweb";
-import { celo } from "thirdweb/chains";
+import { base } from "thirdweb/chains";
 import { Abi } from "thirdweb/utils";
 import { privateKeyToAccount, smartWallet } from "thirdweb/wallets";
 import { erc20Abi } from "viem";
@@ -39,20 +39,14 @@ const client = createThirdwebClient({
 
 const contract = getContract({
   client,
-  chain: celo,
+  chain: base,
   address: contractAddress,
   abi: contractABI as Abi,
 });
 
-const cUSDContract = getContract({
-  client,
-  chain: celo,
-  address: cUSDAddress,
-  abi: erc20Abi,
-});
 
 const smartWalletClient = smartWallet({
-  chain: celo,
+  chain: base,
   sponsorGas: true, // enable sponsored transactions
 });
 
@@ -91,7 +85,7 @@ export const setPayoutOrder = async (
     });
     const receipt = await waitForReceipt({
       client,
-      chain: celo,
+      chain: base,
       transactionHash: transactionHash,
     });
     if (!receipt) {
@@ -119,7 +113,7 @@ export const triggerPayout = async (chamaBlockchainId: number) => {
     });
     const receipt = await waitForReceipt({
       client,
-      chain: celo,
+      chain: base,
       transactionHash: transactionHash,
     });
     if (!receipt) {
@@ -243,34 +237,3 @@ export const checkPayoutResult = async (
   }
 };
 
-// onramping fnct i.e sending cUSD to the user's wallet
-export const onrampcUSD = async (
-  userAddress: `0x${string}`,
-  amount: string
-): Promise<string | null> => {
-  try {
-    const amountInWei = toWei(amount);
-    const transaction = prepareContractCall({
-      contract: cUSDContract,
-      method: "transfer",
-      params: [userAddress, amountInWei],
-    });
-    const activeAccount = await getAgentSmartWallet();
-    const { transactionHash } = await sendTransaction({
-      account: activeAccount,
-      transaction: transaction,
-    });
-    const receipt = await waitForReceipt({
-      client,
-      chain: celo,
-      transactionHash: transactionHash,
-    });
-    if (!receipt) {
-      throw new Error("Failed to send cUSD. No receipt found");
-    }
-    return receipt.transactionHash;
-  } catch (error) {
-    console.error("Unable to send to the user.", error);
-    return null;
-  }
-};
