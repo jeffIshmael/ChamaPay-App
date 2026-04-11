@@ -37,6 +37,7 @@
     "multer": "^2.0.2",
     "nodemailer": "^7.0.5",
     "nodemon": "^3.1.10",
+    "ox": "^0.6.14",
     "permissionless": "^0.2.53",
     "resend": "^6.8.0",
     "socket.io": "^4.8.1",
