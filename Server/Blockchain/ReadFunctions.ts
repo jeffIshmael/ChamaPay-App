@@ -1,11 +1,11 @@
 // this file contains all the blockchain read functions
 import { createPublicClient, http } from 'viem'
-import { celo } from 'viem/chains'
+import { celo, base } from 'viem/chains'
 import { cUSDAddress, contractABI, USDCAddress, contractAddress } from './Constants'
 import { erc20Abi } from 'viem'
  
 const publicClient = createPublicClient({
-  chain: celo,
+  chain: base,
   transport: http()
 })
 

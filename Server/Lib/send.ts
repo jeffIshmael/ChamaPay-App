@@ -1,10 +1,10 @@
 // a function to send USDC  from user's address
 import { privateKeyToAccount } from "viem/accounts";
 import { getPrivateKey } from "./HelperFunctions";
-import { createPublicClient, createWalletClient, erc20Abi, http } from "viem";
-import { celo } from "viem/chains";
-import { USDCAddress } from "../Blockchain/Constants";
-import { parseUnits } from "viem";
+import { createPublicClient, erc20Abi, http, parseUnits } from "viem";
+import { base } from "viem/chains";
+import { USDCAddress, builderCodeDataSuffix } from "../Blockchain/Constants";
+import { createEIP7702SmartAccount } from "../Blockchain/EIP7702Client";
 // sending USDC
 export const sendUsdc = async (userId: number, amount: string, toAddress: string) => {
     try {
@@ -12,15 +12,11 @@ export const sendUsdc = async (userId: number, amount: string, toAddress: string
         if (!privateKey.success && privateKey.privateKey == null) {
             throw new Error("Private key not found");
         }
-        const account = privateKeyToAccount(privateKey.privateKey!);
+        
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey.privateKey!);
         const publicClient = createPublicClient({
-            chain: celo,
+            chain: base,
             transport: http()
-        })
-        const walletClient = createWalletClient({
-            chain: celo,
-            transport: http(),
-            account,
         })
         // send USDC
         const amountBigInt = parseUnits(amount, 6);
@@ -28,10 +24,14 @@ export const sendUsdc = async (userId: number, amount: string, toAddress: string
             address: USDCAddress,
             abi: erc20Abi,
             functionName: "transfer",
-            args: [toAddress, amountBigInt],
-            account,
+            args: [toAddress as `0x${string}`, amountBigInt],
+            account: smartAccountClient.account,
         })
-        const hash = await walletClient.writeContract(request)
+        const hash = await smartAccountClient.writeContract({
+            ...request,
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorizationList: [authorization] } : {}),
+        })
         console.log("Transaction sent with hash:", hash)
         return hash;
     } catch (error) {

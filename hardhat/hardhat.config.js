@@ -6,7 +6,15 @@ const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const celoscanApiKey = process.env.CELOSCAN_API_KEY;
 
 const config = {
-  solidity: "0.8.22",
+  solidity: {
+    version: "0.8.22",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+    },
+  },
   networks: {
     // Celo Sepolia Testnet
     sepolia: {
@@ -19,6 +27,9 @@ const config = {
       chainId: 42220,
       accounts: [PRIVATE_KEY],
     },
+    base:{
+      
+    }
   },
   etherscan: {
     apiKey: celoscanApiKey,

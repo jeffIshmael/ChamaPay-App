@@ -20,33 +20,43 @@ import {
 
 const { width, height } = Dimensions.get("window");
 
-const onboardingSlides = [
+type OnboardingSlide = {
+  id: string;
+  title: string;
+  description: string;
+  primaryColor: string;
+  accentColor: string;
+  imageSource: any;
+  isFullDesign?: boolean;
+};
+
+const onboardingSlides: OnboardingSlide[] = [
   {
     id: "1",
-    title: "Create or Join a Chama",
-    description:
-      "Easily create a private savings group for friends or join public ones to meet your goals.",
+    title: "",
+    description: "",
     primaryColor: "#26a6a2",
     accentColor: "#E6F7F6",
-    imageSource: require("@/assets/images/creat.png"),
+    imageSource: require("@/assets/images/firstOnboard.png"),
+    isFullDesign: true,
   },
   {
     id: "2",
-    title: "Save in USDC (Digital Dollar)",
-    description:
-      "Save in USDC — a stable digital dollar that protects your money from inflation and works globally.",
+    title: "",
+    description: "",
     primaryColor: "#26a6a2",
     accentColor: "#E8FBF9",
-    imageSource: require("@/assets/images/stable.png"),
+    imageSource: require("@/assets/images/second.png"),
+    isFullDesign: true,
   },
   {
     id: "3",
-    title: "Automatic Payouts & Transparency",
-    description:
-      "Enjoy stress-free savings with scheduled payouts and real-time balance tracking.",
+    title: "",
+    description: "",
     primaryColor: "#26a6a2",
     accentColor: "#F0FDFA",
-    imageSource: require("@/assets/images/payoutProcessed.png"),
+    imageSource: require("@/assets/images/third.png"),
+    isFullDesign: true,
   },
 ];
 
@@ -93,7 +103,19 @@ export default function Onboarding() {
     router.replace("/new-auth-screen");
   };
 
-  const Slide = ({ item }: { item: typeof onboardingSlides[0] }) => {
+  const Slide = ({ item }: { item: OnboardingSlide }) => {
+    if (item.isFullDesign) {
+      return (
+        <View style={{ width, height, backgroundColor: item.accentColor }}>
+          <Image
+            source={item.imageSource}
+            style={{ width: "100%", height: "100%" }}
+            resizeMode="cover"
+          />
+        </View>
+      );
+    }
+
     return (
       <View style={{ width, height }} className="bg-white">
         {/* Top Image Section */}
@@ -141,18 +163,6 @@ export default function Onboarding() {
     <View className="flex-1 bg-white">
       <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
 
-      {/* Skip Button */}
-      <View className="absolute top-14 right-6 z-20">
-        <TouchableOpacity
-          onPress={skipToEnd}
-          activeOpacity={0.7}
-          style={styles.skipButton}
-        >
-          <Text style={styles.skipText}>Skip</Text>
-          
-        </TouchableOpacity>
-      </View>
-
       <FlatList
         ref={flatListRef}
         onMomentumScrollEnd={updateCurrentSlideIndex}
@@ -167,7 +177,14 @@ export default function Onboarding() {
 
       {/* Footer */}
       <View style={styles.footer}>
-        {/* Progress Dots */}
+        <View style={{ width: 60, alignItems: "flex-start" }}>
+          {currentSlide > 0 && (
+            <TouchableOpacity onPress={prevSlide} style={styles.navButton}>
+              <Text style={styles.navText}>Previous</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         <View style={styles.dotsContainer}>
           {onboardingSlides.map((_, index) => (
             <View
@@ -175,52 +192,21 @@ export default function Onboarding() {
               style={[
                 styles.dot,
                 {
-                  width: index === currentSlide ? 28 : 8,
-                  backgroundColor:
-                    index === currentSlide
-                      ? onboardingSlides[currentSlide].primaryColor
-                      : "#E5E7EB",
-                  opacity: index === currentSlide ? 1 : 0.5,
+                  width: index === currentSlide ? 20 : 6,
+                  backgroundColor: "#fff",
+                  opacity: index === currentSlide ? 1 : 0.4,
                 },
               ]}
             />
           ))}
         </View>
 
-        {/* Navigation */}
-        <View style={styles.navigationRow}>
-          <View style={{ flex: 1 }}>
-            {currentSlide > 0 && (
-              <TouchableOpacity
-                onPress={prevSlide}
-                style={styles.prevButton}
-              >
-                <ChevronLeft size={20} color="#9ca3af" />
-                <Text style={styles.prevText}>Back</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={{ flex: 1, alignItems: "flex-end" }}>
-            <TouchableOpacity
-              onPress={nextSlide}
-              activeOpacity={0.85}
-              style={[
-                styles.nextButton,
-                {
-                  backgroundColor:
-                    onboardingSlides[currentSlide].primaryColor,
-                },
-              ]}
-            >
-              <Text style={styles.nextText}>
-                {currentSlide === onboardingSlides.length - 1
-                  ? "Get Started"
-                  : "Next"}
-              </Text>
-              <ChevronRight size={18} color="white" style={{ marginLeft: 6 }} />
-            </TouchableOpacity>
-          </View>
+        <View style={{ width: 60, alignItems: "flex-end" }}>
+          <TouchableOpacity onPress={nextSlide} style={styles.navButton}>
+            <Text style={[styles.navText, { fontWeight: "bold" }]}>
+              {currentSlide === onboardingSlides.length - 1 ? "Proceed >" : "Next"}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -232,75 +218,34 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(255,255,255,0.15)",
   },
-  skipButton: {
-    backgroundColor: "rgba(255,255,255,0.95)",
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 999,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  skipText: {
-    color: "#26a6a2",
-    fontWeight: "800",
-    fontSize: 13,
-    letterSpacing: 1,
-    textTransform: "uppercase",
-  },
   footer: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 30,
-    paddingBottom: 50,
-    paddingTop: 10,
-    backgroundColor: "#fff",
+    bottom: 50,
+    alignSelf: "center",
+    width: width * 0.85,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(0,0,0,0.8)",
+    borderRadius: 999,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
   },
   dotsContainer: {
     flexDirection: "row",
-    justifyContent: "center",
-    marginBottom: 30,
+    alignItems: "center",
     gap: 8,
   },
   dot: {
-    height: 8,
-    borderRadius: 20,
+    height: 6,
+    borderRadius: 3,
   },
-  navigationRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  navButton: {
+    paddingVertical: 4,
   },
-  prevButton: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  prevText: {
-    marginLeft: 4,
-    color: "#9ca3af",
-    fontWeight: "700",
-    fontSize: 16,
-  },
-  nextButton: {
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    borderRadius: 999,
-    flexDirection: "row",
-    alignItems: "center",
-    minWidth: 130,
-    justifyContent: "center",
-    shadowColor: "#26a6a2",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  nextText: {
+  navText: {
     color: "#fff",
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: 0.5,
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

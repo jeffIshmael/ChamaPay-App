@@ -2,7 +2,8 @@
 
 import { parseEther, parseUnits, createPublicClient, http } from "viem";
 import { contractABI, contractAddress } from "./Constants";
-import { createSmartAccount } from "./SmartAccount";
+import { createEIP7702SmartAccount } from "./EIP7702Client";
+import { builderCodeDataSuffix } from "./Constants";
 import { getAgentSmartWallet } from "./AgentWallet";
 import { celo } from "viem/chains";
 
@@ -18,10 +19,12 @@ export const bcCreateChama = async (privateKey: `0x${string}`, chamaAmount: stri
         //change amount to wei
         const amountInWei = parseUnits(chamaAmount, 6);
         // create a smart account client
-        const { smartAccountClient, safeSmartAccount } = await createSmartAccount(privateKey);
+        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorizationList: [authorization] } : {}),
             functionName: 'registerChama',
             args: [amountInWei, duration, startDate, maxMembers, isPublic],
         });
@@ -43,10 +46,12 @@ export const bcJoinPublicChama = async (privateKey: `0x${string}`, chamaBlockcha
     try {
         // change amount to wei
         const amountInWei = parseUnits(chamaAmount, 6);
-        const { smartAccountClient, safeSmartAccount } = await createSmartAccount(privateKey);
+        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorizationList: [authorization] } : {}),
             functionName: 'addPublicMember',
             args: [chamaBlockchainId, amountInWei],
         })
@@ -66,10 +71,12 @@ export const bcJoinPublicChama = async (privateKey: `0x${string}`, chamaBlockcha
 // function to add member to private chama
 export const bcAddMemberToPrivateChama = async (privateKey: `0x${string}`, chamaBlockchainId: bigint, memberAddress: string) => {
     try {
-        const { smartAccountClient, safeSmartAccount } = await createSmartAccount(privateKey);
+        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorizationList: [authorization] } : {}),
             functionName: 'addMember',
             args: [memberAddress as `0x${string}`, chamaBlockchainId],
         })
@@ -91,10 +98,12 @@ export const bcDepositFundsToChama = async (privateKey: `0x${string}`, chamaBloc
     try {
         // change amount to wei
         const amountInWei = parseUnits(amount, 6);
-        const { smartAccountClient, safeSmartAccount } = await createSmartAccount(privateKey);
+        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorizationList: [authorization] } : {}),
             functionName: 'depositCash',
             args: [chamaBlockchainId, amountInWei, false],
         })
@@ -114,10 +123,12 @@ export const bcDepositFundsToChama = async (privateKey: `0x${string}`, chamaBloc
 // function to left a chama
 export const bcLeaveChama = async (privateKey: `0x${string}`, memberAddress: string, chamaBlockchainId: number) => {
     try {
-        const { smartAccountClient, safeSmartAccount } = await createSmartAccount(privateKey);
+        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorizationList: [authorization] } : {}),
             functionName: 'deleteMember',
             args: [chamaBlockchainId, memberAddress as `0x${string}`],
         })
@@ -137,10 +148,12 @@ export const bcLeaveChama = async (privateKey: `0x${string}`, memberAddress: str
 // function to delete a chama
 export const bcDeleteChama = async (privateKey: `0x${string}`, chamaBlockchainId: number) => {
     try {
-        const { smartAccountClient, safeSmartAccount } = await createSmartAccount(privateKey);
+        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorizationList: [authorization] } : {}),
             functionName: 'deleteChama',
             args: [chamaBlockchainId],
         })
@@ -163,10 +176,12 @@ export const bcWithdrawFundsFromChama = async (privateKey: `0x${string}`, chamaB
         // change amount to wei
         const amountInWei = parseUnits(amount, 6);
         const bigIntChamaBlockchainId = BigInt(chamaBlockchainId);
-        const { smartAccountClient, safeSmartAccount } = await createSmartAccount(privateKey);
+        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorizationList: [authorization] } : {}),
             functionName: 'withdrawBalance',
             args: [bigIntChamaBlockchainId, amountInWei],
         })
@@ -188,10 +203,12 @@ export const bcAddLockedFundsToChama = async (privateKey: `0x${string}`,memberAd
     try {
         // change amount to wei
         const amountInWei = parseUnits(amount, 6);
-        const { smartAccountClient, safeSmartAccount } = await createSmartAccount(privateKey);
+        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorizationList: [authorization] } : {}),
             functionName: 'updateLockedAmount',
             args: [memberAddress,chamaBlockchainId, amountInWei],
         })

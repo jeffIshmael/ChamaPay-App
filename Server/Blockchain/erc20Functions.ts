@@ -1,12 +1,12 @@
 // this file contains erc20 functions to use
 import { erc20Abi, parseUnits, createPublicClient, http } from "viem";
 import { USDCAddress } from "./Constants";
-import { EIP7702Client } from "./EIP7702Client";
-import { createSmartAccount } from "./SmartAccount";
-import { celo } from "viem/chains";
+import { createEIP7702SmartAccount } from "./EIP7702Client";
+import { builderCodeDataSuffix } from "./Constants";
+import { base } from "viem/chains";
 
 const publicClient = createPublicClient({
-    chain: celo,
+    chain: base,
     transport: http()
 })
 
@@ -15,10 +15,12 @@ export const approveTx = async (privateKey: `0x${string}`, amount: string, spend
     try {
         //change amount to wei
         const amountInWei = parseUnits(amount, 6);
-        const { smartAccountClient, safeSmartAccount } = await createSmartAccount(privateKey);
+        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: USDCAddress,
             abi: erc20Abi,
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorizationList: [authorization] } : {}),
             functionName: 'approve',
             args: [spender, amountInWei],
         })
@@ -43,10 +45,12 @@ export const transferTx = async (privateKey: `0x${string}`, amount: string, reci
         //change amount to wei
         const amountInWei = parseUnits(amount, 6);
 
-        const { smartAccountClient, safeSmartAccount } = await createSmartAccount(privateKey);
+        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: USDCAddress,
             abi: erc20Abi,
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorizationList: [authorization] } : {}),
             functionName: 'transfer',
             args: [recipient, amountInWei],
         })

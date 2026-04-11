@@ -1,6 +1,18 @@
 import contractABI_data from "./chamaPay.json";
+import { Attribution } from "ox/erc8021"
+import dotenv from "dotenv"
 
-export const contractAddress = "0xF3a5E77DD4b4277c07591aB5dD6Fd15f98F6D3Fa";
-export const cUSDAddress = "0x765DE816845861e75A25fCA122bb6898B8B1282a";
-export const USDCAddress = "0xcebA9300f2b948710d2653dD7B07f33A8B32118C";
+dotenv.config()
+
+export const explorerUrl = "https://basescan.org/tx/";
+export const contractAddress = "0x89C1312D9A92D84f2bFBF870089C29A09bC638A"; // base
+export const cUSDAddress = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // base USDC
+export const USDCAddress = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // base
 export const contractABI = contractABI_data;
+
+export const EIP7702_IMPLEMENTATION_ADDRESS = "0x7702cb554e6bFb442cb743A7dF23154544a7176C";
+
+const builderCode = process.env.BUILDER_CODE || "bc_b7k3p9da";
+export const builderCodeDataSuffix = Attribution.toDataSuffix({
+    codes: [builderCode],
+})

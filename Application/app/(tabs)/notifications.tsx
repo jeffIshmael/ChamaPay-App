@@ -1,6 +1,7 @@
 import { useAuth } from "@/Contexts/AuthContext";
 import { getUserDetails, transformNotification } from "@/lib/chamaService";
 import { handleTheRequestToJoin } from "@/lib/userService";
+import { useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -60,6 +61,7 @@ export interface Notification {
 export default function Notifications() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const { user, token, refreshUser, markNotificationsRead } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,11 +130,13 @@ export default function Notifications() {
       setLoading(true);
       const details = await getUserDetails(token);
 
+      console.log("the join requests", details.user.joinRequests);
+
       const transformedNotifications = await transformNotification(
         details.user.notifications,
         details.user.sentRequests
       );
-      console.log("the transformed notifications", transformedNotifications);
+      // console.log("the transformed notifications", transformedNotifications);
       setNotifications(transformedNotifications);
     } catch (error) {
       console.error("Error fetching notifications:", error);
@@ -166,8 +170,8 @@ export default function Notifications() {
       Alert.alert("error", "Please log in.");
       return;
     }
-    if (!chamaBlockchainId || !userAddress || !chamaId) {
-      Alert.alert("error", "Some details are not defined.");
+    if (!chamaId || !requestId) {
+      Alert.alert("error", "The request details are incomplete.");
       return;
     }
     setProcessingRequest({ requestId, action });
@@ -178,6 +182,14 @@ export default function Notifications() {
         setProcessingRequest(null);
         return;
       }
+
+      console.log("the user address", userAddress);
+      console.log("the user name", userName);
+      console.log("the request id", requestId);
+      console.log("the action", action);
+      console.log("the chama id", chamaId);
+      console.log("the chama blockchain id", chamaBlockchainId);
+      console.log("the can add", canAdd);
 
       const result = await handleTheRequestToJoin(
         chamaId,
@@ -196,6 +208,10 @@ export default function Notifications() {
         "Success",
         `Request ${action === "approve" ? "approved" : "rejected"} successfully`
       );
+      // Invalidate chamas cache if approved
+      if (action === "approve") {
+        queryClient.invalidateQueries({ queryKey: ["userChamas"] });
+      }
       // Remove the notification from the list
       setNotifications((prev) => prev.filter((n) => n.requestId !== requestId));
     } catch (error) {
@@ -367,7 +383,7 @@ export default function Notifications() {
               </Text>
             </View>
           </View>
-{/* 
+          {/* 
           {unreadCount > 0 && (
             <View className="bg-emerald-500 px-3 py-1.5 rounded-full">
               <Text className="text-xs font-bold text-white">
@@ -403,21 +419,19 @@ export default function Notifications() {
               <View className="flex-1">
                 <View className="flex-row items-center justify-between mb-1">
                   <Text
-                    className={`font-medium flex-1 ${!notification.read ? "text-gray-900" : "text-gray-700"
+                    className={`font-medium flex-1 ${!notification.read ? "text-gray-900 font-bold" : "text-gray-700 font-medium"
                       }`}
                   >
                     {notification.title}
                   </Text>
 
-                  {/* <View className="flex-row items-center gap-2 ml-2">
-                    {!notification.read && (
-                      <View className="w-2 h-2 bg-emerald-500 rounded-full" />
-                    )}
-                  </View> */}
+                  {!notification.read && (
+                    <View className="w-2.5 h-2.5 bg-emerald-500 rounded-full ml-2 shadow-sm" />
+                  )}
                 </View>
 
                 <Text
-                  className={`text-sm mb-2 ${!notification.read ? "text-gray-700" : "text-gray-600"
+                  className={`text-sm mb-2 ${!notification.read ? "text-gray-700 font-medium" : "text-gray-600"
                     }`}
                 >
                   {notification.message}
@@ -536,6 +550,6 @@ export default function Notifications() {
           </View>
         )}
       </ScrollView>
-    </View>
+    </View >
   );
 }

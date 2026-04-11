@@ -5,7 +5,7 @@ import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { Crown, DollarSign, Lock, User } from "lucide-react-native";
 import React, { FC } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View, Image } from "react-native";
 import { toTokens } from "thirdweb/utils";
 
 type Props = {
@@ -96,12 +96,11 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
                     <View className="flex-row items-center justify-between">
                       <View className="flex-row items-center gap-4 flex-1">
                         {/* Avatar */}
-                        <View className={`w-12 h-12 rounded-full items-center justify-center ${isCurrentUser ? "bg-emerald-500" : "bg-gray-100"
-                          }`}>
-                          <Text className={`text-sm font-bold ${isCurrentUser ? "text-white" : "text-gray-600"
-                            }`}>
-                            {getInitials(member.name || "")}
-                          </Text>
+                        <View>
+                          <Image
+                            source={{ uri: member.profilePicture }}
+                            className="w-12 h-12 rounded-full"
+                          />
                         </View>
 
                         {/* Member Info */}
@@ -135,7 +134,7 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
                                 Balance:{" "}
                                 {currency === "KES" &&
                                   kesRate > 0
-                                  ? `${(memberBalance.balance * kesRate).toFixed(2)} KES`
+                                  ? `${(memberBalance.balance * kesRate).toFixed(0)} KES`
                                   : `${memberBalance.balance > 0 ? memberBalance.balance.toFixed(3) : "0"} USDC`}
                               </Text>
                             </View>
@@ -148,7 +147,7 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
                                   Locked:{" "}
                                   {currency === "KES" &&
                                     kesRate > 0
-                                    ? `${(memberBalance.locked * kesRate).toFixed(2)} KES`
+                                    ? `${(memberBalance.locked * kesRate).toFixed(0)} KES`
                                     : `${memberBalance.locked > 0 ? memberBalance.locked.toFixed(3) : "0"} USDC`}
                                 </Text>
                               </View>
