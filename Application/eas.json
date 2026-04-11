@@ -16,11 +16,11 @@
       "env": {
         "GOOGLE_SERVICES_JSON": "file:google-services.json",
         "EXPO_PUBLIC_SERVER_URL": "https://chamapay-app.onrender.com",
-        "EXPO_PUBLIC_THIRDWEB_CLIENT_ID": "210ba26ec20a54fac6f5877548e5dbe0",
-        "EXPO_PUBLIC_THIRDWEB_SECRET_KEY": "l2NNh0Oxf7IwTIMLubFgbzDD31GaJfAnDuEPn3FvN6Q92E0KnxLAcC2QCmRUSnWY1ClK9T6L81EHeOisOeVNUQ",
-        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "229470110791-4eukrjmrign9cl5n2se8lc61lnmql3d5.apps.googleusercontent.com",
-        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "229470110791-k4skut7disaho1s00a85203pjhp1a59c.apps.googleusercontent.com",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "229470110791-qc06eq18agnp05mvipdcjlc04o01muij.apps.googleusercontent.com"
+        "EXPO_PUBLIC_THIRDWEB_CLIENT_ID": "",
+        "EXPO_PUBLIC_THIRDWEB_SECRET_KEY": "",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": ""
       }
     },
     "production": {
@@ -28,11 +28,11 @@
       "env": {
         "GOOGLE_SERVICES_JSON": "file:google-services.json",
         "EXPO_PUBLIC_SERVER_URL": "https://chamapay-app.onrender.com",
-        "EXPO_PUBLIC_THIRDWEB_CLIENT_ID": "210ba26ec20a54fac6f5877548e5dbe0",
-        "EXPO_PUBLIC_THIRDWEB_SECRET_KEY": "l2NNh0Oxf7IwTIMLubFgbzDD31GaJfAnDuEPn3FvN6Q92E0KnxLAcC2QCmRUSnWY1ClK9T6L81EHeOisOeVNUQ",
-        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "229470110791-4eukrjmrign9cl5n2se8lc61lnmql3d5.apps.googleusercontent.com",
-        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "229470110791-k4skut7disaho1s00a85203pjhp1a59c.apps.googleusercontent.com",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "229470110791-qc06eq18agnp05mvipdcjlc04o01muij.apps.googleusercontent.com"
+        "EXPO_PUBLIC_THIRDWEB_CLIENT_ID": "",
+        "EXPO_PUBLIC_THIRDWEB_SECRET_KEY": "",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": ""
       }
     }
   },

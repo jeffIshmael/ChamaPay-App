@@ -101,7 +101,7 @@ export default function AuthScreen() {
       if (isAuthPending === "true") {
         console.log("[GoogleAuth] Found pending auth state, maintaining loading screen");
         setIsLoading(true);
-        setLoadingMessage("Finishing sign in...");
+        setLoadingMessage("Signing in...");
         
         // Safety timeout to clear it if response never arrives
         setTimeout(async () => {
