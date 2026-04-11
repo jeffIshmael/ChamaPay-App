@@ -5,10 +5,10 @@ import { contractABI, contractAddress } from "./Constants";
 import { createEIP7702SmartAccount } from "./EIP7702Client";
 import { builderCodeDataSuffix } from "./Constants";
 import { getAgentSmartWallet } from "./AgentWallet";
-import { celo } from "viem/chains";
+import { base } from "viem/chains";
 
 const publicClient = createPublicClient({
-    chain: celo,
+    chain: base,
     transport: http()
 })
 
