@@ -1,12 +1,12 @@
 import dotenv from "dotenv";
 const { createSmartAccountClient } = require("permissionless") as any;
-const { toSimpleSmartAccount } = require("permissionless/accounts") as any;
 const { createPimlicoClient } = require("permissionless/clients/pimlico") as any;
 const { createPublicClient, http } = require("viem") as any;
-const { entryPoint07Address, entryPoint08Address } = require("viem/account-abstraction") as any;
+const { entryPoint08Address } = require("viem/account-abstraction") as any;
 const { privateKeyToAccount } = require("viem/accounts") as any;
 const { base } = require("viem/chains") as any;
 const { EIP7702_IMPLEMENTATION_ADDRESS } = require("./Constants");
+const { to7702SimpleSmartAccount } = require("permissionless/accounts") as any;
 
 dotenv.config()
 
@@ -35,28 +35,27 @@ export const createEIP7702SmartAccount = async (privateKey: string) => {
     try {
         const owner = privateKeyToAccount(privateKey);
         
-        // create an EIP-7702 wrapper over the EOA
-        const eip7702SmartAccount = await toSimpleSmartAccount({
+        // create an EIP-7702 wrapper over the EOA using the specialized helper
+        const eip7702SmartAccount = await to7702SimpleSmartAccount({
             client: publicClient,
             owner: owner,
-            address: owner.address, // EIP-7702 assigns functionality to the EOA
-            entryPoint: {
-                address: entryPoint08Address,
-                version: "0.8"
-            },
-            eip7702: true,
-            accountLogicAddress: EIP7702_IMPLEMENTATION_ADDRESS
         })
 
-        // Check if the account already has the delegation set
-        const isSmartAccountDeployed = await eip7702SmartAccount.isDeployed();
+        // Check if the account already has the CORRECT delegation set
+        const bytecode = await publicClient.getBytecode({ address: owner.address });
+        
+        // EIP-7702 bytecode is 0xef0100 + 20 bytes address
+        const expectedBytecode = `0xef0100${EIP7702_IMPLEMENTATION_ADDRESS.toLowerCase().slice(2)}`;
+        const isCorrectDelegation = bytecode?.toLowerCase() === expectedBytecode.toLowerCase();
+        
         let authorization = null;
 
-        if (!isSmartAccountDeployed) {
-            // Sign the authorization list for EIP-7702 only if not deployed
+        if (!isCorrectDelegation) {
+            console.log(`Delegation mismatch or missing. Current: ${bytecode?.slice(0, 10)}... Expected logic: ${EIP7702_IMPLEMENTATION_ADDRESS}`);
+            // Sign the authorization list for EIP-7702
             authorization = await owner.signAuthorization({
-                contractAddress: EIP7702_IMPLEMENTATION_ADDRESS,
-                chainId: 8453, // Base
+                address: EIP7702_IMPLEMENTATION_ADDRESS,
+                chainId: base.id,
                 nonce: await publicClient.getTransactionCount({
                     address: owner.address,
                 }),
