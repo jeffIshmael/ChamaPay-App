@@ -24,7 +24,7 @@ export const bcCreateChama = async (privateKey: `0x${string}`, chamaAmount: stri
             address: contractAddress,
             abi: contractABI,
             dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorizationList: [authorization] } : {}),
+            ...(authorization ? { authorization } : {}),
             functionName: 'registerChama',
             args: [amountInWei, duration, startDate, maxMembers, isPublic],
         });
@@ -51,7 +51,7 @@ export const bcJoinPublicChama = async (privateKey: `0x${string}`, chamaBlockcha
             address: contractAddress,
             abi: contractABI,
             dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorizationList: [authorization] } : {}),
+            ...(authorization ? { authorization } : {}),
             functionName: 'addPublicMember',
             args: [chamaBlockchainId, amountInWei],
         })
@@ -76,7 +76,7 @@ export const bcAddMemberToPrivateChama = async (privateKey: `0x${string}`, chama
             address: contractAddress,
             abi: contractABI,
             dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorizationList: [authorization] } : {}),
+            ...(authorization ? { authorization } : {}),
             functionName: 'addMember',
             args: [memberAddress as `0x${string}`, chamaBlockchainId],
         })
@@ -103,7 +103,7 @@ export const bcDepositFundsToChama = async (privateKey: `0x${string}`, chamaBloc
             address: contractAddress,
             abi: contractABI,
             dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorizationList: [authorization] } : {}),
+            ...(authorization ? { authorization } : {}),
             functionName: 'depositCash',
             args: [chamaBlockchainId, amountInWei, false],
         })
@@ -128,7 +128,7 @@ export const bcLeaveChama = async (privateKey: `0x${string}`, memberAddress: str
             address: contractAddress,
             abi: contractABI,
             dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorizationList: [authorization] } : {}),
+            ...(authorization ? { authorization } : {}),
             functionName: 'deleteMember',
             args: [chamaBlockchainId, memberAddress as `0x${string}`],
         })
@@ -153,7 +153,7 @@ export const bcDeleteChama = async (privateKey: `0x${string}`, chamaBlockchainId
             address: contractAddress,
             abi: contractABI,
             dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorizationList: [authorization] } : {}),
+            ...(authorization ? { authorization } : {}),
             functionName: 'deleteChama',
             args: [chamaBlockchainId],
         })
@@ -181,7 +181,7 @@ export const bcWithdrawFundsFromChama = async (privateKey: `0x${string}`, chamaB
             address: contractAddress,
             abi: contractABI,
             dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorizationList: [authorization] } : {}),
+            ...(authorization ? { authorization } : {}),
             functionName: 'withdrawBalance',
             args: [bigIntChamaBlockchainId, amountInWei],
         })
@@ -208,7 +208,7 @@ export const bcAddLockedFundsToChama = async (privateKey: `0x${string}`,memberAd
             address: contractAddress,
             abi: contractABI,
             dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorizationList: [authorization] } : {}),
+            ...(authorization ? { authorization } : {}),
             functionName: 'updateLockedAmount',
             args: [memberAddress,chamaBlockchainId, amountInWei],
         })
