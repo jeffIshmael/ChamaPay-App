@@ -4,6 +4,7 @@ require("dotenv").config();
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const celoscanApiKey = process.env.CELOSCAN_API_KEY;
+const etherscanApiKey = process.env.ETHERSCAN_API_KEY;
 
 const config = {
   solidity: {
@@ -28,11 +29,13 @@ const config = {
       accounts: [PRIVATE_KEY],
     },
     base:{
-      
+      url:"https://mainnet.base.org",
+      chainId: 8453,
+      accounts: [PRIVATE_KEY],
     }
   },
   etherscan: {
-    apiKey: celoscanApiKey,
+    apiKey: etherscanApiKey,
     customChains: [
       {
         network: "sepolia",
@@ -50,6 +53,14 @@ const config = {
           browserURL: "https://celoscan.io",
         },
       },
+       {
+        network: "base",
+        chainId: 8453,
+        urls: {
+          apiURL: "https://base.blockscout.com/api",
+          browserURL: "https://base.blockscout.com"
+        }
+      }
     ],
   },
 };

@@ -20,16 +20,16 @@ export const sendUsdc = async (userId: number, amount: string, toAddress: string
         })
         // send USDC
         const amountBigInt = parseUnits(amount, 6);
-        const { request } = await publicClient.simulateContract({
-            address: USDCAddress,
+        const { encodeFunctionData } = await import("viem");
+        const data = encodeFunctionData({
             abi: erc20Abi,
             functionName: "transfer",
             args: [toAddress as `0x${string}`, amountBigInt],
-            account: smartAccountClient.account,
-        })
-        const hash = await smartAccountClient.writeContract({
-            ...request,
-            dataSuffix: builderCodeDataSuffix,
+        });
+
+        const hash = await smartAccountClient.sendTransaction({
+            to: USDCAddress,
+            data: data + builderCodeDataSuffix.slice(2),
             ...(authorization ? { authorizationList: [authorization] } : {}),
         })
         console.log("Transaction sent with hash:", hash)
