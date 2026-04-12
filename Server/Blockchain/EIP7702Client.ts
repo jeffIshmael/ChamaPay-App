@@ -5,7 +5,7 @@ const { createPublicClient, http } = require("viem") as any;
 const { entryPoint07Address } = require("viem/account-abstraction") as any;
 const { privateKeyToAccount } = require("viem/accounts") as any;
 const { base } = require("viem/chains") as any;
-const { EIP7702_IMPLEMENTATION_ADDRESS } = require("./Constants");
+const { EIP7702_IMPLEMENTATION_ADDRESS, builderCodeDataSuffix } = require("./Constants");
 const { to7702SimpleSmartAccount } = require("permissionless/accounts") as any;
 
 dotenv.config()
@@ -67,6 +67,11 @@ export const createEIP7702SmartAccount = async (privateKey: string) => {
             chain: base,
             bundlerTransport: http(pimlicoUrl),
             paymaster: pimlicoClient,
+            dataSuffix: builderCodeDataSuffix,
+            entryPoint: {
+                address: entryPoint07Address,
+                version: "0.7",
+            },
             userOperation: {
                 estimateFeesPerGas: async () => {
                     return (await pimlicoClient.getUserOperationGasPrice()).fast
