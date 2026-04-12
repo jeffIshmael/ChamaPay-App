@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 const { createSmartAccountClient } = require("permissionless") as any;
 const { createPimlicoClient } = require("permissionless/clients/pimlico") as any;
 const { createPublicClient, http } = require("viem") as any;
-const { entryPoint08Address } = require("viem/account-abstraction") as any;
+const { entryPoint07Address } = require("viem/account-abstraction") as any;
 const { privateKeyToAccount } = require("viem/accounts") as any;
 const { base } = require("viem/chains") as any;
 const { EIP7702_IMPLEMENTATION_ADDRESS } = require("./Constants");
@@ -25,8 +25,8 @@ const pimlicoUrl = `https://api.pimlico.io/v2/8453/rpc?apikey=${apiKey}`;
 const pimlicoClient = createPimlicoClient({
 	transport: http(pimlicoUrl),
 	entryPoint: {
-		address: entryPoint08Address,
-		version: "0.8",
+		address: entryPoint07Address,
+		version: "0.7",
 	},
 })
 

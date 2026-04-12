@@ -43,7 +43,7 @@
     "socket.io": "^4.8.1",
     "thirdweb": "^5.108.3",
     "toformat": "^2.0.0",
-    "viem": "^2.33.1"
+    "viem": "^2.47.12"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
