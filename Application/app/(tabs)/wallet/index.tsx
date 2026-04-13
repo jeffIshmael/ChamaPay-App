@@ -183,8 +183,8 @@ export default function CryptoWallet() {
   };
 
   const viewOnChain = (hash: string) => {
-    // Celo explorer URL - adjust if using different chain
-    const explorerUrl = `https://celoscan.io/tx/${hash}`;
+    // Base explorer URL - adjust if using different chain
+    const explorerUrl = `https://basescan.org/tx/${hash}`;
     Linking.openURL(explorerUrl);
   };
 

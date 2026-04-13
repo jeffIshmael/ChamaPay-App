@@ -31,7 +31,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   getContract
 } from "thirdweb";
-import { celo } from "thirdweb/chains";
+import { base } from "thirdweb/chains";
 import { useAuth } from "../../Contexts/AuthContext";
 
 import { chamapayContractAddress } from "@/constants/contractAddress";
@@ -39,7 +39,8 @@ import { registerChamaToDatabase } from "@/lib/chamaService";
 import { client } from "../../constants/thirdweb";
 
 // Exchange rate constant (KES per 1 USDC);
-const MINIMUM_CONTRIBUTION = 0.01;
+const MINIMUM_KES = 100;
+const MINIMUM_CONTRIBUTION = 0.8;
 
 interface FormData {
   name: string;
@@ -58,7 +59,7 @@ interface FormData {
 
 const chamapayContract = getContract({
   address: chamapayContractAddress,
-  chain: celo,
+  chain: base,
   client,
 });
 
@@ -689,11 +690,11 @@ export default function CreateChama() {
                 )}
                 {isKESMode && kesRate > 0 ? (
                   <Text className="text-xs text-gray-500">
-                    Min: {(MINIMUM_CONTRIBUTION * kesRate).toFixed(0)} KES
+                    Min: {MINIMUM_KES} KES
                   </Text>
                 ) : (
                   <Text className="text-xs text-gray-500">
-                    Min: {MINIMUM_CONTRIBUTION} USDC
+                    Min: {kesRate > 0 ? (MINIMUM_KES / kesRate).toFixed(2) : "0.9"} USDC
                   </Text>
                 )}
               </View>
@@ -735,9 +736,9 @@ export default function CreateChama() {
             {getContributionValue() < MINIMUM_CONTRIBUTION &&
               (isKESMode ? formData.contributionKES : formData.contribution) !== "" && (
                 <Text className="text-red-600 text-xs mt-1">
-                  Minimum contribution is {MINIMUM_CONTRIBUTION} USDC
-                  {isKESMode && kesRate > 0 ? (
-                    ` (≈ ${(MINIMUM_CONTRIBUTION * kesRate).toFixed(0)} KES)`
+                  Minimum contribution is {MINIMUM_KES} KES
+                  {!isKESMode && kesRate > 0 ? (
+                    ` (≈ ${(MINIMUM_KES / kesRate).toFixed(2)} USDC)`
                   ) : null}
                 </Text>
               )}

@@ -191,13 +191,13 @@ export default function AuthScreen() {
           // Delay hiding the loading screen in case this "dismiss" is just the browser closing 
           // automatically during a successful deep-link redirect on Android.
           // We change the message so the user knows something is happening.
-          setLoadingMessage("Finishing sign in...");
+          setLoadingMessage("Signing in...");
 
           setTimeout(() => {
             // We only clear it if we are still stuck on "Finishing sign in..."
             // If success arrived, setLoadingMessage was called with "Redirecting..." etc.
             setLoadingMessage((currentMsg) => {
-              if (currentMsg === "Finishing sign in...") {
+              if (currentMsg === "Signing in...") {
                 console.log("[GoogleAuth] Clearing loading state after dismiss timeout");
                 setIsLoading(false);
                 return "";
