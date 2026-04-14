@@ -242,7 +242,7 @@ export const PRETIUM_BANKS: Record<string, Bank[]> = {
 // limit of transaction
 export const PRETIUM_TRANSACTION_LIMIT: Record<string, TransactionLimits> = {
   KE: {
-    min: 20,
+    min: 100,
     max: 250000,
     currency: "KES",
   },

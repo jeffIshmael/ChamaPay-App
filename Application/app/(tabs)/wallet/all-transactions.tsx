@@ -126,7 +126,7 @@ export default function AllTransactions() {
   };
 
   const viewOnChain = (hash: string) => {
-    const explorerUrl = `https://celoscan.io/tx/${hash}`;
+    const explorerUrl = `https://basescan.org/tx/${hash}`;
     Linking.openURL(explorerUrl);
   };
 

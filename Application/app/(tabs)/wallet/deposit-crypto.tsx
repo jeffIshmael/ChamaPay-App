@@ -49,7 +49,7 @@ export default function DepositCryptoScreen() {
   const theExhangeQuote = rates["KES"]?.data || null;
   const onrampRate = theExhangeQuote?.exchangeRate.selling_rate || 0;
 
-  const MINIMUM_DEPOSIT = 10;
+  const MINIMUM_DEPOSIT = 100;
   const KENYA_PHONE_CODE = "254";
   const CURRENCY = "KES";
 
@@ -328,7 +328,7 @@ export default function DepositCryptoScreen() {
                   </Text>
                 </Text>
                 <View className="flex-row gap-2">
-                  {[50, 100, 500].map((preset) => (
+                  {[100, 500, 1000].map((preset) => (
                     <TouchableOpacity
                       key={preset}
                       onPress={() => setAmount(preset.toString())}
