@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import { contractAddress } from "../Blockchain/Constants";
 import { bcGetTotalChamas, getEachMemberBalance, getUserChamaBalance } from "../Blockchain/ReadFunctions";
-import { bcCreateChama, bcDepositFundsToChama, bcJoinPublicChama, bcAddLockedFundsToChama, bcWithdrawFundsFromChama } from "../Blockchain/WriteFunction";
+import { bcCreateChama, bcDepositFundsToChama, bcAddMemberToPrivateChama , bcJoinPublicChama, bcAddLockedFundsToChama, bcWithdrawFundsFromChama } from "../Blockchain/WriteFunction";
 import { approveTx } from "../Blockchain/erc20Functions";
 import { sendExpoNotificationToAllChamaMembers } from "../Lib/ExpoNotificationFunctions";
 import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
@@ -416,12 +416,13 @@ export const depositToChama = async (req: Request, res: Response) => {
 // add a member to a chama
 export const addMemberToChama = async (req: Request, res: Response) => {
   try {
-    const { chamaId, isPublic, memberId, amount, txHash } = req.body;
+    const { chamaId, isPublic, memberId, amount } = req.body;
+    // this is the admin if its !public i.e private
     const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
-    if (!chamaId || !isPublic || !memberId) {
+    if (!chamaId || !memberId) {
       return res
         .status(400)
         .json({ success: false, error: "All fields are required" });
@@ -438,8 +439,20 @@ export const addMemberToChama = async (req: Request, res: Response) => {
       return res
         .status(400)
         .json({ success: false, error: "User not found." });
-
     }
+
+   const memberBeingAdded = await prisma.user.findUnique({
+    where: {
+      id: Number(memberId)
+    }
+   });
+
+   if (!memberBeingAdded) {
+    return res
+      .status(400)
+      .json({ success: false, error: "Member not found." });
+   }
+
     const chama = await prisma.chama.findUnique({
       where: {
         id: Number(chamaId)
@@ -466,7 +479,7 @@ export const addMemberToChama = async (req: Request, res: Response) => {
           .json({ success: false, error: "Unable to approve transaction." });
       }
       // the main function of joining
-      const chamaBlockchainId = BigInt(Number(Number(chama.blockchainId)));
+      const chamaBlockchainId = BigInt(Number(chama.blockchainId));
       const joinTxHash = await bcJoinPublicChama(privateKey.privateKey, chamaBlockchainId, amount);
       if (!joinTxHash) {
         return res
@@ -482,6 +495,26 @@ export const addMemberToChama = async (req: Request, res: Response) => {
           userId: memberId,
         },
       });
+    } else {
+      // check whether the one requesting is the admin
+      const isAdmin = user.id === chama.adminId;
+      if (!isAdmin) {
+        return res.status(400).json({ success: false, error: "You are not the admin of this chama." });
+      }
+      const privateKey = await getPrivateKey(user.id);
+      if (!privateKey.success || privateKey.privateKey === null) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Unable to get signing client." });
+      }
+      // the main function of adding the member
+      const chamaBlockchainId = BigInt(Number(chama.blockchainId));
+      const addingTxHash = await bcAddMemberToPrivateChama(privateKey.privateKey, chamaBlockchainId, user.address as `0x${string}`);
+      if (!addingTxHash) {
+        return res
+          .status(400)
+          .json({ success: false, error: `Unable to add ${user.userName} to ${chama.name} chama onchain.` });
+      }
     }
 
     const chamaMember = await prisma.chamaMember.create({
@@ -497,11 +530,22 @@ export const addMemberToChama = async (req: Request, res: Response) => {
         .status(400)
         .json({ success: false, error: "Failed to add member" });
     }
+    
+    // notify the member has been added
+    if(!isPublic){
+      await sendExpoNotificationToAllChamaMembers(
+        `Successfully added.`,
+        `You have been added to ${chama.name} chama.`,
+        parseInt(chamaId),
+        memberBeingAdded.id
+      );
+    }
+    
     await sendExpoNotificationToAllChamaMembers(
       `New member joined.`,
       `A new member has joined ${chama.name} chama.`,
       parseInt(chamaId),
-      user.id
+      [user.id, memberBeingAdded.id]
     );
     return res
       .status(200)
