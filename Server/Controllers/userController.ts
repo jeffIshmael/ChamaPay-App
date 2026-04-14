@@ -373,6 +373,7 @@ export const searchUsers = async (
     }
 
     const trimmedQuery = query.trim().toLowerCase();
+    console.log("the query", trimmedQuery);
 
     // Search for users by username (case insensitive)
     const users = await prisma.user.findMany({
