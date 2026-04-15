@@ -509,7 +509,7 @@ export const addMemberToChama = async (req: Request, res: Response) => {
       }
       // the main function of adding the member
       const chamaBlockchainId = BigInt(Number(chama.blockchainId));
-      const addingTxHash = await bcAddMemberToPrivateChama(privateKey.privateKey, chamaBlockchainId, user.address as `0x${string}`);
+      const addingTxHash = await bcAddMemberToPrivateChama(privateKey.privateKey, chamaBlockchainId, memberBeingAdded.address as `0x${string}`);
       if (!addingTxHash) {
         return res
           .status(400)
