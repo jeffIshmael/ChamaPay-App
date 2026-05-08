@@ -381,6 +381,9 @@ export const depositToChama = async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, error: "deposit approve transaction failed." });
     }
 
+    console.log(" The approveTxHash", approveTxHash);
+    console.log("the amount to be",amount);
+
     // do the deposit onchain
     const depositTxHash = await bcDepositFundsToChama(result.privateKey, BigInt(Number(blockchainId)), amount);
     if (!depositTxHash) {
