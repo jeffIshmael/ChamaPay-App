@@ -23,11 +23,11 @@ const publicClient = createPublicClient({
 const pimlicoUrl = `https://api.pimlico.io/v2/8453/rpc?apikey=${apiKey}`;
 
 const pimlicoClient = createPimlicoClient({
-    transport: http(pimlicoUrl),
-    entryPoint: {
-        address: entryPoint07Address,
-        version: "0.7",
-    },
+	transport: http(pimlicoUrl),
+	entryPoint: {
+		address: entryPoint07Address,
+		version: "0.7",
+	},
 })
 
 // create a smart account from private key using EIP-7702
@@ -35,34 +35,28 @@ export const createEIP7702SmartAccount = async (privateKey: string) => {
     try {
         const owner = privateKeyToAccount(privateKey);
 
-        // create an EIP-7702 wrapper over the EOA using the specialized helper
-        const eip7702SmartAccount = await to7702SimpleSmartAccount({
-            client: publicClient,
-            owner: owner,
-        })
-
-        // Check if the account already has the CORRECT delegation set
         const bytecode = await publicClient.getBytecode({ address: owner.address });
-
-        // EIP-7702 bytecode is 0xef0100 + 20 bytes address
         const expectedBytecode = `0xef0100${EIP7702_IMPLEMENTATION_ADDRESS.toLowerCase().slice(2)}`;
         const isCorrectDelegation = bytecode?.toLowerCase() === expectedBytecode.toLowerCase();
 
         let authorization = null;
 
         if (!isCorrectDelegation) {
-            console.log(`Delegation missing. Signing 7702 authorization...`);
-
-            const authNonce = await publicClient.getAuthorizationNonce({
-                address: owner.address,
-            });
+            console.log(`Delegation mismatch or missing. Current: ${bytecode?.slice(0, 10)}... Expected logic: ${EIP7702_IMPLEMENTATION_ADDRESS}`);
 
             authorization = await owner.signAuthorization({
                 address: EIP7702_IMPLEMENTATION_ADDRESS,
                 chainId: base.id,
-                nonce: authNonce,
+                nonce: await publicClient.getTransactionCount({ address: owner.address }),
             });
         }
+
+        // Pass the signed authorization into the account
+        const eip7702SmartAccount = await to7702SimpleSmartAccount({
+            client: publicClient,
+            owner: owner,
+            ...(authorization ? { authorization } : {}),
+        });
 
         const smartAccountClient = createSmartAccountClient({
             account: eip7702SmartAccount,
@@ -70,20 +64,16 @@ export const createEIP7702SmartAccount = async (privateKey: string) => {
             bundlerTransport: http(pimlicoUrl),
             paymaster: pimlicoClient,
             dataSuffix: builderCodeDataSuffix,
-            entryPoint: {
-                address: entryPoint07Address,
-                version: "0.7",
-            },
             userOperation: {
                 estimateFeesPerGas: async () => {
-                    return (await pimlicoClient.getUserOperationGasPrice()).fast
+                    return (await pimlicoClient.getUserOperationGasPrice()).fast;
                 },
             },
-        })
+        });
 
-        return { smartAccountClient, safeSmartAccount: eip7702SmartAccount, authorization }
+        return { smartAccountClient, safeSmartAccount: eip7702SmartAccount, authorization };
     } catch (error) {
         console.error("Error creating EIP-7702 smart account:", error);
         throw error;
     }
-}
+};
