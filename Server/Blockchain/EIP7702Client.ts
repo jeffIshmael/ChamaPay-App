@@ -23,18 +23,18 @@ const publicClient = createPublicClient({
 const pimlicoUrl = `https://api.pimlico.io/v2/8453/rpc?apikey=${apiKey}`;
 
 const pimlicoClient = createPimlicoClient({
-	transport: http(pimlicoUrl),
-	entryPoint: {
-		address: entryPoint07Address,
-		version: "0.7",
-	},
+    transport: http(pimlicoUrl),
+    entryPoint: {
+        address: entryPoint07Address,
+        version: "0.7",
+    },
 })
 
 // create a smart account from private key using EIP-7702
 export const createEIP7702SmartAccount = async (privateKey: string) => {
     try {
         const owner = privateKeyToAccount(privateKey);
-        
+
         // create an EIP-7702 wrapper over the EOA using the specialized helper
         const eip7702SmartAccount = await to7702SimpleSmartAccount({
             client: publicClient,
@@ -43,23 +43,25 @@ export const createEIP7702SmartAccount = async (privateKey: string) => {
 
         // Check if the account already has the CORRECT delegation set
         const bytecode = await publicClient.getBytecode({ address: owner.address });
-        
+
         // EIP-7702 bytecode is 0xef0100 + 20 bytes address
         const expectedBytecode = `0xef0100${EIP7702_IMPLEMENTATION_ADDRESS.toLowerCase().slice(2)}`;
         const isCorrectDelegation = bytecode?.toLowerCase() === expectedBytecode.toLowerCase();
-        
+
         let authorization = null;
 
         if (!isCorrectDelegation) {
-            console.log(`Delegation mismatch or missing. Current: ${bytecode?.slice(0, 10)}... Expected logic: ${EIP7702_IMPLEMENTATION_ADDRESS}`);
-            // Sign the authorization list for EIP-7702
+            console.log(`Delegation missing. Signing 7702 authorization...`);
+
+            const authNonce = await publicClient.getAuthorizationNonce({
+                address: owner.address,
+            });
+
             authorization = await owner.signAuthorization({
                 address: EIP7702_IMPLEMENTATION_ADDRESS,
                 chainId: base.id,
-                nonce: await publicClient.getTransactionCount({
-                    address: owner.address,
-                }),
-            })
+                nonce: authNonce,
+            });
         }
 
         const smartAccountClient = createSmartAccountClient({
