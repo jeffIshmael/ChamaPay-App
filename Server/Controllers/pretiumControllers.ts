@@ -81,7 +81,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
     // No additional fee while depositing
     const receivingAddress = isDeposit
       ? user.smartAddress
-      : "0x9bC7e0C7020242DE044c9211b5887F41E683719E";
+      : "0x1C059486B99d6A2D9372827b70084fbfD014E978";
     const result = await pretiumOnramp(
       phoneNo,
       amount,
@@ -362,7 +362,7 @@ export async function pretiumCheckTriggerDepositFor(
       where: { id: userId },
       select: { smartAddress: true },
     });
-
+    console.log("the user is", user);
     // get pretium the transaction
     const pretiumTransaction = await prisma.pretiumTransaction.findUnique({
       where: {
@@ -401,6 +401,7 @@ export async function pretiumCheckTriggerDepositFor(
     // we will trigger the agent to deposit for the user
     const bigintAmount = toUnits(amount, 6);
     const bigintBlockchainId = Number(chamaBlockchainId);
+    console.log("the user address is", user?.smartAddress);
     const txResult = await pimlicoDepositForUser(
       bigintBlockchainId,
       user?.smartAddress as `0x${string}`,
