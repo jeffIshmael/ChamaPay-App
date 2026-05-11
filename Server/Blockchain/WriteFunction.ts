@@ -1,227 +1,174 @@
-// This file contains all the blockchain write functions
-
-import { parseEther, parseUnits, createPublicClient, http } from "viem";
-import { contractABI, contractAddress } from "./Constants";
+import { parseUnits, createPublicClient, http } from "viem";
+import { contractABI, contractAddress, builderCodeDataSuffix } from "./Constants";
 import { createEIP7702SmartAccount } from "./EIP7702Client";
-import { builderCodeDataSuffix } from "./Constants";
-import { getAgentSmartWallet } from "./AgentWallet";
 import { base } from "viem/chains";
 
 const publicClient = createPublicClient({
     chain: base,
-    transport: http()
-})
+    transport: http(),
+});
 
-// users functions
-// function to create a chama
 export const bcCreateChama = async (privateKey: `0x${string}`, chamaAmount: string, duration: bigint, startDate: bigint, maxMembers: bigint, isPublic: boolean) => {
     try {
-        //change amount to wei
         const amountInWei = parseUnits(chamaAmount, 6);
-        // create a smart account client
-        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
             functionName: 'registerChama',
             args: [amountInWei, duration, startDate, maxMembers, isPublic],
-            ...(authorization ? { authorizationList: [authorization] } : {}),
             dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorization } : {}),
         });
-        const transaction = await publicClient.waitForTransactionReceipt({
-            hash: hash
-        });
-        if (!transaction) {
-            throw new Error("Unable to create chama onchain.");
-        }
+        const transaction = await publicClient.waitForTransactionReceipt({ hash });
+        if (!transaction) throw new Error("Unable to create chama onchain.");
         return transaction.transactionHash;
     } catch (error) {
         console.error("Error creating chama:", error);
         throw error;
     }
-}
+};
 
-// function to join a public chama
 export const bcJoinPublicChama = async (privateKey: `0x${string}`, chamaBlockchainId: bigint, chamaAmount: string) => {
     try {
-        // change amount to wei
         const amountInWei = parseUnits(chamaAmount, 6);
-        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
             functionName: 'addPublicMember',
             args: [chamaBlockchainId, amountInWei],
-            ...(authorization ? { authorizationList: [authorization] } : {}),
             dataSuffix: builderCodeDataSuffix,
-        })
-        const transaction = await publicClient.waitForTransactionReceipt({
-            hash: hash
+            ...(authorization ? { authorization } : {}),
         });
-        if (!transaction) {
-            throw new Error("Unable to join public chama onchain.");
-        }
+        const transaction = await publicClient.waitForTransactionReceipt({ hash });
+        if (!transaction) throw new Error("Unable to join public chama onchain.");
         return transaction.transactionHash;
     } catch (error) {
         console.error("Error joining public chama:", error);
         throw error;
     }
-}
+};
 
-// function to add member to private chama
 export const bcAddMemberToPrivateChama = async (privateKey: `0x${string}`, chamaBlockchainId: bigint, memberAddress: string) => {
     try {
-        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
             functionName: 'addMember',
             args: [memberAddress as `0x${string}`, chamaBlockchainId],
-            ...(authorization ? { authorizationList: [authorization] } : {}),
             dataSuffix: builderCodeDataSuffix,
-        })
-        const transaction = await publicClient.waitForTransactionReceipt({
-            hash: hash
+            ...(authorization ? { authorization } : {}),
         });
-        if (!transaction) {
-            throw new Error("Unable to add member to private chama onchain.");
-        }
+        const transaction = await publicClient.waitForTransactionReceipt({ hash });
+        if (!transaction) throw new Error("Unable to add member to private chama onchain.");
         return transaction.transactionHash;
     } catch (error) {
         console.error("Error adding member to private chama:", error);
         throw error;
     }
-}
+};
 
-// function to deposit funds to a chama
 export const bcDepositFundsToChama = async (privateKey: `0x${string}`, chamaBlockchainId: bigint, amount: string) => {
     try {
-        // change amount to wei
         const amountInWei = parseUnits(amount, 6);
-        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
             functionName: 'depositCash',
             args: [chamaBlockchainId, amountInWei, false],
-            ...(authorization ? { authorizationList: [authorization] } : {}),
             dataSuffix: builderCodeDataSuffix,
-        })
-        const transaction = await publicClient.waitForTransactionReceipt({
-            hash: hash
+            ...(authorization ? { authorization } : {}),
         });
-        if (!transaction) {
-            throw new Error("Unable to deposit funds to chama onchain.");
-        }
+        const transaction = await publicClient.waitForTransactionReceipt({ hash });
+        if (!transaction) throw new Error("Unable to deposit funds to chama onchain.");
         return transaction.transactionHash;
     } catch (error) {
         console.error("Error depositing funds to chama:", error);
         throw error;
     }
-}
+};
 
-// function to left a chama
 export const bcLeaveChama = async (privateKey: `0x${string}`, memberAddress: string, chamaBlockchainId: number) => {
     try {
-        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
             functionName: 'deleteMember',
             args: [chamaBlockchainId, memberAddress as `0x${string}`],
-            ...(authorization ? { authorizationList: [authorization] } : {}),
             dataSuffix: builderCodeDataSuffix,
-        })
-        const transaction = await publicClient.waitForTransactionReceipt({
-            hash: hash
+            ...(authorization ? { authorization } : {}),
         });
-        if (!transaction) {
-            throw new Error("Unable to leave chama onchain.");
-        }
+        const transaction = await publicClient.waitForTransactionReceipt({ hash });
+        if (!transaction) throw new Error("Unable to leave chama onchain.");
         return transaction.transactionHash;
     } catch (error) {
         console.error("Error leaving chama:", error);
         throw error;
     }
-}
+};
 
-// function to delete a chama
 export const bcDeleteChama = async (privateKey: `0x${string}`, chamaBlockchainId: number) => {
     try {
-        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
             functionName: 'deleteChama',
             args: [chamaBlockchainId],
-            ...(authorization ? { authorizationList: [authorization] } : {}),
             dataSuffix: builderCodeDataSuffix,
-        })
-        const transaction = await publicClient.waitForTransactionReceipt({
-            hash: hash
+            ...(authorization ? { authorization } : {}),
         });
-        if (!transaction) {
-            throw new Error("Unable to delete chama onchain.");
-        }
+        const transaction = await publicClient.waitForTransactionReceipt({ hash });
+        if (!transaction) throw new Error("Unable to delete chama onchain.");
         return transaction.transactionHash;
     } catch (error) {
         console.error("Error deleting chama:", error);
         throw error;
     }
-}
+};
 
-// function to withdraw funds from a chama
 export const bcWithdrawFundsFromChama = async (privateKey: `0x${string}`, chamaBlockchainId: number, amount: string) => {
     try {
-        // change amount to wei
         const amountInWei = parseUnits(amount, 6);
-        const bigIntChamaBlockchainId = BigInt(chamaBlockchainId);
-        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
             functionName: 'withdrawBalance',
-            args: [bigIntChamaBlockchainId, amountInWei],
-            ...(authorization ? { authorizationList: [authorization] } : {}),
+            args: [BigInt(chamaBlockchainId), amountInWei],
             dataSuffix: builderCodeDataSuffix,
-        })
-        const transaction = await publicClient.waitForTransactionReceipt({
-            hash: hash
+            ...(authorization ? { authorization } : {}),
         });
-        if (!transaction) {
-            throw new Error("Unable to withdraw funds from chama onchain.");
-        }
+        const transaction = await publicClient.waitForTransactionReceipt({ hash });
+        if (!transaction) throw new Error("Unable to withdraw funds from chama onchain.");
         return transaction.transactionHash;
     } catch (error) {
         console.error("Error withdrawing funds from chama:", error);
         throw error;
     }
-}
+};
 
-// function to add locked funds to a chama
-export const bcAddLockedFundsToChama = async (privateKey: `0x${string}`,memberAddress: `0x${string}`, chamaBlockchainId: number, amount: string) => {
+export const bcAddLockedFundsToChama = async (privateKey: `0x${string}`, memberAddress: `0x${string}`, chamaBlockchainId: number, amount: string) => {
     try {
-        // change amount to wei
         const amountInWei = parseUnits(amount, 6);
-        const { smartAccountClient, safeSmartAccount, authorization } = await createEIP7702SmartAccount(privateKey);
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
             functionName: 'updateLockedAmount',
-            args: [memberAddress,chamaBlockchainId, amountInWei],
-            ...(authorization ? { authorizationList: [authorization] } : {}),
+            args: [memberAddress, chamaBlockchainId, amountInWei],
             dataSuffix: builderCodeDataSuffix,
-        })
-        const transaction = await publicClient.waitForTransactionReceipt({
-            hash: hash
+            ...(authorization ? { authorization } : {}),
         });
-        if (!transaction) {
-            throw new Error("Unable to add locked funds to chama onchain.");
-        }
+        const transaction = await publicClient.waitForTransactionReceipt({ hash });
+        if (!transaction) throw new Error("Unable to add locked funds to chama onchain.");
         return transaction.transactionHash;
     } catch (error) {
         console.error("Error adding locked funds to chama:", error);
         throw error;
     }
-}
-
+};

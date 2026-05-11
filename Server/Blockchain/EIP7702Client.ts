@@ -8,54 +8,33 @@ const { base } = require("viem/chains") as any;
 const { EIP7702_IMPLEMENTATION_ADDRESS, builderCodeDataSuffix } = require("./Constants");
 const { to7702SimpleSmartAccount } = require("permissionless/accounts") as any;
 
-dotenv.config()
+dotenv.config();
 
 const apiKey = process.env.PIMLICO_API_KEY;
-if (!apiKey) {
-    throw new Error("PIMLICO_API_KEY is not set");
-}
+if (!apiKey) throw new Error("PIMLICO_API_KEY is not set");
 
 const publicClient = createPublicClient({
     chain: base,
-    transport: http()
-})
+    transport: http(),
+});
 
 const pimlicoUrl = `https://api.pimlico.io/v2/8453/rpc?apikey=${apiKey}`;
 
 const pimlicoClient = createPimlicoClient({
-	transport: http(pimlicoUrl),
-	entryPoint: {
-		address: entryPoint07Address,
-		version: "0.7",
-	},
-})
+    transport: http(pimlicoUrl),
+    entryPoint: {
+        address: entryPoint07Address,
+        version: "0.7",
+    },
+});
 
-// create a smart account from private key using EIP-7702
 export const createEIP7702SmartAccount = async (privateKey: string) => {
     try {
         const owner = privateKeyToAccount(privateKey);
 
-        const bytecode = await publicClient.getBytecode({ address: owner.address });
-        const expectedBytecode = `0xef0100${EIP7702_IMPLEMENTATION_ADDRESS.toLowerCase().slice(2)}`;
-        const isCorrectDelegation = bytecode?.toLowerCase() === expectedBytecode.toLowerCase();
-
-        let authorization = null;
-
-        if (!isCorrectDelegation) {
-            console.log(`Delegation mismatch or missing. Current: ${bytecode?.slice(0, 10)}... Expected logic: ${EIP7702_IMPLEMENTATION_ADDRESS}`);
-
-            authorization = await owner.signAuthorization({
-                address: EIP7702_IMPLEMENTATION_ADDRESS,
-                chainId: base.id,
-                nonce: await publicClient.getTransactionCount({ address: owner.address }),
-            });
-        }
-
-        // Pass the signed authorization into the account
         const eip7702SmartAccount = await to7702SimpleSmartAccount({
             client: publicClient,
             owner: owner,
-            ...(authorization ? { authorization } : {}),
         });
 
         const smartAccountClient = createSmartAccountClient({
@@ -70,6 +49,18 @@ export const createEIP7702SmartAccount = async (privateKey: string) => {
                 },
             },
         });
+
+        const isDeployed = await eip7702SmartAccount.isDeployed();
+        let authorization = null;
+
+        if (!isDeployed) {
+            console.log(`Account not deployed. Signing EIP-7702 authorization for: ${owner.address}`);
+            authorization = await owner.signAuthorization({
+                address: EIP7702_IMPLEMENTATION_ADDRESS,
+                chainId: base.id,
+                nonce: await publicClient.getTransactionCount({ address: owner.address }),
+            });
+        }
 
         return { smartAccountClient, safeSmartAccount: eip7702SmartAccount, authorization };
     } catch (error) {

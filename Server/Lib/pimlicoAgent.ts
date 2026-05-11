@@ -28,7 +28,7 @@ export const pimlicoSetPayoutOrder = async (
       functionName: "setPayoutOrder",
       args: [BigInt(chamaBlockchainId), bcAddresses],
       dataSuffix: builderCodeDataSuffix,
-      ...(authorization ? { authorizationList: [authorization] } : {}),
+      ...(authorization ? { authorization } : {}),
     });
 
     // we need to make sure that the tx has been added to the blockchain
@@ -54,16 +54,13 @@ export const pimlicoAddMemberToPayoutOrder = async (
 ) => {
   try {
     const { smartAccountClient, authorization } = await getAgentSmartWallet();
-
-
-
-     const addMemberToPayoutOrderHash = await smartAccountClient.writeContract({
+    const addMemberToPayoutOrderHash = await smartAccountClient.writeContract({
       address: contractAddress,
       abi: contractABI,
       functionName: "addMemberToPayoutOrder",
       args: [BigInt(chamaBlockchainId), memberAddress],
       dataSuffix: builderCodeDataSuffix,
-      ...(authorization ? { authorizationList: [authorization] } : {}),
+      ...(authorization ? { authorization } : {}),
     });
 
     const addMemberToPayoutOrderTransaction = await publicClient.waitForTransactionReceipt({
@@ -91,15 +88,13 @@ export const pimlicoProcessPayout = async (chamaBlockchainIds: number[]) => {
     // map the numbers to change them to bigint
     const blockchainIds = chamaBlockchainIds.map((num) => BigInt(num));
 
-
-
- const checkPayDateHash = await smartAccountClient.writeContract({
+    const checkPayDateHash = await smartAccountClient.writeContract({
       address: contractAddress,
       abi: contractABI,
       functionName: "checkPayDate",
       args: [blockchainIds],
       dataSuffix: builderCodeDataSuffix,
-      ...(authorization ? { authorizationList: [authorization] } : {}),
+      ...(authorization ? { authorization } : {}),
     });
 
     const checkPayDateTransaction = await publicClient.waitForTransactionReceipt({
@@ -124,7 +119,10 @@ export const pimlicoDepositForUser = async (
   amount: bigint
 ) => {
   try {
-    const { smartAccountClient, authorization } = await getAgentSmartWallet();
+    const { smartAccountClient, agentSmartWallet, authorization } = await getAgentSmartWallet();
+
+    console.log("the smartAccountClient", smartAccountClient);
+    console.log("the agentAddress", agentSmartWallet.address);
 
     // I need to first send approve function
     const approveHash = await smartAccountClient.writeContract({
@@ -133,7 +131,7 @@ export const pimlicoDepositForUser = async (
       functionName: "approve",
       args: [contractAddress as `0x${string}`, amount],
       dataSuffix: builderCodeDataSuffix,
-      ...(authorization ? { authorizationList: [authorization] } : {}),
+      ...(authorization ? { authorization } : {}),
     });
 
     const approveTransaction = await publicClient.waitForTransactionReceipt({
@@ -149,9 +147,9 @@ export const pimlicoDepositForUser = async (
       address: contractAddress,
       abi: contractABI,
       functionName: "depositForMember",
-      args: [chamaBlockchainId, memberAddress, amount],
+      args: [memberAddress, BigInt(chamaBlockchainId), amount],
       dataSuffix: builderCodeDataSuffix,
-      ...(authorization ? { authorizationList: [authorization] } : {}),
+      ...(authorization ? { authorization } : {}),
     });
 
     const depositForMemberTransaction = await publicClient.waitForTransactionReceipt({
@@ -182,9 +180,9 @@ export const pimlicoAddLockedFundsToChama = async (
       address: contractAddress,
       abi: contractABI,
       functionName: "updateLockedAmount",
-      args: [memberAddress,chamaBlockchainId, amount],
+      args: [memberAddress, chamaBlockchainId, amount],
       dataSuffix: builderCodeDataSuffix,
-      ...(authorization ? { authorizationList: [authorization] } : {}),
+      ...(authorization ? { authorization } : {}),
     });
 
     const addLockedFundsToChamaTransaction = await publicClient.waitForTransactionReceipt({

@@ -15,7 +15,7 @@ const { entryPoint07Address } = require("viem/account-abstraction") as any;
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { privateKeyToAccount } = require("viem/accounts") as any;
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { celo } = require("viem/chains") as any;
+const { base } = require("viem/chains") as any;
 
 dotenv.config()
 
@@ -26,11 +26,11 @@ if (!apiKey) {
 
 // create a public client
 const publicClient = createPublicClient({
-    chain: celo,
+    chain: base,
     transport: http()
 })
 
-const pimlicoUrl = `https://api.pimlico.io/v2/42220/rpc?apikey=${apiKey}`;
+const pimlicoUrl = `https://api.pimlico.io/v2/8453/rpc?apikey=${apiKey}`;
 
 const pimlicoClient = createPimlicoClient({
 	transport: http(pimlicoUrl),
@@ -60,7 +60,7 @@ export const createSmartAccount = async (privateKey: string) => {
     // create a smart account client
     const smartAccountClient = createSmartAccountClient({
         account: safeSmartAccount,
-        chain: celo,
+        chain: base,
         bundlerTransport: http(pimlicoUrl),
         paymaster: pimlicoClient,
         userOperation: {
