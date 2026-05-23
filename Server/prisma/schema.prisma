@@ -40,10 +40,9 @@ model Chama {
   description   String?
   adminTerms    String?
   type          String
-  startDate     DateTime
   payDate       DateTime
   cycleTime     Int
-  started       Boolean        @default(false)
+  status        String         @default("active")
   amount        String
   round         Int            @default(1)
   cycle         Int            @default(1)

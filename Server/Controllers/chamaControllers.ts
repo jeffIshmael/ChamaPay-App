@@ -3,10 +3,11 @@ import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import { contractAddress } from "../Blockchain/Constants";
 import { bcGetTotalChamas, getEachMemberBalance, getUserChamaBalance } from "../Blockchain/ReadFunctions";
-import { bcCreateChama, bcDepositFundsToChama, bcAddMemberToPrivateChama , bcJoinPublicChama, bcAddLockedFundsToChama, bcWithdrawFundsFromChama } from "../Blockchain/WriteFunction";
+import { bcCreateChama, bcDepositFundsToChama, bcAddMemberToPrivateChama, bcJoinPublicChama, bcAddLockedFundsToChama, bcWithdrawFundsFromChama, bcAdminSetPayoutOrder } from "../Blockchain/WriteFunction";
 import { approveTx } from "../Blockchain/erc20Functions";
-import { sendExpoNotificationToAllChamaMembers } from "../Lib/ExpoNotificationFunctions";
+import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
 import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
+import { notifyAllChamaMembers } from "../Lib/prismaFunctions";
 import { pimlicoAddLockedFundsToChama } from "../Lib/pimlicoAgent";
 
 const prisma = new PrismaClient();
@@ -86,10 +87,8 @@ export const createChama = async (
         cycleTime: cycleTime,
         maxNo: maxNo || 15,
         slug: uniqueSlug,
-        startDate: new Date(startDate),
-        payDate: new Date(
-          new Date(startDate).getTime() + cycleTime * 24 * 60 * 60 * 1000
-        ),
+        payDate: new Date(startDate),
+        status: "active",
         blockchainId: blockchainId,
         round: 1,
         cycle: 1,
@@ -382,7 +381,7 @@ export const depositToChama = async (req: Request, res: Response) => {
     }
 
     console.log(" The approveTxHash", approveTxHash);
-    console.log("the amount to be",amount);
+    console.log("the amount to be", amount);
 
     // do the deposit onchain
     const depositTxHash = await bcDepositFundsToChama(result.privateKey, BigInt(Number(blockchainId)), amount);
@@ -444,17 +443,17 @@ export const addMemberToChama = async (req: Request, res: Response) => {
         .json({ success: false, error: "User not found." });
     }
 
-   const memberBeingAdded = await prisma.user.findUnique({
-    where: {
-      id: Number(memberId)
-    }
-   });
+    const memberBeingAdded = await prisma.user.findUnique({
+      where: {
+        id: Number(memberId)
+      }
+    });
 
-   if (!memberBeingAdded) {
-    return res
-      .status(400)
-      .json({ success: false, error: "Member not found." });
-   }
+    if (!memberBeingAdded) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Member not found." });
+    }
 
     const chama = await prisma.chama.findUnique({
       where: {
@@ -533,9 +532,9 @@ export const addMemberToChama = async (req: Request, res: Response) => {
         .status(400)
         .json({ success: false, error: "Failed to add member" });
     }
-    
+
     // notify the member has been added
-    if(!isPublic){
+    if (!isPublic) {
       await sendExpoNotificationToAllChamaMembers(
         `Successfully added.`,
         `You have been added to ${chama.name} chama.`,
@@ -543,7 +542,7 @@ export const addMemberToChama = async (req: Request, res: Response) => {
         memberBeingAdded.id
       );
     }
-    
+
     await sendExpoNotificationToAllChamaMembers(
       `New member joined.`,
       `A new member has joined ${chama.name} chama.`,
@@ -801,6 +800,112 @@ export const addLockedAmount = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error adding locked funds to chama:", error);
     return res.status(500).json({ success: false, error: "Failed to add locked funds to chama" });
+  }
+};
+
+// for Casis's version only or maybe not
+export const adminSetPayoutOrder = async (req: Request, res: Response) => {
+  try {
+    const { chamaId, payoutOrder } = req.body;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+    if (!chamaId || !payoutOrder) {
+      return res.status(400).json({ success: false, error: "Chama ID and payout order are required" });
+    }
+    const user = await prisma.user.findUnique({
+      where: { id: Number(userId) },
+    });
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+    const chama = await prisma.chama.findUnique({
+      where: { id: Number(chamaId) },
+      include: {
+        members: {
+          include: {
+            user: true
+          }
+        }
+      }
+    });
+    if (!chama) {
+      return res.status(404).json({ success: false, error: "Chama not found" });
+    }
+    const isAdmin = user.id === chama.adminId;
+    if (!isAdmin) {
+      return res.status(400).json({ success: false, error: "You are not the admin of this chama." });
+    }
+
+    // Ensure all provided addresses are members of the chama
+    const memberAddresses = chama.members.map((member: any) => member.user.smartAddress);
+    const invalidMembers = payoutOrder.filter((address: string) => !memberAddresses.includes(address));
+
+    if (invalidMembers.length > 0) {
+      return res.status(400).json({ success: false, error: "Payout order contains addresses that are not members of this chama." });
+    }
+
+    if (payoutOrder.length !== memberAddresses.length) {
+      return res.status(400).json({ success: false, error: "Payout order must include all current members of the chama." });
+    }
+
+    const privateKey = await getPrivateKey(Number(userId));
+    if (!privateKey.success || privateKey.privateKey === null) {
+      return res.status(400).json({ success: false, error: "Unable to get signing client." });
+    }
+    const formattedBcOrder = payoutOrder.map((address: string) => address as `0x${string}`);
+    const payoutOrderTxHash = await bcAdminSetPayoutOrder(privateKey.privateKey, Number(chama.blockchainId), formattedBcOrder);
+    if (!payoutOrderTxHash) {
+      return res.status(400).json({ success: false, error: "Unable to set payout order onchain." });
+    }
+
+    // Format and save the payout order into the database
+    const formattedPayoutOrder = payoutOrder.map(
+      (address: string, index: number) => ({
+        userAddress: address,
+        payDate: new Date(
+          chama.payDate.getTime() +
+          chama.cycleTime * 24 * 60 * 60 * 1000 * index
+        ),
+        paid: false,
+        amount: "0",
+      })
+    );
+
+    await prisma.chama.update({
+      where: { id: chama.id },
+      data: { payOutOrder: JSON.stringify(formattedPayoutOrder) },
+    });
+
+    const firstAddress = payoutOrder[0];
+    const firstMember = chama.members.find((m: any) => m.user.smartAddress === firstAddress);
+    const firstName = firstMember ? firstMember.user.userName : "Someone";
+
+    await notifyAllChamaMembers(
+      chama.id,
+      `Great news! The payout order for ${chama.name} is officially set. ${firstName} is up first! 🚀`
+    );
+
+    await sendExpoNotificationToAllChamaMembers(
+      `Payout Order Ready! 🎉`,
+      `${firstName} will receive the first payout in ${chama.name} chama. Tap to view the full order!`,
+      chama.id,
+      firstMember?.user.id
+    );
+
+    await sendExpoNotificationToAUser(
+      firstMember?.user.id!,
+      `Payout Order Ready! 🎉`,
+      `You are the first in the payout order for ${chama.name} chama. Tap to view the full order!`,
+    )
+
+
+
+    return res.status(200).json({ success: true, payoutOrderTxHash });
+  } catch (error) {
+    console.error("Error setting payout order:", error);
+    return res.status(500).json({ success: false, error: "Failed to set payout order" });
   }
 };
 

@@ -172,3 +172,24 @@ export const bcAddLockedFundsToChama = async (privateKey: `0x${string}`, memberA
         throw error;
     }
 };
+
+// for Casis's version only or maybe not
+export const  bcAdminSetPayoutOrder = async (privateKey: `0x${string}`, chamaBlockchainId: number, payoutOrder: `0x${string}`[]) => {
+    try {
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey);
+        const hash = await smartAccountClient.writeContract({
+            address: contractAddress,
+            abi: contractABI,
+            functionName: 'setPayoutOrder',
+            args: [chamaBlockchainId, payoutOrder],
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorization } : {}),
+        });
+        const transaction = await publicClient.waitForTransactionReceipt({ hash });
+        if (!transaction) throw new Error("Unable to set payout order onchain.");
+        return transaction.transactionHash;
+    } catch (error) {
+        console.error("Error setting payout order:", error);
+        throw error;
+    }
+};

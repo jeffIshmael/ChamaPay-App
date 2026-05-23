@@ -100,7 +100,7 @@ export async function addMemberToPayout(chamaId: number, userId: number) {
     const payoutOrder: PayoutOrder[] = chama.payOutOrder
       ? JSON.parse(chama.payOutOrder)
       : [];
-    if (payoutOrder.length > 0 && chama.started && chama.round == 1) {
+    if (payoutOrder.length > 0  && chama.round == 1) {
       const newPayOut = {
         userAddress: user.smartAddress!,
         payDate: new Date(

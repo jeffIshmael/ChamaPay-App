@@ -38,14 +38,19 @@ export async function generateUniqueSlug(baseName: string): Promise<string> {
   return uniqueSlug;
 }
 
-// function to get non-started chamas
-export async function getNonStartedChamas() {
+// function to get first payout chamas
+export async function getFirstPayoutChamas() {
   try {
+    const threeDaysFromNow = new Date();
+    threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+
     const chamas = await prisma.chama.findMany({
       where: {
-        started: false,
-        startDate: {
-          lte: new Date(),
+        status: "active",
+        round: 1,
+        payDate: {
+          lte: threeDaysFromNow,
+          gt: new Date() // ensures it hasn't already passed
         },
       },
       include: {
@@ -80,7 +85,6 @@ export async function getChamasThatHaveReachedPaydate() {
         payDate: {
           lte: new Date(),
         },
-        started: true,
       },
       include: {
         members: true,

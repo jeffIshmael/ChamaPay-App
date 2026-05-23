@@ -10,7 +10,8 @@ import {
     getPublicChamasUserIsNotMemberOf,
     markMessagesRead,
     sendChamaMessage,
-    withdrawFromChamaBalance
+    withdrawFromChamaBalance,
+    adminSetPayoutOrder
 } from "../Controllers/chamaControllers";
 import { miniappCheckHasJoinRequest, miniappGetChamaBySlug, miniappGetPendingRequests } from "../Controllers/miniappController";
 import authenticate from "../Middlewares/authMiddleware";
@@ -20,6 +21,9 @@ const router: Router = express.Router();
 // post routes
 // create a chama
 router.post("/create", authenticate, createChama);
+
+// set payout order
+router.post("/set-payout-order", authenticate, adminSetPayoutOrder);
 
 
 // get routes

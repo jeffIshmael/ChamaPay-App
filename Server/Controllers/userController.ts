@@ -553,7 +553,6 @@ export const confirmJoinRequest = async (
         name: true,
         payOutOrder: true,
         blockchainId: true,
-        started: true,
         round: true,
       },
     });
@@ -572,7 +571,7 @@ export const confirmJoinRequest = async (
     const isApproved = decision === "approve"; // boolean of whether approved
     // if approved add the member onchain
     if (isApproved) {
-      if (chama.started && chama.round !== 1) {
+      if (chama.round !== 1) {
         res
           .status(400)
           .json({ success: false, error: `Cannot add user in the middle of cycle.` });
