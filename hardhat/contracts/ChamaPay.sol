@@ -107,7 +107,7 @@ contract ChamaPay is
         bool _isPublic
     ) public nonReentrant whenNotPaused {
         require(_startDate >= block.timestamp, "Start date must be in the future.");
-        require(_duration > 0, "Duration must be greater than 0.");
+        require(_duration > 0, "Duration must be greater than zero.");
         require(_amount > 0, "Amount must be greater than 0.");
         require(_maxMembers <= 15, "Maximum number of members is 15.");
         
@@ -121,10 +121,10 @@ contract ChamaPay is
         Chama storage newChama = chamas.push();
         newChama.chamaId = totalChamas;
         newChama.amount = _amount;
-        newChama.startDate = _startDate;
+        newChama.startDate = block.timestamp;
         newChama.duration = _duration;
         newChama.maxMembers = _maxMembers;
-        newChama.payDate = _startDate + _duration * 1 days;
+        newChama.payDate = _startDate; // _startDate here is passed from frontend representing first payout date
         newChama.admin = msg.sender;
         newChama.members.push(msg.sender);
         newChama.cycle = 1;
@@ -144,7 +144,7 @@ contract ChamaPay is
             _amount,
             _maxMembers, 
             _duration, 
-            _startDate, 
+            block.timestamp, 
             _isPublic,  
             msg.sender
         );
@@ -275,8 +275,9 @@ contract ChamaPay is
         emit BalanceWithdrawn(_chamaId, msg.sender, _amount);
     }
 
-    function addMemberToPayoutOrder(uint _chamaId, address[] memory _member) public onlyAiAgent whenNotPaused {
+    function addMemberToPayoutOrder(uint _chamaId, address[] memory _member) public  whenNotPaused {
         Chama storage chama = chamas[_chamaId];
+        require(chama.admin == msg.sender || msg.sender == aiAgent || msg.sender == owner(), "Only admin or aiAgent");
         require(chama.round == 1, "Cannot add member to payout order during an active round");
         
         for (uint i = 0; i < _member.length; i++) {
@@ -308,6 +309,37 @@ contract ChamaPay is
     
     function checkAllMembersContributed(uint _chamaId) public view returns (bool) {
         return _allMembersContributed(_chamaId);
+    }
+
+    function getNextPayoutReceiver(uint _chamaId) public view returns (address) {
+        require(_chamaId < totalChamas, "Chama does not exist");
+        Chama storage chama = chamas[_chamaId];
+        require(chama.payoutOrder.length > 0, "Payout order is empty");
+        require(chama.members.length > 0, "No members in chama");
+
+        uint index = (chama.round == 0) ? 0 : (chama.round - 1);
+        index = index % chama.payoutOrder.length;
+
+        address recipient = chama.payoutOrder[index];
+        if (recipient == address(0)) {
+            recipient = chama.members[index % chama.members.length];
+        }
+        return recipient;
+    }
+
+    function setPayoutOrder(uint _chamaId, address[] memory _payoutOrder) public whenNotPaused {
+        require(_chamaId < totalChamas, "Chama does not exist");
+        Chama storage chama = chamas[_chamaId];
+        require(chama.admin == msg.sender || msg.sender == aiAgent || msg.sender == owner(), "Only admin or aiAgent");
+        require(chama.round == 1, "Cannot set payout order during an active round");
+        require(_payoutOrder.length <= chama.members.length, "Too many members in payout order");
+        
+        for (uint i = 0; i < _payoutOrder.length; i++) {
+            require(isMember(_chamaId, _payoutOrder[i]), "Member is not a member of the chama");
+        }
+        
+        chama.payoutOrder = _payoutOrder;
+        emit PayoutOrderSet(_chamaId, _payoutOrder);
     }
 
     function processPayout(address _receiver, uint _amount) internal {
@@ -555,13 +587,6 @@ contract ChamaPay is
         }
 
         return (memberAddresses, balances);
-    }
-
-    function setPayoutOrder(uint _chamaId, address[] memory _payoutOrder) public onlyAiAgent whenNotPaused {
-        require(_payoutOrder.length == chamas[_chamaId].members.length, "Payout order length mismatch");
-        Chama storage chama = chamas[_chamaId];
-        chama.payoutOrder = _payoutOrder;
-        emit PayoutOrderSet(_chamaId, _payoutOrder);
     }
 
     function refund(uint _chamaId) internal {

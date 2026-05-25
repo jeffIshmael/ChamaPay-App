@@ -44,10 +44,8 @@ export const miniappCreateChama = async (req: Request, res: Response) => {
                 cycleTime,
                 maxNo: maxNo || 15,
                 slug: uniqueSlug,
-                startDate: new Date(startDate),
-                payDate: new Date(
-                    new Date(startDate).getTime() + cycleTime * 24 * 60 * 60 * 1000
-                ),
+                payDate: new Date(startDate),
+               status:"active",
                 blockchainId: blockchainId.toString(),
                 round: 1,
                 cycle: 1,

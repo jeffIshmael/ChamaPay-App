@@ -6,7 +6,7 @@ import { PrismaClient } from "@prisma/client";
 import { toEther } from "thirdweb";
 import {
   getChamasThatHaveReachedPaydate,
-  getNonStartedChamas,
+  getFirstPayoutChamas,
   shuffleArray,
 } from "./HelperFunctions";
 import { checkPayoutResult, setPayoutOrder, triggerPayout } from "./Thirdweb";
@@ -31,55 +31,84 @@ export interface PayoutOrder {
 // set as started
 export const checkStartDate = async () => {
   try {
-    const nonStartedChamas = await getNonStartedChamas();
+    const firstPayoutChamas = await getFirstPayoutChamas();
 
-    if (nonStartedChamas.length === 0) {
+    if (firstPayoutChamas.length === 0) {
       return;
     }
 
     const results = await Promise.allSettled(
-      nonStartedChamas.map(async (chama) => {
+      firstPayoutChamas.map(async (chama) => {
         const members = chama.members;
         const addresses = members.map((m) => m.user.smartAddress);
-        const shuffledPayoutOrder = shuffleArray(addresses);
-        console.log("shuffledPayoutOrder", shuffledPayoutOrder);
+        let payoutOrderData = chama.payOutOrder;
 
-        const txHash = await pimlicoSetPayoutOrder(
-          Number(chama.blockchainId),
-          shuffledPayoutOrder
-        );
-        
-        if (!txHash) {
-          throw new Error("Failed to set payout order");
+        if (!payoutOrderData) {
+          const shuffledPayoutOrder = shuffleArray(addresses);
+          console.log("shuffledPayoutOrder", shuffledPayoutOrder);
+
+          const txHash = await pimlicoSetPayoutOrder(
+            Number(chama.blockchainId),
+            shuffledPayoutOrder
+          );
+
+          if (!txHash) {
+            throw new Error("Failed to set payout order");
+          }
+
+          const payoutOrder: PayoutOrder[] = shuffledPayoutOrder.map(
+            (address, index) => ({
+              userAddress: address,
+              payDate: new Date(
+                chama.payDate.getTime() +
+                chama.cycleTime * 24 * 60 * 60 * 1000 * index
+              ),
+              paid: false,
+              amount: "0",
+            })
+          );
+
+          payoutOrderData = JSON.stringify(payoutOrder);
+
+          await prisma.chama.update({
+            where: { id: chama.id },
+            data: { payOutOrder: payoutOrderData },
+          });
+
+          const firstAddress = payoutOrder[0];
+          const firstMember = chama.members.find((m: any) => m.user.smartAddress === firstAddress);
+          const firstName = firstMember ? firstMember.user.userName : "Someone";
+
+          await notifyAllChamaMembers(
+            chama.id,
+            `Great news! The payout order for ${chama.name} is officially set. ${firstName} is up first! 🚀`
+          );
+
+          await sendExpoNotificationToAllChamaMembers(
+            `Payout Order Ready! 🎉`,
+            `${firstName} will receive the first payout in ${chama.name} chama. Tap to view the full order!`,
+            chama.id,
+            firstMember?.user.id
+          );
+
+          await sendExpoNotificationToAUser(
+            firstMember?.user.id!,
+            `Payout Order Ready! 🎉`,
+            `You are the first in the payout order for ${chama.name} chama. Tap to view the full order!`,
+          )
+        } else {
+
+          await notifyAllChamaMembers(
+            chama.id,
+            `Reminder: The  payout for ${chama.name} is in 3 days. Make sure you have contributed!`
+          );
+
+          await sendExpoNotificationToAllChamaMembers(
+            `Payout Approaching ⌛`,
+            `Payout for ${chama.name} chama is in 3 days. Make sure you have contributed!`,
+            chama.id
+          );
         }
-
-        const payoutOrder: PayoutOrder[] = shuffledPayoutOrder.map(
-          (address, index) => ({
-            userAddress: address,
-            payDate: new Date(
-              chama.payDate.getTime() +
-              chama.cycleTime * 24 * 60 * 60 * 1000 * index
-            ),
-            paid: false,
-            amount: "0",
-          })
-        );
-
-        await prisma.chama.update({
-          where: { id: chama.id },
-          data: { payOutOrder: JSON.stringify(payoutOrder), started: true },
-        });
-
-        await notifyAllChamaMembers(
-          chama.id,
-          `Your ${chama.name} chama has started! Tap to view the payout order and your position.`
-        );
-
-        await sendExpoNotificationToAllChamaMembers(
-          `${chama.name} Chama Started`,
-          `Tap to view the payout order and your position.`,
-          chama.id
-        );
 
         return { chamaId: chama.id, status: 'success' };
       })
@@ -90,10 +119,10 @@ export const checkStartDate = async () => {
 
     console.log(`✅ Successful: ${successful.length}`);
     console.log(`❌ Failed: ${failed.length}`);
-    
+
     failed.forEach((f, idx) => {
       if (f.status === 'rejected') {
-        console.error(`Chama ${nonStartedChamas[idx]?.id} failed:`, f.reason);
+        console.error(`Chama ${firstPayoutChamas[idx]?.id} failed:`, f.reason);
       }
     });
 
