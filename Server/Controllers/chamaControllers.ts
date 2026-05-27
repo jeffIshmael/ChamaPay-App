@@ -535,11 +535,10 @@ export const addMemberToChama = async (req: Request, res: Response) => {
 
     // notify the member has been added
     if (!isPublic) {
-      await sendExpoNotificationToAllChamaMembers(
+      await sendExpoNotificationToAUser(
+        memberBeingAdded.id,
         `Successfully added.`,
         `You have been added to ${chama.name} chama.`,
-        parseInt(chamaId),
-        memberBeingAdded.id
       );
     }
 
@@ -547,7 +546,7 @@ export const addMemberToChama = async (req: Request, res: Response) => {
       `New member joined.`,
       `A new member has joined ${chama.name} chama.`,
       parseInt(chamaId),
-      [user.id, memberBeingAdded.id]
+      [memberBeingAdded.id]
     );
     return res
       .status(200)

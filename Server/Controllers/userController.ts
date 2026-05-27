@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import "multer";
 import { formatUnits, isAddress } from "viem";
-import { transferTx } from "../Blockchain/erc20Functions";
+import { transferTx, transferWithFeeTx } from "../Blockchain/erc20Functions";
 import { getUserBalance } from "../Blockchain/ReadFunctions";
 import { bcAddMemberToPrivateChama } from "../Blockchain/WriteFunction";
 import { sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
@@ -103,7 +103,7 @@ export const getUser = async (req: Request, res: Response): Promise<void> => {
 // function to get all the userdaitls
 export const getUserDetails = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     if (!req.user?.userId) {
@@ -170,7 +170,7 @@ export const getUserDetails = async (
 // Function to update user profile
 export const updateUserProfile = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { name, email, phoneNo, profileImageUrl }: UpdateProfileRequest =
@@ -233,7 +233,8 @@ export const updateUserProfile = async (
       },
     });
 
-    const { hashedPrivkey, hashedPassphrase, ...nonSensitiveUser } = updatedUser;
+    const { hashedPrivkey, hashedPassphrase, ...nonSensitiveUser } =
+      updatedUser;
     res.status(200).json({
       message: "Profile updated successfully",
       user: nonSensitiveUser,
@@ -247,7 +248,7 @@ export const updateUserProfile = async (
 // Public endpoint to check if a user exists by email
 export const checkUserExists = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { email } = req.body as { email?: string };
@@ -273,7 +274,7 @@ export const checkUserExists = async (
 // function to get user by userId
 export const getUserById = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { userId } = req.params as { userId: string };
@@ -295,7 +296,7 @@ export const getUserById = async (
 // Check if username is available
 export const checkUsernameAvailability = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { username } = req.body as { username?: string };
@@ -360,7 +361,7 @@ export const checkUsernameAvailability = async (
 // Search users by username
 export const searchUsers = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { query } = req.query as { query?: string };
@@ -405,7 +406,7 @@ export const searchUsers = async (
 // register payment
 export const registerPayment = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const userId: number = req.user?.userId as number;
@@ -425,7 +426,7 @@ export const registerPayment = async (
       receiver,
       amount,
       description,
-      txHash
+      txHash,
     );
     if (payment === null) {
       res
@@ -443,7 +444,7 @@ export const registerPayment = async (
 // send join request
 export const sendJoinRequest = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { chamaId } = req.query;
   console.log("Chama ID for the request:", chamaId);
@@ -463,30 +464,25 @@ export const sendJoinRequest = async (
 
     const chama = await prisma.chama.findUnique({
       where: {
-        id: Number(chamaId)
-      }
+        id: Number(chamaId),
+      },
     });
 
     if (!chama) {
-      res
-        .status(400)
-        .json({ success: false, error: "Chama not found." });
+      res.status(400).json({ success: false, error: "Chama not found." });
       return;
     }
 
     // get user
     const user = await prisma.user.findUnique({
       where: {
-        id: Number(userId)
-      }
+        id: Number(userId),
+      },
     });
     if (!user) {
-      res
-        .status(400)
-        .json({ success: false, error: "User not found." });
+      res.status(400).json({ success: false, error: "User not found." });
       return;
     }
-
 
     const request = await requestToJoin(userId, Number(chamaId));
     if (request === null) {
@@ -513,7 +509,7 @@ export const sendJoinRequest = async (
 // handle the request (approve, reject)
 export const confirmJoinRequest = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { chamaId, requestId, userName, decision } = req.body;
   try {
@@ -534,14 +530,12 @@ export const confirmJoinRequest = async (
     const request = await prisma.chamaRequest.findUnique({
       where: {
         id: Number(requestId),
-      }
+      },
     });
     if (!request) {
-      res
-        .status(400)
-        .json({ success: false, error: "Unable to get request." });
+      res.status(400).json({ success: false, error: "Unable to get request." });
       return;
-    };
+    }
 
     // get admin
     const chama = await prisma.chama.findUnique({
@@ -557,9 +551,7 @@ export const confirmJoinRequest = async (
       },
     });
     if (!chama) {
-      res
-        .status(400)
-        .json({ success: false, error: "Unable to get chama." });
+      res.status(400).json({ success: false, error: "Unable to get chama." });
       return;
     }
     if (userId !== chama.adminId) {
@@ -574,39 +566,57 @@ export const confirmJoinRequest = async (
       if (chama.round !== 1) {
         res
           .status(400)
-          .json({ success: false, error: `Cannot add user in the middle of cycle.` });
+          .json({
+            success: false,
+            error: `Cannot add user in the middle of cycle.`,
+          });
         return;
       }
-      // get the requesting User 
+      // get the requesting User
       const requestingUser = await prisma.user.findUnique({
         where: {
           id: request.userId,
-        }
+        },
       });
       if (!requestingUser) {
         res
           .status(400)
           .json({ success: false, error: `${userName} not found.` });
         return;
-      };
+      }
       const privateKeyResponse = await getPrivateKey(userId);
-      if (!privateKeyResponse.success || privateKeyResponse.privateKey === null) {
+      if (
+        !privateKeyResponse.success ||
+        privateKeyResponse.privateKey === null
+      ) {
         res
           .status(400)
           .json({ success: false, error: `unable to get signing client.` });
         return;
       }
       const chamaBlockchainId = BigInt(Number(chama.blockchainId));
-      const addingMemberTx = await bcAddMemberToPrivateChama(privateKeyResponse.privateKey, chamaBlockchainId, requestingUser.smartAddress);
+      const addingMemberTx = await bcAddMemberToPrivateChama(
+        privateKeyResponse.privateKey,
+        chamaBlockchainId,
+        requestingUser.smartAddress,
+      );
       if (!addingMemberTx) {
         res
           .status(400)
-          .json({ success: false, error: `unable to add ${userName} to ${chama.name} onchain.` });
+          .json({
+            success: false,
+            error: `unable to add ${userName} to ${chama.name} onchain.`,
+          });
         return;
       }
     }
 
-    const result = await handleRequest(requestId, chama.name, userName, isApproved);
+    const result = await handleRequest(
+      requestId,
+      chama.name,
+      userName,
+      isApproved,
+    );
 
     if (!result) {
       res
@@ -624,7 +634,7 @@ export const confirmJoinRequest = async (
 // check has request
 export const checkHasJoinRequest = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { chamaId } = req.query;
   const { userId } = req.params;
@@ -653,7 +663,7 @@ export const checkHasJoinRequest = async (
     // if user has
     const hasRequest = await checkHasPendingRequest(
       Number(userId),
-      Number(chamaId)
+      Number(chamaId),
     );
     if (hasRequest === null) {
       res
@@ -672,7 +682,7 @@ export const checkHasJoinRequest = async (
 // share a chama link to user
 export const shareChamaLink = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { receiverId, message, chamaLink } = req.body;
   try {
@@ -728,11 +738,7 @@ export const shareChamaLink = async (
     }
 
     // expo notify the receiver
-    await sendExpoNotificationToAUser(
-      receiver.id,
-      "ChamaPay Invite",
-      message,
-    );
+    await sendExpoNotificationToAUser(receiver.id, "ChamaPay Invite", message);
 
     res.status(200).json({ success: true, notification: notification });
   } catch (error) {
@@ -744,7 +750,7 @@ export const shareChamaLink = async (
 // update phone number
 export const updatePhoneNumber = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { phoneNo } = req.body;
@@ -786,7 +792,10 @@ export const updatePhoneNumber = async (
 };
 
 // MARK ALL NOTIFICATIONS AS READ
-export const markNotificationsRead = async (req: Request, res: Response): Promise<void> => {
+export const markNotificationsRead = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const userId = req.user?.userId;
     if (!userId) {
@@ -813,7 +822,7 @@ export const markNotificationsRead = async (req: Request, res: Response): Promis
 
 export const uploadProfileImage = async (
   req: MulterRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     if (!req.file) {
@@ -829,12 +838,13 @@ export const uploadProfileImage = async (
     }
 
     // Upload to Pinata IPFS
-    const fileName = `profile_${userId}_${Date.now()}.${req.file.mimetype.split("/")[1]
-      }`;
+    const fileName = `profile_${userId}_${Date.now()}.${
+      req.file.mimetype.split("/")[1]
+    }`;
     const ipfsUrl = await uploadToPinata(
       req.file.buffer,
       fileName,
-      req.file.mimetype
+      req.file.mimetype,
     );
 
     // Update user in database with IPFS URL
@@ -872,7 +882,7 @@ export const uploadProfileImage = async (
 // transfer USDC
 export const transferUSDC = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const userId: number = req.user?.userId as number;
@@ -880,7 +890,7 @@ export const transferUSDC = async (
       res.status(401).json({ message: "User not authenticated" });
       return;
     }
-    const { receiver, amount } = req.body;
+    const { receiver, amount, fee } = req.body;
     if (!receiver || !amount) {
       res
         .status(400)
@@ -890,7 +900,9 @@ export const transferUSDC = async (
 
     // check if receiver is a valid address
     if (!isAddress(receiver)) {
-      res.status(400).json({ success: false, error: "Invalid receiver address" });
+      res
+        .status(400)
+        .json({ success: false, error: "Invalid receiver address" });
       return;
     }
     // get the private key
@@ -904,14 +916,33 @@ export const transferUSDC = async (
 
     const privateKey = await getPrivateKey(user.id);
     if (!privateKey.success || privateKey.privateKey === null) {
-      res.status(400).json({ success: false, error: "Failed to get private key" });
+      res
+        .status(400)
+        .json({ success: false, error: "Failed to get private key" });
       return;
     }
 
-    const txHash = await transferTx(privateKey.privateKey, amount, receiver as `0x${string}`);
+    let transferTxHash: string | null = null;
 
-    if (!txHash) {
-      res.status(400).json({ success: false, error: "Failed to transfer USDC" });
+    if (Number(fee) > 0) {
+      transferTxHash = await transferWithFeeTx(
+        privateKey.privateKey,
+        amount,
+        receiver as `0x${string}`,
+        fee,
+      );
+    } else {
+      transferTxHash = await transferTx(
+        privateKey.privateKey,
+        amount,
+        receiver as `0x${string}`,
+      );
+    }
+
+    if (!transferTxHash) {
+      res
+        .status(400)
+        .json({ success: false, error: "Failed to transfer USDC" });
       return;
     }
 
@@ -920,7 +951,7 @@ export const transferUSDC = async (
       receiver,
       amount,
       "Transfer",
-      txHash
+      transferTxHash,
     );
     if (payment === null) {
       res
@@ -938,7 +969,7 @@ export const transferUSDC = async (
 // transfer USDC
 export const getUserUsdcBalance = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const userId: number = req.user?.userId as number;
@@ -968,7 +999,7 @@ export const getUserUsdcBalance = async (
 // update user push token
 export const updateUserPushToken = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const userId: number = req.user?.userId as number;
@@ -1000,7 +1031,7 @@ export const updateUserPushToken = async (
 // update user notification settings
 export const updateUserNotificationSettings = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const userId: number = req.user?.userId as number;
@@ -1040,7 +1071,7 @@ export const updateUserNotificationSettings = async (
 // function to get user by smartAddress or address
 export const getUserByAddress = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { address } = req.query as { address?: string };
@@ -1052,10 +1083,7 @@ export const getUserByAddress = async (
 
     const user = await prisma.user.findFirst({
       where: {
-        OR: [
-          { smartAddress: address, },
-          { address: address }
-        ]
+        OR: [{ smartAddress: address }, { address: address }],
       },
       select: {
         id: true,
@@ -1081,4 +1109,3 @@ export const getUserByAddress = async (
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
-
