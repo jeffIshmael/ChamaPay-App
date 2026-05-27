@@ -320,7 +320,10 @@ export default function WalletSetup() {
                 placeholder="your-username"
                 autoCapitalize="none"
                 value={username}
-                onChangeText={setUsername}
+                onChangeText={(text) => {
+                  const cleaned = text.toLowerCase().replace(/[^a-z0-9]/g, "");
+                  setUsername(cleaned);
+                }}
                 editable={!savingName}
               />
               {usernameStatus === "checking" && (

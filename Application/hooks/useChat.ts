@@ -1,6 +1,6 @@
 import { Message } from "@/constants/mockData";
 import { saveMessageToDb } from "@/lib/chamaService";
-import { getSocket } from "@/socket/socket";
+import { getSocket, connectSocket } from "@/socket/socket";
 import { useEffect, useRef, useState } from "react";
 
 export interface MessageObj {
@@ -95,14 +95,30 @@ export function useChat(chamaId: number) {
       throw new Error("Please, log in again.");
     }
 
-    if (!socket) {
-      throw new Error("Socket not connected. Please refresh the page.");
+    let activeSocket = socket || getSocket();
+
+    // If socket is not initialized/connected, try to connect in background
+    if (!activeSocket) {
+      try {
+        console.log("Socket is null in useChat. Attempting to connect...");
+        activeSocket = await connectSocket(token);
+      } catch (err) {
+        console.warn("Could not connect socket on sendMessage attempt:", err);
+      }
+    }
+
+    // Try to emit via Socket if connected, otherwise save directly to DB
+    if (activeSocket && activeSocket.connected) {
+      try {
+        activeSocket.emit("sendMessage", messageObj);
+      } catch (socketErr) {
+        console.warn("Failed to emit sendMessage socket event:", socketErr);
+      }
+    } else {
+      console.warn("Socket is offline or disconnected, proceeding with database save only");
     }
 
     try {
-      // Emit message to socket
-      socket.emit("sendMessage", messageObj);
-
       // Save to database
       const response = await saveMessageToDb(
         token,
@@ -115,7 +131,7 @@ export function useChat(chamaId: number) {
         throw new Error("Unable to write message to database.");
       }
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error("Error saving message to database:", error);
       throw error;
     }
   };

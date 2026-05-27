@@ -106,8 +106,7 @@ export interface BackendChama {
   cycleTime: number;
   maxNo: number;
   slug: string;
-  startDate: Date;
-  started: boolean;
+  status: string;
   adminTerms: string | null;
   payDate: Date;
   blockchainId: string;
@@ -445,8 +444,6 @@ export const transformChamaData = (
     contribution: parseFloat(backendChama.amount),
     totalContributions: parseFloat(backendChama.amount) * memberCount,
 
-    startDate: backendChama.startDate,
-
     // Time formatting
     nextPayoutDate: formatTimeRemaining(nextPayoutDate),
     myTurnDate: myTurnDate,
@@ -493,9 +490,7 @@ export const transformChamaData = (
 
     nextTurnMember: backendChama.members?.[1]?.user?.userName || "Not assigned",
 
-    status: (backendChama.started ? "active" : "not started") as
-      | "active"
-      | "not started",
+    status: backendChama.status as "active" | "inactive",
 
     unreadMessages: 0,
     isPublic: backendChama.type === "Public",
@@ -524,7 +519,7 @@ export const transformChamaData = (
       ...(backendChama.payments?.map((payment) => ({
         id: `payment-${payment.id}`,
         amount: payment.amount,
-        type: payment.description ? "contribution" : "contribution", // Default to contribution for payments
+        type: payment.description === "deposited" || payment.description === "locked" ? "contribution" : "withdrawal", // Default to contribution for payments
         date: payment.doneAt,
         status: "completed",
         description: payment.description || "Contribution",
@@ -832,6 +827,29 @@ export const markNotificationsReadApi = async (token: string) => {
   } catch (error) {
     console.error("Error marking notifications as read:", error);
     return { success: false, error: "Failed to mark notifications as read" };
+  }
+};
+
+// set payout order
+export const setPayoutOrderApi = async (
+  chamaId: number,
+  payoutOrder: string[],
+  token: string
+): Promise<ChamaResponse> => {
+  try {
+    const response = await fetch(`${serverUrl}/chama/set-payout-order`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ chamaId, payoutOrder }),
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error setting payout order:", error);
+    return { success: false, error: "Failed to set payout order" };
   }
 };
 

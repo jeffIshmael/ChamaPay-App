@@ -1,4 +1,6 @@
 import { useAuth } from "@/Contexts/AuthContext";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
+import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { CheckCircle, Lock, Wallet } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -36,6 +38,12 @@ export const WithdrawModal = ({
     const [isSuccess, setIsSuccess] = useState(false);
     const { token } = useAuth();
 
+    const { currency: userCurrency } = useCurrencyStore();
+    const { rates } = useExchangeRateStore();
+    const kesRate = rates["KES"]?.rate || 0;
+
+    const isKESActive = userCurrency === "KES" && kesRate > 0;
+
     const handleWithdraw = async () => {
         setLoading(true);
         setError("");
@@ -48,15 +56,26 @@ export const WithdrawModal = ({
                 return;
             }
 
-            if (withdrawAmount > balance) {
+            const limit = isKESActive ? balance * kesRate : balance;
+            if (withdrawAmount > limit) {
                 setError(
-                    `Insufficient balance. You have ${balance.toFixed(3)} ${currency} available`
+                    `Insufficient balance. You have ${isKESActive ? (balance * kesRate).toFixed(2) + " KES" : balance.toFixed(3) + " " + currency} available`
                 );
                 setLoading(false);
                 return;
             }
 
-            const result = await withdrawFromChamaBalance(chamaId, amount, token!);
+            const isWithdrawAll = isKESActive
+                ? (withdrawAmount >= balance * kesRate)
+                : (withdrawAmount >= balance);
+
+            const amountToWithdraw = isWithdrawAll
+                ? balance.toString()
+                : (isKESActive
+                    ? (withdrawAmount / kesRate).toFixed(6)
+                    : amount);
+
+            const result = await withdrawFromChamaBalance(chamaId, amountToWithdraw, token!);
             if (result.success) {
                 setIsSuccess(true);
             } else {
@@ -102,7 +121,7 @@ export const WithdrawModal = ({
                                 Withdrawal Successful!
                             </Text>
                             <Text className="text-gray-600 text-center mb-8 px-4">
-                                Successfully withdrawn {amount} {currency} from {chamaName}
+                                Successfully withdrawn {amount} {isKESActive ? "KES" : currency} from {chamaName}
                             </Text>
                             <TouchableOpacity
                                 onPress={() => {
@@ -135,7 +154,7 @@ export const WithdrawModal = ({
                             <View className="w-full">
                                 <View className="mb-4">
                                     <Text className="text-sm text-gray-700 mb-2 font-medium">
-                                        Amount ({currency})
+                                        Amount ({isKESActive ? "KES" : currency})
                                     </Text>
                                     <TextInput
                                         className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50"
@@ -147,6 +166,11 @@ export const WithdrawModal = ({
                                             setError("");
                                         }}
                                     />
+                                    {isKESActive && amount && !isNaN(Number(amount)) ? (
+                                        <Text className="text-xs text-gray-500 mt-1">
+                                            ≈ {(Number(amount) / kesRate).toFixed(3)} {currency}
+                                        </Text>
+                                    ) : null}
                                     {error ? (
                                         <Text className="text-red-500 text-xs mt-2">{error}</Text>
                                     ) : null}
@@ -156,11 +180,27 @@ export const WithdrawModal = ({
                                     <View className="flex-row justify-between items-center mb-2">
                                         <Text className="text-gray-600 text-sm">Available Balance</Text>
                                         <Text className="text-gray-900 font-bold">
-                                            {balance.toFixed(3)} {currency}
+                                            {isKESActive
+                                                ? `${(balance * kesRate).toFixed(2)} KES`
+                                                : `${balance.toFixed(3)} ${currency}`}
                                         </Text>
                                     </View>
+                                    {isKESActive && (
+                                        <View className="flex-row justify-between items-center mb-2">
+                                            <Text className="text-gray-500 text-xs">Equivalent in USDC</Text>
+                                            <Text className="text-gray-700 text-xs font-semibold">
+                                                {balance.toFixed(3)} {currency}
+                                            </Text>
+                                        </View>
+                                    )}
                                     <TouchableOpacity
-                                        onPress={() => setAmount(balance.toString())}
+                                        onPress={() => {
+                                            if (isKESActive) {
+                                                setAmount((balance * kesRate).toFixed(2));
+                                            } else {
+                                                setAmount(balance.toString());
+                                            }
+                                        }}
                                         className="self-end"
                                     >
                                         <Text className="text-emerald-600 text-xs font-bold">Withdraw All</Text>

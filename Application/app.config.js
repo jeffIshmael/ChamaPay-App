@@ -99,6 +99,12 @@ export default {
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow ChamaPay to access your camera to scan QR codes."
+        }
+      ],
       "expo-router",
       "expo-asset",
       [

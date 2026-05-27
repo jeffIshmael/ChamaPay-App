@@ -3,7 +3,7 @@ import {
   CurrencyCode,
   disburseToMobileNumber,
   pollPretiumPaymentStatus,
-  validatePhoneNumber
+  validatePhoneNumber,
 } from "@/lib/pretiumService";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -22,7 +22,7 @@ import {
   TextInput,
   ToastAndroid,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -35,6 +35,7 @@ import {
   type TransactionLimits,
 } from "@/Utils/pretiumUtils";
 import { type Quote } from "./index";
+import { withdrawalToMpesaFee } from "@/Utils/transactionFeeUtils";
 
 type MobileDetailsShape = {
   mobile_network?: string;
@@ -52,7 +53,7 @@ interface Verification {
 export default function WithdrawCryptoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [amountKES, setAmountKES] = useState("");
+  const [amountUSDC, setAmountUSDC] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isPhoneTouched, setIsPhoneTouched] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -80,7 +81,7 @@ export default function WithdrawCryptoScreen() {
   const MOBILE_NETWORK = "Safaricom";
 
   const [limits, setLimits] = useState<TransactionLimits | null>(
-    PRETIUM_TRANSACTION_LIMIT["KE"] || null
+    PRETIUM_TRANSACTION_LIMIT["KE"] || null,
   );
   const [exchangeRate, setExchangeRate] = useState<Quote | null>(null);
 
@@ -106,30 +107,30 @@ export default function WithdrawCryptoScreen() {
   // Get current exchange rate
   const currentExchangeRate = theExhangeQuote?.exchangeRate?.buying_rate || 0;
 
-  // Calculate available balance in KES
-  const balanceInKES = (parseFloat(USDCBalance as string) || 0) * currentExchangeRate;
+  // Calculate available balance in USDC
+  const balanceInUSDC = parseFloat(USDCBalance as string) || 0;
 
-  // Calculations - now based on KES input
-  // User gets exactly what they input, fee is added on top
-  const calculateFee = () => parseFloat(amountKES || "0") * 0.005;
+  // Calculations - now based on USDC input
+  // User gets exactly what they input in USDC converted to KES, fee is added on top in USDC
+  // const calculateFeeUSDC = () => parseFloat(amountUSDC || "0") * 0.005;
 
-  const calculateTotalDeduction = () => {
-    const kesAmount = parseFloat(amountKES) || 0;
-    return kesAmount + calculateFee();
+  const calculateTotalDeductionUSDC = () => {
+    const usdcAmountVal = parseFloat(amountUSDC) || 0;
+    return usdcAmountVal;
   };
 
-  const calculateUSDCAmount = () => {
-    const totalKES = calculateTotalDeduction();
-    return currentExchangeRate > 0 ? totalKES / currentExchangeRate : 0;
+  const calculatePayoutKES = () => {
+    const usdcVal = parseFloat(amountUSDC) || 0;
+    return usdcVal * currentExchangeRate;
   };
 
-  const usdcAmount = calculateUSDCAmount().toFixed(6);
-  const finalAmount = amountKES; // User receives exactly what they enter
+  const usdcAmount = calculateTotalDeductionUSDC().toFixed(6);
+  const finalAmountKES = calculatePayoutKES();
 
   // Verify M-Pesa number
   const handleVerifyPhoneNumber = async () => {
     if (!token) {
-      Alert.alert("Error", "Authentication required");
+      ToastAndroid.show( "Authentication required", ToastAndroid.SHORT);
       return;
     }
 
@@ -145,18 +146,18 @@ export default function WithdrawCryptoScreen() {
         "MOBILE",
         MOBILE_NETWORK,
         shortcode,
-        token
+        token,
       );
 
       if (!validation.success) {
         setVerificationError(
-          validation.error || "Failed to validate M-Pesa number"
+          validation.error || "Failed to validate M-Pesa number",
         );
       } else {
         const md = getMobileDetails(validation);
         if (!md) {
           setVerificationError(
-            "Verification succeeded but details were missing. Please try again."
+            "Verification succeeded but details were missing. Please try again.",
           );
           return;
         }
@@ -174,42 +175,44 @@ export default function WithdrawCryptoScreen() {
   };
 
   const handleInitialWithdraw = async () => {
-    if (!amountKES.trim()) return Alert.alert("Error", "Please enter an amount");
+    if (!amountUSDC.trim())
+      return ToastAndroid.show( "Please enter an amount", ToastAndroid.SHORT);
 
-    const kesAmountNum = parseFloat(amountKES);
-    const totalDeduction = calculateTotalDeduction();
+    const usdcAmountNum = parseFloat(amountUSDC);
+    const totalDeductionUSDC = calculateTotalDeductionUSDC();
+    const payoutKES = calculatePayoutKES();
 
-    if (kesAmountNum <= 0) {
-      return Alert.alert("Error", "Amount must be greater than 0");
+    if (usdcAmountNum <= 0) {
+      return ToastAndroid.show( "Amount must be greater than 0", ToastAndroid.SHORT);
     }
 
-    if (totalDeduction > balanceInKES) {
-      // Calculate max amount user can withdraw
-      const maxWithdrawable = balanceInKES / 1.005; // Reverse calculate: balance / (1 + 0.005)
-      return Alert.alert(
-        "Insufficient Balance",
-        `You can withdraw up to ${CURRENCY} ${formatCurrency(maxWithdrawable.toFixed(2))} (including 0.5% fee)`
+    if (usdcAmountNum < 110 / currentExchangeRate) {
+      return ToastAndroid.show(
+        `Minimum withdrawal is ${formatCurrency(110 / currentExchangeRate)} USDC.`,
+        ToastAndroid.SHORT,
       );
     }
 
-    // Validate against min/max limits
+    // Validate against min/max limits in KES
     if (limits) {
-      if (kesAmountNum < limits.min) {
-        return Alert.alert(
-          "Error",
-          `Minimum withdrawal is ${CURRENCY} ${formatCurrency(limits.min)}`
+      if (payoutKES < limits.min) {
+        const minUSDC = limits.min / currentExchangeRate;
+        return ToastAndroid.show(
+          `Minimum withdrawal is ${minUSDC.toFixed(2)} USDC (approx. KES ${formatCurrency(limits.min)})`,
+          ToastAndroid.SHORT,
         );
       }
-      if (kesAmountNum > limits.max) {
-        return Alert.alert(
-          "Error",
-          `Maximum withdrawal is ${CURRENCY} ${formatCurrency(limits.max)}`
+      if (payoutKES > limits.max) {
+        const maxUSDC = limits.max / currentExchangeRate;
+        return ToastAndroid.show(
+          `Maximum withdrawal is ${maxUSDC.toFixed(2)} USDC (approx. KES ${formatCurrency(limits.max)})`,
+          ToastAndroid.SHORT,
         );
       }
     }
 
     if (!isValidPhoneNumber(phoneNumber))
-      return Alert.alert("Error", "Please enter a valid M-Pesa number");
+      return ToastAndroid.show( "Please enter a valid M-Pesa number", ToastAndroid.SHORT);
 
     setShowVerificationModal(true);
     handleVerifyPhoneNumber();
@@ -217,7 +220,7 @@ export default function WithdrawCryptoScreen() {
 
   const handleConfirmedWithdraw = async () => {
     if (!token) {
-      Alert.alert("Error", "No token or wallet connected");
+      ToastAndroid.show( "No token or wallet connected", ToastAndroid.SHORT);
       return;
     }
 
@@ -226,24 +229,23 @@ export default function WithdrawCryptoScreen() {
     setProcessingStep("processing");
 
     try {
+      const payoutKES = calculatePayoutKES();
+      const feeKES = withdrawalToMpesaFee(payoutKES).toFixed(2);
+      const totalDeductionKES = payoutKES;
 
-      const totalDeduction = calculateTotalDeduction();
-      // the fee is 0.5% of the amount
-      const fee = calculateFee();
-
-      console.log("totalDeduction", totalDeduction);
+      console.log("totalDeductionKES", totalDeductionKES);
       console.log("usdcAmount", usdcAmount);
       console.log("currentExchangeRate", currentExchangeRate);
-      console.log("fee", fee);
+      console.log("feeKES", feeKES);
 
       const offrampResult = await disburseToMobileNumber(
         "KES" as CurrencyCode,
         MOBILE_NETWORK,
         `0${phoneNumber}`,
-        totalDeduction.toString(), // User receives exactly what they entered
-        usdcAmount,
+        totalDeductionKES.toFixed(2), // Total KES deduction (payout + fee)
+        usdcAmount, // Total USDC deduction
         currentExchangeRate.toString(),
-        fee.toString(),
+        feeKES, // KES fee
         token,
       );
 
@@ -281,17 +283,17 @@ export default function WithdrawCryptoScreen() {
             }
           },
           60,
-          2000
+          2000,
         );
 
         // Handle successful completion
         setProcessingStep("completed");
         setIsProcessing(false);
-        ToastAndroid.show(` ${formatCurrency(amountKES)} ${CURRENCY} has been successfully sent to ${formatPhoneNumber(
-          KENYA_PHONE_CODE,
-          phoneNumber
-        )}`, ToastAndroid.SHORT);
-        setAmountKES("");
+        ToastAndroid.show(
+          `Successfully withdrew ${amountUSDC} USDC to M-Pesa`,
+          ToastAndroid.SHORT,
+        );
+        setAmountUSDC("");
         setPhoneNumber("");
         router.push("/wallet");
       } catch (pollError: any) {
@@ -323,29 +325,32 @@ export default function WithdrawCryptoScreen() {
 
       setIsProcessing(false);
       ToastAndroid.show(
-        error.message || "Failed to process M-Pesa withdrawal. Please try again.",
-        ToastAndroid.SHORT
+        error.message ||
+          "Failed to process M-Pesa withdrawal. Please try again.",
+        ToastAndroid.SHORT,
       );
       setProcessingStep("idle");
     }
   };
 
-
   const canConfirmWithdraw =
-    !isVerifying &&
-    !verificationError &&
-    !!getMobileDetails(verifiedPhoneData);
+    !isVerifying && !verificationError && !!getMobileDetails(verifiedPhoneData);
 
   const isFormValid = () => {
-    const kesAmountNum = parseFloat(amountKES);
-    const totalDeduction = calculateTotalDeduction();
+    const usdcAmountNum = parseFloat(amountUSDC);
+    const totalDeductionUSDC = calculateTotalDeductionUSDC();
+    const payoutKES = calculatePayoutKES();
 
-    if (!amountKES.trim() || kesAmountNum <= 0 || totalDeduction > balanceInKES) {
+    if (
+      !amountUSDC.trim() ||
+      usdcAmountNum <= 0 ||
+      totalDeductionUSDC > balanceInUSDC
+    ) {
       return false;
     }
 
     if (limits) {
-      if (kesAmountNum < limits.min || kesAmountNum > limits.max) {
+      if (payoutKES < limits.min || payoutKES > limits.max) {
         return false;
       }
     }
@@ -368,7 +373,7 @@ export default function WithdrawCryptoScreen() {
         <View className="flex-row items-center justify-between mb-2">
           <TouchableOpacity
             onPress={() => {
-              setAmountKES("");
+              setAmountUSDC("");
               setPhoneNumber("");
               router.push("/(tabs)/wallet");
             }}
@@ -398,8 +403,8 @@ export default function WithdrawCryptoScreen() {
                 Regional Restriction
               </Text>
               <Text className="text-amber-800 text-center leading-6 mb-4">
-                M-Pesa withdrawal services are only available in Kenya.
-                Please use the "Send" feature to transfer to an external crypto wallet.
+                M-Pesa withdrawal services are only available in Kenya. Please
+                use the "Send" feature to transfer to an external crypto wallet.
               </Text>
 
               <TouchableOpacity
@@ -415,7 +420,9 @@ export default function WithdrawCryptoScreen() {
                 onPress={() => router.back()}
                 className="p-3 border border-amber-700 rounded-xl"
               >
-                <Text className="text-amber-700 font-semibold text-center">Go Back</Text>
+                <Text className="text-amber-700 font-semibold text-center">
+                  Go Back
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -427,7 +434,6 @@ export default function WithdrawCryptoScreen() {
             className="flex-1 pb-20"
           >
             <View className="px-6 py-6 gap-6">
-
               {/* --- M-Pesa Info Card --- */}
               <View className="bg-downy-50 rounded-3xl p-5 shadow-md border border-downy-100 flex-row items-center">
                 <View className="w-16 h-16 rounded-2xl bg-green-50 items-center justify-center">
@@ -439,19 +445,25 @@ export default function WithdrawCryptoScreen() {
                 </View>
                 <View className="w-px h-12 bg-gray-300 mx-4" />
                 <View className="flex-1">
-                  <Text className="text-lg font-bold text-gray-900">M-Pesa</Text>
+                  <Text className="text-lg font-bold text-gray-900">
+                    M-Pesa
+                  </Text>
                   <Text className="text-xs text-gray-500">Safaricom Kenya</Text>
                 </View>
               </View>
 
               {/* --- Phone Number Input --- */}
               <View className="bg-white px-5 py-6 rounded-2xl shadow-sm border border-gray-200">
-                <Text className="text-base font-bold text-gray-900 mb-1">M-Pesa Number</Text>
+                <Text className="text-base font-bold text-gray-900 mb-1">
+                  M-Pesa Number
+                </Text>
                 <Text className="text-sm text-gray-500 mb-3">
                   Enter your registered M-Pesa mobile number
                 </Text>
                 <View className="flex-row items-center bg-gray-50 rounded-xl border-2 border-gray-200 px-4 py-3">
-                  <Text className="text-base font-semibold text-gray-700 mr-2">+{KENYA_PHONE_CODE}</Text>
+                  <Text className="text-base font-semibold text-gray-700 mr-2">
+                    +{KENYA_PHONE_CODE}
+                  </Text>
                   <TextInput
                     value={phoneNumber}
                     onChangeText={(text) =>
@@ -465,81 +477,113 @@ export default function WithdrawCryptoScreen() {
                     className="flex-1 text-base"
                   />
                 </View>
-                {isPhoneTouched && phoneNumber && !isValidPhoneNumber(phoneNumber) && (
-                  <Text className="text-red-500 text-xs mt-2">
-                    Please enter a valid Kenyan phone number
-                  </Text>
-                )}
+                {isPhoneTouched &&
+                  phoneNumber &&
+                  !isValidPhoneNumber(phoneNumber) && (
+                    <Text className="text-red-500 text-xs mt-2">
+                      Please enter a valid Kenyan phone number
+                    </Text>
+                  )}
               </View>
 
               {/* --- Amount Input Section --- */}
               <View className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                 <View className="flex-row items-center justify-between mb-4">
-                  <Text className="text-base font-bold text-gray-900">Withdrawal Amount</Text>
+                  <Text className="text-base font-bold text-gray-900">
+                    Withdrawal Amount
+                  </Text>
                   <Text className="text-xs font-bold text-gray-600">
-                    1 USDC = {currentExchangeRate.toFixed(2)} {CURRENCY}
+                    1 USDC = {currentExchangeRate.toFixed(2)} KES
                   </Text>
                 </View>
 
                 <View className="p-5 rounded-2xl border-2 border-gray-200 bg-gray-50 mb-4">
                   <TextInput
-                    value={amountKES}
-                    onChangeText={setAmountKES}
+                    value={amountUSDC}
+                    onChangeText={setAmountUSDC}
                     placeholder="0.00"
                     keyboardType="decimal-pad"
                     placeholderTextColor="#9CA3AF"
                     className="text-center text-4xl font-bold text-gray-900"
                   />
-                  <Text className="text-center text-xs font-medium text-gray-500 mt-2">{CURRENCY}</Text>
+                  <Text className="text-center text-xs font-medium text-gray-500 mt-2">
+                    USDC
+                  </Text>
                 </View>
 
                 {/* Available Balance & Max Button */}
                 <View className="flex-row items-center justify-between mb-4">
-                  <Text className="text-sm text-gray-600">
-                    Available: <Text className="font-semibold">{CURRENCY} {formatCurrency(balanceInKES.toFixed(2))}</Text>
-                  </Text>
+                  <View>
+                    <Text className="text-sm text-gray-600">
+                      Available:{" "}
+                      <Text className="font-semibold">
+                        {balanceInUSDC.toFixed(3)} USDC
+                      </Text>
+                    </Text>
+                    <Text className="text-xs text-gray-500 mt-0.5">
+                      Min withdrawal: {(110 / currentExchangeRate).toFixed(2)}{" "}
+                      USDC
+                    </Text>
+                  </View>
                   <TouchableOpacity
                     onPress={() => {
-                      const maxLimitNum = limits?.max || Infinity;
-                      const maxFromBalance = balanceInKES / 1.005; // fee included
-                      const maxAmount = Math.min(maxFromBalance, maxLimitNum);
-                      setAmountKES(maxAmount.toFixed(2));
+                      setAmountUSDC(balanceInUSDC.toFixed(4));
                     }}
                     className="bg-downy-100 px-4 py-2 rounded-lg border border-downy-300"
                     activeOpacity={0.7}
                   >
-                    <Text className="text-downy-700 text-xs font-bold">Max</Text>
+                    <Text className="text-downy-700 text-xs font-bold">
+                      Max
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
                 {/* Fee & Total */}
-                {parseFloat(amountKES) > 0 && (
+                {parseFloat(amountUSDC) >= 110 / currentExchangeRate ? (
                   <View className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-2 space-y-2">
                     <View className="flex-row justify-between">
-                      <Text className="text-sm text-gray-600">You will receive</Text>
+                      <Text className="text-sm text-gray-600">
+                        Amount in KES
+                      </Text>
                       <Text className="text-sm font-semibold text-gray-900">
-                        {CURRENCY} {formatCurrency(amountKES)}
+                        KES {formatCurrency(finalAmountKES.toFixed(2))}
                       </Text>
                     </View>
                     <View className="flex-row justify-between">
-                      <Text className="text-sm text-gray-600">Service Fee (0.5%)</Text>
+                      <Text className="text-sm text-gray-600">Service Fee</Text>
                       <Text className="text-sm font-semibold text-amber-600">
-                        + {CURRENCY} {formatCurrency(calculateFee().toFixed(2))}
+                        - {withdrawalToMpesaFee(finalAmountKES).toFixed(2)} KES
                       </Text>
                     </View>
-                    <View className="flex-1 h-px bg-gray-300 my-1" />
+                    <View className="flex-1 h-px bg-gray-300 my-4" />
                     <View className="flex-row justify-between">
-                      <Text className="text-sm font-bold text-gray-900">Total Deduction</Text>
-                      <Text className="text-sm font-bold text-gray-900">
-                        {CURRENCY} {formatCurrency(calculateTotalDeduction().toFixed(2))}
+                      <Text className="text-md font-bold text-gray-900">
+                        You will receive
+                      </Text>
+                      <Text className="text-md font-bold text-gray-900">
+                        KES{" "}
+                        {formatCurrency(
+                          Number(finalAmountKES.toFixed(2)) -
+                            withdrawalToMpesaFee(finalAmountKES),
+                        )}
                       </Text>
                     </View>
-                    <View className="flex-row justify-between">
-                      <Text className="text-xs text-gray-500">USDC to withdraw</Text>
-                      <Text className="text-xs text-gray-500">{parseFloat(usdcAmount).toFixed(4)} USDC</Text>
-                    </View>
+                    {/* <View className="flex-row justify-between">
+                      <Text className="text-xs text-gray-500">Total KES Deduction</Text>
+                      <Text className="text-xs text-gray-500">
+                        KES {formatCurrency((parseFloat(usdcAmount) * currentExchangeRate).toFixed(2))}
+                      </Text>
+                    </View> */}
                   </View>
-                )}
+                ) : parseFloat(amountUSDC) < 110 / currentExchangeRate &&
+                  parseFloat(amountUSDC) > 0 ? (
+                  <View className=" p-2 rounded-xl border border-yellow-200 mb-2 space-y-2">
+                    <Text className="text-sm text-yellow-600">
+                      Minimum withdrawal is{" "}
+                      {formatCurrency(110 / currentExchangeRate)} USDC
+                    </Text>
+                  </View>
+                ) : null}
               </View>
 
               {/* Submit Button */}
@@ -549,7 +593,9 @@ export default function WithdrawCryptoScreen() {
                 className={`w-full py-4 rounded-2xl shadow-lg ${isFormValid() ? "bg-downy-600" : "bg-gray-300"}`}
                 activeOpacity={0.8}
               >
-                <Text className={`text-center font-bold text-lg ${isFormValid() ? "text-white" : "text-gray-500"}`}>
+                <Text
+                  className={`text-center font-bold text-lg ${isFormValid() ? "text-white" : "text-gray-500"}`}
+                >
                   Withdraw to M-Pesa
                 </Text>
               </TouchableOpacity>
@@ -565,47 +611,53 @@ export default function WithdrawCryptoScreen() {
         animationType="fade"
         onRequestClose={() => setShowVerificationModal(false)}
       >
-        <View className="flex-1 bg-black/60 items-center justify-center px-6">
+        <View className="flex-1 bg-downy-950/80 items-center justify-center px-6">
           <View
-            className="bg-white rounded-[32px] w-full shadow-2xl overflow-hidden"
+            className="bg-white rounded-[32px] w-full shadow-2xl overflow-hidden border border-downy-100"
             style={{ maxWidth: 400 }}
           >
             {/* Modal Header */}
-            <View className="bg-downy-50 py-6 px-6 border-b border-downy-100 items-center">
-              <View className="w-16 h-16 bg-white rounded-2xl items-center justify-center shadow-sm mb-3">
+            <View className="bg-downy-50/80 py-7 px-6 border-b border-downy-100/50 items-center">
+              <View className="w-18 h-18 bg-white rounded-3xl items-center justify-center shadow-md mb-3 border border-downy-100/30">
                 <Image
                   source={require("@/assets/images/mpesa.png")}
-                  className="w-12 h-12"
+                  className="w-14 h-14"
                   resizeMode="contain"
                 />
               </View>
-              <Text className="text-xl font-bold text-gray-900">
+              <Text className="text-2xl font-black text-downy-900 tracking-tight">
                 Confirm Details
               </Text>
-              <Text className="text-xs text-gray-500 mt-1 uppercase tracking-widest font-semibold">
-                Withdrawal Verification
+              <Text className="text-[11px] text-downy-600 mt-1 uppercase tracking-widest font-black">
+                M-Pesa Cashout Verification
               </Text>
             </View>
 
             <View className="p-6">
               {isVerifying ? (
-                <View className="items-center py-8">
-                  <ActivityIndicator size="large" color="#059669" />
-                  <Text className="mt-4 text-sm font-medium text-gray-600">
-                    Verifying M-Pesa details...
+                <View className="items-center py-10">
+                  <ActivityIndicator size="large" color="#1c8584" />
+                  <Text className="mt-4 text-sm font-bold text-downy-800">
+                    Verifying recipient information...
+                  </Text>
+                  <Text className="text-xs text-gray-500 mt-1">
+                    Checking phone registration status
                   </Text>
                 </View>
               ) : verificationError ? (
-                <View className="items-center py-4">
-                  <View className="w-12 h-12 bg-red-50 rounded-full items-center justify-center mb-3">
-                    <Text className="text-xl">⚠️</Text>
+                <View className="items-center py-6">
+                  <View className="w-16 h-16 bg-red-50 rounded-full items-center justify-center mb-4 border border-red-200">
+                    <Text className="text-3xl">⚠️</Text>
                   </View>
-                  <Text className="text-sm text-red-600 text-center font-medium px-4">
+                  <Text className="text-base font-bold text-red-600 text-center px-2">
+                    Verification Failed
+                  </Text>
+                  <Text className="text-sm text-gray-500 text-center font-medium px-4 mt-2 leading-5">
                     {verificationError}
                   </Text>
                   <TouchableOpacity
                     onPress={() => setShowVerificationModal(false)}
-                    className="mt-6 w-full py-3.5 rounded-2xl bg-gray-100 active:bg-gray-200"
+                    className="mt-8 w-full py-4 rounded-2xl bg-gray-100 active:bg-gray-200 border border-gray-200"
                     activeOpacity={0.8}
                   >
                     <Text className="text-center font-bold text-gray-800">
@@ -616,46 +668,62 @@ export default function WithdrawCryptoScreen() {
               ) : (
                 <>
                   {!!getMobileDetails(verifiedPhoneData) && (
-                    <View className="space-y-4">
+                    <View className="gap-4">
                       {/* Recipient Card */}
-                      <View className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                        <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Recipient</Text>
-                        <View className="flex-row items-center justify-between mb-3">
-                          <Text className="text-sm text-gray-600">Account Name</Text>
-                          <Text className="text-sm font-bold text-gray-900">
-                            {getMobileDetails(verifiedPhoneData)?.public_name || "—"}
+                      <View className="bg-gray-50/80 rounded-2xl p-5 border border-gray-100 shadow-sm">
+                        <Text className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">
+                          RECIPIENT ACCOUNT
+                        </Text>
+
+                        <View className="flex-row items-center justify-between mb-3.5 pb-3 border-b border-gray-200/50">
+                          <Text className="text-sm text-gray-500">Name</Text>
+                          <Text className="text-sm font-black text-gray-900">
+                            {getMobileDetails(verifiedPhoneData)?.public_name ||
+                              "—"}
                           </Text>
                         </View>
+
                         <View className="flex-row items-center justify-between">
-                          <Text className="text-sm text-gray-600">M-Pesa Number</Text>
-                          <Text className="text-sm font-bold text-emerald-700">
+                          <Text className="text-sm text-gray-500">
+                            Phone Number
+                          </Text>
+                          <Text className="text-sm font-black text-downy-700">
                             {formatPhoneNumber(KENYA_PHONE_CODE, phoneNumber)}
                           </Text>
                         </View>
                       </View>
 
                       {/* Amount Details */}
-                      <View className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-100 my-4">
-                        <Text className="text-[10px] font-bold text-emerald-600/50 uppercase tracking-wider mb-2">Withdrawal Amount</Text>
-                        <View className="flex-row items-center justify-between mb-1">
-                          <Text className="text-sm text-gray-600">You Receive</Text>
-                          <Text className="text-lg font-bold text-emerald-800">
-                            {CURRENCY} {formatCurrency(amountKES)}
+                      <View className="bg-downy-50/50 rounded-2xl p-5 border border-downy-100/50 my-2 shadow-sm">
+                        <Text className="text-[10px] font-black text-downy-600/70 uppercase tracking-widest mb-3">
+                          TRANSACTION VALUE
+                        </Text>
+
+                        <View className="flex-row items-center justify-between mb-2">
+                          <Text className="text-sm text-gray-600 font-medium">
+                            You Receive
+                          </Text>
+                          <Text className="text-xl font-black text-downy-800">
+                            KES {formatCurrency(finalAmountKES.toFixed(2))}
                           </Text>
                         </View>
-                        <View className="flex-row items-center justify-between">
-                          <Text className="text-xs text-gray-500">Total Deduction</Text>
-                          <Text className="text-xs font-medium text-gray-700">
+
+                        <View className="flex-row items-center justify-between pt-2 border-t border-downy-100/30">
+                          <Text className="text-xs text-gray-500 font-medium font-semibold">
+                            Total USDC Deduction
+                          </Text>
+                          <Text className="text-xs font-bold text-gray-800">
                             {parseFloat(usdcAmount).toFixed(4)} USDC
                           </Text>
                         </View>
                       </View>
 
                       {/* Info Alert */}
-                      <View className="bg-blue-50 p-3 rounded-xl flex-row items-center mb-6">
-                        <Text className="text-lg mr-2">ℹ️</Text>
-                        <Text className="text-[11px] text-blue-800 flex-1 leading-4">
-                          Funds will be sent immediately to the registered M-Pesa account above.
+                      <View className="bg-amber-50 p-3.5 rounded-2xl flex-row items-center mb-6 border border-amber-100">
+                        <Text className="text-xl mr-3">⚡</Text>
+                        <Text className="text-[11px] text-amber-800 font-medium flex-1 leading-4">
+                          Funds will be disbursed instantly to the registered
+                          mobile line verified above.
                         </Text>
                       </View>
                     </View>
@@ -664,7 +732,7 @@ export default function WithdrawCryptoScreen() {
                   <View className="flex-row gap-3">
                     <TouchableOpacity
                       onPress={() => setShowVerificationModal(false)}
-                      className="flex-1 py-4 rounded-2xl border border-gray-200 active:bg-gray-50"
+                      className="flex-1 py-4 rounded-2xl border border-gray-300 active:bg-gray-50"
                       activeOpacity={0.8}
                     >
                       <Text className="text-center font-bold text-gray-600">
@@ -674,15 +742,19 @@ export default function WithdrawCryptoScreen() {
                     <TouchableOpacity
                       onPress={handleConfirmedWithdraw}
                       disabled={!canConfirmWithdraw}
-                      className={`flex-[1.5] py-4 rounded-2xl shadow-sm ${canConfirmWithdraw ? "bg-emerald-600 shadow-emerald-200" : "bg-gray-200"
-                        }`}
+                      className={`flex-[1.5] py-4 rounded-2xl shadow-md ${
+                        canConfirmWithdraw
+                          ? "bg-downy-600 shadow-downy-100 active:bg-downy-700"
+                          : "bg-gray-200"
+                      }`}
                       activeOpacity={0.8}
                     >
                       <Text
-                        className={`text-center font-bold ${canConfirmWithdraw ? "text-white" : "text-gray-400"
-                          }`}
+                        className={`text-center font-bold ${
+                          canConfirmWithdraw ? "text-white" : "text-gray-400"
+                        }`}
                       >
-                        Confirm Withdraw
+                        Confirm Cashout
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -695,95 +767,121 @@ export default function WithdrawCryptoScreen() {
 
       {/* Processing Modal */}
       <Modal visible={isProcessing} transparent animationType="fade">
-        <View className="flex-1 bg-black/70 items-center justify-center px-6">
+        <View className="flex-1 bg-downy-950/80 items-center justify-center px-6">
           <View
-            className="bg-white rounded-[32px] w-full shadow-2xl overflow-hidden"
+            className="bg-white rounded-[32px] w-full shadow-2xl overflow-hidden border border-downy-100"
             style={{ maxWidth: 400 }}
           >
             {processingStep === "processing" && (
               <View className="p-8">
                 <View className="items-center mb-6">
-                  <View className="w-20 h-20 bg-emerald-50 rounded-full items-center justify-center relative">
-                    <ActivityIndicator size="large" color="#059669" />
-                    <View className="absolute inset-0 items-center justify-center">
-                      {/* Subtle inner icon or text could go here */}
-                    </View>
+                  <View className="w-20 h-20 bg-downy-50 rounded-full items-center justify-center border-2 border-downy-100 shadow-sm">
+                    <ActivityIndicator size="large" color="#1c8584" />
                   </View>
-                  <Text className="text-2xl font-bold text-center mt-6 text-gray-900">
-                    Processing
+                  <Text className="text-2xl font-black text-center mt-6 text-downy-900 tracking-tight">
+                    Processing Cashout
                   </Text>
-                  <Text className="text-sm text-gray-500 text-center mt-2 font-medium px-4">
-                    Sending <Text className="text-gray-900 font-bold">{CURRENCY} {formatCurrency(amountKES)}</Text> to your M-Pesa account
+                  <Text className="text-sm text-gray-500 text-center mt-2 font-medium px-4 leading-5">
+                    Transferring{" "}
+                    <Text className="text-downy-800 font-bold">
+                      {amountUSDC} USDC
+                    </Text>{" "}
+                    (≈ KES {formatCurrency(finalAmountKES.toFixed(2))}) to your
+                    phone number
                   </Text>
                 </View>
 
                 {/* Status Timeline */}
-                <View className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+                <View className="bg-gray-50 rounded-2xl p-5 border border-gray-200/50 shadow-inner">
                   <View className="space-y-6">
                     {/* Step 1: Initialized */}
                     <View className="flex-row items-center">
-                      <View className="w-8 h-8 rounded-full bg-emerald-500 items-center justify-center mr-4 shadow-sm shadow-emerald-200">
+                      <View className="w-8 h-8 rounded-full bg-downy-600 items-center justify-center mr-4 shadow-md shadow-downy-100">
                         <Check size={16} color="white" strokeWidth={3} />
                       </View>
                       <View className="flex-1">
-                        <Text className="text-sm font-bold text-gray-900">Transfer Initialized</Text>
-                        <Text className="text-[10px] text-gray-500 uppercase font-bold tracking-tighter">Completed</Text>
+                        <Text className="text-sm font-bold text-gray-900">
+                          Transfer Request Created
+                        </Text>
+                        <Text className="text-[10px] text-downy-600 uppercase font-black tracking-wider">
+                          Completed
+                        </Text>
                       </View>
                     </View>
 
                     {/* Step 2: Conversion */}
                     <View className="flex-row items-center">
-                      <View className="w-8 h-8 rounded-full bg-emerald-100 items-center justify-center mr-4">
-                        <ActivityIndicator size="small" color="#059669" />
+                      <View className="w-8 h-8 rounded-full bg-downy-100 items-center justify-center mr-4 border border-downy-300">
+                        <ActivityIndicator size="small" color="#1c8584" />
                       </View>
                       <View className="flex-1">
-                        <Text className="text-sm font-bold text-gray-900">Off-ramping USDC</Text>
-                        <Text className="text-[10px] text-emerald-600 uppercase font-bold tracking-tighter">In Progress</Text>
+                        <Text className="text-sm font-bold text-gray-900">
+                          Converting USDC to KES
+                        </Text>
+                        <Text className="text-[10px] text-downy-600 uppercase font-black tracking-wider">
+                          Processing
+                        </Text>
                       </View>
                     </View>
 
                     {/* Step 3: Payout */}
                     <View className="flex-row items-center opacity-40">
                       <View className="w-8 h-8 rounded-full bg-gray-200 items-center justify-center mr-4">
-                        <View className="w-2 h-2 bg-gray-400 rounded-full" />
+                        <View className="w-2.5 h-2.5 bg-gray-400 rounded-full" />
                       </View>
                       <View className="flex-1">
-                        <Text className="text-sm font-bold text-gray-900">M-Pesa Payout</Text>
-                        <Text className="text-[10px] text-gray-500 uppercase font-bold tracking-tighter">Pending</Text>
+                        <Text className="text-sm font-bold text-gray-900">
+                          Instasend M-Pesa Payout
+                        </Text>
+                        <Text className="text-[10px] text-gray-500 uppercase font-black tracking-wider">
+                          Queueing
+                        </Text>
                       </View>
                     </View>
                   </View>
                 </View>
 
-                <View className="mt-8 bg-blue-50 py-3 px-4 rounded-2xl flex-row items-center justify-center">
-                  <Text className="text-blue-700 font-bold text-[11px] uppercase tracking-wider">⏱️ SECURING TRANSACTION...</Text>
+                <View className="mt-8 bg-downy-50 py-3.5 px-4 rounded-2xl flex-row items-center justify-center border border-downy-100/50">
+                  <Text className="text-downy-800 font-black text-xs uppercase tracking-widest">
+                    🛡️ SECURING BLOCKCHAIN OFFRAMP...
+                  </Text>
                 </View>
               </View>
             )}
 
             {processingStep === "completed" && (
               <View className="p-8 items-center">
-                <View className="w-24 h-24 bg-emerald-100 rounded-full items-center justify-center mb-6">
-                  <View className="w-16 h-16 bg-emerald-500 rounded-full items-center justify-center shadow-lg shadow-emerald-200">
+                <View className="w-24 h-24 bg-downy-100 rounded-full items-center justify-center mb-6 border border-downy-200">
+                  <View className="w-18 h-18 bg-downy-600 rounded-full items-center justify-center shadow-lg shadow-downy-200">
                     <Check size={40} color="white" strokeWidth={3} />
                   </View>
                 </View>
 
-                <Text className="text-2xl font-bold text-center text-gray-900">
-                  Withdrawal Successful
+                <Text className="text-2xl font-black text-center text-downy-900 tracking-tight">
+                  Withdrawal Complete!
                 </Text>
                 <Text className="text-sm text-gray-500 text-center mt-2 px-4 leading-5">
-                  Your funds are on their way to your M-Pesa account. You will receive a confirmation message shortly.
+                  Your transaction has processed successfully. The funds will be
+                  credited to your M-Pesa account shortly.
                 </Text>
 
-                <View className="bg-gray-50 w-full mt-8 rounded-2xl p-5 border border-gray-100">
-                  <View className="flex-row justify-between mb-3">
-                    <Text className="text-xs text-gray-500 font-bold uppercase tracking-wider">Amount Sent</Text>
-                    <Text className="text-sm font-black text-gray-900">{CURRENCY} {formatCurrency(amountKES)}</Text>
+                <View className="bg-downy-50/50 w-full mt-8 rounded-2xl p-5 border border-downy-100 shadow-sm">
+                  <View className="flex-row justify-between mb-3 pb-3 border-b border-downy-100/30">
+                    <Text className="text-xs text-downy-600 font-bold uppercase tracking-wider">
+                      Amount Sent
+                    </Text>
+                    <Text className="text-sm font-black text-downy-900">
+                      {amountUSDC} USDC (≈ KES{" "}
+                      {formatCurrency(finalAmountKES.toFixed(2))})
+                    </Text>
                   </View>
                   <View className="flex-row justify-between">
-                    <Text className="text-xs text-gray-500 font-bold uppercase tracking-wider">Recipient No.</Text>
-                    <Text className="text-sm font-black text-emerald-700">{formatPhoneNumber(KENYA_PHONE_CODE, phoneNumber)}</Text>
+                    <Text className="text-xs text-downy-600 font-bold uppercase tracking-wider">
+                      Recipient Line
+                    </Text>
+                    <Text className="text-sm font-black text-downy-850">
+                      {formatPhoneNumber(KENYA_PHONE_CODE, phoneNumber)}
+                    </Text>
                   </View>
                 </View>
 
@@ -792,31 +890,35 @@ export default function WithdrawCryptoScreen() {
                     setIsProcessing(false);
                     router.push("/wallet");
                   }}
-                  className="w-full bg-emerald-600 py-4 rounded-2xl mt-8 shadow-sm active:bg-emerald-700 shadow-emerald-100"
+                  className="w-full bg-downy-600 py-4.5 rounded-2xl mt-8 shadow-md active:bg-downy-700 shadow-downy-100"
                 >
-                  <Text className="text-center text-white font-bold">Done</Text>
+                  <Text className="text-center text-white font-bold text-base">
+                    Done
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
-
             {processingStep === "failed" && (
               <View className="p-8 items-center">
-                <View className="w-24 h-24 bg-red-50 rounded-full items-center justify-center mb-6">
-                  <View className="w-16 h-16 bg-red-100 rounded-full items-center justify-center">
-                    <Text className="text-4xl">❌</Text>
+                <View className="w-24 h-24 bg-red-50 rounded-full items-center justify-center mb-6 border border-red-100">
+                  <View className="w-18 h-18 bg-red-500 rounded-full items-center justify-center shadow-lg shadow-red-200">
+                    <Text className="text-3xl text-white font-black">✕</Text>
                   </View>
                 </View>
 
-                <Text className="text-2xl font-bold text-center text-gray-900">
+                <Text className="text-2xl font-black text-center text-gray-900 tracking-tight">
                   Withdrawal Failed
                 </Text>
-                <Text className="text-sm text-gray-500 text-center mt-2 px-6">
-                  We encountered an error while processing your withdrawal.
+                <Text className="text-sm text-gray-500 text-center mt-2 px-6 leading-5">
+                  We encountered an unexpected error processing your payout
+                  offramp.
                 </Text>
 
-                <View className="bg-red-50 w-full mt-8 rounded-2xl p-5 border border-red-100">
-                  <Text className="text-xs text-red-800 text-center font-medium leading-5">
-                    Your funds are safe. If USDC was deducted and you didn't receive KES, please contact our support team immediately.
+                <View className="bg-red-50/85 w-full mt-8 rounded-2xl p-5 border border-red-150">
+                  <Text className="text-xs text-red-800 text-center font-bold leading-5">
+                    Your digital assets remain completely safe. If your USDC
+                    balance was debited and payout didn't arrive, contact
+                    support immediately.
                   </Text>
                 </View>
 
@@ -825,9 +927,11 @@ export default function WithdrawCryptoScreen() {
                     setIsProcessing(false);
                     setProcessingStep("idle");
                   }}
-                  className="w-full bg-gray-900 py-4 rounded-2xl mt-8 active:bg-gray-800 shadow-md"
+                  className="w-full bg-gray-900 py-4.5 rounded-2xl mt-8 active:bg-gray-800 shadow-md"
                 >
-                  <Text className="text-center text-white font-bold">Try Again</Text>
+                  <Text className="text-center text-white font-bold text-base">
+                    Try Again
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}

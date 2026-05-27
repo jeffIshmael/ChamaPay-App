@@ -35,15 +35,16 @@ type Props = {
   nextPayoutDate: string;
   leaveChama: () => void;
   userAddress: `0x${string}`;
-  chamaStatus: "active" | "not started";
+  chamaStatus: string;
   currency: string;
   isPublic: boolean;
   kesRate: number;
   myCollateral: number;
-  chamaStartDate: Date;
+  chamaPayDate: string;
   collateralAmount: number;
   chamaName: string;
   chamaId: number;
+  payoutSchedule: any[];
   onRefresh?: () => void;
 };
 
@@ -62,7 +63,7 @@ const ChamaOverviewTab: FC<Props> = ({
   leaveChama,
   userAddress,
   chamaStatus,
-  chamaStartDate,
+  chamaPayDate,
   currency,
   isPublic,
   kesRate,
@@ -70,6 +71,7 @@ const ChamaOverviewTab: FC<Props> = ({
   myCollateral,
   chamaName,
   chamaId,
+  payoutSchedule,
   onRefresh,
 }) => {
   const router = useRouter();
@@ -221,11 +223,11 @@ const ChamaOverviewTab: FC<Props> = ({
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={() => setShowWithdrawModal(true)}
-                            className="flex-1 bg-gray-200 py-3 rounded-lg"
+                            className={`flex-1 py-3 rounded-lg border ${myContributions > 0 ? "bg-white border-downy-600 text-downy-600" : "bg-gray-100 border-gray-200 text-gray-400"}`}
                             activeOpacity={0.8}
-                            disabled
+                            disabled={myContributions <= 0}
                           >
-                            <Text className="text-gray-400 text-sm font-bold text-center">
+                            <Text className={`text-sm font-bold text-center ${myContributions > 0 ? "text-downy-600" : "text-gray-400"}`}>
                               Withdraw
                             </Text>
                           </TouchableOpacity>
@@ -243,10 +245,11 @@ const ChamaOverviewTab: FC<Props> = ({
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={() => setShowWithdrawModal(true)}
-                            className="flex-1 bg-downy-600 py-3 rounded-lg"
+                            className={`flex-1 py-3 rounded-lg border ${myContributions > 0 ? "bg-white border-gray-300" : "bg-gray-100 border-gray-200"}`}
                             activeOpacity={0.8}
+                            disabled={myContributions <= 0}
                           >
-                            <Text className="text-white text-sm font-bold text-center">
+                            <Text className={`text-sm font-bold text-center ${myContributions > 0 ? "text-gray-700" : "text-gray-400"}`}>
                               Withdraw
                             </Text>
                           </TouchableOpacity>
@@ -369,13 +372,13 @@ const ChamaOverviewTab: FC<Props> = ({
                     </View>
                   </View>
 
-                  {remainingAmount > 0 && (
+                  {/* {remainingAmount > 0 && (
                     <View className="bg-orange-100 px-2 py-1 rounded-full">
                       <Text className="text-orange-700 text-xs font-bold">
                         Due
                       </Text>
                     </View>
-                  )}
+                  )} */}
                 </View>
               </View>
 
@@ -447,11 +450,12 @@ const ChamaOverviewTab: FC<Props> = ({
                         </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        className="flex-1 bg-gray-200 py-3 rounded-lg"
+                        onPress={() => setShowWithdrawModal(true)}
+                        className={`flex-1 py-3 rounded-lg border ${myContributions > 0 ? "bg-white border-gray-300" : "bg-gray-100 border-gray-200"}`}
                         activeOpacity={0.8}
-                        disabled
+                        disabled={myContributions <= 0}
                       >
-                        <Text className="text-gray-400 text-sm font-bold text-center">
+                        <Text className={`text-sm font-bold text-center ${myContributions > 0 ? "text-gray-700" : "text-gray-400"}`}>
                           Withdraw
                         </Text>
                       </TouchableOpacity>
@@ -468,10 +472,12 @@ const ChamaOverviewTab: FC<Props> = ({
                         </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        className="flex-1 bg-downy-600 py-3 rounded-lg"
+                        onPress={() => setShowWithdrawModal(true)}
+                        className={`flex-1 py-3 rounded-lg border ${myContributions > 0 ? "bg-white border-gray-300" : "bg-gray-100 border-gray-200"}`}
                         activeOpacity={0.8}
+                        disabled={myContributions <= 0}
                       >
-                        <Text className="text-white text-sm font-bold text-center">
+                        <Text className={`text-sm font-bold text-center ${myContributions > 0 ? "text-gray-700" : "text-gray-400"}`}>
                           Withdraw
                         </Text>
                       </TouchableOpacity>
@@ -507,21 +513,19 @@ const ChamaOverviewTab: FC<Props> = ({
           </View>
           <View className="flex-1">
             <Text className="text-lg font-semibold text-gray-900">
-              {chamaStatus === "not started" ? "Payout Schedule" : "Next Payout"}
+              {payoutSchedule.length > 0 ? "Payout Schedule" : "Schedule in"}
             </Text>
             <Text className="text-sm text-gray-600">
-              {chamaStatus === "not started"
-                ? `Starts in ${formatTimeRemaining(chamaStartDate!)}`
-                : chamaStatus === "active"
-                  ? `Cycle ${currentCycle} . Round ${currentRound}`
-                  : "Cycle complete"}
+              {payoutSchedule.length > 0
+                ? `Cycle ${currentCycle} . Round ${currentRound}`
+                : `Schedule in: ${formatTimeRemaining(chamaPayDate!)}`}
             </Text>
           </View>
         </View>
 
         <View className="h-px bg-gray-200 mb-2" />
 
-        {chamaStatus === "not started" ? (
+        {payoutSchedule.length === 0 ? (
           <View className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-200">
             <View className="items-center">
               <View className="items-center mb-2">
@@ -535,7 +539,14 @@ const ChamaOverviewTab: FC<Props> = ({
               </Text>
               <Text className="text-sm text-amber-700 text-center leading-5">
                 The payout schedule will be randomly generated and displayed
-                once the chama starts. All members will be notified when the
+                on {new Date(new Date(chamaPayDate!).getTime() - 3 * 24 * 60 * 60 * 1000).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true,
+                })}  . All members will be notified when the
                 schedule is ready.
               </Text>
             </View>
@@ -619,7 +630,7 @@ const ChamaOverviewTab: FC<Props> = ({
                   activeOpacity={0.7}
                 >
                   <View className="flex-1 justify-center mr-4">
-                    <Text className={`text-base font-semibold capitalize mb-1 ${transaction.type === "payout" ? "text-indigo-600" : "text-gray-900"}`} numberOfLines={1}>
+                    <Text className={`text-base font-semibold capitalize mb-1 ${transaction.type === "payout" ? "text-indigo-600" : transaction.type === "contribution" ? "text-gray-900" :"text-orange-600" }`} numberOfLines={1}>
                       {transaction.type === "payout" ? "Cycle & Round Payout" : transaction.description}
                     </Text>
 

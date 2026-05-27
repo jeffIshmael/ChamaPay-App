@@ -179,10 +179,10 @@ export default function DiscoverChamas() {
           <View className="flex-1 bg-purple-50 rounded-xl p-3 border border-purple-100">
             <View className="flex-row items-center gap-1.5 mb-1">
               <Calendar size={16} color="#a855f7" />
-              <Text className="text-xs text-purple-700 font-semibold">{chama.started ? "Starts In:" : "Next Pay Date:"}</Text>
+              <Text className="text-xs text-purple-700 font-semibold"> "Next Pay Date:"</Text>
             </View>
             <Text className="text-lg font-bold text-purple-900">
-              {chama.started ? formatTimeRemaining(chama.startDate as unknown as string) : formatDate(chama.payDate as unknown as string)}
+              {formatDate(chama.payDate as unknown as string)}
             </Text>
           </View>
         </View>
