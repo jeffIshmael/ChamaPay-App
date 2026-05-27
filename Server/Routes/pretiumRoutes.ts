@@ -11,7 +11,8 @@ import {
   pretiumCheckNgnBankDetails,
   pretiumCheckMobileNoDetails,
   pretiumMobileTransfer,
-  pretiumTransferToBank
+  pretiumTransferToBank,
+  pretiumOfframpCallback
 } from "../Controllers/pretiumControllers";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -19,6 +20,8 @@ const router: Router = express.Router();
 
 // M-Pesa callback
 router.post("/callback", pretiumCallback);
+// Offramp callback
+router.post("/offrampCallback", pretiumOfframpCallback);
 // onramping route
 router.post("/onramp", authenticate, initiatePretiumOnramp);
 // Get user transaction history (protected)

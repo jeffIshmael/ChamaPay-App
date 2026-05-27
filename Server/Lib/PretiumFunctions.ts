@@ -126,7 +126,7 @@ export async function pretiumOfframp(
         mobile_network: "Safaricom",
         chain: "BASE",
         transaction_hash: transactionHash,
-        callback_url: `${serverUrl}/pretium/callback`,
+        callback_url: `${serverUrl}/pretium/offrampCallback`,
       },
       {
         headers: {
