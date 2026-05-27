@@ -17,6 +17,7 @@ import {
   markMessagesReadApi,
   searchUsers,
   transformChamaData,
+  addMemberToChama,
 } from "@/lib/chamaService";
 import { generateChamaShareUrl } from "@/lib/encryption";
 import { shareChamaLink } from "@/lib/userService";
@@ -27,7 +28,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Share, Share2, User } from "lucide-react-native";
+import { ArrowLeft, Share, Share2, User, UserPlus } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -35,6 +36,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  ScrollView,
   Text,
   TextInput,
   ToastAndroid,
@@ -109,6 +111,30 @@ export default function JoinedChamaDetails() {
   const [myWalletBalance, setMyWalletBalance] = useState<any>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [addMemberUsername, setAddMemberUsername] = useState("");
+  const [addMemberSearchResults, setAddMemberSearchResults] = useState<
+    Array<{
+      id: number;
+      userName: string;
+      email: string;
+      smartAddress: string;
+      profileImageUrl: string | null;
+    }>
+  >([]);
+  const [isAddMemberSearching, setIsAddMemberSearching] = useState(false);
+  const [showAddMemberSearchResults, setShowAddMemberSearchResults] = useState(false);
+  const [selectedAddMemberUser, setSelectedAddMemberUser] = useState<{
+    id: number;
+    userName: string;
+    email: string;
+    smartAddress: string;
+    profileImageUrl: string | null;
+  } | null>(null);
+  const [isAddingMember, setIsAddingMember] = useState(false);
+
+  const isAdmin = chama?.members.find((m) => m.id === user?.id)?.role === "Admin";
 
 
   const fetchChama = async () => {
@@ -210,17 +236,7 @@ export default function JoinedChamaDetails() {
   }, [activeTab, chama?.id, token]);
 
   const makePayment = () => {
-    // if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
-    //   Alert.alert("Error", "Please enter a valid amount");
-    //   return;
-    // }
-
-    // Show the payment modal instead of Alert
-    if (currency !== "KES") {
-      setShowUSDCPaymentModal(true);
-    } else {
-      setShowPaymentModal(true);
-    }
+    setShowPaymentModal(true);
   };
 
   const handlePaymentSuccess = () => {
@@ -323,6 +339,87 @@ export default function JoinedChamaDetails() {
     return () => clearTimeout(timeoutId);
   }, [shareUsername, selectedShareUser, user]);
 
+  // Search users for adding members with debouncing
+  useEffect(() => {
+    const searchForAddMemberUsers = async () => {
+      if (!addMemberUsername.trim() || addMemberUsername.trim().length < 2) {
+        setAddMemberSearchResults([]);
+        setShowAddMemberSearchResults(false);
+        return;
+      }
+
+      if (selectedAddMemberUser && addMemberUsername === selectedAddMemberUser.userName) {
+        return;
+      }
+
+      setIsAddMemberSearching(true);
+      try {
+        const result = await searchUsers(addMemberUsername.trim());
+        if (result.success && result.users) {
+          // Filter out existing members and the current user
+          const existingMemberIds = chama?.members.map(m => m.id) || [];
+          const filteredUsers = result.users.filter(
+            (searchUser) => searchUser.id !== user?.id && !existingMemberIds.includes(searchUser.id)
+          );
+          setAddMemberSearchResults(filteredUsers);
+          setShowAddMemberSearchResults(filteredUsers.length > 0);
+        } else {
+          setAddMemberSearchResults([]);
+          setShowAddMemberSearchResults(false);
+        }
+      } catch (error) {
+        console.error("Error searching users for adding:", error);
+        setAddMemberSearchResults([]);
+        setShowAddMemberSearchResults(false);
+      } finally {
+        setIsAddMemberSearching(false);
+      }
+    };
+
+    const timeoutId = setTimeout(searchForAddMemberUsers, 300);
+    return () => clearTimeout(timeoutId);
+  }, [addMemberUsername, selectedAddMemberUser, user, chama?.members]);
+
+  const handleAddMemberUserSelect = (user: typeof selectedAddMemberUser) => {
+    setSelectedAddMemberUser(user);
+    setAddMemberUsername(user?.userName || "");
+    setShowAddMemberSearchResults(false);
+  };
+
+  const handleAddMember = async () => {
+    if (!selectedAddMemberUser || !chama) return;
+    if (!user || !token) {
+      Alert.alert("Error", "Please refresh page");
+      return;
+    }
+    setIsAddingMember(true);
+
+    try {
+      const result = await addMemberToChama(
+        Number(chama.id),
+        chama.isPublic,
+        selectedAddMemberUser.id,
+        chama.contribution.toString(),
+        token
+      );
+
+      if (result.success) {
+        ToastAndroid.show(`@${selectedAddMemberUser.userName} added successfully`, ToastAndroid.LONG);
+        setShowAddMemberModal(false);
+        setAddMemberUsername("");
+        setSelectedAddMemberUser(null);
+        fetchChama(); // Refresh data
+      } else {
+        Alert.alert("Error", result.error || "Failed to add member");
+      }
+    } catch (error) {
+      console.error("Add member error", error);
+      Alert.alert("Error", "An unexpected error occurred");
+    } finally {
+      setIsAddingMember(false);
+    }
+  };
+
   const handleShareUserSelect = (user: typeof selectedShareUser) => {
     setSelectedShareUser(user);
     setShareUsername(user?.userName || "");
@@ -406,7 +503,7 @@ export default function JoinedChamaDetails() {
       leaveChama={leaveChama}
       userAddress={(user?.smartAddress as `0x${string}`) || ""}
       chamaStatus={chama.status}
-      chamaStartDate={chama.startDate}
+      chamaPayDate={chama.nextPayout!}
       currency={chama.currency}
       isPublic={chama.isPublic}
       collateralAmount={chama.collateralAmount}
@@ -414,6 +511,7 @@ export default function JoinedChamaDetails() {
       myCollateral={myCollateral}
       chamaName={chama.name}
       chamaId={Number(chama.id)}
+      payoutSchedule={chama.payoutSchedule}
       onRefresh={fetchChama}
     />
   );
@@ -424,6 +522,7 @@ export default function JoinedChamaDetails() {
 
   const renderScheduleTab = () => (
     <ScheduleTab
+      chamaId={Number(chama.id)}
       payoutSchedule={chama.payoutSchedule}
       currentUserAddress={chama.currentTurnMemberAddress}
       chamaStatus={chama.status}
@@ -432,6 +531,7 @@ export default function JoinedChamaDetails() {
       totalPayout={chama.nextPayoutAmount}
       currentCycle={chama.currentCycle}
       currentRound={chama.currentRound}
+      onRefresh={fetchChama}
     />
   );
 
@@ -489,20 +589,31 @@ export default function JoinedChamaDetails() {
                 </Text>
               </View>
             </View>
-            <TouchableOpacity
-              onPress={handleShare}
-              className="p-2 rounded-full"
-              activeOpacity={0.7}
-            >
-              <Share2 size={20} color="white" />
-            </TouchableOpacity>
+            <View className="flex-row items-center gap-2">
+              {isAdmin && (
+                <TouchableOpacity
+                  onPress={() => setShowAddMemberModal(true)}
+                  className="p-2 rounded-full"
+                  activeOpacity={0.7}
+                >
+                  <UserPlus size={20} color="white" />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={handleShare}
+                className="p-2 rounded-full"
+                activeOpacity={0.7}
+              >
+                <Share2 size={20} color="white" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View className="flex-row justify-between">
             <View className="items-center">
               <Text className="text-emerald-100 text-xs">My Position</Text>
               <Text className="text-lg text-white font-semibold">
-                {chama.status === "active" ? `#${chama.myPosition}` : "--"}
+                {chama.payoutSchedule.length > 0 ? `#${chama.myPosition}` : "--"}
               </Text>
             </View>
             <View className="items-center">
@@ -514,7 +625,7 @@ export default function JoinedChamaDetails() {
             <View className="items-center">
               <Text className="text-emerald-100 text-xs">My Turn in</Text>
               <Text className="text-lg text-white font-semibold">
-                {chama.status === "active"
+                {chama.payoutSchedule.length > 0
                   ? formatTimeRemaining(chama.myTurnDate)
                   : "--"}
               </Text>
@@ -711,34 +822,36 @@ export default function JoinedChamaDetails() {
                   {/* Search Results Dropdown */}
                   {showShareSearchResults && shareSearchResults.length > 0 && (
                     <View className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-emerald-200 shadow-lg z-50 max-h-48">
-                      {shareSearchResults.map((user) => (
-                        <TouchableOpacity
-                          key={user.id}
-                          onPress={() => handleShareUserSelect(user)}
-                          className="flex-row items-center p-3 border-b border-gray-100 last:border-b-0"
-                          activeOpacity={0.7}
-                        >
-                          <View className="w-10 h-10 bg-emerald-100 rounded-full items-center justify-center mr-3">
-                            {user.profileImageUrl ? (
-                              <Image
-                                source={{ uri: user.profileImageUrl }}
-                                className="w-10 h-10 rounded-full"
-                              />
-                            ) : (
-                              <User size={20} color="#10b981" />
-                            )}
-                          </View>
-                          <View className="flex-1">
-                            <Text className="font-semibold text-gray-900">
-                              @{user.userName}
-                            </Text>
-                            <Text className="text-xs text-gray-400 font-mono">
-                              {user.smartAddress.slice(0, 6)}...
-                              {user.smartAddress.slice(-4)}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-                      ))}
+                      <ScrollView keyboardShouldPersistTaps="handled">
+                        {shareSearchResults.map((user) => (
+                          <TouchableOpacity
+                            key={user.id}
+                            onPress={() => handleShareUserSelect(user)}
+                            className="flex-row items-center p-3 border-b border-gray-100 last:border-b-0"
+                            activeOpacity={0.7}
+                          >
+                            <View className="w-10 h-10 bg-emerald-100 rounded-full items-center justify-center mr-3">
+                              {user.profileImageUrl ? (
+                                <Image
+                                  source={{ uri: user.profileImageUrl }}
+                                  className="w-10 h-10 rounded-full"
+                                />
+                              ) : (
+                                <User size={20} color="#10b981" />
+                              )}
+                            </View>
+                            <View className="flex-1">
+                              <Text className="font-semibold text-gray-900">
+                                @{user.userName}
+                              </Text>
+                              <Text className="text-xs text-gray-400 font-mono">
+                                {user.smartAddress.slice(0, 6)}...
+                                {user.smartAddress.slice(-4)}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
                     </View>
                   )}
 
@@ -776,6 +889,151 @@ export default function JoinedChamaDetails() {
             <TouchableOpacity
               onPress={() => setShowShareModal(false)}
               disabled={sendingLink}
+              className="mt-6 bg-gray-300 py-3 rounded-xl border border-gray-500 border-2"
+              activeOpacity={0.7}
+            >
+              <Text className="text-gray-700 font-semibold text-center text-base">
+                Close
+              </Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Add Member Modal */}
+      <Modal
+        visible={showAddMemberModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setShowAddMemberModal(false);
+          setAddMemberUsername("");
+          setIsAddMemberSearching(false);
+          setShowAddMemberSearchResults(false);
+          setSelectedAddMemberUser(null);
+        }}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setShowAddMemberModal(false)}
+          className="flex-1 items-center justify-center bg-black/70 px-6"
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"
+          >
+            {/* Header */}
+            <View className="items-center mb-6">
+              <View className="w-16 h-16 bg-emerald-100 rounded-full items-center justify-center mb-3 shadow-sm">
+                <UserPlus size={28} color="#10b981" />
+              </View>
+              <Text className="text-2xl font-bold text-gray-900 mb-1">
+                Add Member
+              </Text>
+              <Text className="text-gray-500 text-center text-sm">
+                Add a user directly to this chama
+              </Text>
+            </View>
+
+            <View className="gap-4">
+              <View className="bg-sky-50 border border-emerald-200 rounded-2xl p-5">
+                {/* Input Field */}
+                <View className="mb-3 relative">
+                  <View className="flex-row items-center bg-white border border-emerald-300 rounded-xl px-4 py-2">
+                    <Text className="text-lg font-semibold text-emerald-600 mr-3">
+                      @
+                    </Text>
+                    <TextInput
+                      value={addMemberUsername}
+                      onChangeText={(text) => {
+                        setAddMemberUsername(text);
+                        setSelectedAddMemberUser(null);
+                      }}
+                      placeholder="username"
+                      className="flex-1 text-gray-900 font-medium"
+                      placeholderTextColor="#9CA3AF"
+                      onFocus={() => {
+                        if (addMemberSearchResults.length > 0) {
+                          setShowAddMemberSearchResults(true);
+                        }
+                      }}
+                    />
+                    {isAddMemberSearching && (
+                      <View className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                    )}
+                  </View>
+
+                  {/* Search Results Dropdown */}
+                  {showAddMemberSearchResults && addMemberSearchResults.length > 0 && (
+                    <View className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-emerald-200 shadow-lg z-50 max-h-48">
+                      <ScrollView keyboardShouldPersistTaps="handled">
+                        {addMemberSearchResults.map((user) => (
+                          <TouchableOpacity
+                            key={user.id}
+                            onPress={() => handleAddMemberUserSelect(user)}
+                            className="flex-row items-center p-3 border-b border-gray-100 last:border-b-0"
+                            activeOpacity={0.7}
+                          >
+                            <View className="w-10 h-10 bg-emerald-100 rounded-full items-center justify-center mr-3">
+                              {user.profileImageUrl ? (
+                                <Image
+                                  source={{ uri: user.profileImageUrl }}
+                                  className="w-10 h-10 rounded-full"
+                                />
+                              ) : (
+                                <User size={20} color="#10b981" />
+                              )}
+                            </View>
+                            <View className="flex-1">
+                              <Text className="font-semibold text-gray-900">
+                                @{user.userName}
+                              </Text>
+                              <Text className="text-xs text-gray-400 font-mono">
+                                {user.smartAddress.slice(0, 6)}...
+                                {user.smartAddress.slice(-4)}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+
+                  {/* User Not Found Message */}
+                  {addMemberUsername.trim().length >= 2 &&
+                    !isAddMemberSearching &&
+                    addMemberSearchResults.length === 0 && (
+                      <View className="absolute top-full left-0 right-0 mt-1 bg-red-50 border border-red-200 rounded-xl p-3 z-50">
+                        <Text className="text-red-600 text-sm font-medium text-center">
+                          User not found or already a member
+                        </Text>
+                      </View>
+                    )}
+                </View>
+
+                {/* Add Button */}
+                <TouchableOpacity
+                  onPress={handleAddMember}
+                  disabled={!selectedAddMemberUser || isAddingMember}
+                  activeOpacity={0.7}
+                  className={`py-3.5 rounded-xl flex-row items-center justify-center shadow-lg ${selectedAddMemberUser && !isAddingMember ? "bg-downy-600" : "bg-gray-300"
+                    }`}
+                >
+                  <Text
+                    className={`font-bold text-base ${selectedAddMemberUser && !isAddingMember ? "text-white" : "text-gray-500"
+                      }`}
+                  >
+                    {isAddingMember ? "Adding..." : "Add to Chama"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Cancel Button */}
+            <TouchableOpacity
+              onPress={() => setShowAddMemberModal(false)}
+              disabled={isAddingMember}
               className="mt-6 bg-gray-300 py-3 rounded-xl border border-gray-500 border-2"
               activeOpacity={0.7}
             >

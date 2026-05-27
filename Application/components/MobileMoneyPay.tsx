@@ -44,8 +44,8 @@ const MobileMoneyPay = ({
   currency = "USDC",
 }: MobileMoneyPayProps) => {
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [amount, setAmount] = useState("");
-  const [usdcAmount, setUsdcAmount] = useState("0.00");
+  const [usdcAmount, setUsdcAmount] = useState("");
+  const [kesAmount, setKesAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState<
     "input" | "payment_sent" | "payment_received" | "sending_usdc" | "completed"
@@ -53,7 +53,8 @@ const MobileMoneyPay = ({
   const [statusMessage, setStatusMessage] = useState("");
   const [txHash, setTxHash] = useState("");
 
-  const { token } = useAuth();
+  const [isKESMode, setIsKESMode] = useState(false);
+  const { token, user } = useAuth();
   const { fetchRate: globalFetchRate, rates, loading: loadingRates } = useExchangeRateStore();
 
   const theExhangeQuote = rates["KES"]?.data || null;
@@ -70,9 +71,11 @@ const MobileMoneyPay = ({
     return /^[71]\d{8}$/.test(phone);
   };
 
+  const sellingRate = theExhangeQuote?.exchangeRate?.selling_rate || 0;
+
   // Calculate remaining amount in KES
-  const remainingInKES = theExhangeQuote?.exchangeRate?.selling_rate
-    ? (remainingAmount * theExhangeQuote.exchangeRate.selling_rate).toFixed(2)
+  const remainingInKES = sellingRate
+    ? (remainingAmount * sellingRate).toFixed(2)
     : "0";
 
   const minimumKES = PRETIUM_TRANSACTION_LIMIT.KE.min; // Minimum KES amount
@@ -85,20 +88,33 @@ const MobileMoneyPay = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Calculate USDC amount when KES amount changes
-  useEffect(() => {
-    if (!theExhangeQuote?.exchangeRate?.selling_rate) {
-      setUsdcAmount("0.00");
-      return;
+  const handleKESChange = (text: string) => {
+    if (text === "" || /^\d*\.?\d*$/.test(text)) {
+      const decimalCount = (text.match(/\./g) || []).length;
+      if (decimalCount <= 1) {
+        setKesAmount(text);
+        if (text && sellingRate > 0) {
+          setUsdcAmount((parseFloat(text) / sellingRate).toFixed(3));
+        } else {
+          setUsdcAmount("");
+        }
+      }
     }
-    if (amount && parseFloat(amount) > 0) {
-      const sellingRate = theExhangeQuote.exchangeRate.selling_rate;
-      const usdc = parseFloat(amount) / sellingRate;
-      setUsdcAmount(usdc.toFixed(3));
-    } else {
-      setUsdcAmount("0.00");
+  };
+
+  const handleUSDCChange = (text: string) => {
+    if (text === "" || /^\d*\.?\d*$/.test(text)) {
+      const decimalCount = (text.match(/\./g) || []).length;
+      if (decimalCount <= 1) {
+        setUsdcAmount(text);
+        if (text && sellingRate > 0) {
+          setKesAmount((parseFloat(text) * sellingRate).toFixed(2));
+        } else {
+          setKesAmount("");
+        }
+      }
     }
-  }, [amount, theExhangeQuote]);
+  };
 
   // Pulse animation for loading states
   useEffect(() => {
@@ -138,11 +154,11 @@ const MobileMoneyPay = ({
 
   // Quick fill function for remaining amount
   const fillRemainingAmount = () => {
-    if (theExhangeQuote?.exchangeRate?.selling_rate && remainingAmount > 0) {
-      const localValue = (
-        remainingAmount * theExhangeQuote.exchangeRate.selling_rate
-      ).toFixed(2);
-      setAmount(localValue);
+    if (remainingAmount > 0) {
+      setUsdcAmount(remainingAmount.toString());
+      if (sellingRate) {
+        setKesAmount((remainingAmount * sellingRate).toFixed(2));
+      }
     }
   };
 
@@ -161,37 +177,32 @@ const MobileMoneyPay = ({
     }
 
     // Validate amount
-    if (!amount || amount.trim() === "") {
+    if (!usdcAmount || usdcAmount.trim() === "") {
       ToastAndroid.show("Please enter an amount to pay", ToastAndroid.SHORT);
       return;
     }
 
-    const parsedAmount = parseFloat(amount);
+    const parsedUSDC = parseFloat(usdcAmount);
+    const parsedKES = parseFloat(kesAmount) || 0;
 
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+    if (isNaN(parsedUSDC) || parsedUSDC <= 0) {
       ToastAndroid.show("Please enter a valid amount greater than 0", ToastAndroid.SHORT);
       return;
     }
 
-    if (parsedAmount < minimumKES) {
+    if (parsedKES < minimumKES) {
+      const minUSDC = minimumKES / sellingRate;
       ToastAndroid.show(
-        `Minimum amount is ${minimumKES} KES`, ToastAndroid.SHORT
+        `Minimum payment is ${minUSDC.toFixed(2)} USDC (approx. ${minimumKES} KES)`, ToastAndroid.SHORT
       );
       return;
     }
 
-    if (parsedAmount > maximumKES) {
+    if (parsedKES > maximumKES) {
+      const maxUSDC = maximumKES / sellingRate;
       ToastAndroid.show(
-        `Maximum amount is ${maximumKES} KES`,
+        `Maximum payment is ${maxUSDC.toFixed(2)} USDC (approx. ${maximumKES} KES)`,
         ToastAndroid.SHORT
-      );
-      return;
-    }
-
-    // Check if USDC amount is valid
-    if (!usdcAmount || parseFloat(usdcAmount) <= 0) {
-      ToastAndroid.show(
-        "Unable to calculate USDC amount. Please check the amount entered.", ToastAndroid.SHORT
       );
       return;
     }
@@ -201,7 +212,7 @@ const MobileMoneyPay = ({
       return;
     }
 
-    if (!theExhangeQuote?.exchangeRate?.selling_rate) {
+    if (!sellingRate) {
       ToastAndroid.show(
         "Unable to fetch current exchange rate.", ToastAndroid.SHORT
       );
@@ -217,9 +228,9 @@ const MobileMoneyPay = ({
 
       const result = await pretiumOnramp(
         fullPhoneNumber,
-        Number(amount),
-        theExhangeQuote.exchangeRate.selling_rate,
-        Number(usdcAmount),
+        parsedKES,
+        sellingRate,
+        parsedUSDC,
         false,
         token,
         chamaId
@@ -290,8 +301,8 @@ const MobileMoneyPay = ({
       ToastAndroid.show(`Successfully paid ${usdcAmount} USDC to ${chamaName} chama.`, ToastAndroid.SHORT);
 
       setPhoneNumber("");
-      setAmount("");
-      setUsdcAmount("0.00");
+      setUsdcAmount("");
+      setKesAmount("");
       setCurrentStep("input");
       setStatusMessage("");
       setTxHash("");
@@ -319,10 +330,10 @@ const MobileMoneyPay = ({
 
   const isFormValid =
     isValidPhoneNumber(phoneNumber) &&
-    amount &&
-    parseFloat(amount) >= minimumKES &&
+    usdcAmount &&
+    (parseFloat(kesAmount) || 0) >= minimumKES &&
     !loadingRate &&
-    theExhangeQuote?.exchangeRate?.selling_rate !== undefined &&
+    sellingRate !== undefined &&
     parseFloat(usdcAmount) > 0;
 
   const renderStatusIndicator = () => {
@@ -480,7 +491,7 @@ const MobileMoneyPay = ({
           </View>
 
           {/* Remaining Amount Alert */}
-          {remainingAmount > 0 && !loading && currentStep === "input" && Number(amount) < remainingAmount && (
+          {remainingAmount > 0 && !loading && currentStep === "input" && Number(usdcAmount || 0) < remainingAmount && (
             <View className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-2">
               <View className="flex-row items-center justify-between">
                 <View className="flex-1">
@@ -488,10 +499,10 @@ const MobileMoneyPay = ({
                     Contribution Due
                   </Text>
                   <Text className="text-sm font-semibold text-amber-900">
-                    {remainingInKES} KES remaining
+                    {remainingAmount.toFixed(3)} USDC remaining
                   </Text>
                   <Text className="text-xs text-amber-700 mt-0.5">
-                    ≈ {remainingAmount.toFixed(3)} {currency}
+                    ≈ {remainingInKES} KES
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -542,55 +553,67 @@ const MobileMoneyPay = ({
             <View>
               <View className="flex-row justify-between items-center mb-2">
                 <Text className="text-xs font-semibold text-gray-700">
-                  Amount (KES)
+                  Amount ({isKESMode ? "KES" : "USDC"})
                 </Text>
-                {loadingRate ? (
-                  <Text className="text-xs text-gray-600">Loading rate...</Text>
-                ) : theExhangeQuote?.exchangeRate?.selling_rate ? (
-                  <Text className="text-xs text-gray-600">
-                    1 USDC = {theExhangeQuote.exchangeRate.selling_rate} KES
-                  </Text>
-                ) : null}
+                <View className="flex-row items-center gap-2">
+                  {user?.location === "KE" && (
+                    <TouchableOpacity
+                      onPress={() => setIsKESMode(!isKESMode)}
+                      className="bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100"
+                    >
+                      <Text className="text-emerald-700 text-[10px] font-bold">
+                        Switch to {isKESMode ? "USDC" : "KES"}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {loadingRate ? (
+                    <Text className="text-xs text-gray-600">Loading rate...</Text>
+                  ) : sellingRate ? (
+                    <Text className="text-xs text-gray-600">
+                      1 USDC = {sellingRate} KES
+                    </Text>
+                  ) : null}
+                </View>
               </View>
 
               <View className="flex-row items-center border-2 border-gray-200 rounded-xl overflow-hidden bg-white">
                 <View className="px-3 py-3 bg-gray-50">
-                  <Text className="text-gray-700 font-bold text-sm">KES</Text>
+                  <Text className="text-gray-700 font-bold text-sm">{isKESMode ? "KES" : "USDC"}</Text>
                 </View>
                 <TextInput
                   className="flex-1 px-3 py-3 text-sm text-gray-800"
                   placeholder="0.00"
                   placeholderTextColor="#9CA3AF"
                   keyboardType="decimal-pad"
-                  value={amount}
-                  onChangeText={setAmount}
+                  value={isKESMode ? kesAmount : usdcAmount}
+                  onChangeText={isKESMode ? handleKESChange : handleUSDCChange}
                   editable={!loading && !loadingRate}
                 />
               </View>
               <View className="flex-row justify-between items-center mt-1">
                 <Text className="text-xs text-gray-500">
-                  💰 Minimum: {minimumKES} KES
+                  💰 Minimum: {isKESMode ? `${minimumKES} KES` : `${(minimumKES / (sellingRate || 1)).toFixed(2)} USDC`}
                 </Text>
-                {amount && parseFloat(amount) < minimumKES && (
+                {(parseFloat(kesAmount) || 0) > 0 && (parseFloat(kesAmount) || 0) < minimumKES && (
                   <Text className="text-xs text-red-600 font-medium">
-                    Below minimum
+                    Below minimum {isKESMode ? "KES" : "USDC"}
                   </Text>
                 )}
               </View>
             </View>
 
-            {/* USDC Preview */}
-            {parseFloat(usdcAmount) > 0 && theExhangeQuote?.exchangeRate?.selling_rate && (
+            {/* KES Deduction Preview */}
+            {(parseFloat(kesAmount) || 0) > 0 && sellingRate && (
               <Animated.View
                 style={{ opacity: fadeAnim }}
                 className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border-2 border-green-200"
               >
                 <View className="bg-white/70 rounded-lg p-2.5">
-                  <Text className="text-xl font-bold text-green-600 text-center">
-                    {usdcAmount} USDC
+                  <Text className="text-xl font-bold text-emerald-700 text-center">
+                    KES {parseFloat(kesAmount).toFixed(2)}
                   </Text>
                   <Text className="text-xs text-gray-600 text-center">
-                    will be paid to {chamaName}
+                    will be deducted from M-Pesa (for {parseFloat(usdcAmount).toFixed(3)} USDC)
                   </Text>
                 </View>
               </Animated.View>

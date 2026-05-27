@@ -32,6 +32,8 @@ export default function DepositCryptoScreen() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isPhoneTouched, setIsPhoneTouched] = useState(false);
   const [amount, setAmount] = useState("");
+  const [kesAmount, setKesAmount] = useState("");
+  const [isKESMode, setIsKESMode] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState<
     | "idle"
@@ -55,15 +57,47 @@ export default function DepositCryptoScreen() {
 
   // Calculate amounts
   const calculateAmounts = () => {
-    const depositAmount = parseFloat(amount) || 0;
-    if (depositAmount < MINIMUM_DEPOSIT || onrampRate === 0) {
-      return { depositAmount: 0, cryptoAmount: "0.0000" };
-    }
-    const cryptoAmount = depositAmount / onrampRate;
+    const cryptoAmount = parseFloat(amount) || 0;
+    const depositAmount = parseFloat(kesAmount) || 0;
     return {
       depositAmount,
-      cryptoAmount: cryptoAmount,
+      cryptoAmount,
     };
+  };
+
+  const handleKESChange = (text: string) => {
+    if (text === "" || /^\d*\.?\d*$/.test(text)) {
+      const decimalCount = (text.match(/\./g) || []).length;
+      if (decimalCount <= 1) {
+        setKesAmount(text);
+        if (text && onrampRate > 0) {
+          setAmount((parseFloat(text) / onrampRate).toFixed(3));
+        } else {
+          setAmount("");
+        }
+      }
+    }
+  };
+
+  const handleUSDCChange = (text: string) => {
+    if (text === "" || /^\d*\.?\d*$/.test(text)) {
+      const decimalCount = (text.match(/\./g) || []).length;
+      if (decimalCount <= 1) {
+        setAmount(text);
+        if (text && onrampRate > 0) {
+          setKesAmount((parseFloat(text) * onrampRate).toFixed(2));
+        } else {
+          setKesAmount("");
+        }
+      }
+    }
+  };
+
+  const handlePresetSelect = (presetUSDC: number) => {
+    setAmount(presetUSDC.toString());
+    if (onrampRate > 0) {
+      setKesAmount((presetUSDC * onrampRate).toFixed(2));
+    }
   };
 
   useEffect(() => {
@@ -72,6 +106,7 @@ export default function DepositCryptoScreen() {
 
   const emptyInputs = () => {
     setAmount("");
+    setKesAmount("");
     setPhoneNumber("");
   };
 
@@ -88,8 +123,9 @@ export default function DepositCryptoScreen() {
       return;
     }
 
-    if (parseFloat(amount) < MINIMUM_DEPOSIT) {
-      ToastAndroid.show(`Minimum deposit is ${CURRENCY} ${MINIMUM_DEPOSIT}`, ToastAndroid.SHORT);
+    if (depositAmount < MINIMUM_DEPOSIT) {
+      const minUSDC = MINIMUM_DEPOSIT / onrampRate;
+      ToastAndroid.show(`Minimum deposit is ${minUSDC.toFixed(2)} USDC (approx. KES ${MINIMUM_DEPOSIT})`, ToastAndroid.SHORT);
       return;
     }
 
@@ -109,7 +145,7 @@ export default function DepositCryptoScreen() {
       // Initiate onramp
       const result = await pretiumOnramp(
         fullPhoneNumber,
-        Number(amount),
+        Number(depositAmount.toFixed(2)),
         onrampRate,
         Number(cryptoAmount),
         true,
@@ -176,7 +212,7 @@ export default function DepositCryptoScreen() {
   const isFormValid = () => {
     return (
       amount.trim() &&
-      parseFloat(amount) >= MINIMUM_DEPOSIT &&
+      depositAmount >= MINIMUM_DEPOSIT &&
       isValidPhoneNumber(phoneNumber)
     );
   };
@@ -298,45 +334,55 @@ export default function DepositCryptoScreen() {
             <View className="bg-white p-5 rounded-2xl shadow-sm">
               <View className="flex-row items-center justify-between mb-4">
                 <Text className="text-base font-bold text-gray-900">
-                  Amount ({CURRENCY})
+                  Amount ({isKESMode ? "KES" : "USDC"})
                 </Text>
-                <View>
+                <View className="flex-row items-center gap-2">
+                  {user?.location === "KE" && (
+                    <TouchableOpacity
+                      onPress={() => setIsKESMode(!isKESMode)}
+                      className="bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100"
+                    >
+                      <Text className="text-emerald-700 text-[10px] font-bold">
+                        Switch to {isKESMode ? "USDC" : "KES"}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                   <Text className="text-xs font-bold text-gray-600">
-                    1 USDC = {onrampRate.toFixed(2)} {CURRENCY}
+                    1 USDC = {onrampRate.toFixed(2)} KES
                   </Text>
                 </View>
               </View>
               <View className="bg-gray-50 p-4 rounded-xl border-2 border-gray-200">
                 <TextInput
-                  value={amount}
-                  onChangeText={setAmount}
+                  value={isKESMode ? kesAmount : amount}
+                  onChangeText={isKESMode ? handleKESChange : handleUSDCChange}
                   placeholder="0.00"
                   placeholderTextColor="#9CA3AF"
                   keyboardType="numeric"
                   className="text-center text-3xl font-bold text-gray-900"
                 />
                 <Text className="text-center text-sm text-gray-500 mt-2">
-                  {CURRENCY}
+                  {isKESMode ? "KES" : "USDC"}
                 </Text>
               </View>
 
               <View className="flex-row items-center justify-between mt-3 px-1">
                 <Text className="text-sm text-gray-600">
-                  Minimum:{" "}
+                  Min:{" "}
                   <Text className="font-semibold">
-                    {CURRENCY} {MINIMUM_DEPOSIT}
+                    {(MINIMUM_DEPOSIT / onrampRate).toFixed(2)} USDC (KES {MINIMUM_DEPOSIT})
                   </Text>
                 </Text>
                 <View className="flex-row gap-2">
-                  {[100, 500, 1000].map((preset) => (
+                  {[10, 50, 100].map((preset) => (
                     <TouchableOpacity
                       key={preset}
-                      onPress={() => setAmount(preset.toString())}
+                      onPress={() => handlePresetSelect(preset)}
                       className="px-3 py-1.5 bg-emerald-100 rounded-full"
                       activeOpacity={0.7}
                     >
                       <Text className="text-emerald-700 text-xs font-bold">
-                        {preset}
+                        {preset} USDC
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -345,15 +391,15 @@ export default function DepositCryptoScreen() {
 
 
 
-              {parseFloat(amount) >= MINIMUM_DEPOSIT && (
+              {parseFloat(amount) > 0 && (
                 <>
                   <View className="h-px bg-gray-200 my-4" />
                   <View className="flex-row justify-between items-center bg-blue-50 p-3 rounded-xl mt-2">
                     <Text className="text-base font-bold text-blue-700">
-                      You'll Receive
+                      {isKESMode ? "USDC to receive" : "You will be deducted"}
                     </Text>
                     <Text className="text-lg font-bold text-blue-700">
-                      {Number(cryptoAmount).toFixed(4)} USDC
+                      {isKESMode ? `${parseFloat(amount).toFixed(3)} USDC` : `${depositAmount.toFixed(2)} KES`}
                     </Text>
                   </View>
                 </>
@@ -432,7 +478,7 @@ export default function DepositCryptoScreen() {
                   Processing Payment
                 </Text>
                 <Text className="text-sm text-gray-600 text-center mt-2">
-                  Converting {CURRENCY} {formatCurrency(depositAmount)} to {cryptoAmount} USDC
+                  Converting KES {depositAmount.toFixed(2)} to {cryptoAmount} USDC
                 </Text>
               </>
             )}

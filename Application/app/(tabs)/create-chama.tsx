@@ -1,5 +1,6 @@
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -26,7 +27,6 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   getContract
@@ -579,7 +579,7 @@ export default function CreateChama() {
           <View className="flex-row gap-4">
             <View className="flex-1">
               <Text className="text-sm font-medium text-gray-700 mb-2">
-                Start Date <Text className="text-red-500">*</Text>
+                First Payout Date <Text className="text-red-500">*</Text>
               </Text>
               <TouchableOpacity
                 onPress={() => {
@@ -608,14 +608,14 @@ export default function CreateChama() {
                 formData.startDate.trim() !== "" &&
                 formData.startTime.trim() !== "" && (
                   <Text className="text-red-600 text-xs mt-1">
-                    Start date must be in the future
+                    First payout date must be in the future
                   </Text>
                 )}
             </View>
 
             <View className="flex-1">
               <Text className="text-sm font-medium text-gray-700 mb-2">
-                Start Time <Text className="text-red-500">*</Text>
+                First Payout Time <Text className="text-red-500">*</Text>
               </Text>
               <TouchableOpacity
                 onPress={() => {
@@ -647,11 +647,19 @@ export default function CreateChama() {
                 formData.startTime.trim() !== "" &&
                 formData.startDate.trim() !== "" && (
                   <Text className="text-red-600 text-xs mt-1">
-                    Start time must be in the future
+                    First payout time must be in the future
                   </Text>
                 )}
             </View>
           </View>
+
+          {formData.startDate !== "" && (
+            <View className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex-row items-start gap-3">
+              <Text className="flex-1 text-amber-900 text-sm leading-5">
+                Before <Text className="font-bold">{formatDate(formData.startDate)}</Text>, everyone in the chama should have successfully made their contribution.
+              </Text>
+            </View>
+          )}
 
           {/* <View>
             <Text className="text-sm font-medium text-gray-700 mb-2">
@@ -725,7 +733,7 @@ export default function CreateChama() {
                 </Text>
               </View>
             )}
-            {isKESMode && formData.contribution !== "" && kesRate > 0 && (
+            {!isKESMode && formData.contribution !== "" && kesRate > 0 && (
               <View className="mt-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                 <Text className="text-blue-900 text-xs font-medium">
                   ≈ {formData.contributionKES} KES (at 1 USDC = KES{" "}
@@ -759,28 +767,28 @@ export default function CreateChama() {
                       {isKESMode ? (
                         <>
                           • Total pool per payout:{" "}
-                          {Math.ceil(getContributionValue() * getMaxMembersValue() * kesRate).toLocaleString()} KES (≈{" "}
+                          {(parseFloat(formData.contributionKES || "0") * getMaxMembersValue()).toLocaleString()} KES (≈{" "}
                           {(getContributionValue() * getMaxMembersValue()).toFixed(2)} USDC)
                           {"\n"}• Each contribution:{" "}
-                          {Math.ceil(getContributionValue() * kesRate).toFixed(2)} KES (≈{" "}
+                          {parseFloat(formData.contributionKES || "0").toLocaleString()} KES (≈{" "}
                           {getContributionValue().toFixed(3)} USDC)
                         </>
                       ) : (
                         <>
                           • Total pool per payout: {(getContributionValue() * getMaxMembersValue()).toFixed(2)} USDC
-                          {kesRate > 0 && isKESMode && ` (≈ ${Math.ceil(getContributionValue() * getMaxMembersValue() * kesRate).toLocaleString()} KES)`}
+                          {kesRate > 0 && ` (≈ ${(getContributionValue() * getMaxMembersValue() * kesRate).toLocaleString(undefined, { maximumFractionDigits: 2 })} KES)`}
                           {"\n"}• Each contribution: {getContributionValue().toFixed(2)} USDC
-                          {kesRate > 0 && isKESMode && ` (≈ ${Math.ceil(getContributionValue() * kesRate).toLocaleString()} KES)`}
+                          {kesRate > 0 && ` (≈ ${(getContributionValue() * kesRate).toLocaleString(undefined, { maximumFractionDigits: 2 })} KES)`}
                         </>
                       )}
                       {"\n"}• Frequency: {formData.frequency} days
-                      {"\n"}• Starts: {formatDate(formData.startDate)} at{" "}
+                      {"\n"}• First Payout: {formatDate(formData.startDate)} at{" "}
                       {formatTime(formData.startTime)}
                       {!isStartDateTimeInFuture() &&
                         formData.startDate.trim() !== "" &&
                         formData.startTime.trim() !== "" && (
                           <Text className="text-red-600">
-                            {"\n"}• Start date/time must be in the future
+                            {"\n"}• First payout date/time must be in the future
                           </Text>
                         )}
                     </Text>
@@ -952,7 +960,7 @@ export default function CreateChama() {
               </Text>
             </Text>
             <Text className="text-emerald-800 text-sm font-medium">
-              • Start:{" "}
+              • First Payout:{" "}
               <Text className="font-normal">
                 {formData.startDate && formData.startTime
                   ? `${formatDate(formData.startDate)} at ${formatTime(formData.startTime)}`
@@ -972,7 +980,7 @@ export default function CreateChama() {
                   • Collateral Required:{" "}
                   <Text className="font-normal">
                     {user?.location === "KE" && kesRate > 0
-                      ? `${Math.ceil(Number(formData.contribution) * Number(formData.maxMembers) * kesRate).toLocaleString()} KES (${(Number(formData.contribution) * Number(formData.maxMembers)).toFixed(3)} USDC)`
+                      ? `${(isKESMode ? parseFloat(formData.contributionKES || "0") * Number(formData.maxMembers) : Number(formData.contribution) * Number(formData.maxMembers) * kesRate).toLocaleString(undefined, { maximumFractionDigits: 2 })} KES (${(Number(formData.contribution) * Number(formData.maxMembers)).toFixed(3)} USDC)`
                       : `${(Number(formData.contribution) * Number(formData.maxMembers)).toFixed(3)} USDC`}
                   </Text>
                 </Text>
@@ -1392,9 +1400,10 @@ export default function CreateChama() {
                       {
                         user?.location === "KE" ? (
                           <Text>
-                            {(
-                              (getContributionValue() * getMaxMembersValue()) * kesRate
-                            ).toLocaleString()}{" "}
+                            {(isKESMode
+                              ? parseFloat(formData.contributionKES || "0") * getMaxMembersValue()
+                              : getContributionValue() * getMaxMembersValue() * kesRate
+                            ).toLocaleString(undefined, { maximumFractionDigits: 2 })}{" "}
                             KES
                           </Text>
                         ) : (
@@ -1504,9 +1513,10 @@ export default function CreateChama() {
                       {
                         user?.location === "KE" ? (
                           <Text>
-                            {(
-                              (getContributionValue() * getMaxMembersValue()) * kesRate
-                            ).toLocaleString()}{" "}
+                            {(isKESMode
+                              ? parseFloat(formData.contributionKES || "0") * getMaxMembersValue()
+                              : getContributionValue() * getMaxMembersValue() * kesRate
+                            ).toLocaleString(undefined, { maximumFractionDigits: 2 })}{" "}
                             KES
                           </Text>
                         ) : (

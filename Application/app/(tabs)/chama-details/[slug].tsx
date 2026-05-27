@@ -696,10 +696,10 @@ export default function ChamaDetails() {
                 </View>
                 <View className="flex-row items-center gap-2 bg-white/30 rounded-full px-4 py-2">
                   <Text className="text-sm text-white font-semibold">
-                    {chama.status !== "active" ? "Starts In:" : "Next Payout In:"}
+                    "Next Payout In:"
                   </Text>
                   <Text className="text-sm text-white font-semibold">
-                    {chama.status !== "active" ? formatTimeRemaining(chama.startDate as unknown as string) : chama.nextPayoutDate}
+                    {chama.nextPayoutDate}
                   </Text>
                 </View>
                 <View className="flex-row items-center gap-2  px-4 py-2">
@@ -1045,7 +1045,7 @@ export default function ChamaDetails() {
                   {/* Search Results Dropdown */}
                   {showShareSearchResults && shareSearchResults.length > 0 && (
                     <View className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-emerald-200 shadow-lg z-50 max-h-48">
-                      <ScrollView>
+                      <ScrollView keyboardShouldPersistTaps="handled">
                         {shareSearchResults.map((user) => (
                           <TouchableOpacity
                             key={user.id}

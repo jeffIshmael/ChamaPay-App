@@ -1,5 +1,5 @@
 import { createThirdwebClient, getContract, Insight } from "thirdweb";
-import { celo } from "thirdweb/chains";
+import {  base } from "thirdweb/chains";
 import { Abi, decodeFunctionData } from "thirdweb/utils";
 import { getWalletBalance } from "thirdweb/wallets";
 import { chamapayContractAddress, usdcAddress } from "./contractAddress";
@@ -34,17 +34,17 @@ export const client = createThirdwebClient({
 });
 
 // Set your primary chain (Celo)
-export const chain = celo;
+export const chain = base;
 
 export const usdcContract = getContract({
   address: usdcAddress,
-  chain: celo,
+  chain: base,
   client,
 });
 
 export const chamapayContract = getContract({
   address: chamapayContractAddress,
-  chain: celo,
+  chain: base,
   client,
 });
 
@@ -91,7 +91,7 @@ export async function getAllTransferFunctions(userWallet: string) {
     const transactions = await Insight.getTransactions({
       client,
       walletAddress: userWallet,
-      chains: [celo],
+      chains: [base],
     });
 
     const results = [];
@@ -114,7 +114,7 @@ export async function getAllTransferFunctions(userWallet: string) {
       // ✅ Create contract instance
       const contract = getContract({
         client,
-        chain: celo,
+        chain: base,
         address: token.address as `0x${string}`,
         abi: ERC20_ABI,
       });

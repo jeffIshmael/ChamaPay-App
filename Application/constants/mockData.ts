@@ -52,7 +52,6 @@ export interface JoinedChama {
   description: string;
   currency: string;
   totalMembers: number;
-  startDate: Date;
   maxMembers: number;
   contribution: number;
   totalContributions: number;
@@ -76,7 +75,7 @@ export interface JoinedChama {
   myTurn: boolean;
   myPosition: number;
   nextTurnMember: string;
-  status: "not started" | "active";
+  status: "inactive" | "active" ;
   unreadMessages: number;
   isPublic: boolean;
   currentCycle: number;

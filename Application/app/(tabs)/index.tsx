@@ -480,10 +480,11 @@ export default function HomeScreen() {
                 <View className="flex-row items-center flex-1">
 
                   <Calendar color="#6b7280" size={16} />
+                  {/* schedule  comes 3 days t payout */}
                   <Text className="text-sm font-medium text-gray-700 ml-2">
-                    {chama.status === "active"
+                    {chama.payoutSchedule.length > 0
                       ? `Next: ${chama.myTurn ? "#You" : chama.currentTurnMember} (${chama.nextPayoutDate})`
-                      : `Starts in: ${formatTimeRemaining(chama.startDate)}`}
+                      : `Schedule in:  ${chama.nextPayout ? formatTimeRemaining(new Date(new Date(chama.nextPayout).getTime() - (3 * 60 * 60 * 1000))) : chama.nextPayoutDate}`} 
                   </Text>
 
 
