@@ -308,6 +308,96 @@ export async function pretiumCallback(req: Request, res: Response) {
   }
 }
 
+// offramp callback
+export async function pretiumOfframpCallback(
+  req: Request,
+  res: Response
+) {
+  console.log("=== Pretium Offramp Callback Received ===");
+  console.log(JSON.stringify(req.body, null, 2));
+
+  // Acknowledge immediately
+  res.status(200).json({
+    ResultCode: 0,
+    ResultDesc: "Accepted",
+  });
+
+  try {
+    const body = req.body;
+
+    console.log("The normal body", body);
+
+    // Find transaction
+    const transaction = await prisma.pretiumTransaction.findUnique({
+      where: {
+        transactionCode: body.transaction_code,
+      },
+    });
+
+    if (!transaction) {
+      console.error(
+        "Offramp transaction not found:",
+        body.transaction_code
+      );
+      return;
+    }
+
+    // Prevent duplicate processing
+    if (transaction.status === "COMPLETE") {
+      console.log(
+        `⚠️ Offramp transaction already processed: ${body.transaction_code}`
+      );
+      return;
+    }
+
+    // Handle failed transaction
+    if (
+      body.status === "FAILED" ||
+      body.status === "CANCELLED"
+    ) {
+      await prisma.pretiumTransaction.update({
+        where: {
+          transactionCode: body.transaction_code,
+        },
+        data: {
+          status: body.status,
+          message: body.message,
+        },
+      });
+
+      console.log(
+        `❌ Offramp ${body.status}:`,
+        body.message
+      );
+
+      return;
+    }
+
+    // Handle successful offramp
+    if (body.status === "COMPLETE") {
+      await prisma.pretiumTransaction.update({
+        where: {
+          transactionCode: body.transaction_code,
+        },
+        data: {
+          status: body.status,
+          receiptNumber: body.receipt_number,
+          message: body.message,
+        },
+      });
+
+      console.log(
+        `✅ Offramp successful - Receipt: ${body.receipt_number}`
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Error processing offramp callback:",
+      error
+    );
+  }
+}
+
 // checks the status of a tx
 export async function pretiumCheckTransaction(req: Request, res: Response) {
   const { transactionCode } = req.body;
