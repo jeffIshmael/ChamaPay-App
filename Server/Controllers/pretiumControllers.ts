@@ -202,7 +202,10 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
     });
     return res.status(200).json({
       success: true,
-      result: result,
+      message: result.message,
+      status: result.status,
+      transactionCode: result.transaction_code,
+      result,
     });
   } catch (error) {
     console.log("error in the offramping pretium", error);
@@ -677,6 +680,9 @@ export async function pretiumTransferToBank(req: Request, res: Response) {
     });
     return res.status(200).json({
       success: true,
+      message: txResult.message,
+      status: txResult.status,
+      transactionCode: txResult.transaction_code,
       result: txResult,
     });
   } catch (error) {
@@ -769,7 +775,10 @@ export async function pretiumMobileTransfer(req: Request, res: Response) {
     });
     return res.status(200).json({
       success: true,
-      result: result,
+      message: result.message,
+      status: result.status,
+      transactionCode: result.transaction_code,
+      result,
     });
   } catch (error) {
     console.log("error transferring to mobile", error);

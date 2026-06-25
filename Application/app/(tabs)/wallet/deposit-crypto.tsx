@@ -25,6 +25,7 @@ import {
   formatPhoneNumber,
   isValidPhoneNumber,
 } from "@/Utils/pretiumUtils";
+import SupportedWalletLogos from "@/components/SupportedWalletLogos";
 
 export default function DepositCryptoScreen() {
   const router = useRouter();
@@ -254,6 +255,12 @@ export default function DepositCryptoScreen() {
               M-Pesa deposits are currently only available for users in Kenya.
               You can still deposit USDC using an external wallet via the "Receive" feature.
             </Text>
+            <View className="mt-4 mb-1">
+              <SupportedWalletLogos
+                variant="compact"
+                label="Binance, OKX, Bitget, Base, MetaMask & more"
+              />
+            </View>
             <TouchableOpacity
               className="mt-3 bg-yellow-200 py-2 px-3 rounded-lg items-center"
               onPress={() => router.push("/(tabs)/wallet/receive-crypto")}
@@ -370,7 +377,7 @@ export default function DepositCryptoScreen() {
                 <Text className="text-sm text-gray-600">
                   Min:{" "}
                   <Text className="font-semibold">
-                    {(MINIMUM_DEPOSIT / onrampRate).toFixed(2)} USDC (KES {MINIMUM_DEPOSIT})
+                    {(MINIMUM_DEPOSIT / onrampRate).toFixed(2)} USDC
                   </Text>
                 </Text>
                 <View className="flex-row gap-2">

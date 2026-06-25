@@ -2,6 +2,7 @@ import { useAuth } from "@/Contexts/AuthContext";
 import {
   CurrencyCode,
   disburseToMobileNumber,
+  extractTransactionCode,
   pollPretiumPaymentStatus,
   validatePhoneNumber,
 } from "@/lib/pretiumService";
@@ -60,6 +61,7 @@ export default function WithdrawCryptoScreen() {
   const [processingStep, setProcessingStep] = useState<
     "idle" | "processing" | "completed" | "failed"
   >("idle");
+  const [withdrawalProgressStep, setWithdrawalProgressStep] = useState(1);
 
   // Modal states
   const [showVerificationModal, setShowVerificationModal] = useState(false);
@@ -227,6 +229,7 @@ export default function WithdrawCryptoScreen() {
     setShowVerificationModal(false);
     setIsProcessing(true);
     setProcessingStep("processing");
+    setWithdrawalProgressStep(1);
 
     try {
       const payoutKES = calculatePayoutKES();
@@ -254,30 +257,31 @@ export default function WithdrawCryptoScreen() {
       }
 
       // Poll for transaction completion
-      const transactionCode = offrampResult.result.transactionCode;
+      const transactionCode = extractTransactionCode(offrampResult);
 
       if (!transactionCode) {
         throw new Error("No transaction code received");
       }
 
-      setProcessingStep("processing");
+      setWithdrawalProgressStep(2);
 
       try {
         const finalResult = await pollPretiumPaymentStatus(
           transactionCode,
           token,
-          (status, data) => {
+          (status) => {
             console.log("Withdrawal status update:", status);
             switch (status) {
               case "pending":
-                setProcessingStep("processing");
+                setWithdrawalProgressStep(2);
                 break;
               case "processing":
               case "pending_transfer":
-                setProcessingStep("processing");
+                setWithdrawalProgressStep(3);
                 break;
               case "completed":
               case "complete":
+                setWithdrawalProgressStep(3);
                 setProcessingStep("completed");
                 break;
             }
@@ -767,85 +771,116 @@ export default function WithdrawCryptoScreen() {
 
       {/* Processing Modal */}
       <Modal visible={isProcessing} transparent animationType="fade">
-        <View className="flex-1 bg-downy-950/80 items-center justify-center px-6">
+        <View className="flex-1 bg-black/50 items-center justify-center px-6">
           <View
-            className="bg-white rounded-[32px] w-full shadow-2xl overflow-hidden border border-downy-100"
+            className="bg-white rounded-3xl w-full shadow-2xl overflow-hidden"
             style={{ maxWidth: 400 }}
           >
             {processingStep === "processing" && (
-              <View className="p-8">
-                <View className="items-center mb-6">
-                  <View className="w-20 h-20 bg-downy-50 rounded-full items-center justify-center border-2 border-downy-100 shadow-sm">
+              <View className="p-7">
+                <View className="items-center mb-7">
+                  <View className="w-16 h-16 rounded-full items-center justify-center bg-downy-50 border border-downy-100">
                     <ActivityIndicator size="large" color="#1c8584" />
                   </View>
-                  <Text className="text-2xl font-black text-center mt-6 text-downy-900 tracking-tight">
-                    Processing Cashout
+                  <Text className="text-xl font-bold text-center mt-5 text-gray-900">
+                    Processing Withdrawal
                   </Text>
-                  <Text className="text-sm text-gray-500 text-center mt-2 font-medium px-4 leading-5">
-                    Transferring{" "}
-                    <Text className="text-downy-800 font-bold">
+                  <Text className="text-sm text-gray-500 text-center mt-2 px-2 leading-5">
+                    Sending{" "}
+                    <Text className="text-gray-800 font-semibold">
                       {amountUSDC} USDC
                     </Text>{" "}
-                    (≈ KES {formatCurrency(finalAmountKES.toFixed(2))}) to your
-                    phone number
+                    (≈ KES {formatCurrency(finalAmountKES.toFixed(2))}) to{" "}
+                    {formatPhoneNumber(KENYA_PHONE_CODE, phoneNumber)}
                   </Text>
                 </View>
 
-                {/* Status Timeline */}
-                <View className="bg-gray-50 rounded-2xl p-5 border border-gray-200/50 shadow-inner">
-                  <View className="space-y-6">
-                    {/* Step 1: Initialized */}
-                    <View className="flex-row items-center">
-                      <View className="w-8 h-8 rounded-full bg-downy-600 items-center justify-center mr-4 shadow-md shadow-downy-100">
-                        <Check size={16} color="white" strokeWidth={3} />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-sm font-bold text-gray-900">
-                          Transfer Request Created
-                        </Text>
-                        <Text className="text-[10px] text-downy-600 uppercase font-black tracking-wider">
-                          Completed
-                        </Text>
-                      </View>
-                    </View>
+                {/* Progress Steps */}
+                <View className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                  {[
+                    {
+                      step: 1,
+                      title: "Transfer request created",
+                      doneLabel: "Done",
+                      activeLabel: "Creating",
+                    },
+                    {
+                      step: 2,
+                      title: "Converting USDC to KES",
+                      doneLabel: "Done",
+                      activeLabel: "Converting",
+                    },
+                    {
+                      step: 3,
+                      title: "M-Pesa payout",
+                      doneLabel: "Sent",
+                      activeLabel: "Sending",
+                    },
+                  ].map((item, index, arr) => {
+                    const isDone = withdrawalProgressStep > item.step;
+                    const isActive = withdrawalProgressStep === item.step;
+                    const isPending = withdrawalProgressStep < item.step;
 
-                    {/* Step 2: Conversion */}
-                    <View className="flex-row items-center">
-                      <View className="w-8 h-8 rounded-full bg-downy-100 items-center justify-center mr-4 border border-downy-300">
-                        <ActivityIndicator size="small" color="#1c8584" />
+                    return (
+                      <View key={item.step}>
+                        <View className="flex-row items-center">
+                          <View
+                            className={`w-7 h-7 rounded-full items-center justify-center ${
+                              isDone
+                                ? "bg-downy-600"
+                                : isActive
+                                  ? "bg-downy-100 border border-downy-300"
+                                  : "bg-gray-200"
+                            }`}
+                          >
+                            {isDone ? (
+                              <Check size={14} color="white" strokeWidth={3} />
+                            ) : isActive ? (
+                              <ActivityIndicator size="small" color="#1c8584" />
+                            ) : (
+                              <View className="w-2 h-2 rounded-full bg-gray-400" />
+                            )}
+                          </View>
+                          <View className="flex-1 ml-3">
+                            <Text
+                              className={`text-sm font-semibold ${
+                                isPending ? "text-gray-400" : "text-gray-800"
+                              }`}
+                            >
+                              {item.title}
+                            </Text>
+                            <Text
+                              className={`text-[10px] uppercase tracking-wide mt-0.5 font-semibold ${
+                                isDone
+                                  ? "text-downy-600"
+                                  : isActive
+                                    ? "text-downy-600"
+                                    : "text-gray-400"
+                              }`}
+                            >
+                              {isDone
+                                ? item.doneLabel
+                                : isActive
+                                  ? item.activeLabel
+                                  : "Waiting"}
+                            </Text>
+                          </View>
+                        </View>
+                        {index < arr.length - 1 && (
+                          <View
+                            className={`w-0.5 h-5 ml-[13px] my-1 ${
+                              isDone ? "bg-downy-400" : "bg-gray-200"
+                            }`}
+                          />
+                        )}
                       </View>
-                      <View className="flex-1">
-                        <Text className="text-sm font-bold text-gray-900">
-                          Converting USDC to KES
-                        </Text>
-                        <Text className="text-[10px] text-downy-600 uppercase font-black tracking-wider">
-                          Processing
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Step 3: Payout */}
-                    <View className="flex-row items-center opacity-40">
-                      <View className="w-8 h-8 rounded-full bg-gray-200 items-center justify-center mr-4">
-                        <View className="w-2.5 h-2.5 bg-gray-400 rounded-full" />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-sm font-bold text-gray-900">
-                          Instasend M-Pesa Payout
-                        </Text>
-                        <Text className="text-[10px] text-gray-500 uppercase font-black tracking-wider">
-                          Queueing
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
+                    );
+                  })}
                 </View>
 
-                <View className="mt-8 bg-downy-50 py-3.5 px-4 rounded-2xl flex-row items-center justify-center border border-downy-100/50">
-                  <Text className="text-downy-800 font-black text-xs uppercase tracking-widest">
-                    🛡️ SECURING BLOCKCHAIN OFFRAMP...
-                  </Text>
-                </View>
+                <Text className="text-xs text-gray-400 text-center mt-6">
+                  This usually takes under a minute. Please keep the app open.
+                </Text>
               </View>
             )}
 

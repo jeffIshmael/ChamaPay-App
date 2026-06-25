@@ -6,6 +6,7 @@ import { PrismaClient } from "@prisma/client";
 import { toEther } from "thirdweb";
 import {
   getChamasThatHaveReachedPaydate,
+  getChamasForThreeDayReminder,
   getFirstPayoutChamas,
   shuffleArray,
 } from "./HelperFunctions";
@@ -96,18 +97,6 @@ export const checkStartDate = async () => {
             `Payout Order Ready! 🎉`,
             `You are the first in the payout order for ${chama.name} chama. Tap to view the full order!`,
           )
-        } else {
-
-          await notifyAllChamaMembers(
-            chama.id,
-            `Reminder: The  payout for ${chama.name} is in 3 days. Make sure you have contributed!`
-          );
-
-          await sendExpoNotificationToAllChamaMembers(
-            `Payout Approaching ⌛`,
-            `Payout for ${chama.name} chama is in 3 days. Make sure you have contributed!`,
-            chama.id
-          );
         }
 
         return { chamaId: chama.id, status: 'success' };
@@ -125,6 +114,29 @@ export const checkStartDate = async () => {
         console.error(`Chama ${firstPayoutChamas[idx]?.id} failed:`, f.reason);
       }
     });
+
+    // Send one-time 3-day payout reminders
+    const reminderChamas = await getChamasForThreeDayReminder();
+    for (const chama of reminderChamas) {
+      const reminderType = `payout_reminder_3days_c${chama.cycle}_r${chama.round}`;
+      const alreadySent = await prisma.notification.findFirst({
+        where: { chamaId: chama.id, type: reminderType },
+      });
+
+      if (alreadySent) continue;
+
+      await notifyAllChamaMembers(
+        chama.id,
+        `Reminder: The payout for ${chama.name} is in 3 days. Make sure you have contributed!`,
+        reminderType
+      );
+
+      await sendExpoNotificationToAllChamaMembers(
+        `Payout Approaching ⌛`,
+        `Payout for ${chama.name} chama is in 3 days. Make sure you have contributed!`,
+        chama.id
+      );
+    }
 
     return { successful: successful.length, failed: failed.length };
 

@@ -2,7 +2,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
   User,
-  WalletMinimal,
   X,
   Info,
   CheckCircle,
@@ -30,6 +29,7 @@ import { serverUrl } from "@/constants/serverUrl";
 import { useAuth } from "@/Contexts/AuthContext";
 import { searchUsers, getUserByAddress } from "@/lib/chamaService";
 import { internalTransferFee } from "@/Utils/transactionFeeUtils";
+import SupportedWalletLogos from "@/components/SupportedWalletLogos";
 
 export default function SendCryptoScreen() {
   const [sendMode, setSendMode] = useState<"chamapay" | "external">("chamapay");
@@ -407,24 +407,22 @@ export default function SendCryptoScreen() {
                   setRecipient("");
                   setAmount("");
                 }}
-                className={`flex-1 py-4 px-4 rounded-2xl flex-row items-center justify-center gap-2 border border-transparent ${
+                className={`flex-1 py-4 px-3 rounded-2xl border border-transparent ${
                   sendMode === "external"
                     ? "bg-downy-600"
                     : "bg-white border-gray-200"
                 }`}
                 activeOpacity={0.7}
               >
-                <WalletMinimal
-                  color={sendMode === "external" ? "#fff" : "#1c8584"}
-                  size={20}
-                />
-                <Text
-                  className={`text-center font-semibold text-sm ${
-                    sendMode === "external" ? "text-white" : "text-gray-700"
-                  }`}
-                >
-                  External Wallet
-                </Text>
+                <View className="items-center gap-2">
+                  <Text
+                    className={`text-center font-semibold text-sm ${
+                      sendMode === "external" ? "text-white" : "text-gray-700"
+                    }`}
+                  >
+                    External Wallet
+                  </Text>
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -585,7 +583,12 @@ export default function SendCryptoScreen() {
               )
             ) : (
               <View>
-                <View className="flex-row items-center">
+                <SupportedWalletLogos
+                  variant="compact"
+                  label="Send to any Base wallet — Binance, OKX, Bitget, Base, MetaMask & more"
+                  showLabel
+                />
+                <View className="flex-row items-center mt-3">
                   <TextInput
                     value={recipient}
                     onChangeText={setRecipient}

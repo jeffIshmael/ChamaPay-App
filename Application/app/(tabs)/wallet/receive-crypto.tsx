@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/Contexts/AuthContext";
+import SupportedWalletLogos from "@/components/SupportedWalletLogos";
 
 export default function ReceiveCryptoScreen() {
   const router = useRouter();
@@ -83,6 +84,18 @@ export default function ReceiveCryptoScreen() {
               <Text className="text-white font-medium ml-2">Copy Address</Text>
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* External wallet compatibility */}
+        <View className="bg-white p-4 mt-6 rounded-xl border border-gray-200">
+          <Text className="text-gray-900 font-medium mb-3">
+            Receive from external wallets
+          </Text>
+          <SupportedWalletLogos label="Deposit from Binance, OKX, Bitget, Base, MetaMask & more" />
+          <Text className="text-xs text-gray-500 mt-3 leading-relaxed">
+            Copy your address and paste it in any supported wallet app to send
+            USDC on the Celo network.
+          </Text>
         </View>
         {/* Info Section */}
         <View className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl mt-6 mb-10">

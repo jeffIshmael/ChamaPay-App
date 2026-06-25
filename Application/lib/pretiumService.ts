@@ -166,8 +166,12 @@ export const pollPretiumPaymentStatus = async (
           return;
         }
 
-        // Continue polling for pending status
-        if (transactionStatus === "pending") {
+        // Continue polling for pending/processing status
+        if (
+          ["pending", "processing", "pending_transfer"].includes(
+            transactionStatus
+          )
+        ) {
           // Just continue polling, don't reject
           if (attempts >= maxAttempts) {
             clearInterval(pollInterval);
@@ -340,6 +344,18 @@ export async function bankTransfer(
     console.log("Error transfering to ngn bank:", error);
     return { success: false, error: "Failed to transfer to ngn bank" };
   }
+}
+
+// Extract transaction code from offramp API responses (handles snake_case and camelCase)
+export function extractTransactionCode(response: {
+  transactionCode?: string;
+  result?: { transaction_code?: string; transactionCode?: string };
+}): string | undefined {
+  return (
+    response.transactionCode ||
+    response.result?.transaction_code ||
+    response.result?.transactionCode
+  );
 }
 
 // function to offramp to mobile number
