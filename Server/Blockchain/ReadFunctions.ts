@@ -1,7 +1,7 @@
 // this file contains all the blockchain read functions
 import { createPublicClient, http } from 'viem'
-import { celo, base } from 'viem/chains'
-import { cUSDAddress, contractABI, USDCAddress, contractAddress } from './Constants'
+import { base } from 'viem/chains'
+import { contractABI, USDCAddress, contractAddress } from './Constants'
 import { erc20Abi } from 'viem'
  
 const publicClient = createPublicClient({
@@ -9,26 +9,7 @@ const publicClient = createPublicClient({
   transport: http()
 })
 
-// getting cUSD and USDC balance
-export const getTokenBalance = async (address: string) => {
-    const [cUSDBalance, USDCBalance] = await Promise.all([
-        publicClient.readContract({
-            address: cUSDAddress,
-            abi: erc20Abi,
-            functionName: 'balanceOf',
-            args: [address as `0x${string}`]
-        }),
-        publicClient.readContract({
-            address: USDCAddress,
-            abi: erc20Abi,
-            functionName: 'balanceOf',
-            args: [address as `0x${string}`]
-        }),
-    ]);
-    return { cUSDBalance, USDCBalance };
-}
-
-// function to get a user's balance
+// function to get a user's chama balance
 export const getUserChamaBalance = async (memberAddress: string, chamaBlockchainId: bigint) => {
     const balance = await publicClient.readContract({
         address: contractAddress,
