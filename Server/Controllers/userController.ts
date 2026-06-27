@@ -16,6 +16,7 @@ import {
   requestToJoin,
 } from "../Lib/prismaFunctions";
 import { uploadToPinata } from "../utils/PinataUtils";
+import { getCached, setCache } from "../Lib/cache";
 
 const prisma = new PrismaClient();
 
@@ -126,25 +127,8 @@ export const getUserDetails = async (
             chama: true,
             user: true,
           },
-        },
-        payments: {
-          include: {
-            chama: true,
-            user: true,
-          },
-        },
-        payOuts: {
-          include: {
-            chama: true,
-            user: true,
-          },
-        },
-        pretiumTransactions: {
-          where: {
-            isRealesed: true,
-            chamaId: null,
-            status: "COMPLETE",
-          },
+          orderBy: { createdAt: "desc" },
+          take: 50,
         },
       },
     });
@@ -163,6 +147,130 @@ export const getUserDetails = async (
     res.status(200).json({ user: user });
   } catch (error: unknown) {
     console.error("Get user error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+type UnifiedTransaction = {
+  id: number;
+  source: "payment" | "payout" | "pretium";
+  amount: string;
+  txHash: string;
+  doneAt: string;
+  description?: string;
+  receiver?: string;
+  sender?: string;
+  chama?: { name: string } | null;
+  isOnramp?: boolean;
+  shortcode?: string;
+  receiptNumber?: string | null;
+  isPretiumTx: boolean;
+};
+
+export const getUserTransactions = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.user?.userId) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+
+    const userId = req.user.userId;
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit as string, 10) || 20, 1),
+      50
+    );
+    const cursor = req.query.cursor as string | undefined;
+    const cursorDate = cursor ? new Date(cursor) : undefined;
+    const dateFilter = cursorDate ? { lt: cursorDate } : undefined;
+
+    const [payments, payOuts, pretiumTransactions] = await Promise.all([
+      prisma.payment.findMany({
+        where: {
+          userId,
+          ...(dateFilter ? { doneAt: dateFilter } : {}),
+        },
+        orderBy: { doneAt: "desc" },
+        take: limit,
+        include: { chama: { select: { name: true } } },
+      }),
+      prisma.payOut.findMany({
+        where: {
+          userId,
+          ...(dateFilter ? { doneAt: dateFilter } : {}),
+        },
+        orderBy: { doneAt: "desc" },
+        take: limit,
+        include: { chama: { select: { name: true } } },
+      }),
+      prisma.pretiumTransaction.findMany({
+        where: {
+          userId,
+          isRealesed: true,
+          chamaId: null,
+          status: "COMPLETE",
+          ...(dateFilter ? { updatedAt: dateFilter } : {}),
+        },
+        orderBy: { updatedAt: "desc" },
+        take: limit,
+      }),
+    ]);
+
+    const unified: UnifiedTransaction[] = [
+      ...payments.map((p) => ({
+        id: p.id,
+        source: "payment" as const,
+        amount: p.amount,
+        txHash: p.txHash,
+        doneAt: p.doneAt.toISOString(),
+        description: p.description ?? undefined,
+        receiver: p.receiver ?? undefined,
+        sender: p.sender ?? undefined,
+        chama: p.chama,
+        isPretiumTx: false,
+      })),
+      ...payOuts.map((p) => ({
+        id: p.id,
+        source: "payout" as const,
+        amount: p.amount,
+        txHash: p.txHash ?? "",
+        doneAt: p.doneAt.toISOString(),
+        chama: p.chama,
+        isPretiumTx: false,
+      })),
+      ...pretiumTransactions.map((p) => ({
+        id: p.id,
+        source: "pretium" as const,
+        amount: p.cusdAmount?.toString() ?? p.amount.toString(),
+        txHash: p.blockchainTxHash ?? "",
+        doneAt: p.updatedAt.toISOString(),
+        isOnramp: p.isOnramp,
+        shortcode: p.shortcode ?? undefined,
+        receiptNumber: p.receiptNumber,
+        isPretiumTx: true,
+      })),
+    ];
+
+    unified.sort(
+      (a, b) => new Date(b.doneAt).getTime() - new Date(a.doneAt).getTime()
+    );
+
+    const transactions = unified.slice(0, limit);
+    const nextCursor =
+      transactions.length === limit
+        ? transactions[transactions.length - 1].doneAt
+        : null;
+
+    res.status(200).json({
+      success: true,
+      transactions,
+      nextCursor,
+      hasMore: transactions.length === limit,
+    });
+  } catch (error: unknown) {
+    console.error("Get user transactions error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -374,7 +482,12 @@ export const searchUsers = async (
     }
 
     const trimmedQuery = query.trim().toLowerCase();
-    console.log("the query", trimmedQuery);
+    const cacheKey = `user-search:${trimmedQuery}`;
+    const cached = getCached<{ success: boolean; users: unknown[] }>(cacheKey);
+    if (cached) {
+      res.status(200).json(cached);
+      return;
+    }
 
     // Search for users by username (case insensitive)
     const users = await prisma.user.findMany({
@@ -393,10 +506,13 @@ export const searchUsers = async (
       take: 10, // Limit to 10 results
     });
 
-    res.status(200).json({
+    const response = {
       success: true,
       users: users,
-    });
+    };
+    setCache(cacheKey, response, 60_000);
+
+    res.status(200).json(response);
   } catch (error: unknown) {
     console.error("Search users error:", error);
     res.status(500).json({ success: false, error: "Internal server error" });

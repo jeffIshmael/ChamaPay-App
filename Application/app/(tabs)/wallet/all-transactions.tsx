@@ -44,10 +44,11 @@ interface Transaction {
 export default function AllTransactions() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [theTransaction, setTheTransaction] = useState<Transaction[] | null>(
-    null
-  );
+  const [theTransaction, setTheTransaction] = useState<Transaction[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
   const [transactionError, setTransactionError] = useState<string | null>(null);
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
@@ -66,27 +67,44 @@ export default function AllTransactions() {
     }
   };
 
-  const getTx = async () => {
+  const getTx = async (cursor?: string | null) => {
     if (!token) return;
 
-    setLoadingTransactions(true);
-    setTransactionError(null);
+    const isLoadMore = Boolean(cursor);
+    if (isLoadMore) {
+      setLoadingMore(true);
+    } else {
+      setLoadingTransactions(true);
+      setTransactionError(null);
+    }
 
     try {
-      const theTxs = await getTheUserTx(token);
+      const result = await getTheUserTx(token, {
+        limit: 20,
+        cursor: cursor ?? undefined,
+      });
 
-      if (theTxs === null) {
-        setTransactionError("Unable to load transaction history");
-        setTheTransaction([]);
+      if (result === null) {
+        if (!isLoadMore) {
+          setTransactionError("Unable to load transaction history");
+          setTheTransaction([]);
+        }
       } else {
-        setTheTransaction(theTxs);
+        setTheTransaction((prev) =>
+          isLoadMore ? [...prev, ...result.transactions] : result.transactions
+        );
+        setNextCursor(result.nextCursor);
+        setHasMore(result.hasMore);
       }
     } catch (error) {
       console.error("Error fetching transactions:", error);
-      setTransactionError("Failed to load transactions");
-      setTheTransaction([]);
+      if (!isLoadMore) {
+        setTransactionError("Failed to load transactions");
+        setTheTransaction([]);
+      }
     } finally {
       setLoadingTransactions(false);
+      setLoadingMore(false);
     }
   };
 
@@ -545,7 +563,7 @@ export default function AllTransactions() {
         {/* Empty State */}
         {!loadingTransactions &&
           !transactionError &&
-          (!theTransaction || theTransaction.length === 0) && (
+          theTransaction.length === 0 && (
             <View className="flex-1 items-center justify-center p-10">
               <Text className="text-gray-900 font-bold text-lg mb-2">
                 No Transactions Yet
@@ -560,7 +578,6 @@ export default function AllTransactions() {
         {/* Transactions List */}
         {!loadingTransactions &&
           !transactionError &&
-          theTransaction &&
           theTransaction.length > 0 && (
             <FlatList
               data={theTransaction}
@@ -575,6 +592,19 @@ export default function AllTransactions() {
                   tintColor="#059669"
                   colors={["#059669"]}
                 />
+              }
+              onEndReached={() => {
+                if (hasMore && nextCursor && !loadingMore && !loadingTransactions) {
+                  getTx(nextCursor);
+                }
+              }}
+              onEndReachedThreshold={0.3}
+              ListFooterComponent={
+                loadingMore ? (
+                  <View className="py-4 items-center">
+                    <ActivityIndicator size="small" color="#059669" />
+                  </View>
+                ) : null
               }
             />
           )}

@@ -63,9 +63,7 @@ export default function CryptoWallet() {
   const insets = useSafeAreaInsets();
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [userBalance, setUserBalance] = useState<string | null>(null);
-  const [theTransaction, setTheTransaction] = useState<Transaction[] | null>(
-    null
-  );
+  const [theTransaction, setTheTransaction] = useState<Transaction[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [transactionError, setTransactionError] = useState<string | null>(null);
   const [selectedTransaction, setSelectedTransaction] =
@@ -98,13 +96,13 @@ export default function CryptoWallet() {
     setTransactionError(null);
 
     try {
-      const theTxs = await getTheUserTx(token);
+      const result = await getTheUserTx(token, { limit: 5 });
 
-      if (theTxs === null) {
+      if (result === null) {
         setTransactionError("Unable to load transaction history");
         setTheTransaction([]);
       } else {
-        setTheTransaction(theTxs);
+        setTheTransaction(result.transactions);
       }
     } catch (error) {
       console.error("Error fetching transactions:", error);
@@ -793,7 +791,7 @@ export default function CryptoWallet() {
               <Text className="text-2xl font-bold text-gray-900">
                 Recent Activity
               </Text>
-              {theTransaction && theTransaction.length > 5 && (
+              {theTransaction.length > 0 && (
                 <TouchableOpacity
                   onPress={() => router.push("/wallet/all-transactions")}
                   className="underline"
@@ -831,7 +829,7 @@ export default function CryptoWallet() {
             {/* Empty State */}
             {!loadingTransactions &&
               !transactionError &&
-              (!theTransaction || theTransaction.length === 0) && (
+              theTransaction.length === 0 && (
                 <View className="p-10 items-center justify-center">
                   <History size={48} color="#9ca3af" className="mb-4" />
                   <Text className="text-gray-900 font-bold text-lg mb-2">
@@ -847,10 +845,9 @@ export default function CryptoWallet() {
             {/* Transactions List - Show only first 3 */}
             {!loadingTransactions &&
               !transactionError &&
-              theTransaction &&
               theTransaction.length > 0 && (
                 <View>
-                  {theTransaction.slice(0, 5).map((item) => (
+                  {theTransaction.map((item) => (
                     <TransactionCard key={`${item.id}-${item.date}`} tx={item} />
                   ))}
                 </View>

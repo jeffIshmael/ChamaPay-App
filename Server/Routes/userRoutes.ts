@@ -11,6 +11,7 @@ import {
   getUserByAddress,
   getUserById,
   getUserDetails,
+  getUserTransactions,
   getUserUsdcBalance,
   markNotificationsRead,
   registerPayment,
@@ -55,6 +56,7 @@ router.post("/notifications/mark-read", authenticate, markNotificationsRead);
 // get routes functions
 router.get("/", authenticate, getUser);
 router.get("/details", authenticate, getUserDetails);
+router.get("/transactions", authenticate, getUserTransactions);
 router.get("/hasRequest", authenticate, checkHasJoinRequest);
 // router.put("/profile", authenticate, updateUserProfile);
 router.get("/search", searchUsers);

@@ -13,234 +13,137 @@ export interface Transaction {
   hash: string;
   date: string;
   status: "completed" | "pending" | "failed";
-  isPretiumTx?: boolean; // New flag to identify Pretium transactions
-  receiptNumber?: string; // For Pretium transactions
+  isPretiumTx?: boolean;
+  receiptNumber?: string;
 }
 
-/**
- * Raw payout data from API
- */
-interface PayoutData {
+interface ApiTransaction {
   id: number;
+  source: "payment" | "payout" | "pretium";
   amount: string;
   txHash: string;
   doneAt: string;
-  chama: {
-    name: string;
-  };
-}
-
-/**
- * Raw payment data from API
- */
-interface PaymentData {
-  id: number;
-  amount: string;
-  txHash: string;
-  doneAt: string;
-  chama: {
-    name: string;
-  };
-  receiver: string;
-  description: string;
+  description?: string;
+  receiver?: string;
   sender?: string;
+  chama?: { name: string } | null;
+  isOnramp?: boolean;
+  shortcode?: string;
+  receiptNumber?: string | null;
+  isPretiumTx: boolean;
 }
 
-/**
- * Raw pretium data from API
- */
-interface PretiumTxData {
-  account_number: null | number;
-  amount: string;
-  blockchainTxHash: null | string;
-  chamaId: null | number;
-  createdAt: string;
-  cusdAmount: string;
-  exchangeRate: string;
-  id: number;
-  isOnramp: boolean;
-  isRealesed: boolean;
-  message: string;
-  pretiumType: null | string;
-  receiptNumber: null | string;
-  shortcode: string;
-  status: "FAILED" | "CANCELLED" | "COMPLETED";
-  transactionCode: string;
-  transactionDate: null | string;
-  type: string;
-  updatedAt: string;
-  user: {};
-  userId: number;
-  walletAddress: string;
+interface TransactionsResponse {
+  success: boolean;
+  transactions: ApiTransaction[];
+  nextCursor: string | null;
+  hasMore: boolean;
 }
 
-/**
- * User details response from API
- */
-interface UserDetailsResponse {
-  user: {
-    payOuts: PayoutData[];
-    payments: PaymentData[];
-    pretiumTransactions: PretiumTxData[];
-  };
-}
+const transformApiTransaction = (tx: ApiTransaction): Transaction => {
+  if (tx.source === "payout") {
+    return {
+      id: tx.id,
+      type: "received",
+      token: "USDC",
+      amount: tx.amount,
+      recipient: "You",
+      sender: tx.chama ? `${tx.chama.name} chama` : "chama",
+      hash: tx.txHash,
+      date: tx.doneAt,
+      status: "completed",
+      isPretiumTx: false,
+    };
+  }
 
-/**
- * Validates transaction data and fills missing fields with defaults
- */
-const validateTransaction = (tx: Partial<Transaction>): Transaction => {
+  if (tx.source === "pretium") {
+    return {
+      id: tx.id,
+      type: tx.isOnramp ? "deposited" : "withdrew",
+      token: "USDC",
+      amount: tx.amount,
+      recipient: tx.isOnramp ? "you" : tx.shortcode,
+      sender: tx.isOnramp ? tx.shortcode : "You",
+      hash: tx.txHash || "N/A",
+      date: tx.doneAt,
+      status: "completed",
+      isPretiumTx: true,
+      receiptNumber: tx.receiptNumber || undefined,
+    };
+  }
+
   return {
-    id: tx.id ?? 0,
-    type: tx.type ?? "sent",
-    token: tx.token ?? "USDC",
-    amount: tx.amount ?? "0",
-    recipient: tx.recipient,
-    sender: tx.sender,
-    hash: tx.hash ?? "0x",
-    date: tx.date ?? new Date().toISOString(),
-    status: tx.status ?? "completed",
-    isPretiumTx: tx.isPretiumTx ?? false,
-    receiptNumber: tx.receiptNumber,
+    id: tx.id,
+    type: tx.description === "Received" ? "received" : "sent",
+    token: "USDC",
+    amount: tx.amount,
+    recipient: tx.receiver
+      ? tx.receiver
+      : tx.chama
+        ? `${tx.chama.name} chama`
+        : "recipient",
+    sender:
+      tx.description === "Received" && tx.sender ? tx.sender : "you",
+    hash: tx.txHash,
+    date: tx.doneAt,
+    status: "completed",
+    isPretiumTx: false,
   };
 };
 
-/**
- * Transforms payment data from API to Transaction format
- */
-const transformPayment = (payment: PaymentData): Transaction => {
-  return validateTransaction({
-    id: payment.id,
-    type: payment.description === "Received" ? "received" : "sent",
-    token: "USDC",
-    amount: payment.amount,
-    recipient: payment.receiver 
-      ? payment.receiver
-      : payment.chama.name + " " + "chama",
-    sender: payment.description === "Received" && payment.sender ? payment.sender : "you",
-    hash: payment.txHash,
-    date: payment.doneAt,
-    status: "completed",
-    isPretiumTx: false,
-  });
-};
+export interface PaginatedTransactions {
+  transactions: Transaction[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
 
 /**
- * Transforms payout data from API to Transaction format
- */
-const transformPayout = (payout: PayoutData): Transaction => {
-  return validateTransaction({
-    id: payout.id,
-    type: "received",
-    token: "USDC",
-    amount: payout.amount,
-    recipient: "You",
-    sender: payout.chama.name + " " + "chama",
-    hash: payout.txHash,
-    date: payout.doneAt,
-    status: "completed",
-    isPretiumTx: false,
-  });
-};
-
-/**
- * Transforms pretiumTx data from API to Transaction format
- */
-const transformPretiumTx = (pretiumTx: PretiumTxData): Transaction => {
-  return validateTransaction({
-    id: pretiumTx.id,
-    type: pretiumTx.isOnramp ? "deposited": "withdrew",
-    token: "USDC",
-    amount: pretiumTx.cusdAmount,
-    recipient: pretiumTx.isOnramp ? "you" : pretiumTx.shortcode,
-    sender: pretiumTx.isOnramp ? pretiumTx.shortcode : "You",
-    hash: pretiumTx.blockchainTxHash || "N/A", // Use blockchain hash if available
-    date: pretiumTx.updatedAt,
-    status: "completed",
-    isPretiumTx: true,
-    receiptNumber: pretiumTx.receiptNumber || undefined,
-  });
-};
-
-/**
- * Combines and sorts payouts and payments into a unified transaction array
- * Newest transactions appear first
- */
-const mergeAndSortTransactions = (
-  payouts: PayoutData[],
-  payments: PaymentData[],
-  pretiumTransactions: PretiumTxData[]
-): Transaction[] => {
-  const transformed: Transaction[] = [];
-
-  // Transform payments (sends)
-  if (Array.isArray(payments) && payments.length > 0) {
-    transformed.push(...payments.map(transformPayment));
-  }
-
-  // Transform payouts (receives)
-  if (Array.isArray(payouts) && payouts.length > 0) {
-    transformed.push(...payouts.map(transformPayout));
-  }
-
-  // Transform pretiumTxs (onramps& offramps)
-  if (Array.isArray(pretiumTransactions) && pretiumTransactions.length > 0) {
-    transformed.push(...pretiumTransactions.map(transformPretiumTx));
-  }
-
-  // Sort by date (newest first)
-  return transformed.sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
-};
-
-/**
- * Fetches user transaction history from the server
- * @param authToken - Bearer token for authentication
- * @returns Array of transactions sorted by date (newest first), or null on error
+ * Fetches paginated user transaction history from the server.
  */
 export const getTheUserTx = async (
-  authToken: string
-): Promise<Transaction[] | null> => {
-  // Validate input
+  authToken: string,
+  options?: { limit?: number; cursor?: string | null }
+): Promise<PaginatedTransactions | null> => {
   if (!authToken || typeof authToken !== "string") {
     console.error("Invalid auth token provided");
     return null;
   }
 
-  try {
-    const response = await fetch(`${serverUrl}/user/details`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-        "Content-Type": "application/json",
-      },
-    });
+  const limit = options?.limit ?? 20;
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (options?.cursor) {
+    params.set("cursor", options.cursor);
+  }
 
-    // Check response status
+  try {
+    const response = await fetch(
+      `${serverUrl}/user/transactions?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
     if (!response.ok) {
       console.error(`Failed to fetch transactions: ${response.status}`);
       return null;
     }
 
-    const data: UserDetailsResponse = await response.json();
+    const data: TransactionsResponse = await response.json();
 
-    // Validate response structure
-    if (
-      !data ||
-      !data.user ||
-      !Array.isArray(data.user.payOuts) ||
-      !Array.isArray(data.user.payments) ||
-      !Array.isArray(data.user.pretiumTransactions)
-    ) {
+    if (!data?.success || !Array.isArray(data.transactions)) {
       console.error("Invalid response structure from server");
       return null;
     }
 
-
-    const { payOuts, payments, pretiumTransactions } = data.user;
-    const transactions = mergeAndSortTransactions(payOuts, payments, pretiumTransactions);
-
-    return transactions;
+    return {
+      transactions: data.transactions.map(transformApiTransaction),
+      nextCursor: data.nextCursor,
+      hasMore: data.hasMore,
+    };
   } catch (error) {
     console.error("Error fetching transactions:", error);
     return null;

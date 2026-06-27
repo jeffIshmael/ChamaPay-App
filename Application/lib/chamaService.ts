@@ -140,8 +140,6 @@ interface allUserDetails {
     id: number;
     joinRequests: [];
     notifications: [];
-    payOuts: [];
-    payments: [];
     sentRequests: [];
     phoneNo: null | string;
     profileImageUrl: string;
@@ -652,8 +650,6 @@ export const getUserDetails = async (
         id: 0,
         joinRequests: [],
         notifications: [],
-        payOuts: [],
-        payments: [],
         sentRequests: [],
         phoneNo: null,
         profileImageUrl: "",

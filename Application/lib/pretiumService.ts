@@ -95,16 +95,15 @@ export const checkPretiumPaymentStatus = async (
   token: string
 ) => {
   try {
-    const response = await fetch(`${serverUrl}/pretium/transactionStatus`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        transactionCode,
-      }),
-    });
+    const response = await fetch(
+      `${serverUrl}/pretium/status/${encodeURIComponent(transactionCode)}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
     const data = await response.json();
     return data;
   } catch (error) {

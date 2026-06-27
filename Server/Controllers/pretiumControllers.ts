@@ -18,18 +18,34 @@ import { toUnits } from "thirdweb";
 import { settlementAddress } from "../Lib/PretiumFunctions";
 import { transferTx } from "../Blockchain/erc20Functions";
 import { getPrivateKey } from "../Lib/HelperFunctions";
+import { getCached, setCache } from "../Lib/cache";
 
 const prisma = new PrismaClient();
+
+const EXCHANGE_RATE_TTL_MS = 60_000;
 
 export async function getExchangeRate(req: Request, res: Response) {
   try {
     const { currencyCode } = req.params;
+    const cacheKey = `exchange-rate:${currencyCode}`;
+    const cached = getCached<{
+      success: boolean;
+      currencyCode: string;
+      exchangeRate: unknown;
+    }>(cacheKey);
+
+    if (cached) {
+      return res.status(200).json(cached);
+    }
+
     const exchangeRate = await getQuote(currencyCode);
-    return res.status(200).json({
+    const response = {
       success: true,
       currencyCode: currencyCode,
       exchangeRate: exchangeRate,
-    });
+    };
+    setCache(cacheKey, response, EXCHANGE_RATE_TTL_MS);
+    return res.status(200).json(response);
   } catch (error) {
     console.log("error in the exchange rate controller", error);
     return res.status(500).json({
@@ -401,10 +417,9 @@ export async function pretiumOfframpCallback(
   }
 }
 
-// checks the status of a tx
-export async function pretiumCheckTransaction(req: Request, res: Response) {
-  const { transactionCode } = req.body;
-  console.log("the transaction code", transactionCode);
+// checks the status of a tx from the database (no live Pretium API call)
+export async function getPretiumDbStatus(req: Request, res: Response) {
+  const { code } = req.params;
   const userId = req.user?.userId;
   try {
     if (!userId) {
@@ -414,17 +429,70 @@ export async function pretiumCheckTransaction(req: Request, res: Response) {
       });
     }
 
-    const statusResult = await checkPretiumTxStatus(transactionCode);
-    if (!statusResult) {
-      return res.status(400).json({
+    const transaction = await prisma.pretiumTransaction.findUnique({
+      where: { transactionCode: code },
+    });
+
+    if (!transaction || transaction.userId !== userId) {
+      return res.status(404).json({
         success: false,
-        details: `Cannot get the status of ${transactionCode}`,
+        error: "Transaction not found",
       });
     }
-    console.log("The transaction status", statusResult);
+
     return res.status(200).json({
       success: true,
-      details: statusResult,
+      details: {
+        status: transaction.status.toLowerCase(),
+        is_released: transaction.isRealesed,
+        receipt_number: transaction.receiptNumber,
+        message: transaction.message,
+        transaction_code: transaction.transactionCode,
+        blockchain_tx_hash: transaction.blockchainTxHash,
+      },
+    });
+  } catch (error) {
+    console.log("error in getting pretium db status", error);
+    return res.status(500).json({
+      success: false,
+      error: error,
+    });
+  }
+}
+
+// checks the status of a tx
+export async function pretiumCheckTransaction(req: Request, res: Response) {
+  const { transactionCode } = req.body;
+  const userId = req.user?.userId;
+  try {
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+    }
+
+    const transaction = await prisma.pretiumTransaction.findUnique({
+      where: { transactionCode },
+    });
+
+    if (!transaction || transaction.userId !== userId) {
+      return res.status(404).json({
+        success: false,
+        error: "Transaction not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      details: {
+        status: transaction.status.toLowerCase(),
+        is_released: transaction.isRealesed,
+        receipt_number: transaction.receiptNumber,
+        message: transaction.message,
+        transaction_code: transaction.transactionCode,
+        blockchain_tx_hash: transaction.blockchainTxHash,
+      },
     });
   } catch (error) {
     console.log("error in checking transaction status", error);

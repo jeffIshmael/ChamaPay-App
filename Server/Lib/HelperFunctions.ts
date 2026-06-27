@@ -122,6 +122,8 @@ export async function getChamasThatHaveReachedPaydate() {
   try {
     const chamas = await prisma.chama.findMany({
       where: {
+        status: "active",
+        payOutOrder: { not: null },
         payDate: {
           lte: new Date(),
         },
@@ -130,10 +132,7 @@ export async function getChamasThatHaveReachedPaydate() {
         members: true,
       },
     });
-    if (chamas.length > 0) {
-      return chamas;
-    }
-    return [];
+    return chamas;
   } catch (error) {
     console.log(error);
     return [];

@@ -63,6 +63,9 @@ model Chama {
   payments      Payment[]
   roundOutcome  roundOutcome[]
   refunds       Refund[]
+
+  @@index([payDate])
+  @@index([status, payDate])
 }
 
 model ChamaMember {
@@ -73,6 +76,8 @@ model ChamaMember {
   lastReadTime DateTime @default(now())
   chama        Chama    @relation(fields: [chamaId], references: [id])
   user         User     @relation(fields: [userId], references: [id])
+
+  @@index([chamaId, userId])
 }
 
 model Payment {
@@ -87,6 +92,8 @@ model Payment {
   receiver    String?
   chama       Chama?   @relation(fields: [chamaId], references: [id])
   user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, doneAt(sort: Desc)])
 }
 
 model Notification {
@@ -102,6 +109,9 @@ model Notification {
   sharedLink String?
   chama      Chama?   @relation(fields: [chamaId], references: [id])
   user       User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([chamaId, type])
 }
 
 model ChamaRequest {
@@ -134,6 +144,8 @@ model PayOut {
   chamaId  Int
   chama    Chama    @relation(fields: [chamaId], references: [id])
   user     User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, doneAt(sort: Desc)])
 }
 
 model roundOutcome {
@@ -177,6 +189,7 @@ model PretiumTransaction {
   @@index([status])
   @@index([type])
   @@index([createdAt])
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 model Refund {

@@ -32,20 +32,25 @@ export async function notifyAllChamaMembers(
   exceptUserId?: number
 ) {
   try {
-    // get all the members of the chama
     const allMembers = await prisma.chamaMember.findMany({
-      where: {
-        chamaId: chamaId,
-      },
+      where: { chamaId },
+      select: { userId: true },
     });
-    if (!allMembers) {
-      throw new Error("Error getting the members.");
-    }
-    // send each member a text
-    for (const member of allMembers) {
-      if (member.userId == exceptUserId) return;
-      await notifyUser(member.userId, message, type);
-    }
+
+    const membersToNotify = exceptUserId
+      ? allMembers.filter((m) => m.userId !== exceptUserId)
+      : allMembers;
+
+    if (membersToNotify.length === 0) return;
+
+    await prisma.notification.createMany({
+      data: membersToNotify.map((member) => ({
+        userId: member.userId,
+        message,
+        type,
+        chamaId,
+      })),
+    });
   } catch (error) {
     console.error("Unable to send the chama members notification.", error);
   }
