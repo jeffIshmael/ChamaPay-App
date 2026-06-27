@@ -54,8 +54,11 @@ const getCdpClient = () => {
     return cdpClient;
 };
 
-const accountNameFor = (address: Address) =>
-    `chamapay-${address.toLowerCase()}`;
+/** CDP account names: 2–36 chars, alphanumeric and hyphens only. */
+const accountNameFor = (address: Address) => {
+    const hex = address.slice(2).toLowerCase();
+    return `chamapay-${hex.slice(0, 27)}`;
+};
 
 const isAlreadyDelegated = async (address: Address) => {
     const code = await publicClient.getBytecode({ address });
