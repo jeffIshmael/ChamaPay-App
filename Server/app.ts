@@ -7,6 +7,7 @@ import cronRoutes from "./Routes/cronRoutes";
 import miniappRoutes from "./Routes/miniappRoutes";
 import pretiumRoutes from "./Routes/pretiumRoutes";
 import userRoutes from "./Routes/userRoutes";
+import paymasterRoutes from "./Routes/paymasterRoutes";
 import webhookRoutes from "./Routes/webhookRoutes";
 
 // Load environment variables
@@ -33,6 +34,7 @@ app.use("/cron", cronRoutes);
 app.use("/pretium", pretiumRoutes);
 app.use("/webhooks", webhookRoutes); // Webhook routes for external services
 app.use("/miniapp", miniappRoutes); // Miniapp-specific endpoints
+app.use("/paymaster", paymasterRoutes); // CDP paymaster proxy for client wallet_sendCalls
 
 // Health check endpoint
 app.get("/health", (req, res) => {

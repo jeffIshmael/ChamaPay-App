@@ -18,6 +18,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@coinbase/cdp-sdk": "^1.51.2",
     "@mento-protocol/mento-sdk": "^1.14.0",
     "@noble/ciphers": "^1.3.0",
     "@noble/hashes": "^1.8.0",
