@@ -18,7 +18,6 @@ import { erc20Abi } from "viem";
 import {
   contractABI,
   contractAddress,
-  cUSDAddress,
 } from "../Blockchain/Constants";
 
 configDotenv();
