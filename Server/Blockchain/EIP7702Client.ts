@@ -1,8 +1,7 @@
 import dotenv from "dotenv";
 const { createSmartAccountClient } = require("permissionless") as any;
-const { createPimlicoClient } = require("permissionless/clients/pimlico") as any;
-const { createPublicClient, http } = require("viem") as any;
-const { entryPoint07Address } = require("viem/account-abstraction") as any;
+const { createClient, createPublicClient, http } = require("viem") as any;
+const { bundlerActions, paymasterActions } = require("viem/account-abstraction") as any;
 const { privateKeyToAccount } = require("viem/accounts") as any;
 const { base } = require("viem/chains") as any;
 const { EIP7702_IMPLEMENTATION_ADDRESS, builderCodeDataSuffix } = require("./Constants");
@@ -10,23 +9,20 @@ const { to7702SimpleSmartAccount } = require("permissionless/accounts") as any;
 
 dotenv.config();
 
-const apiKey = process.env.PIMLICO_API_KEY;
-if (!apiKey) throw new Error("PIMLICO_API_KEY is not set");
+const coinbasePaymasterUrl = process.env.COINBASE_PAYMASTER_URL;
+if (!coinbasePaymasterUrl) throw new Error("COINBASE_PAYMASTER_URL is not set");
 
 const publicClient = createPublicClient({
     chain: base,
     transport: http(),
 });
 
-const pimlicoUrl = `https://api.pimlico.io/v2/8453/rpc?apikey=${apiKey}`;
-
-const pimlicoClient = createPimlicoClient({
-    transport: http(pimlicoUrl),
-    entryPoint: {
-        address: entryPoint07Address,
-        version: "0.7",
-    },
-});
+const cdpClient = createClient({
+    chain: base,
+    transport: http(coinbasePaymasterUrl),
+})
+    .extend(bundlerActions)
+    .extend(paymasterActions);
 
 export const createEIP7702SmartAccount = async (privateKey: string) => {
     try {
@@ -40,12 +36,12 @@ export const createEIP7702SmartAccount = async (privateKey: string) => {
         const smartAccountClient = createSmartAccountClient({
             account: eip7702SmartAccount,
             chain: base,
-            bundlerTransport: http(pimlicoUrl),
-            paymaster: pimlicoClient,
+            bundlerTransport: http(coinbasePaymasterUrl),
+            paymaster: cdpClient,
             dataSuffix: builderCodeDataSuffix,
             userOperation: {
                 estimateFeesPerGas: async () => {
-                    return (await pimlicoClient.getUserOperationGasPrice()).fast;
+                    return await publicClient.estimateFeesPerGas();
                 },
             },
         });

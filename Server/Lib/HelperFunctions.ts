@@ -38,7 +38,7 @@ export async function generateUniqueSlug(baseName: string): Promise<string> {
   return uniqueSlug;
 }
 
-// function to get first payout chamas
+// function to get first payout chamas that still need a payout order set
 export async function getFirstPayoutChamas() {
   try {
     const threeDaysFromNow = new Date();
@@ -48,9 +48,10 @@ export async function getFirstPayoutChamas() {
       where: {
         status: "active",
         round: 1,
+        payOutOrder: null,
         payDate: {
           lte: threeDaysFromNow,
-          gt: new Date() // ensures it hasn't already passed
+          gt: new Date(),
         },
       },
       include: {
@@ -76,12 +77,53 @@ export async function getFirstPayoutChamas() {
   }
 }
 
+// Returns true when payDate is approximately 3 days away (66–78 hours)
+export function isThreeDaysBeforePaydate(payDate: Date): boolean {
+  const hoursUntil =
+    (payDate.getTime() - Date.now()) / (1000 * 60 * 60);
+  return hoursUntil >= 66 && hoursUntil <= 78;
+}
+
+// function to get chamas that should receive the one-time 3-day payout reminder
+export async function getChamasForThreeDayReminder() {
+  try {
+    const chamas = await prisma.chama.findMany({
+      where: {
+        status: "active",
+        payOutOrder: { not: null },
+        payDate: { gt: new Date() },
+      },
+      include: {
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                smartAddress: true,
+                userName: true,
+                profileImageUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return chamas.filter((chama) => isThreeDaysBeforePaydate(chama.payDate));
+  } catch (error) {
+    console.log(error);
+    return [];
+  }
+}
+
 
 // function to get chamas that have reached the paydate
 export async function getChamasThatHaveReachedPaydate() {
   try {
     const chamas = await prisma.chama.findMany({
       where: {
+        status: "active",
+        payOutOrder: { not: null },
         payDate: {
           lte: new Date(),
         },
@@ -90,10 +132,7 @@ export async function getChamasThatHaveReachedPaydate() {
         members: true,
       },
     });
-    if (chamas.length > 0) {
-      return chamas;
-    }
-    return [];
+    return chamas;
   } catch (error) {
     console.log(error);
     return [];

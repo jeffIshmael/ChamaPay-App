@@ -4,6 +4,7 @@ import {
   initiatePretiumOfframp,
   initiatePretiumOnramp,
   getExchangeRate,
+  getPretiumDbStatus,
   pretiumVerifyNumber,
   pretiumCallback,
   pretiumCheckTransaction,
@@ -30,8 +31,9 @@ router.post("/offramp", authenticate, initiatePretiumOfframp);
 router.post("/bankOfframp", authenticate, pretiumTransferToBank);
 // mobile transfer(offramp)
 router.post("/mobileOfframp", authenticate, pretiumMobileTransfer);
-// check trnsaction status
+// check trnsaction status (DB-backed)
 router.post("/transactionStatus",authenticate, pretiumCheckTransaction);
+router.get("/status/:code", authenticate, getPretiumDbStatus);
 // trigger deposit for
 router.post("/agentDeposit",authenticate, pretiumCheckTriggerDepositFor);
 // verify ngn bank details

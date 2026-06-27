@@ -4,7 +4,6 @@ import crypto from "crypto";
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { verifyMessage } from "viem";
-import { createSmartAccount } from "../Blockchain/SmartAccount";
 import { addAddressToWebhook } from "../Lib/AlchemyWebhook";
 import emailService from "../Lib/EmailService";
 import Encryption from "../Lib/Encryption";

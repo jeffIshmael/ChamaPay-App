@@ -2,16 +2,15 @@
 // which are :- checking if its startdate has started and set it to started
 // checking if its paydate has reached and process the payout
 
-import { PrismaClient } from "@prisma/client";
-import { toEther } from "thirdweb";
+import { Chama, ChamaMember, PrismaClient } from "@prisma/client";
 import {
   getChamasThatHaveReachedPaydate,
+  getChamasForThreeDayReminder,
   getFirstPayoutChamas,
   shuffleArray,
 } from "./HelperFunctions";
-import { checkPayoutResult, setPayoutOrder, triggerPayout } from "./Thirdweb";
+import { checkPayoutResult } from "./Thirdweb";
 import {
-  pimlicoAddMemberToPayoutOrder,
   pimlicoProcessPayout,
   pimlicoSetPayoutOrder,
 } from "./pimlicoAgent";
@@ -21,12 +20,16 @@ import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } fr
 
 const prisma = new PrismaClient();
 
+const PAYOUT_CONCURRENCY = 5;
+
 export interface PayoutOrder {
   userAddress: string;
   payDate: Date;
   amount: string;
   paid: boolean;
 }
+
+type ChamaWithMembers = Chama & { members: ChamaMember[] };
 
 // set as started
 export const checkStartDate = async () => {
@@ -96,18 +99,6 @@ export const checkStartDate = async () => {
             `Payout Order Ready! 🎉`,
             `You are the first in the payout order for ${chama.name} chama. Tap to view the full order!`,
           )
-        } else {
-
-          await notifyAllChamaMembers(
-            chama.id,
-            `Reminder: The  payout for ${chama.name} is in 3 days. Make sure you have contributed!`
-          );
-
-          await sendExpoNotificationToAllChamaMembers(
-            `Payout Approaching ⌛`,
-            `Payout for ${chama.name} chama is in 3 days. Make sure you have contributed!`,
-            chama.id
-          );
         }
 
         return { chamaId: chama.id, status: 'success' };
@@ -126,6 +117,29 @@ export const checkStartDate = async () => {
       }
     });
 
+    // Send one-time 3-day payout reminders
+    const reminderChamas = await getChamasForThreeDayReminder();
+    for (const chama of reminderChamas) {
+      const reminderType = `payout_reminder_3days_c${chama.cycle}_r${chama.round}`;
+      const alreadySent = await prisma.notification.findFirst({
+        where: { chamaId: chama.id, type: reminderType },
+      });
+
+      if (alreadySent) continue;
+
+      await notifyAllChamaMembers(
+        chama.id,
+        `Reminder: The payout for ${chama.name} is in 3 days. Make sure you have contributed!`,
+        reminderType
+      );
+
+      await sendExpoNotificationToAllChamaMembers(
+        `Payout Approaching ⌛`,
+        `Payout for ${chama.name} chama is in 3 days. Make sure you have contributed!`,
+        chama.id
+      );
+    }
+
     return { successful: successful.length, failed: failed.length };
 
   } catch (error) {
@@ -134,192 +148,182 @@ export const checkStartDate = async () => {
   }
 };
 
+async function processDisbursePayout(
+  chama: ChamaWithMembers,
+  payoutResult: { recipient: string; amount: bigint },
+  txHash: string
+) {
+  const displayableAmount = formatUnits(payoutResult.amount, 6);
+
+  const user = await prisma.user.findUnique({
+    where: { smartAddress: payoutResult.recipient },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  const userTitle = "Payout received 🎉";
+  const userMessage = `You've received ${displayableAmount} USDC as your payout for round ${chama.round} of '${chama.name}' chama.`;
+  const othersTitle = "Payout completed 🎉";
+  const othersMessage = `Round ${chama.round} of '${chama.name}' chama is complete. ${user.userName} received ${displayableAmount} USDC.`;
+
+  await prisma.payOut.create({
+    data: {
+      chamaId: chama.id,
+      receiver: payoutResult.recipient,
+      amount: displayableAmount,
+      userId: user.id,
+      txHash,
+    },
+  });
+
+  const payoutOrder: PayoutOrder[] = chama.payOutOrder
+    ? JSON.parse(chama.payOutOrder)
+    : [];
+
+  let finalPayoutOrder: PayoutOrder[];
+
+  if (chama.round === payoutOrder.length) {
+    finalPayoutOrder = payoutOrder.map((order: PayoutOrder, index: number) => ({
+      ...order,
+      paid: false,
+      amount: "0",
+      payDate: new Date(
+        chama.payDate.getTime() +
+        (index + 1) * chama.cycleTime * 24 * 60 * 60 * 1000
+      ),
+    }));
+  } else {
+    finalPayoutOrder = payoutOrder.map((order: PayoutOrder) => {
+      if (order.userAddress === payoutResult.recipient) {
+        return { ...order, paid: true, amount: displayableAmount };
+      }
+      return order;
+    });
+  }
+
+  await prisma.chama.update({
+    where: { id: chama.id },
+    data: {
+      payOutOrder: JSON.stringify(finalPayoutOrder),
+      round: chama.round === chama.members.length ? 1 : chama.round + 1,
+      cycle: chama.round === chama.members.length ? chama.cycle + 1 : chama.cycle,
+      payDate: new Date(
+        chama.payDate.getTime() + chama.cycleTime * 24 * 60 * 60 * 1000
+      ),
+    },
+  });
+
+  await Promise.allSettled([
+    notifyUser(user.id, userMessage, "payout_received"),
+    sendExpoNotificationToAUser(user.id, userTitle, userMessage),
+    notifyAllChamaMembers(chama.id, othersMessage, "payout_received", user.id),
+    sendExpoNotificationToAllChamaMembers(othersTitle, othersMessage, chama.id, user.id),
+  ]);
+}
+
+async function processRefundPayout(chama: ChamaWithMembers) {
+  const payoutOrder: PayoutOrder[] = chama.payOutOrder
+    ? JSON.parse(chama.payOutOrder)
+    : [];
+
+  const updatedPayoutOrder = payoutOrder.map((order: PayoutOrder) => {
+    if (!order.paid) {
+      return {
+        ...order,
+        payDate: new Date(
+          new Date(order.payDate).getTime() +
+          chama.cycleTime * 24 * 60 * 60 * 1000
+        ),
+      };
+    }
+    return order;
+  });
+
+  await prisma.chama.update({
+    where: { id: chama.id },
+    data: {
+      payOutOrder: JSON.stringify(updatedPayoutOrder),
+      payDate: new Date(
+        chama.payDate.getTime() + chama.cycleTime * 24 * 60 * 60 * 1000
+      ),
+    },
+  });
+
+  const title = "Payout skipped — funds refunded";
+  const message = `Cycle ${chama.cycle} Round ${chama.round} of the ${chama.name} chama didn't go through because some members didn't contribute. Your contribution has been refunded to your wallet.`;
+
+  await Promise.allSettled([
+    notifyAllChamaMembers(chama.id, message),
+    sendExpoNotificationToAllChamaMembers(title, message, chama.id),
+  ]);
+}
+
+async function processChamaPaydate(chama: ChamaWithMembers): Promise<void> {
+  const chamaPayoutOrder: PayoutOrder[] = chama.payOutOrder
+    ? JSON.parse(chama.payOutOrder)
+    : [];
+
+  if (chamaPayoutOrder.length !== chama.members.length) {
+    throw new Error("Payout order length mismatch");
+  }
+
+  const receipt = await pimlicoProcessPayout([Number(chama.blockchainId)]);
+
+  if (!receipt) {
+    throw new Error("Failed to trigger payout");
+  }
+
+  const payoutResult = await checkPayoutResult(
+    Number(chama.blockchainId),
+    receipt
+  );
+
+  if (payoutResult.type === "disburse") {
+    await processDisbursePayout(
+      chama,
+      payoutResult,
+      receipt.transactionHash
+    );
+  } else if (payoutResult.type === "refund") {
+    await processRefundPayout(chama);
+  } else {
+    throw new Error("Unknown payout result");
+  }
+}
+
+async function processPaydateBatch(chamas: ChamaWithMembers[]) {
+  const results = await Promise.allSettled(
+    chamas.map((chama) => processChamaPaydate(chama))
+  );
+
+  results.forEach((result, idx) => {
+    if (result.status === "rejected") {
+      console.error(
+        `checkPaydate failed for chama ${chamas[idx]?.id}:`,
+        result.reason
+      );
+    }
+  });
+
+  const successful = results.filter((r) => r.status === "fulfilled").length;
+  const failed = results.filter((r) => r.status === "rejected").length;
+  console.log(`checkPaydate batch: ✅ ${successful} succeeded, ❌ ${failed} failed`);
+}
+
 // check whether the paydate has reached and process the payout
 export const checkPaydate = async () => {
   const chamasThatHaveReachedPaydate = await getChamasThatHaveReachedPaydate();
 
   if (!chamasThatHaveReachedPaydate.length) return;
 
-  for (const chama of chamasThatHaveReachedPaydate) {
-    try {
-      const chamaPayoutOrder = chama.payOutOrder
-        ? JSON.parse(chama.payOutOrder)
-        : [];
+  console.log(
+    `checkPaydate: processing ${chamasThatHaveReachedPaydate.length} chama(s) with concurrency ${PAYOUT_CONCURRENCY}`
+  );
 
-      if (chamaPayoutOrder.length !== chama.members.length) {
-        throw new Error("Payout order length mismatch");
-      }
-
-      // trigger the payout on the blockchain
-      const receipt = await pimlicoProcessPayout([Number(chama.blockchainId)]);
-
-      if (!receipt) {
-        throw new Error("Failed to trigger payout");
-      }
-
-      // determine disburse vs refund
-      const payoutResult = await checkPayoutResult(
-        Number(chama.blockchainId),
-        receipt
-      );
-
-      /* ======================
-         DISBURSE FLOW
-      ======================= */
-      if (payoutResult.type === "disburse") {
-        const displayableAmount = formatUnits(payoutResult.amount, 6);
-
-        const user = await prisma.user.findUnique({
-          where: {
-            smartAddress: payoutResult.recipient,
-          },
-        });
-
-        if (!user) {
-          throw new Error("User not found");
-        }
-
-        const userTitle = "Payout received 🎉";
-        const userMessage = `You’ve received ${displayableAmount} USDC as your payout for round ${chama.round} of '${chama.name}' chama.`;
-
-        const othersTitle = "Payout completed 🎉";
-        const othersMessage = `Round ${chama.round} of '${chama.name}' chama is complete. ${user.userName} received ${displayableAmount} USDC.`;
-
-        // record payout
-        await prisma.payOut.create({
-          data: {
-            chamaId: chama.id,
-            receiver: payoutResult.recipient,
-            amount: displayableAmount,
-            userId: user.id,
-            txHash: receipt.transactionHash,
-          },
-        });
-
-        const payoutOrder: PayoutOrder[] = chama.payOutOrder
-          ? JSON.parse(chama.payOutOrder)
-          : [];
-
-        let finalPayoutOrder: PayoutOrder[] = [];
-
-        // last round → reset cycle
-        if (chama.round === payoutOrder.length) {
-          finalPayoutOrder = payoutOrder.map(
-            (order: PayoutOrder, index: number) => ({
-              ...order,
-              paid: false,
-              amount: "0",
-              payDate: new Date(
-                chama.payDate.getTime() +
-                (index + 1) * chama.cycleTime * 24 * 60 * 60 * 1000
-              ),
-            })
-          );
-        } else {
-          // mark only current recipient as paid
-          finalPayoutOrder = payoutOrder.map((order: PayoutOrder) => {
-            if (order.userAddress === payoutResult.recipient) {
-              return {
-                ...order,
-                paid: true,
-                amount: displayableAmount,
-              };
-            }
-            return order;
-          });
-        }
-
-        await prisma.chama.update({
-          where: { id: chama.id },
-          data: {
-            payOutOrder: JSON.stringify(finalPayoutOrder),
-            round: chama.round === chama.members.length ? 1 : chama.round + 1,
-            cycle:
-              chama.round === chama.members.length
-                ? chama.cycle + 1
-                : chama.cycle,
-            payDate: new Date(
-              chama.payDate.getTime() + chama.cycleTime * 24 * 60 * 60 * 1000
-            ),
-          },
-        });
-
-        await notifyUser(user.id, userMessage, "payout_received");
-        // expo notify the user
-        await sendExpoNotificationToAUser(
-          user.id,
-          userTitle,
-          userMessage,
-        );
-
-        await notifyAllChamaMembers(
-          chama.id,
-          othersMessage,
-          "payout_received",
-          user.id
-        );
-        // expo notify all members
-        await sendExpoNotificationToAllChamaMembers(
-          othersTitle,
-          othersMessage,
-          chama.id,
-          user.id
-        );
-      } else if (payoutResult.type === "refund") {
-
-        /* ======================
-           REFUND FLOW
-        ======================= */
-        const payoutOrder: PayoutOrder[] = chama.payOutOrder
-          ? JSON.parse(chama.payOutOrder)
-          : [];
-
-        const updatedPayoutOrder = payoutOrder.map((order: PayoutOrder) => {
-          if (!order.paid) {
-            return {
-              ...order,
-              payDate: new Date(
-                new Date(order.payDate).getTime() +
-                chama.cycleTime * 24 * 60 * 60 * 1000
-              ),
-            };
-          }
-          return order;
-        });
-
-        await prisma.chama.update({
-          where: { id: chama.id },
-          data: {
-            payOutOrder: JSON.stringify(updatedPayoutOrder),
-            payDate: new Date(
-              chama.payDate.getTime() + chama.cycleTime * 24 * 60 * 60 * 1000
-            ),
-          },
-        });
-
-        const title = "Payout skipped — funds refunded";
-        const message = `Cycle ${chama.cycle} Round ${chama.round} of the ${chama.name} chama didn’t go through because some members didn’t contribute. Your contribution has been refunded to your wallet.`;
-
-        // TO DO: add how we will record the refund 
-
-        await notifyAllChamaMembers(
-          chama.id,
-          message
-        );
-        // expo notify all members
-        await sendExpoNotificationToAllChamaMembers(
-          title,
-          message,
-          chama.id
-        );
-      } else {
-        throw new Error("Unknown payout result");
-      }
-    } catch (error) {
-      // 🔥 IMPORTANT: isolate failure per chama
-      console.error(`checkPaydate failed for chama ${chama.id}`, error);
-      // continue processing next chama
-      continue;
-    }
+  for (let i = 0; i < chamasThatHaveReachedPaydate.length; i += PAYOUT_CONCURRENCY) {
+    const batch = chamasThatHaveReachedPaydate.slice(i, i + PAYOUT_CONCURRENCY);
+    await processPaydateBatch(batch);
   }
 };

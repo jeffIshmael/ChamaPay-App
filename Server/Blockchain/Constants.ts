@@ -6,7 +6,6 @@ dotenv.config()
 
 export const explorerUrl = "https://basescan.org/tx/";
 export const contractAddress = "0xf89c1312D9A92D84f2bFBF870089C29a09bC638A"; // base
-export const cUSDAddress = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // base USDC
 export const USDCAddress = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // base
 export const contractABI = contractABI_data;
 
