@@ -6,14 +6,11 @@ import { CdpClient, toEvmDelegatedAccount } from "@coinbase/cdp-sdk";
 import type { EvmSmartAccount } from "@coinbase/cdp-sdk";
 import dotenv from "dotenv";
 import {
-    createPublicClient,
-    http,
     type Address,
     type Hash,
     type Hex,
 } from "viem";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
-import { base } from "viem/chains";
 import { builderCodeDataSuffix } from "./Constants";
 
 dotenv.config();
@@ -36,11 +33,6 @@ if (!cdpApiKeyId || !cdpApiKeySecret || !cdpWalletSecret) {
     );
 }
 
-const publicClient = createPublicClient({
-    chain: base,
-    transport: http(),
-});
-
 let cdpClient: CdpClient | null = null;
 
 const getCdpClient = () => {
@@ -58,11 +50,6 @@ const getCdpClient = () => {
 const accountNameFor = (address: Address) => {
     const hex = address.slice(2).toLowerCase();
     return `chamapay-${hex.slice(0, 27)}`;
-};
-
-const isAlreadyDelegated = async (address: Address) => {
-    const code = await publicClient.getBytecode({ address });
-    return Boolean(code && code !== "0x" && code.length > 2);
 };
 
 const getOrImportCdpAccount = async (
@@ -90,21 +77,45 @@ const getOrImportCdpAccount = async (
     }
 };
 
+/** CDP registers the delegated EOA as a smart account only after createEvmEip7702Delegation. */
+const isCdpDelegatedAccount = async (
+    cdp: CdpClient,
+    serverAccount: Awaited<ReturnType<typeof getOrImportCdpAccount>>
+) => {
+    try {
+        await cdp.evm.getSmartAccount({
+            address: serverAccount.address,
+            owner: serverAccount,
+        });
+        return true;
+    } catch (error) {
+        const message = String(error).toLowerCase();
+        if (message.includes("not_found") || message.includes("not found")) {
+            return false;
+        }
+        throw error;
+    }
+};
+
 const ensureEip7702Delegation = async (privateKey: Hex) => {
     const owner = privateKeyToAccount(privateKey);
     const cdp = getCdpClient();
     const serverAccount = await getOrImportCdpAccount(cdp, privateKey, owner.address);
 
-    if (!(await isAlreadyDelegated(owner.address))) {
+    if (!(await isCdpDelegatedAccount(cdp, serverAccount))) {
         console.log(`Creating EIP-7702 delegation for ${owner.address}`);
         const { delegationOperationId } = await cdp.evm.createEvmEip7702Delegation({
             address: serverAccount.address,
             network: NETWORK,
             enableSpendPermissions: false,
         });
-        await cdp.evm.waitForEvmEip7702DelegationOperationStatus({
-            delegationOperationId,
-        });
+        const delegationOperation =
+            await cdp.evm.waitForEvmEip7702DelegationOperationStatus({
+                delegationOperationId,
+            });
+        console.log(
+            `EIP-7702 delegation complete for ${owner.address} (status: ${delegationOperation.status})`
+        );
     }
 
     return toEvmDelegatedAccount(serverAccount);
