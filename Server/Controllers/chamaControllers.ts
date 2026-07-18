@@ -9,6 +9,7 @@ import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } fr
 import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
 import { notifyAllChamaMembers } from "../Lib/prismaFunctions";
 import { pimlicoAddLockedFundsToChama } from "../Lib/pimlicoAgent";
+import { getCached, setCache } from "../Lib/cache";
 
 const prisma = new PrismaClient();
 
@@ -42,7 +43,6 @@ export const createChama = async (
       startDate,
       collateralRequired,
     } = chamaData;
-    console.log("the chama data", chamaData);
 
     const userId = req.user?.userId;
     if (!userId) {
@@ -151,56 +151,134 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
     if (!userId) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
-    const user = await prisma.user.findUnique({
-      where: { id: Number(userId) },
-    });
+
+    const [user, chama] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: Number(userId) },
+      }),
+      prisma.chama.findUnique({
+        where: { slug: slug },
+        include: {
+          members: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  smartAddress: true,
+                  userName: true,
+                  profileImageUrl: true,
+                },
+              },
+            },
+          },
+          payments: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  smartAddress: true,
+                  userName: true,
+                  profileImageUrl: true,
+                },
+              },
+            },
+            orderBy: { doneAt: "desc" },
+            take: 20,
+          },
+          messages: {
+            include: {
+              sender: {
+                select: {
+                  id: true,
+                  smartAddress: true,
+                  userName: true,
+                  profileImageUrl: true,
+                },
+              },
+            },
+            orderBy: { timestamp: "desc" },
+            take: 20,
+          },
+          admin: {
+            select: {
+              id: true,
+              smartAddress: true,
+              userName: true,
+              profileImageUrl: true,
+            },
+          },
+          payOuts: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  smartAddress: true,
+                  userName: true,
+                  profileImageUrl: true,
+                },
+              },
+            },
+            orderBy: { doneAt: "desc" },
+            take: 20,
+          }
+        },
+      })
+    ]);
+
     if (!user) {
       return res.status(404).json({ success: false, error: "User not found" });
     }
 
-    const chama = await prisma.chama.findUnique({
-      where: { slug: slug },
+    if (!chama) {
+      return res.status(404).json({ success: false, error: "Chama not found" });
+    }
+
+    // add the blockchain details
+    const cacheKey = `chama-balances-${chama.blockchainId}-${user.smartAddress}`;
+    let cachedBalances = getCached<any>(cacheKey);
+
+    if (!cachedBalances) {
+      const [userBalance, eachMemberBalance] = await Promise.all([
+        getUserChamaBalance(user.smartAddress, BigInt(Number(chama.blockchainId))),
+        getEachMemberBalance(BigInt(Number(chama.blockchainId))),
+      ]);
+      
+      cachedBalances = {
+        userBalance: JSON.parse(JSON.stringify(userBalance, bigIntReplacer)),
+        eachMemberBalance: JSON.parse(JSON.stringify(eachMemberBalance, bigIntReplacer))
+      };
+      setCache(cacheKey, cachedBalances, 30_000); // cache for 30s
+    }
+
+    const finalChama = {
+      ...chama,
+      userBalance: cachedBalances.userBalance,
+      eachMemberBalance: cachedBalances.eachMemberBalance,
+    };
+
+    return res.status(200).json({ success: true, chama: finalChama });
+  } catch (error) {
+    console.error("Failed to get chama:", error);
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to get chama" });
+  }
+};
+
+// get chama messages paginated
+export const getChamaMessages = async (req: Request, res: Response) => {
+  try {
+    const { chamaId } = req.params;
+    const { cursor } = req.query;
+    
+    const messages = await prisma.message.findMany({
+      where: { chamaId: Number(chamaId) },
+      take: 20,
+      skip: cursor ? 1 : 0,
+      cursor: cursor ? { id: Number(cursor) } : undefined,
+      orderBy: { timestamp: "desc" },
       include: {
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                smartAddress: true,
-                userName: true,
-                profileImageUrl: true,
-              },
-            },
-          },
-        },
-        payments: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                smartAddress: true,
-                userName: true,
-                profileImageUrl: true,
-              },
-            },
-          },
-          orderBy: {
-            doneAt: "desc",
-          },
-        },
-        messages: {
-          include: {
-            sender: {
-              select: {
-                id: true,
-                smartAddress: true,
-                userName: true,
-                profileImageUrl: true,
-              },
-            },
-          },
-        },
-        admin: {
+        sender: {
           select: {
             id: true,
             smartAddress: true,
@@ -208,41 +286,46 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
             profileImageUrl: true,
           },
         },
-        payOuts: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                smartAddress: true,
-                userName: true,
-                profileImageUrl: true,
-              },
-            },
-          },
-        }
       },
     });
-    if (!chama) {
-      return res.status(404).json({ success: false, error: "Chama not found" });
-    }
-    // add the blockchain details
-    const userBalance = await getUserChamaBalance(user.smartAddress, BigInt(Number(chama.blockchainId)));
-    const eachMemberBalance = await getEachMemberBalance(BigInt(Number(chama.blockchainId)));
 
-    const finalChama = {
-      ...chama,
-      userBalance: JSON.parse(JSON.stringify(userBalance, bigIntReplacer)),
-      eachMemberBalance: JSON.parse(
-        JSON.stringify(eachMemberBalance, bigIntReplacer)
-      ),
-    };
-
-    return res.status(200).json({ success: true, chama: finalChama });
+    const nextCursor = messages.length === 20 ? messages[19].id : null;
+    return res.status(200).json({ success: true, messages, nextCursor });
   } catch (error) {
-    console.log(error);
-    return res
-      .status(500)
-      .json({ success: false, error: "Failed to get chama" });
+    console.error("Failed to get messages:", error);
+    return res.status(500).json({ success: false, error: "Failed to get messages" });
+  }
+};
+
+// get chama payments paginated
+export const getChamaPayments = async (req: Request, res: Response) => {
+  try {
+    const { chamaId } = req.params;
+    const { cursor } = req.query;
+
+    const payments = await prisma.payment.findMany({
+      where: { chamaId: Number(chamaId) },
+      take: 20,
+      skip: cursor ? 1 : 0,
+      cursor: cursor ? { id: Number(cursor) } : undefined,
+      orderBy: { doneAt: "desc" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            smartAddress: true,
+            userName: true,
+            profileImageUrl: true,
+          },
+        },
+      },
+    });
+
+    const nextCursor = payments.length === 20 ? payments[19].id : null;
+    return res.status(200).json({ success: true, payments, nextCursor });
+  } catch (error) {
+    console.error("Failed to get payments:", error);
+    return res.status(500).json({ success: false, error: "Failed to get payments" });
   }
 };
 
@@ -909,3 +992,34 @@ export const adminSetPayoutOrder = async (req: Request, res: Response) => {
 };
 
 
+// get chama payouts paginated
+export const getChamaPayouts = async (req: Request, res: Response) => {
+  try {
+    const { chamaId } = req.params;
+    const { cursor } = req.query;
+
+    const payouts = await prisma.payOut.findMany({
+      where: { chamaId: Number(chamaId) },
+      take: 20,
+      skip: cursor ? 1 : 0,
+      cursor: cursor ? { id: Number(cursor) } : undefined,
+      orderBy: { doneAt: "desc" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            smartAddress: true,
+            userName: true,
+            profileImageUrl: true,
+          },
+        },
+      },
+    });
+
+    const nextCursor = payouts.length === 20 ? payouts[19].id : null;
+    return res.status(200).json({ success: true, payouts, nextCursor });
+  } catch (error) {
+    console.error("Failed to get payouts:", error);
+    return res.status(500).json({ success: false, error: "Failed to get payouts" });
+  }
+};

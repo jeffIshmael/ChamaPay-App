@@ -1,6 +1,7 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express, { Application } from "express";
+import compression from "compression";
 import authRoutes from "./Routes/authRoutes";
 import chamaRoutes from "./Routes/chamaRoutes";
 import cronRoutes from "./Routes/cronRoutes";
@@ -11,13 +12,30 @@ import paymasterRoutes from "./Routes/paymasterRoutes";
 import statsRoutes from "./Routes/statsRoutes";
 import webhookRoutes from "./Routes/webhookRoutes";
 
+
+import axios from "axios";
+
 // Load environment variables
 dotenv.config();
+
+// Set global default timeout for all external axios requests to 10 seconds
+axios.defaults.timeout = 10_000;
 
 // Create Express application
 const app: Application = express();
 
+// Request timing logger
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    const ms = Date.now() - start;
+    console.log(`${req.method} ${req.originalUrl} - ${res.statusCode} - ${ms}ms`);
+  });
+  next();
+});
+
 // Middleware
+app.use(compression());
 app.use(
   express.json({
     verify: (req, res, buf) => {
