@@ -11,6 +11,7 @@ import userRoutes from "./Routes/userRoutes";
 import paymasterRoutes from "./Routes/paymasterRoutes";
 import statsRoutes from "./Routes/statsRoutes";
 import webhookRoutes from "./Routes/webhookRoutes";
+import moonwellRoutes from "./Routes/moonwellRoutes";
 
 
 import axios from "axios";
@@ -55,6 +56,7 @@ app.use("/webhooks", webhookRoutes); // Webhook routes for external services
 app.use("/miniapp", miniappRoutes); // Miniapp-specific endpoints
 app.use("/paymaster", paymasterRoutes); // CDP paymaster proxy for client wallet_sendCalls
 app.use("/stats", statsRoutes); // Public platform metrics for landing page
+app.use("/moonwell", moonwellRoutes); // Moonwell real-time data and transactions
 
 // Health check endpoint
 app.get("/health", (req, res) => {
