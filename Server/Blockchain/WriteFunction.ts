@@ -1,5 +1,5 @@
 import { parseUnits, createPublicClient, http } from "viem";
-import { contractABI, contractAddress, builderCodeDataSuffix } from "./Constants";
+import { contractABI, contractAddress, builderCodeDataSuffix, USDCAddress, moonwellUSDCAddress, ERC20_APPROVE_ABI, MOONWELL_MINT_ABI } from "./Constants";
 import { createEIP7702SmartAccount } from "./EIP7702Client";
 import { base } from "viem/chains";
 
@@ -169,6 +169,42 @@ export const bcWithdrawFundsFromChama = async (privateKey: `0x${string}`, chamaB
         return transaction.transactionHash;
     } catch (error) {
         console.error("Error withdrawing funds from chama:", error);
+        throw error;
+    }
+};
+
+export const bcMoonwellDeposit = async (privateKey: `0x${string}`, amount: string) => {
+    try {
+        const amountInWei = parseUnits(amount, 6);
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey);
+        
+        // 1. Approve USDC for Moonwell Market
+        const approveHash = await smartAccountClient.writeContract({
+            address: USDCAddress,
+            abi: ERC20_APPROVE_ABI,
+            functionName: 'approve',
+            args: [moonwellUSDCAddress as `0x${string}`, amountInWei],
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorization } : {}),
+        });
+        const approveTx = await publicClient.waitForTransactionReceipt({ hash: approveHash });
+        if (!approveTx) throw new Error("Unable to approve USDC for Moonwell.");
+
+        // 2. Mint mUSDC (Supply to Moonwell)
+        const mintHash = await smartAccountClient.writeContract({
+            address: moonwellUSDCAddress as `0x${string}`,
+            abi: MOONWELL_MINT_ABI,
+            functionName: 'mint',
+            args: [amountInWei],
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorization } : {}),
+        });
+        const mintTx = await publicClient.waitForTransactionReceipt({ hash: mintHash });
+        if (!mintTx) throw new Error("Unable to mint mUSDC on Moonwell.");
+
+        return mintTx.transactionHash;
+    } catch (error) {
+        console.error("Error depositing to Moonwell:", error);
         throw error;
     }
 };
