@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import { contractAddress } from "../Blockchain/Constants";
 import { bcGetTotalChamas, getEachMemberBalance, getUserChamaBalance } from "../Blockchain/ReadFunctions";
-import { bcCreateChama, bcDepositFundsToChama, bcAddMemberToPrivateChama, bcJoinPublicChama, bcAddLockedFundsToChama, bcWithdrawFundsFromChama, bcAdminSetPayoutOrder } from "../Blockchain/WriteFunction";
+import { bcCreateChama, bcDepositFundsToChama, bcDepositFundsForMember, bcAddMemberToPrivateChama, bcJoinPublicChama, bcAddLockedFundsToChama, bcWithdrawFundsFromChama, bcAdminSetPayoutOrder } from "../Blockchain/WriteFunction";
 import { approveTx } from "../Blockchain/erc20Functions";
 import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
 import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
@@ -406,9 +406,8 @@ export const getPublicChamasUserIsNotMemberOf = async (
 // deposit funds to a chama
 export const depositToChama = async (req: Request, res: Response) => {
   try {
-    const { amount, blockchainId, chamaId } = req.body;
+    const { amount, blockchainId, chamaId, memberForId } = req.body;
     const userId = req.user?.userId;
-
 
     if (!userId) {
       return res.status(401).json({
@@ -424,7 +423,7 @@ export const depositToChama = async (req: Request, res: Response) => {
       });
     }
 
-    // Validate that the user is a member of this chama
+    // Validate that the caller is a member of this chama
     const chamaMember = await prisma.chamaMember.findFirst({
       where: {
         chamaId: parseInt(chamaId),
@@ -451,6 +450,37 @@ export const depositToChama = async (req: Request, res: Response) => {
       });
     }
 
+    let targetUserId = userId;
+    let description = `deposited`;
+    let memberForAddress: string | null = null;
+
+    if (memberForId) {
+      const targetMember = await prisma.chamaMember.findFirst({
+        where: {
+          chamaId: parseInt(chamaId),
+          userId: memberForId,
+        },
+      });
+
+      if (!targetMember) {
+        return res.status(403).json({
+          success: false,
+          error: "Target user is not a member of this chama",
+        });
+      }
+
+      const callerUser = await prisma.user.findUnique({ where: { id: userId } });
+      const targetUser = await prisma.user.findUnique({ where: { id: memberForId } });
+
+      if (!targetUser || !targetUser.smartAddress) {
+        return res.status(404).json({ success: false, error: "Target user smart address not found" });
+      }
+
+      targetUserId = memberForId;
+      description = `Deposited by @${callerUser?.userName || "Unknown"} on behalf of @${targetUser.userName}`;
+      memberForAddress = targetUser.smartAddress;
+    }
+
     // get the private key of user
     const result = await getPrivateKey(userId);
     if (!result.success || result.privateKey == null) {
@@ -467,7 +497,13 @@ export const depositToChama = async (req: Request, res: Response) => {
     console.log("the amount to be", amount);
 
     // do the deposit onchain
-    const depositTxHash = await bcDepositFundsToChama(result.privateKey, BigInt(Number(blockchainId)), amount);
+    let depositTxHash;
+    if (memberForId && memberForAddress) {
+      depositTxHash = await bcDepositFundsForMember(result.privateKey, BigInt(Number(blockchainId)), memberForAddress, amount);
+    } else {
+      depositTxHash = await bcDepositFundsToChama(result.privateKey, BigInt(Number(blockchainId)), amount);
+    }
+
     if (!depositTxHash) {
       return res.status(401).json({ success: false, error: "Failed to deposit for chama." });
     }
@@ -476,10 +512,10 @@ export const depositToChama = async (req: Request, res: Response) => {
     await prisma.payment.create({
       data: {
         amount: amount,
-        description: `deposited`,
+        description: description,
         txHash: depositTxHash,
         chamaId: parseInt(chamaId),
-        userId: userId,
+        userId: targetUserId,
       },
     });
 

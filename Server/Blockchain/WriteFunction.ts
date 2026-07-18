@@ -91,6 +91,27 @@ export const bcDepositFundsToChama = async (privateKey: `0x${string}`, chamaBloc
     }
 };
 
+export const bcDepositFundsForMember = async (privateKey: `0x${string}`, chamaBlockchainId: bigint, memberAddress: string, amount: string) => {
+    try {
+        const amountInWei = parseUnits(amount, 6);
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey);
+        const hash = await smartAccountClient.writeContract({
+            address: contractAddress,
+            abi: contractABI,
+            functionName: 'depositForMember',
+            args: [memberAddress as `0x${string}`, chamaBlockchainId, amountInWei],
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorization } : {}),
+        });
+        const transaction = await publicClient.waitForTransactionReceipt({ hash });
+        if (!transaction) throw new Error("Unable to deposit funds for member onchain.");
+        return transaction.transactionHash;
+    } catch (error) {
+        console.error("Error depositing funds for member:", error);
+        throw error;
+    }
+};
+
 export const bcLeaveChama = async (privateKey: `0x${string}`, memberAddress: string, chamaBlockchainId: number) => {
     try {
         const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey);

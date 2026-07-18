@@ -508,7 +508,7 @@ export async function pretiumCheckTriggerDepositFor(
   req: Request,
   res: Response
 ) {
-  const { transactionCode, chamaBlockchainId, chamaId, amount } = req.body;
+  const { transactionCode, chamaBlockchainId, chamaId, amount, memberForId } = req.body;
   const userId = req.user?.userId;
   try {
     if (!userId) {
@@ -521,7 +521,7 @@ export async function pretiumCheckTriggerDepositFor(
     // Get user's wallet address
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { smartAddress: true },
+      select: { smartAddress: true, userName: true },
     });
     console.log("the user is", user);
     // get pretium the transaction
@@ -559,13 +559,34 @@ export async function pretiumCheckTriggerDepositFor(
         details: `${transactionCode} transaction has not yet processed.`,
       });
     }
+
+    let targetUserId = userId;
+    let description = "deposited";
+    let targetAddress = user?.smartAddress;
+
+    if (memberForId) {
+      const targetUser = await prisma.user.findUnique({
+        where: { id: memberForId },
+        select: { smartAddress: true, userName: true }
+      });
+      if (!targetUser || !targetUser.smartAddress) {
+        return res.status(404).json({
+          success: false,
+          details: "Target user or their smart address not found",
+        });
+      }
+      targetUserId = memberForId;
+      targetAddress = targetUser.smartAddress;
+      description = `Deposited by @${user?.userName || "Unknown"} on behalf of @${targetUser.userName}`;
+    }
+
     // we will trigger the agent to deposit for the user
     const bigintAmount = toUnits(amount, 6);
     const bigintBlockchainId = Number(chamaBlockchainId);
-    console.log("the user address is", user?.smartAddress);
+    console.log("the user address is", targetAddress);
     const txResult = await pimlicoDepositForUser(
       bigintBlockchainId,
-      user?.smartAddress as `0x${string}`,
+      targetAddress as `0x${string}`,
       bigintAmount
     );
     if (!txResult) {
@@ -579,10 +600,10 @@ export async function pretiumCheckTriggerDepositFor(
     await prisma.payment.create({
       data: {
         amount: amount,
-        description: "deposited",
+        description: description,
         chamaId: chamaId,
         txHash: txResult,
-        userId: userId,
+        userId: targetUserId,
       },
     });
     return res.status(200).json({
