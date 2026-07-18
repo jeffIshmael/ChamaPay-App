@@ -18,3 +18,13 @@ export function getCached<T>(key: string): T | null {
 export function setCache<T>(key: string, value: T, ttlMs: number): void {
   store.set(key, { value, expiresAt: Date.now() + ttlMs });
 }
+
+// Periodic cleanup to prevent memory leaks from unaccessed expired entries
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of store.entries()) {
+    if (entry.expiresAt < now) {
+      store.delete(key);
+    }
+  }
+}, 60_000);

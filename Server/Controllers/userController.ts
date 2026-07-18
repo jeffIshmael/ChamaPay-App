@@ -1156,8 +1156,6 @@ export const updateUserNotificationSettings = async (
       return;
     }
     const { pushNotify, emailNotify } = req.body;
-    console.log("pushNotify", pushNotify);
-    console.log("emailNotify", emailNotify);
     let user;
     if (pushNotify !== undefined) {
       user = await prisma.user.update({
@@ -1171,7 +1169,6 @@ export const updateUserNotificationSettings = async (
         data: { emailNotify: emailNotify },
       });
     }
-    console.log("user", user);
     if (!user) {
       res.status(400).json({ success: false, error: "User not found" });
       return;

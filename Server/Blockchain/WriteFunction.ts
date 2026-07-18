@@ -5,7 +5,7 @@ import { base } from "viem/chains";
 
 const publicClient = createPublicClient({
     chain: base,
-    transport: http(),
+    transport: http(undefined, { timeout: 10_000 }),
 });
 
 export const bcCreateChama = async (privateKey: `0x${string}`, chamaAmount: string, duration: bigint, startDate: bigint, maxMembers: bigint, isPublic: boolean) => {

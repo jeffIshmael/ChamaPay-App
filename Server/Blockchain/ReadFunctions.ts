@@ -6,7 +6,7 @@ import { erc20Abi } from 'viem'
  
 const publicClient = createPublicClient({
   chain: base,
-  transport: http()
+  transport: http(undefined, { timeout: 10_000 })
 })
 
 // function to get a user's chama balance
