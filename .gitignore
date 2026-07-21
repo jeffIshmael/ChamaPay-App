@@ -47,3 +47,7 @@ Server/Test.ts
 
 # The application folder
 Application/
+
+# Agent folder
+.agents
+.vscode

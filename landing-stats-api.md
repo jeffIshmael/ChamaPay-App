@@ -12,6 +12,8 @@ Use your own server base URL (e.g. `https://chamapay-app.onrender.com`). All end
 
 Example: `https://chamapay-app.onrender.com`
 
+CHAMAPAY_STATS_API_URL=https://chamapay-app.onrender.com/stats
+
 ---
 
 ## Endpoints
@@ -44,7 +46,8 @@ Aggregate platform metrics for the marketing `/stats` page.
     "total": 1284650,
     "contributions": 742300,
     "payouts": 398200,
-    "transfers": 144150
+    "transfers": 144150,
+    "allocatedFunds": 250000
   },
   "transactions": {
     "total": 28940,
@@ -53,7 +56,8 @@ Aggregate platform metrics for the marketing `/stats` page.
   "mpesa": {
     "deposits": 5842,
     "withdrawals": 3106,
-    "volumeKes": 98450000
+    "depositVolumeKes": 98450000,
+    "withdrawalVolumeKes": 45200000
   },
   "updatedAt": "2026-06-22T16:30:00.000Z"
 }
@@ -79,12 +83,14 @@ Aggregate platform metrics for the marketing `/stats` page.
 | `usdcVolume.contributions` | `number` | Sum of chama-linked `Payment` amounts (whole USDC) |
 | `usdcVolume.payouts` | `number` | Sum of `PayOut` amounts |
 | `usdcVolume.transfers` | `number` | Sum of peer `Payment` amounts (no chama) |
-| `usdcVolume.total` | `number` | contributions + payouts + transfers |
+| `usdcVolume.allocatedFunds` | `number` | USDC allocated to yielding platforms for Save & Earn |
+| `usdcVolume.total` | `number` | contributions + payouts + transfers + allocatedFunds |
 | `transactions.total` | `number` | All-time payments + payouts + completed M-Pesa txs |
 | `transactions.last30Days` | `number` | Same counts, rolling 30 days |
 | `mpesa.deposits` | `number` | Completed on-ramp / deposit Pretium transactions |
 | `mpesa.withdrawals` | `number` | Completed off-ramp / payment Pretium transactions |
-| `mpesa.volumeKes` | `number` | Total KES volume from completed Pretium transactions |
+| `mpesa.depositVolumeKes` | `number` | Total KES volume from deposit Pretium transactions |
+| `mpesa.withdrawalVolumeKes` | `number` | Total KES volume from withdrawal Pretium transactions |
 | `updatedAt` | `string` | ISO 8601 timestamp when stats were computed |
 
 ---
@@ -134,9 +140,10 @@ export type ChamapayStats = {
     contributions: number;
     payouts: number;
     transfers: number;
+    allocatedFunds: number;
   };
   transactions: { total: number; last30Days: number };
-  mpesa: { deposits: number; withdrawals: number; volumeKes: number };
+  mpesa: { deposits: number; withdrawals: number; depositVolumeKes: number; withdrawalVolumeKes: number };
   updatedAt: string;
 };
 ```

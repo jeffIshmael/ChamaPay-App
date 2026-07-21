@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "base-mcp": {
+      "source": "base/skills",
+      "sourceType": "github",
+      "skillPath": "skills/base-mcp/SKILL.md",
+      "computedHash": "52ed8be2e6bf5f91fdbc06753e7b5f3bd01fa82fee4b331b292214dd52c9c69f"
+    },
+    "build-on-base": {
+      "source": "base/skills",
+      "sourceType": "github",
+      "skillPath": "skills/build-on-base/SKILL.md",
+      "computedHash": "00be30136095eaf1aa8e9a49e8b593ab80c95a1789b09e4c1973cba71e7db22a"
+    },
+    "plugin-review": {
+      "source": "base/skills",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/plugin-review/SKILL.md",
+      "computedHash": "34621fdb2191b2fa3a6a322166dc34217df664adff94e34e229fbcbbc9fc9ede"
+    },
+    "skill-creator": {
+      "source": "base/skills",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/skill-creator/SKILL.md",
+      "computedHash": "bb3a8a0b52c84eff06a0f62b8a844d522e952be1d3a1ad438972b64b0758ed4e"
+    }
+  }
+}

@@ -40,7 +40,8 @@ All numeric fields should be non-negative numbers. Monetary USDC values are in *
     "total": 1284650,
     "contributions": 742300,
     "payouts": 398200,
-    "transfers": 144150
+    "transfers": 144150,
+    "allocatedFunds": 250000
   },
   "transactions": {
     "total": 28940,
@@ -49,7 +50,8 @@ All numeric fields should be non-negative numbers. Monetary USDC values are in *
   "mpesa": {
     "deposits": 5842,
     "withdrawals": 3106,
-    "volumeKes": 98450000
+    "depositVolumeKes": 98450000,
+    "withdrawalVolumeKes": 45200000
   },
   "updatedAt": "2026-06-22T16:30:00.000Z"
 }
@@ -68,11 +70,13 @@ All numeric fields should be non-negative numbers. Monetary USDC values are in *
 | `usdcVolume.contributions` | `number` | USDC contributed to chamas. |
 | `usdcVolume.payouts` | `number` | USDC paid out to chama members. |
 | `usdcVolume.transfers` | `number` | USDC sent between ChamaPay users. |
+| `usdcVolume.allocatedFunds` | `number` | USDC allocated to yielding platforms for Save & Earn. |
 | `transactions.total` | `number` | All-time on-platform transaction count. |
 | `transactions.last30Days` | `number` | Transactions in the rolling last 30 days. |
 | `mpesa.deposits` | `number` | Count of M-Pesa deposit events. |
 | `mpesa.withdrawals` | `number` | Count of M-Pesa withdrawal events. |
-| `mpesa.volumeKes` | `number` | Total KES volume processed via M-Pesa (deposits + withdrawals). |
+| `mpesa.depositVolumeKes` | `number` | Total KES volume from M-Pesa deposits. |
+| `mpesa.withdrawalVolumeKes` | `number` | Total KES volume from M-Pesa withdrawals. |
 | `updatedAt` | `string` | ISO 8601 timestamp of when stats were last computed. |
 
 ---
@@ -102,7 +106,8 @@ Accept: application/json
     "total": 1284650,
     "contributions": 742300,
     "payouts": 398200,
-    "transfers": 144150
+    "transfers": 144150,
+    "allocatedFunds": 250000
   },
   "transactions": {
     "total": 28940,
@@ -111,7 +116,8 @@ Accept: application/json
   "mpesa": {
     "deposits": 5842,
     "withdrawals": 3106,
-    "volumeKes": 98450000
+    "depositVolumeKes": 98450000,
+    "withdrawalVolumeKes": 45200000
   },
   "updatedAt": "2026-06-22T16:30:00.000Z"
 }
@@ -192,6 +198,7 @@ export type ChamapayStats = {
     contributions: number;
     payouts: number;
     transfers: number;
+    allocatedFunds: number;
   };
   transactions: {
     total: number;
@@ -200,7 +207,8 @@ export type ChamapayStats = {
   mpesa: {
     deposits: number;
     withdrawals: number;
-    volumeKes: number;
+    depositVolumeKes: number;
+    withdrawalVolumeKes: number;
   };
   updatedAt: string;
 };
