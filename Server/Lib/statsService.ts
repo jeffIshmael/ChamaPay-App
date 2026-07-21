@@ -25,6 +25,7 @@ export type ChamapayStats = {
         contributions: number;
         payouts: number;
         transfers: number;
+        allocatedFunds: number;
     };
     transactions: {
         total: number;
@@ -33,7 +34,8 @@ export type ChamapayStats = {
     mpesa: {
         deposits: number;
         withdrawals: number;
-        volumeKes: number;
+        depositVolumeKes: number;
+        withdrawalVolumeKes: number;
     };
     updatedAt: string;
 };
@@ -54,7 +56,7 @@ export const getPlatformStats = async (): Promise<ChamapayStats> => {
     ] = await Promise.all([
         prisma.user.count(),
         prisma.payment.findMany({
-            select: { amount: true, chamaId: true, doneAt: true },
+            select: { amount: true, chamaId: true, doneAt: true, receiver: true },
         }),
         prisma.payOut.findMany({
             select: { amount: true, doneAt: true },
@@ -92,8 +94,11 @@ export const getPlatformStats = async (): Promise<ChamapayStats> => {
     const contributions = sumPaymentAmounts(
         payments.filter((payment) => payment.chamaId !== null)
     );
+    const allocatedFunds = sumPaymentAmounts(
+        payments.filter((payment) => payment.receiver === "Moonwell")
+    );
     const transfers = sumPaymentAmounts(
-        payments.filter((payment) => payment.chamaId === null)
+        payments.filter((payment) => payment.chamaId === null && payment.receiver !== "Moonwell")
     );
     const payoutVolume = sumPaymentAmounts(payouts);
 
@@ -104,7 +109,11 @@ export const getPlatformStats = async (): Promise<ChamapayStats> => {
         (tx) => !tx.isOnramp && tx.type !== "deposit"
     );
 
-    const mpesaVolumeKes = pretiumTransactions.reduce(
+    const depositVolumeKes = mpesaDeposits.reduce(
+        (total, tx) => total + Number(tx.amount),
+        0
+    );
+    const withdrawalVolumeKes = mpesaWithdrawals.reduce(
         (total, tx) => total + Number(tx.amount),
         0
     );
@@ -125,10 +134,11 @@ export const getPlatformStats = async (): Promise<ChamapayStats> => {
         activeChamas: activeChamaIds.length,
         activeUsers: Number(activeUserIds[0]?.count ?? 0),
         usdcVolume: {
-            total: Math.round(contributions + payoutVolume + transfers),
+            total: Math.round(contributions + payoutVolume + transfers + allocatedFunds),
             contributions: Math.round(contributions),
             payouts: Math.round(payoutVolume),
             transfers: Math.round(transfers),
+            allocatedFunds: Math.round(allocatedFunds),
         },
         transactions: {
             total: payments.length + payouts.length + pretiumTransactions.length,
@@ -137,7 +147,8 @@ export const getPlatformStats = async (): Promise<ChamapayStats> => {
         mpesa: {
             deposits: mpesaDeposits.length,
             withdrawals: mpesaWithdrawals.length,
-            volumeKes: Math.round(mpesaVolumeKes),
+            depositVolumeKes: Math.round(depositVolumeKes),
+            withdrawalVolumeKes: Math.round(withdrawalVolumeKes),
         },
         updatedAt: new Date().toISOString(),
     };
