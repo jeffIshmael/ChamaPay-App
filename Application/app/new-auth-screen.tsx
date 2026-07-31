@@ -9,7 +9,7 @@ import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
-import { Mail, Shield } from "lucide-react-native";
+import { Mail, Shield, ChevronLeft, KeyRound, ChevronDown, ChevronUp } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -20,8 +20,12 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View
+  View,
+  Modal,
+  Dimensions
 } from "react-native";
+
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
 import AuthLoadingView from "@/components/AuthLoadingView";
@@ -65,6 +69,8 @@ export default function AuthScreen() {
   const [errorText, setErrorText] = useState("");
   const [email, setEmail] = useState("");
   const [showEmailInput, setShowEmailInput] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const router = useRouter();
@@ -410,16 +416,48 @@ setErrorText("Failed to sign in with Apple. Please try again.");
       const data = await resp.json();
 
       if (resp.ok) {
-        // Navigate to verification screen
-        router.push({
-          pathname: "/verify-email",
-          params: { email: email.toLowerCase().trim() },
-        });
+        // Show verification modal instead of routing
+        setShowVerificationModal(true);
+        setVerificationCode("");
       } else {
         setErrorText(data?.message || "Failed to send verification code");
       }
     } catch (error) {
-setErrorText("Failed to send verification code. Please try again.");
+      setErrorText("Failed to send verification code. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async (code: string) => {
+    setIsLoading(true);
+    setErrorText("");
+    try {
+      const res = await fetch(`${serverUrl}/auth/verify-email-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.toLowerCase().trim(), code }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.isNewUser) {
+          setShowVerificationModal(false);
+          router.replace({
+            pathname: "/wallet-setup",
+            params: { mode: "email", email: email.toLowerCase().trim(), name: "", picture: "" },
+          } as any);
+        } else {
+          await setAuth(data.token, data.user, data.refreshToken);
+          setShowVerificationModal(false);
+          router.replace("/(tabs)");
+        }
+      } else {
+        setErrorText(data.message || "Invalid code");
+        setVerificationCode(""); 
+      }
+    } catch (e) {
+      setErrorText("Network error");
+      setVerificationCode("");
     } finally {
       setIsLoading(false);
     }
@@ -464,9 +502,9 @@ setErrorText("Failed to send verification code. Please try again.");
       />
 
       <SafeAreaView className="flex-1">
-        <ScrollView
+          <ScrollView
           className="flex-1"
-          contentContainerStyle={{ flexGrow: 1 }}
+          contentContainerStyle={{ flexGrow: 1, minHeight: SCREEN_HEIGHT }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -522,164 +560,139 @@ setErrorText("Failed to send verification code. Please try again.");
 
             {/* Auth Section */}
             <View className="pb-8">
-              {showEmailInput ? (
-                // Email Input Section
-                <View className="mb-6">
-                  <View className="mb-4">
-                    <TextInput
-                      className="bg-white p-4 rounded-2xl text-base border-2"
-                      style={{
-                        borderColor: "#a3ece4",
-                        ...styles.card,
-                      }}
-                      placeholder="Enter your email"
-                      placeholderTextColor="#9ca3af"
-                      value={email}
-                      onChangeText={setEmail}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      editable={!isLoading}
-                    />
-                  </View>
-
+              {/* Auth Buttons in Column */}
+              <View className="mb-6">
+                {/* Email Button / Input Section */}
+                <View className="mb-3">
                   <Pressable
-                    onPress={handleEmailSubmit}
-                    disabled={isLoading}
-                    className="p-4 rounded-2xl items-center justify-center mb-4"
-                    style={[
-                      styles.authButton,
-                      { backgroundColor: "#26a6a2" },
-                      isLoading && { opacity: 0.6 },
-                    ]}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator color="white" />
-                    ) : (
-                      <Text className="text-white font-bold text-base">
-                        Continue
-                      </Text>
-                    )}
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => {
-                      setShowEmailInput(false);
-                      setEmail("");
-                      setErrorText("");
-                    }}
-                    disabled={isLoading}
-                    className="items-center"
-                  >
-                    <Text
-                      className="text-sm font-semibold"
-                      style={{ color: "#26a6a2" }}
-                    >
-                      Back to other options
-                    </Text>
-                  </Pressable>
-                </View>
-              ) : (
-                // OAuth Buttons Section
-                <>
-                  <View className="flex-row mb-4" style={{ gap: 12 }}>
-                    {/* Google Button */}
-                    <Pressable
-                      onPress={handleGoogleSignIn}
-                      disabled={isLoading || !request || isAuthenticated}
-                      className="flex-1 bg-white p-4 rounded-2xl flex-row items-center justify-center"
-                      style={[
-                        styles.authButton,
-                        {
-                          borderWidth: 2,
-                          borderColor: "#a3ece4",
-                        },
-                        (isLoading || !request || isAuthenticated) && { opacity: 0.6 },
-                      ]}
-                    >
-                      {isLoading || isAuthenticated ? (
-                        <ActivityIndicator color="#4285F4" size="small" />
-                      ) : (
-                        <GoogleIcon />
-                      )}
-                      <View className="ml-3 items-start justify-center">
-                        {Platform.OS === "android" ? (
-                          <Text className="text-gray-900 font-bold text-sm">
-                            {isLoading || isAuthenticated ? "Signing in..." : "Continue with Google"}
-                          </Text>
-                        ) : (
-                          <>
-                            <Text className="text-gray-800 font-semibold text-xs mt-2">
-                              Continue with
-                            </Text>
-                            <Text className="text-gray-900 font-bold text-sm">
-                              Google
-                            </Text>
-                          </>
-                        )}
-                      </View>
-                    </Pressable>
-
-                    {/* Apple Button - Only show on iOS */}
-                    {Platform.OS === "ios" && (
-                      <Pressable
-                        onPress={handleAppleAuth}
-                        disabled={isLoading}
-                        className="flex-1 p-2 rounded-2xl flex-row items-center justify-center"
-                        style={[
-                          styles.authButton,
-                          { backgroundColor: "black" },
-                          isLoading && { opacity: 0.6 },
-                        ]}
-                      >
-                        {isLoading ? (
-                          <ActivityIndicator color="white" size="small" />
-                        ) : (
-                          <AppleIcon />
-                        )}
-                        <View className="ml-3 items-start justify-center">
-                          <Text className="text-gray-300 font-semibold text-xs mt-2">
-                            Continue with
-                          </Text>
-                          <Text className="text-white font-bold text-sm">
-                            Apple
-                          </Text>
-                        </View>
-                      </Pressable>
-                    )}
-                  </View>
-
-                  {/* Divider */}
-                  <View className="flex-row items-center mb-4">
-                    <View className="flex-1 h-px bg-gray-300" />
-                    <Text className="px-4 text-gray-500 text-sm">or</Text>
-                    <View className="flex-1 h-px bg-gray-300" />
-                  </View>
-
-                  {/* Email Button */}
-                  <Pressable
-                    onPress={() => setShowEmailInput(true)}
-                    disabled={isLoading}
-                    className="bg-white p-4 rounded-2xl flex-row items-center justify-center mb-6"
+                    onPress={() => setShowEmailInput(!showEmailInput)}
+                    className="w-full p-3 rounded-2xl flex-row items-center h-16"
                     style={[
                       styles.authButton,
                       {
-                        borderWidth: 2,
-                        borderColor: "#a3ece4",
+                        borderWidth: 1,
+                        borderColor: showEmailInput ? "#26a6a2" : "#e5e7eb",
+                        backgroundColor: showEmailInput ? "#f0fdfa" : "white",
+                      },
+                    ]}
+                  >
+                    {!showEmailInput && (
+                      <View className="w-10 h-10 bg-gray-100 rounded-lg items-center justify-center ml-1">
+                        <Mail size={20} color="#4b5563" />
+                      </View>
+                    )}
+                    <View className={`flex-1 ${!showEmailInput ? "ml-3" : "ml-4"} items-start justify-center`}>
+                      <Text className="text-gray-800 font-medium text-base">
+                        Continue with email
+                      </Text>
+                    </View>
+                    <View className="mr-2">
+                      {showEmailInput ? (
+                        <ChevronUp size={20} color="#26a6a2" />
+                      ) : (
+                        <ChevronDown size={20} color="#6b7280" />
+                      )}
+                    </View>
+                  </Pressable>
+
+                  {/* Render Input Box Below if expanded */}
+                  {showEmailInput && (
+                    <View className="w-full bg-white rounded-2xl flex-row items-center border border-[#e5e7eb] p-1 h-16 mt-1" style={styles.authButton}>
+                      <View className="w-10 h-10 bg-[#f3f4f6] rounded-xl items-center justify-center ml-1">
+                        <Mail size={20} color="#4b5563" />
+                      </View>
+                      <TextInput
+                        value={email}
+                        onChangeText={setEmail}
+                        placeholder="your@email.com"
+                        className="flex-1 text-gray-800 px-3 font-medium text-base h-full"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        editable={!isLoading}
+                        autoFocus={true}
+                      />
+                      <Pressable
+                        onPress={handleEmailSubmit}
+                        disabled={!email || isLoading}
+                        className="px-4 h-full justify-center items-center"
+                      >
+                        {isLoading ? (
+                          <ActivityIndicator size="small" color="#26a6a2" />
+                        ) : (
+                          <Text className={`font-semibold text-base ${email ? "text-gray-800" : "text-gray-300"}`}>
+                            Submit
+                          </Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  )}
+                </View>
+
+                {/* Divider */}
+                <View className="flex-row items-center my-4">
+                  <View className="flex-1 h-px bg-gray-200" />
+                  <Text className="px-4 text-gray-400 text-sm font-medium">or</Text>
+                  <View className="flex-1 h-px bg-gray-200" />
+                </View>
+
+                {/* Google Button */}
+                <Pressable
+                  onPress={handleGoogleSignIn}
+                  disabled={isLoading || !request || isAuthenticated}
+                  className="w-full bg-white p-3 rounded-2xl flex-row items-center h-16 mb-3"
+                  style={[
+                    styles.authButton,
+                    {
+                      borderWidth: 1,
+                      borderColor: "#e5e7eb", // gray-200
+                    },
+                    (isLoading || !request || isAuthenticated) && { opacity: 0.6 },
+                  ]}
+                >
+                  <View className="w-10 h-10 bg-gray-100 rounded-lg items-center justify-center ml-1">
+                    <GoogleIcon />
+                  </View>
+                  <View className="flex-1 ml-3 items-start justify-center">
+                    <Text className="text-gray-800 font-medium text-base">
+                      {isLoading || isAuthenticated ? "Signing in..." : "Continue with Google"}
+                    </Text>
+                  </View>
+                  <View className="bg-gray-100 px-3 py-1 rounded-full mr-1">
+                    <Text className="text-gray-500 font-medium text-xs">Recent</Text>
+                  </View>
+                </Pressable>
+
+                {/* Apple Button */}
+                {Platform.OS === "ios" && (
+                  <Pressable
+                    onPress={handleAppleAuth}
+                    disabled={isLoading}
+                    className="w-full bg-white p-3 rounded-2xl flex-row items-center h-16 mb-3"
+                    style={[
+                      styles.authButton,
+                      {
+                        borderWidth: 1,
+                        borderColor: "#e5e7eb", // gray-200
                       },
                       isLoading && { opacity: 0.6 },
                     ]}
                   >
-                    <Mail color="#26a6a2" size={20} />
-                    <Text
-                      className="ml-3 font-bold text-base"
-                      style={{ color: "#26a6a2" }}
-                    >
-                      Continue with Email
-                    </Text>
+                    <View className="w-10 h-10 bg-gray-100 rounded-lg items-center justify-center ml-1">
+                      {/* Apple icon with black fill */}
+                      <Svg width={18} height={18} viewBox="0 0 24 24">
+                        <Path
+                          fill="#000000"
+                          d="M19.665 17.025c-.315.735-.69 1.41-1.125 2.02-.59.835-1.071 1.41-1.44 1.725-.575.53-1.191.805-1.854.825-.474 0-1.047-.135-1.72-.405-.674-.27-1.293-.405-1.86-.405-.59 0-1.225.135-1.905.405-.68.27-1.234.41-1.665.42-.64.03-1.27-.255-1.89-.855-.405-.375-.91-1.005-1.515-1.89-.65-.945-1.185-2.04-1.605-3.285-.45-1.365-.675-2.685-.675-3.96 0-1.465.32-2.73.96-3.795.5-.855 1.165-1.53 1.995-2.025.83-.495 1.72-.75 2.67-.765.525 0 1.215.155 2.07.465.855.31 1.405.47 1.65.48.18 0 .79-.195 1.83-.585 1-.36 1.845-.51 2.535-.45 1.875.15 3.285.885 4.23 2.205-1.68 1.02-2.52 2.46-2.52 4.32 0 1.44.54 2.64 1.62 3.6.48.45 1.02.795 1.62 1.035-.13.39-.27.765-.42 1.125zM15.27 2.385c0 .435-.16.9-.48 1.395-.305.48-.69.87-1.155 1.17-.435.27-.84.42-1.215.45-.03-.09-.06-.195-.075-.315a2.77 2.77 0 0 1 .66-2.04c.22-.27.5-.495.84-.675.34-.18.665-.28.975-.3.01.105.02.21.02.315z"
+                        />
+                      </Svg>
+                    </View>
+                    <View className="flex-1 ml-3 items-start justify-center">
+                      <Text className="text-gray-800 font-medium text-base">Apple</Text>
+                    </View>
                   </Pressable>
-                </>
-              )}
+                )}
+              </View>
 
               {/* Terms */}
               <Text className="text-xs text-gray-500 text-center px-8 leading-relaxed mb-6">
@@ -703,6 +716,110 @@ setErrorText("Failed to send verification code. Please try again.");
           message={loadingMessage || (isAuthenticated ? "Completing sign in..." : "Processing...")} 
         />
       )}
+
+      {/* Verification Modal */}
+      <Modal visible={showVerificationModal} animationType="fade" transparent={true}>
+        <View className="flex-1 justify-center items-center bg-black/50 px-4">
+          <View className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-xl relative">
+            {/* Header Icons */}
+            <View className="flex-row justify-between w-full mb-4">
+              <Pressable
+                onPress={() => setShowVerificationModal(false)}
+                className="w-8 h-8 bg-gray-100 rounded-full items-center justify-center"
+              >
+                <ChevronLeft size={20} color="#6b7280" />
+              </Pressable>
+              <Pressable
+                onPress={() => setShowVerificationModal(false)}
+                className="w-8 h-8 bg-gray-100 rounded-full items-center justify-center"
+              >
+                <Text className="text-gray-500 text-lg leading-none mb-1">×</Text>
+              </Pressable>
+            </View>
+
+            <View className="items-center mb-6">
+              <View className="w-16 h-16 bg-[#e0f2f1] rounded-full items-center justify-center mb-4">
+                <KeyRound size={28} color="#26a6a2" />
+              </View>
+              <Text className="text-xl font-bold text-gray-900 mb-2 text-center">
+                Enter confirmation code
+              </Text>
+              <Text className="text-gray-500 text-center text-sm leading-relaxed px-2">
+                Please check <Text className="font-bold text-gray-800">{email}</Text> for an email and enter your code below.
+              </Text>
+            </View>
+
+            {/* Code Input Boxes */}
+            <View className="flex-row justify-center mb-6 gap-x-2 relative">
+              <TextInput
+                value={verificationCode}
+                onChangeText={(val) => {
+                  setVerificationCode(val);
+                  if (val.length === 6) {
+                    handleVerifyCode(val);
+                  }
+                }}
+                maxLength={6}
+                keyboardType="number-pad"
+                autoFocus={true}
+                className="absolute w-full h-full opacity-0" 
+                editable={!isLoading}
+                caretHidden={true}
+              />
+              {[0, 1, 2, 3, 4, 5].map((index) => (
+                <View
+                  key={index}
+                  className={`w-11 h-14 rounded-xl items-center justify-center bg-white`}
+                  style={{
+                    borderWidth: verificationCode.length === index ? 2 : 1,
+                    borderColor: verificationCode.length === index ? "#26a6a2" : "#d1d5db",
+                  }}
+                >
+                  <Text className="text-2xl font-bold text-gray-900">
+                    {verificationCode[index] || ""}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Error Message */}
+            {errorText ? (
+              <Text className="text-red-500 text-center mb-4 font-medium text-sm">
+                {errorText}
+              </Text>
+            ) : null}
+
+            {/* Resend Link */}
+            <View className="items-center pb-2">
+              <Text className="text-gray-500 text-sm">
+                Didn't get an email?{" "}
+                <Text
+                  onPress={handleEmailSubmit}
+                  className="font-medium"
+                  style={{ color: "#26a6a2" }}
+                >
+                  Resend code
+                </Text>
+              </Text>
+            </View>
+
+            {/* Powered by */}
+            <View className="items-center mt-4">
+              <View className="flex-row items-center">
+                <Text className="text-xs text-gray-400 mr-2">Protected by</Text>
+                <Image
+                  source={require("@/assets/images/thirdweb.png")}
+                  className="w-4 h-4 mr-1 rounded-full opacity-50"
+                  resizeMode="contain"
+                />
+                <Text className="text-xs font-bold text-gray-400">
+                  Thirdweb
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
