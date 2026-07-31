@@ -876,7 +876,7 @@ export const shareChamaLink = async (
     }
 
     // expo notify the receiver
-    await sendExpoNotificationToAUser(receiver.id, "ChamaPay Invite", message);
+    await sendExpoNotificationToAUser(receiver.id, "Chamapay Invite", message);
 
     res.status(200).json({ success: true, notification: notification });
   } catch (error) {

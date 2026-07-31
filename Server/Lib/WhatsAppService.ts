@@ -23,7 +23,7 @@ export async function sendWhatsAppOTP(toPhoneE164: string, otpCode: string): Pro
       type: "text",
       text: {
         preview_url: false,
-        body: `Your ChamaPay verification code is ${otpCode}. It expires in 10 minutes.`,
+        body: `Your Chamapay verification code is ${otpCode}. It expires in 10 minutes.`,
       },
     } as const;
 
