@@ -1,7 +1,6 @@
 import express, { Router } from "express";
 import {
     getChamasUserIsMemberOf,
-    getPublicChamasUserIsNotMemberOf,
 } from "../Controllers/chamaControllers";
 import {
     miniappConfirmJoinRequest,
@@ -28,7 +27,6 @@ router.use(authenticate);
 
 // Chama management
 router.get("/user-chamas", getChamasUserIsMemberOf);
-router.get("/public-chamas", getPublicChamasUserIsNotMemberOf);
 router.post("/create-chama", miniappCreateChama);
 router.post("/join-chama", miniappJoinChama);
 

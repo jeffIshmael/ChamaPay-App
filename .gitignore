@@ -45,8 +45,6 @@ Server/.env
 Server/prisma/dev.db
 Server/Test.ts
 
-# The application folder
-Application/
 
 # Agent folder
 .agents

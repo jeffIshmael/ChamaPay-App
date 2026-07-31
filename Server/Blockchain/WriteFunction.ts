@@ -29,27 +29,6 @@ export const bcCreateChama = async (privateKey: `0x${string}`, chamaAmount: stri
     }
 };
 
-export const bcJoinPublicChama = async (privateKey: `0x${string}`, chamaBlockchainId: bigint, chamaAmount: string) => {
-    try {
-        const amountInWei = parseUnits(chamaAmount, 6);
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey);
-        const hash = await smartAccountClient.writeContract({
-            address: contractAddress,
-            abi: contractABI,
-            functionName: 'addPublicMember',
-            args: [chamaBlockchainId, amountInWei],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
-        const transaction = await publicClient.waitForTransactionReceipt({ hash });
-        if (!transaction) throw new Error("Unable to join public chama onchain.");
-        return transaction.transactionHash;
-    } catch (error) {
-        console.error("Error joining public chama:", error);
-        throw error;
-    }
-};
-
 export const bcAddMemberToPrivateChama = async (privateKey: `0x${string}`, chamaBlockchainId: bigint, memberAddress: string) => {
     try {
         const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey);
@@ -78,7 +57,7 @@ export const bcDepositFundsToChama = async (privateKey: `0x${string}`, chamaBloc
             address: contractAddress,
             abi: contractABI,
             functionName: 'depositCash',
-            args: [chamaBlockchainId, amountInWei, false],
+            args: [chamaBlockchainId, amountInWei],
             dataSuffix: builderCodeDataSuffix,
             ...(authorization ? { authorization } : {}),
         });
@@ -209,23 +188,23 @@ export const bcMoonwellDeposit = async (privateKey: `0x${string}`, amount: strin
     }
 };
 
-export const bcAddLockedFundsToChama = async (privateKey: `0x${string}`, memberAddress: `0x${string}`, chamaBlockchainId: number, amount: string) => {
+export const bcUpdateChamaDetails = async (privateKey: `0x${string}`, chamaBlockchainId: bigint, newAmount: string, newCycle: number, newRound: number, newPayDate: number) => {
     try {
-        const amountInWei = parseUnits(amount, 6);
+        const amountInWei = parseUnits(newAmount, 6);
         const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey);
         const hash = await smartAccountClient.writeContract({
             address: contractAddress,
             abi: contractABI,
-            functionName: 'updateLockedAmount',
-            args: [memberAddress, chamaBlockchainId, amountInWei],
+            functionName: 'updateChamaDetails',
+            args: [chamaBlockchainId, amountInWei, BigInt(newCycle), BigInt(newRound), BigInt(newPayDate)],
             dataSuffix: builderCodeDataSuffix,
             ...(authorization ? { authorization } : {}),
         });
         const transaction = await publicClient.waitForTransactionReceipt({ hash });
-        if (!transaction) throw new Error("Unable to add locked funds to chama onchain.");
+        if (!transaction) throw new Error("Unable to update chama details onchain.");
         return transaction.transactionHash;
     } catch (error) {
-        console.error("Error adding locked funds to chama:", error);
+        console.error("Error updating chama details:", error);
         throw error;
     }
 };
