@@ -10,7 +10,7 @@ import ScheduleTab from "@/components/ScheduleTab";
 import { TabButton } from "@/components/ui/TabButton";
 import USDCPay from "@/components/USDCPay";
 import { JoinedChama } from "@/constants/mockData";
-import { getAllBalances } from "@/constants/thirdweb";
+import { getAllBalances } from "@/constants/viem";
 import { useAuth } from "@/Contexts/AuthContext";
 import {
   getChamaBySlug,
@@ -30,7 +30,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Share, Share2, User, UserPlus, Edit3 } from "lucide-react-native";
+import { ArrowLeft, Share, Share2, User, UserPlus, Edit3, Calendar, Clock } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -46,7 +46,7 @@ import {
   View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { toTokens } from "thirdweb/utils";
+import { formatUnits } from "viem";
 
 // Loading Skeleton Component
 const SkeletonBox = ({
@@ -557,8 +557,8 @@ Alert.alert("Error", "An unexpected error occurred");
   const lockedBalance = Array.isArray(balanceToUse)
     ? balanceToUse[1]
     : balanceToUse;
-  const myContributions = Number(toTokens(firstBalance || BigInt(0), 6) || 0);
-  const myCollateral = Number(toTokens(lockedBalance || BigInt(0), 6) || 0);
+  const myContributions = Number(formatUnits(firstBalance || BigInt(0), 6) || 0);
+  const myCollateral = Number(formatUnits(lockedBalance || BigInt(0), 6) || 0);
   const remainingAmount = Number(contribution) - Number(myContributions);
   const nextPayoutAmount = chama.nextPayoutAmount || 0;
   const unreadMessages = chama.unreadMessages || 0;
@@ -666,7 +666,7 @@ Alert.alert("Error", "An unexpected error occurred");
               </View>
             </View>
             <View className="flex-row items-center gap-2">
-              {isAdmin && (
+              {isAdmin && chama.canJoin && (
                 <>
                   <TouchableOpacity
                     onPress={() => setShowEditModal(true)}
@@ -1292,50 +1292,108 @@ Alert.alert("Error", "An unexpected error occurred");
                 <View className="flex-row gap-4 mb-8">
                   <TouchableOpacity
                     onPress={() => setShowPayDatePicker(true)}
-                    className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3"
+                    className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex-row items-center justify-between"
                   >
-                    <Text className="text-base text-gray-900">{selectedPayDate.toLocaleDateString()}</Text>
+                    <Text className="font-medium text-gray-900">{selectedPayDate.toLocaleDateString()}</Text>
+                    <Calendar size={20} color="#6b7280" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => setShowPayTimePicker(true)}
-                    className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3"
+                    className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex-row items-center justify-between"
                   >
-                    <Text className="text-base text-gray-900">{selectedPayDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                    <Text className="font-medium text-gray-900">{selectedPayDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                    <Clock size={20} color="#6b7280" />
                   </TouchableOpacity>
                 </View>
 
-                {showPayDatePicker && (
-                  <DateTimePicker
-                    value={selectedPayDate}
-                    mode="date"
-                    display="default"
-                    onChange={(event, selected) => {
-                      setShowPayDatePicker(false);
-                      if (selected) {
-                        const newDate = new Date(selectedPayDate);
-                        newDate.setFullYear(selected.getFullYear());
-                        newDate.setMonth(selected.getMonth());
-                        newDate.setDate(selected.getDate());
-                        setSelectedPayDate(newDate);
-                      }
-                    }}
-                  />
-                )}
-                {showPayTimePicker && (
-                  <DateTimePicker
-                    value={selectedPayDate}
-                    mode="time"
-                    display="default"
-                    onChange={(event, selected) => {
-                      setShowPayTimePicker(false);
-                      if (selected) {
-                        const newDate = new Date(selectedPayDate);
-                        newDate.setHours(selected.getHours());
-                        newDate.setMinutes(selected.getMinutes());
-                        setSelectedPayDate(newDate);
-                      }
-                    }}
-                  />
+                {Platform.OS === 'android' ? (
+                  <>
+                    {showPayDatePicker && (
+                      <DateTimePicker
+                        value={selectedPayDate}
+                        mode="date"
+                        display="default"
+                        onChange={(event, selected) => {
+                          setShowPayDatePicker(false);
+                          if (selected) {
+                            const newDate = new Date(selectedPayDate);
+                            newDate.setFullYear(selected.getFullYear());
+                            newDate.setMonth(selected.getMonth());
+                            newDate.setDate(selected.getDate());
+                            setSelectedPayDate(newDate);
+                          }
+                        }}
+                      />
+                    )}
+                    {showPayTimePicker && (
+                      <DateTimePicker
+                        value={selectedPayDate}
+                        mode="time"
+                        display="default"
+                        onChange={(event, selected) => {
+                          setShowPayTimePicker(false);
+                          if (selected) {
+                            const newDate = new Date(selectedPayDate);
+                            newDate.setHours(selected.getHours());
+                            newDate.setMinutes(selected.getMinutes());
+                            setSelectedPayDate(newDate);
+                          }
+                        }}
+                      />
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Modal visible={showPayDatePicker} transparent animationType="slide">
+                      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }}>
+                        <TouchableOpacity style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} onPress={() => setShowPayDatePicker(false)} />
+                        <View style={{ backgroundColor: "white", borderRadius: 20, padding: 24, margin: 20, width: "90%" }}>
+                          <Text style={{ fontSize: 20, fontWeight: "700", marginBottom: 20, textAlign: "center", color: "#111827" }}>Select Date</Text>
+                          <DateTimePicker
+                            value={selectedPayDate}
+                            mode="date"
+                            display="compact"
+                            onChange={(event, selected) => {
+                              if (selected) {
+                                const newDate = new Date(selectedPayDate);
+                                newDate.setFullYear(selected.getFullYear());
+                                newDate.setMonth(selected.getMonth());
+                                newDate.setDate(selected.getDate());
+                                setSelectedPayDate(newDate);
+                              }
+                            }}
+                          />
+                          <TouchableOpacity onPress={() => setShowPayDatePicker(false)} style={{ backgroundColor: "#059669", padding: 14, borderRadius: 12, marginTop: 20, alignItems: "center" }}>
+                            <Text style={{ color: "white", fontWeight: "600", fontSize: 16 }}>Done</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </Modal>
+                    <Modal visible={showPayTimePicker} transparent animationType="slide">
+                      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }}>
+                        <TouchableOpacity style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} onPress={() => setShowPayTimePicker(false)} />
+                        <View style={{ backgroundColor: "white", borderRadius: 20, padding: 24, margin: 20, width: "90%" }}>
+                          <Text style={{ fontSize: 20, fontWeight: "700", marginBottom: 20, textAlign: "center", color: "#111827" }}>Select Time</Text>
+                          <DateTimePicker
+                            value={selectedPayDate}
+                            mode="time"
+                            display="compact"
+                            onChange={(event, selected) => {
+                              if (selected) {
+                                const newDate = new Date(selectedPayDate);
+                                newDate.setHours(selected.getHours());
+                                newDate.setMinutes(selected.getMinutes());
+                                setSelectedPayDate(newDate);
+                              }
+                            }}
+                          />
+                          <TouchableOpacity onPress={() => setShowPayTimePicker(false)} style={{ backgroundColor: "#059669", padding: 14, borderRadius: 12, marginTop: 20, alignItems: "center" }}>
+                            <Text style={{ color: "white", fontWeight: "600", fontSize: 16 }}>Done</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </Modal>
+                  </>
                 )}
                 
                 <TouchableOpacity

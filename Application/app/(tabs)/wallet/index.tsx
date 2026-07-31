@@ -639,44 +639,54 @@ fetchBalances();
                 </Text>
 
                 <View className="mb-8">
-                  <View className="flex-row items-baseline">
-                    <Text className="text-5xl text-white font-bold tracking-tight">
-                      {balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && currency === "KES"
-                        ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        }).split('.')[0]
-                        : balanceVisible && currency !== "KES"
-                          ? Number(usdcBalance) > 0 ? Number(usdcBalance).toLocaleString(undefined, {
+                  {isRefreshingBalance && !refreshing ? (
+                    <View className="flex-row items-baseline">
+                      <View className="bg-white/20 h-14 w-40 rounded-lg animate-pulse" />
+                    </View>
+                  ) : (
+                    <View className="flex-row items-baseline">
+                      <Text className="text-5xl text-white font-bold tracking-tight">
+                        {balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && currency === "KES"
+                          ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           }).split('.')[0]
-                            : "0"
-                          : "---"}
-                    </Text>
-                    <Text className="text-5xl text-white font-medium">
-                      .{balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && currency === "KES"
-                        ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        }).split('.')[1] || "00"
-                        : balanceVisible && currency !== "KES"
-                          ? Number(usdcBalance) > 0 ? Number(usdcBalance).toLocaleString(undefined, {
+                          : balanceVisible && currency !== "KES"
+                            ? Number(usdcBalance) > 0 ? Number(usdcBalance).toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }).split('.')[0]
+                              : "0"
+                            : "---"}
+                      </Text>
+                      <Text className="text-5xl text-white font-medium">
+                        .{balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && currency === "KES"
+                          ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           }).split('.')[1] || "00"
-                            : "00"
-                          : ""}
-                    </Text>
-                    <Text className="text-lg text-white/90 ml-1 font-medium">
-                      {currency === "KES" ? "KES" : "USDC"}
-                    </Text>
-                  </View>
+                          : balanceVisible && currency !== "KES"
+                            ? Number(usdcBalance) > 0 ? Number(usdcBalance).toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }).split('.')[1] || "00"
+                              : "00"
+                            : ""}
+                      </Text>
+                      <Text className="text-lg text-white/90 ml-1 font-medium">
+                        {currency === "KES" ? "KES" : "USDC"}
+                      </Text>
+                    </View>
+                  )}
 
                   {balanceVisible && currency === "KES" && (
-                    <Text className="text-white/60 text-sm mt-2">
-                      ≈ {balanceVisible && userBalance ? usdcBalance : "----"} USDC
-                    </Text>
+                    isRefreshingBalance && !refreshing ? (
+                      <View className="bg-white/20 h-4 w-24 rounded-lg mt-2 animate-pulse" />
+                    ) : (
+                      <Text className="text-white/60 text-sm mt-2">
+                        ≈ {balanceVisible && userBalance ? usdcBalance : "----"} USDC
+                      </Text>
+                    )
                   )}
                 </View>
 

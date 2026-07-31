@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { ArrowLeft } from "lucide-react-native";
 import { useAuth } from "@/Contexts/AuthContext";
-import { getAllBalances } from "@/constants/thirdweb";
+import { getAllBalances } from "@/constants/viem";
 import MobileMoneyPay from "./MobileMoneyPay";
 import { serverUrl } from "@/constants/serverUrl";
 

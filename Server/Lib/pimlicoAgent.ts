@@ -1,5 +1,5 @@
 // the blockchain functions of interest are :- setting payout order, triggering payout function
-import { erc20Abi, createPublicClient, http } from "viem";
+import { erc20Abi, createPublicClient, http, TransactionReceipt, parseEventLogs } from "viem";
 import { getAgentSmartWallet } from "../Blockchain/AgentWallet";
 import { contractABI, contractAddress, USDCAddress, builderCodeDataSuffix } from "../Blockchain/Constants";
 import { base } from "viem/chains";
@@ -163,6 +163,72 @@ export const pimlicoDepositForUser = async (
     return depositForMemberTransaction.transactionHash;
   } catch (error) {
     console.error("Error processing agent deposit user tx:", error);
+    throw error;
+  }
+};
+
+// Check if payout was a disburse or refund by querying events
+export const checkPayoutResult = async (
+  chamaBlockchainId: number,
+  receipt: TransactionReceipt
+) => {
+  try {
+    const logs = parseEventLogs({
+      abi: contractABI,
+      logs: receipt.logs,
+    }) as any[];
+
+    const chamaIdBigInt = BigInt(chamaBlockchainId);
+    const timestamp = Date.now();
+
+    const disbursedEvent = logs.find(
+      (log) =>
+        log.eventName === "FundsDisbursed" &&
+        (log.args as any).chamaId === chamaIdBigInt
+    );
+
+    if (disbursedEvent) {
+      const args = disbursedEvent.args as any;
+      return {
+        type: "disburse" as const,
+        recipient: args.recipient as string,
+        amount: args.amount as bigint,
+        timestamp: timestamp,
+        transactionHash: receipt.transactionHash,
+      };
+    }
+
+    const refundIssuedEvent = logs.find(
+      (log) =>
+        log.eventName === "RefundIssued" &&
+        (log.args as any).chamaId === chamaIdBigInt
+    );
+
+    const refundUpdatedEvent = logs.find(
+      (log) =>
+        log.eventName === "RefundUpdated" &&
+        ((log.args as any)._chamaId === chamaIdBigInt ||
+          (log.args as any).chamaId === chamaIdBigInt)
+    );
+
+    if (refundIssuedEvent || refundUpdatedEvent) {
+      const refundArgs = refundIssuedEvent?.args as any;
+      return {
+        type: "refund" as const,
+        timestamp: timestamp,
+        transactionHash: receipt.transactionHash,
+        member: refundArgs?.member as string | undefined,
+        amount: refundArgs?.amount as bigint | undefined,
+      };
+    }
+
+    return {
+      type: "unknown" as const,
+      timestamp: timestamp,
+      transactionHash: receipt.transactionHash,
+    };
+  } catch (error) {
+    console.error("Error checking payout result:", error);
     throw error;
   }
 };

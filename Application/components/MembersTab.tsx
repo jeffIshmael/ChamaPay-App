@@ -6,7 +6,7 @@ import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { Crown, DollarSign, Lock, User } from "lucide-react-native";
 import React, { FC } from "react";
 import { ScrollView, Text, View, Image } from "react-native";
-import { toTokens } from "thirdweb/utils";
+import { formatUnits } from "viem";
 
 type Props = {
   members: Member[];
@@ -45,8 +45,8 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
     }
 
     const memberBalances = balances[memberIndex];
-    const balance = Number(toTokens(memberBalances[0] || BigInt(0), 6));
-    const locked = Number(toTokens(memberBalances[1] || BigInt(0), 6));
+    const balance = Number(formatUnits(memberBalances[0] || BigInt(0), 6));
+    const locked = Number(formatUnits(memberBalances[1] || BigInt(0), 6));
 
     return { balance, locked };
   };

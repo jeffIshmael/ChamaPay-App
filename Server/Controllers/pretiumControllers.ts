@@ -14,7 +14,7 @@ import {
   verifyPhoneNo,
 } from "../Lib/PretiumFunctions";
 import { pimlicoDepositForUser } from "../Lib/pimlicoAgent";
-import { toUnits } from "thirdweb";
+import { parseUnits } from "viem";
 import { settlementAddress } from "../Lib/PretiumFunctions";
 import { transferTx } from "../Blockchain/erc20Functions";
 import { getPrivateKey } from "../Lib/HelperFunctions";
@@ -581,7 +581,7 @@ export async function pretiumCheckTriggerDepositFor(
     }
 
     // we will trigger the agent to deposit for the user
-    const bigintAmount = toUnits(amount, 6);
+    const bigintAmount = parseUnits(amount, 6);
     const bigintBlockchainId = Number(chamaBlockchainId);
     console.log("the user address is", targetAddress);
     const txResult = await pimlicoDepositForUser(

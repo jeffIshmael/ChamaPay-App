@@ -5,7 +5,7 @@ import "multer";
 import { formatUnits, isAddress } from "viem";
 import { transferTx, transferWithFeeTx } from "../Blockchain/erc20Functions";
 import { getUserBalance } from "../Blockchain/ReadFunctions";
-import { bcAddMemberToPrivateChama } from "../Blockchain/WriteFunction";
+import { bcAddMemberToPrivateChama, bcAdminSetPayoutOrder } from "../Blockchain/WriteFunction";
 import { sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
 import { getPrivateKey } from "../Lib/HelperFunctions";
 import {
@@ -724,6 +724,28 @@ export const confirmJoinRequest = async (
             error: `unable to add ${userName} to ${chama.name} onchain.`,
           });
         return;
+      }
+
+      // Also add to payout order on-chain if payout order is already set off-chain
+      const offchainPayoutOrder = chama.payOutOrder ? JSON.parse(chama.payOutOrder) : [];
+      if (offchainPayoutOrder.length > 0) {
+        const onchainPayoutArray = offchainPayoutOrder.map((p: any) => p.userAddress as `0x${string}`);
+        onchainPayoutArray.push(requestingUser.smartAddress as `0x${string}`);
+        
+        const setOrderTx = await bcAdminSetPayoutOrder(
+          privateKeyResponse.privateKey,
+          Number(chamaBlockchainId),
+          onchainPayoutArray
+        );
+        if (!setOrderTx) {
+          res
+            .status(400)
+            .json({
+              success: false,
+              error: `unable to update payout order onchain for ${userName}.`,
+            });
+          return;
+        }
       }
     }
 

@@ -1,6 +1,5 @@
 import { env } from "@/constants/env";
 import { serverUrl } from "@/constants/serverUrl";
-import { chain, client } from "@/constants/thirdweb";
 import { useAuth } from "@/Contexts/AuthContext";
 import { checkUserDetails } from "@/lib/chamaService";
 import { storage } from "@/Utils/storage";
@@ -17,16 +16,10 @@ import {
   Text,
   View,
   Dimensions,
+  ToastAndroid,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
-import { celo } from "thirdweb/chains";
-import { useActiveAccount, useConnect } from "thirdweb/react";
-import {
-  getProfiles,
-  getUserEmail,
-  inAppWallet,
-} from "thirdweb/wallets/in-app";
 
 const { width } = Dimensions.get("window");
 
@@ -73,82 +66,70 @@ export default function AuthScreen() {
     iosClientId: env.GOOGLE_IOS_CLIENT_ID,
     webClientId: env.GOOGLE_WEB_CLIENT_ID,
   });
-  const { connect, isConnecting } = useConnect();
-  const account = useActiveAccount();
 
-  const handleThirdwebAuth = async (type: "google" | "apple") => {
+  const handleAuth = async (type: "google" | "apple") => {
     setErrorText("");
     try {
-      const wallet = inAppWallet({
-        executionMode: {
-          mode: "EIP7702",
-          sponsorGas: false,
-        },
-      });
-
-      const account = await wallet.connect({
-        client,
-        chain: celo,
-        strategy: type,
-      });
-
-      try {
-        await connect(wallet);
-        const walletData = {
-          address: account.address,
-          connected: true,
-          timestamp: Date.now(),
-        };
-        await storage.setWalletConnection(walletData);
-} catch { /* ignored */ }
-
-      const profiles = await getProfiles({ client });
-      const primaryProfile: any = Array.isArray(profiles)
-        ? profiles[0]
-        : undefined;
-      const emailFromProfile = primaryProfile?.details?.email as
-        | string
-        | undefined;
-      const nameFromProfile = primaryProfile?.details?.name as
-        | string
-        | undefined;
-      const pictureFromProfile = primaryProfile?.details?.picture as
-        | string
-        | undefined;
-      const email = emailFromProfile || (await getUserEmail({ client }));
-
-      if (!email) {
-        setErrorText("Thirdweb did not return an email.");
+      if (type === "apple") {
+        ToastAndroid.show("Apple Sign-In coming soon", ToastAndroid.SHORT);
         return;
       }
 
-      const userDetails = await checkUserDetails(email);
-      if (userDetails.success) {
-        const resp = await fetch(`${serverUrl}/auth/authenticate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
-        });
-        const data = await resp.json();
-        if (resp.ok && data?.token && data?.user) {
-          await setAuth(data.token, data.user, data.refreshToken || null);
+      const result = await promptAsync();
+
+      if (result?.type === "success") {
+        const accessToken = result.authentication?.accessToken;
+        
+        if (!accessToken) {
+          setErrorText("Failed to retrieve access token.");
+          return;
         }
 
-        router.replace("/(tabs)");
-      } else {
-        router.replace({
-          pathname: "/wallet-setup",
-          params: {
-            mode: type,
-            email,
-            name: nameFromProfile || "",
-            picture: pictureFromProfile || "",
-            wallet: account.address,
-          },
-        } as any);
+        const profileResponse = await fetch("https://www.googleapis.com/userinfo/v2/me", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        const profile = await profileResponse.json();
+
+        if (!profile.email) {
+          setErrorText("Failed to get email from Google.");
+          return;
+        }
+
+        const email = profile.email;
+        const nameFromProfile = profile.name || "";
+        const pictureFromProfile = profile.picture || "";
+
+        const userDetails = await checkUserDetails(email);
+        
+        if (userDetails.success) {
+          const resp = await fetch(`${serverUrl}/auth/authenticate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, provider: "google" }),
+          });
+          
+          const data = await resp.json();
+          if (resp.ok && data?.token && data?.user) {
+            await setAuth(data.token, data.user, data.refreshToken || null);
+          }
+  
+          router.replace("/(tabs)");
+        } else {
+          router.replace({
+            pathname: "/wallet-setup",
+            params: {
+              mode: type,
+              email,
+              name: nameFromProfile,
+              picture: pictureFromProfile,
+            },
+          } as any);
+        }
       }
     } catch (error) {
-setErrorText("Failed to sign in. Please try again.");
+      console.error(error);
+      setErrorText("Failed to sign in. Please try again.");
     }
   };
 
@@ -266,7 +247,7 @@ setErrorText("Failed to sign in. Please try again.");
               <View className="flex-row mb-6" style={{ gap: 12 }}>
                 {/* Google Button */}
                 <Pressable
-                  onPress={() => handleThirdwebAuth("google")}
+                  onPress={() => handleAuth("google")}
                   className="flex-1 bg-white p-2 rounded-2xl flex-row items-center justify-center"
                   style={[
                     styles.authButton,
@@ -289,7 +270,7 @@ setErrorText("Failed to sign in. Please try again.");
 
                 {/* Apple Button */}
                 <Pressable
-                  onPress={() => handleThirdwebAuth("apple")}
+                  onPress={() => handleAuth("apple")}
                   className="flex-1 p-2 rounded-2xl flex-row items-center justify-center"
                   style={[
                     styles.authButton,

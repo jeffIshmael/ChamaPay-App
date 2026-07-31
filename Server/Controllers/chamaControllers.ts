@@ -6,8 +6,9 @@ import { bcGetTotalChamas, getEachMemberBalance, getUserChamaBalance } from "../
 import { bcCreateChama, bcDepositFundsToChama, bcDepositFundsForMember, bcAddMemberToPrivateChama, bcUpdateChamaDetails, bcWithdrawFundsFromChama, bcAdminSetPayoutOrder } from "../Blockchain/WriteFunction";
 import { approveTx } from "../Blockchain/erc20Functions";
 import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
+import emailService from "../Lib/EmailService";
 import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
-import { notifyAllChamaMembers } from "../Lib/prismaFunctions";
+import { notifyAllChamaMembers, addMemberToPayout } from "../Lib/prismaFunctions";
 
 import { getCached, setCache } from "../Lib/cache";
 
@@ -546,12 +547,22 @@ export const addMemberToChama = async (req: Request, res: Response) => {
     const chama = await prisma.chama.findUnique({
       where: {
         id: Number(chamaId)
+      },
+      include: {
+        members: {
+          include: { user: true }
+        }
       }
     });
     if (!chama) {
       return res
         .status(400)
         .json({ success: false, error: "Chama not found." });
+    }
+    if (chama.round !== 1) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Cannot add user in the middle of cycle." });
     }
 
     // check whether the one requesting is the admin
@@ -574,6 +585,24 @@ export const addMemberToChama = async (req: Request, res: Response) => {
         .json({ success: false, error: `Unable to add ${user.userName} to ${chama.name} chama onchain.` });
     }
 
+    // Also add to payout order on-chain if payout order is already set off-chain
+    const offchainPayoutOrder = chama.payOutOrder ? JSON.parse(chama.payOutOrder) : [];
+    if (offchainPayoutOrder.length > 0) {
+      const onchainPayoutArray = offchainPayoutOrder.map((p: any) => p.userAddress as `0x${string}`);
+      onchainPayoutArray.push(memberBeingAdded.smartAddress as `0x${string}`);
+      
+      const setOrderTx = await bcAdminSetPayoutOrder(
+        privateKey.privateKey,
+        Number(chamaBlockchainId),
+        onchainPayoutArray
+      );
+      if (!setOrderTx) {
+        return res
+          .status(400)
+          .json({ success: false, error: `Unable to update payout order onchain for ${user.userName}.` });
+      }
+    }
+
 
     const chamaMember = await prisma.chamaMember.create({
       data: {
@@ -589,6 +618,8 @@ export const addMemberToChama = async (req: Request, res: Response) => {
         .json({ success: false, error: "Failed to add member" });
     }
 
+    await addMemberToPayout(parseInt(chamaId), memberBeingAdded.id);
+
     // notify the member has been added
     await notifyAllChamaMembers(
       parseInt(chamaId),
@@ -603,6 +634,12 @@ export const addMemberToChama = async (req: Request, res: Response) => {
       parseInt(chamaId),
       [memberBeingAdded.id]
     );
+
+    const emails = chama.members.map((m: any) => m.user.email);
+    if (emails.length > 0) {
+      await emailService.sendBulkChamaUpdateEmails(emails, chama.name, `A new member, ${memberBeingAdded.userName}, has joined the chama.`);
+    }
+
     return res
       .status(200)
       .json({ success: true, message: "Member added successfully" });
@@ -801,7 +838,9 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
 
     const chama = await prisma.chama.findUnique({
       where: { id: Number(chamaId) },
-      include: { members: true },
+      include: { 
+        members: { include: { user: true } }
+      },
     });
 
     if (!chama) {
@@ -840,10 +879,17 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
       data: {
         amount: newAmount.toString(),
         cycleTime: Number(newCycle),
-        // we might not have a round field in the db, but if we do, update it. If not, ignore.
-        // Assuming round might be tracked dynamically, but we update what we have.
       },
     });
+
+    const emails = chama.members.map((m: any) => m.user.email);
+    if (emails.length > 0) {
+      await emailService.sendBulkChamaUpdateEmails(
+        emails, 
+        chama.name, 
+        `The chama details have been updated by the admin. The new contribution amount is ${newAmount} USDC and the new cycle time is ${newCycle} days.`
+      );
+    }
 
     return res.status(200).json({ success: true, txHash, chama: updatedChama });
   } catch (error: any) {
