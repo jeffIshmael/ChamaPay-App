@@ -164,6 +164,7 @@ Alert.alert("Error", "An unexpected error occurred.");
   // ─── Empty / not started ──────────────────────────────────────────────────
 
   if (chamaStatus === "not started" || !payoutSchedule || payoutSchedule.length === 0) {
+    /* -- COMMENTED OUT MANUAL SET PAYOUT ORDER UI --
     if (isAdmin) {
       return (
         <ScrollView style={s.flex1} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -187,7 +188,6 @@ Alert.alert("Error", "An unexpected error occurred.");
             </TouchableOpacity>
           </View>
 
-          {/* ── Modal ───────────────────────────────────────────────────── */}
           <Modal
             visible={showOrderModal}
             transparent
@@ -199,10 +199,8 @@ Alert.alert("Error", "An unexpected error occurred.");
               activeOpacity={1}
               onPress={handleCloseModal}
             >
-              {/* Inner sheet — TouchableOpacity won't bubble up */}
               <TouchableOpacity activeOpacity={1} style={s.sheet}>
 
-                {/* Handle + header */}
                 <View style={s.sheetHeader}>
                   <View style={s.sheetHandle} />
                   <Text style={s.sheetTitle}>Set Payout Order</Text>
@@ -212,7 +210,6 @@ Alert.alert("Error", "An unexpected error occurred.");
                   </Text>
                 </View>
 
-                {/* Member list */}
                 <ScrollView
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
@@ -231,7 +228,6 @@ Alert.alert("Error", "An unexpected error occurred.");
                         activeOpacity={0.75}
                         style={[s.memberRow, isSelected && s.memberRowSelected, !hasAddress && s.memberRowDisabled]}
                       >
-                        {/* Left: avatar + name */}
                         <View style={s.memberLeft}>
                           <View style={[s.avatarWrap, isSelected && s.avatarWrapSelected]}>
                             {member.profilePicture ? (
@@ -253,7 +249,6 @@ Alert.alert("Error", "An unexpected error occurred.");
                           </View>
                         </View>
 
-                        {/* Right: order badge */}
                         {isSelected ? (
                           <View style={s.badgeSelected}>
                             <Text style={s.badgeText}>{selectIndex + 1}</Text>
@@ -266,7 +261,6 @@ Alert.alert("Error", "An unexpected error occurred.");
                   })}
                 </ScrollView>
 
-                {/* Progress bar */}
                 <View style={s.progressWrap}>
                   <Text style={s.progressLabel}>ORDER PROGRESS</Text>
                   <View style={s.progressRight}>
@@ -279,9 +273,7 @@ Alert.alert("Error", "An unexpected error occurred.");
                   </View>
                 </View>
 
-                {/* Buttons */}
                 <View style={s.buttonRow}>
-                  {/* Reset — ghost/outline */}
                   <TouchableOpacity
                     onPress={() => setOrderedMembers([])}
                     disabled={orderedMembers.length === 0 || isSavingOrder}
@@ -299,7 +291,6 @@ Alert.alert("Error", "An unexpected error occurred.");
                     </Text>
                   </TouchableOpacity>
 
-                  {/* Confirm — filled teal */}
                   <TouchableOpacity
                     onPress={handleSavePayoutOrder}
                     disabled={!allSelected || isSavingOrder}
@@ -321,25 +312,22 @@ Alert.alert("Error", "An unexpected error occurred.");
         </ScrollView>
       );
     }
+    */
 
-    // Member empty state
+    // General empty state (Random Selection)
     return (
       <ScrollView style={s.flex1} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={s.emptyState}>
-          <Image
-            source={require("../assets/images/no-schedule.png")}
-            style={s.emptyImage}
-            resizeMode="contain"
-          />
-          <Text style={s.emptyTitle}>No Payout Schedule</Text>
-          <Text style={s.emptySubtitle}>
-            This chama hasn't defined its rotation order yet. Once configured, payouts will follow the schedule.
-          </Text>
-          <View style={s.infoBox}>
-            <Text style={s.infoText}>
-              You'll be notified as soon as the Admin schedules the payout sequence.
-            </Text>
+          <View style={{ alignItems: 'center', marginBottom: 16 }}>
+            <View style={{ width: 64, height: 48, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 36 }}>🎲</Text>
+            </View>
+            <View style={{ width: 32, height: 4, backgroundColor: 'rgba(252,211,77,0.4)', borderRadius: 2, marginTop: 8 }} />
           </View>
+          <Text style={s.emptyTitle}>Random Selection</Text>
+          <Text style={s.emptySubtitle}>
+            The payout schedule will be randomly generated 3 days before the payout date. All members will be notified when the schedule is ready.
+          </Text>
         </View>
         <View style={{ height: 80 }} />
       </ScrollView>

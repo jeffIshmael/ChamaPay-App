@@ -483,7 +483,8 @@ contract ChamaPay is
         uint _newAmount, 
         uint _newCycle, 
         uint _newRound, 
-        uint _newPayDate
+        uint _newPayDate,
+        uint _newDuration
     ) public whenNotPaused {
         require(_chamaId < totalChamas, "Chama does not exist");
         Chama storage chama = chamas[_chamaId];
@@ -492,11 +493,13 @@ contract ChamaPay is
         require(_newAmount > 0, "Amount must be greater than 0");
         require(_newCycle > 0, "Cycle must be greater than 0");
         require(_newRound > 0, "Round must be greater than 0");
+        require(_newDuration > 0, "Duration must be greater than 0");
         
         chama.amount = _newAmount;
         chama.cycle = _newCycle;
         chama.round = _newRound;
         chama.payDate = _newPayDate;
+        chama.duration = _newDuration;
     }
 
     function updateChamaRound(

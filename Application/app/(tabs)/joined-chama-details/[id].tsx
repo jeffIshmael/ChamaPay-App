@@ -143,8 +143,10 @@ export default function JoinedChamaDetails() {
   // Edit Chama State
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState({
+    name: "",
     amount: "",
     amountKES: "",
+    duration: "",
     cycle: "",
     round: "",
   });
@@ -163,9 +165,11 @@ export default function JoinedChamaDetails() {
       const kesAmt = kesRate > 0 ? (chama.contribution * kesRate).toFixed(2) : "";
       
       setEditFormData({
+        name: chama.name,
         amount: usdcAmt,
         amountKES: kesAmt,
-        cycle: chama.duration.toString(),
+        duration: chama.duration.toString(),
+        cycle: chama.currentCycle.toString(),
         round: chama.currentRound.toString(),
       });
       setSelectedPayDate(new Date(chama.contributionDueDate));
@@ -175,14 +179,18 @@ export default function JoinedChamaDetails() {
 
   const hasEditDetailsChanged = () => {
     if (!chama) return false;
-    const initialCycleDays = chama.duration.toString();
+    const initialName = chama.name;
+    const initialDuration = chama.duration.toString();
+    const initialCycle = chama.currentCycle.toString();
     const initialRound = chama.currentRound.toString();
     const initialAmount = chama.contribution.toString();
     const initialPayDate = new Date(chama.contributionDueDate).getTime();
     
     return (
+      editFormData.name !== initialName ||
       editFormData.amount !== initialAmount ||
-      editFormData.cycle !== initialCycleDays ||
+      editFormData.duration !== initialDuration ||
+      editFormData.cycle !== initialCycle ||
       editFormData.round !== initialRound ||
       selectedPayDate.getTime() !== initialPayDate
     );
@@ -220,7 +228,7 @@ export default function JoinedChamaDetails() {
     }
     
     // validate
-    if (!editFormData.amount || !editFormData.cycle || !editFormData.round) {
+    if (!editFormData.name || !editFormData.amount || !editFormData.duration || !editFormData.cycle || !editFormData.round) {
       Alert.alert("Error", "Please fill all fields");
       return;
     }
@@ -229,7 +237,9 @@ export default function JoinedChamaDetails() {
     try {
       const result = await updateChamaDetails(
         Number(chama.id),
+        editFormData.name,
         editFormData.amount,
+        Number(editFormData.duration),
         Number(editFormData.cycle),
         Number(editFormData.round),
         selectedPayDate.getTime(),
@@ -1315,6 +1325,16 @@ Alert.alert("Error", "An unexpected error occurred");
               </View>
 
               <ScrollView className="p-6">
+                <Text className="text-gray-700 font-medium mb-2">Chama Name</Text>
+                <TextInput
+                  value={editFormData.name}
+                  onChangeText={(text) =>
+                    setEditFormData({ ...editFormData, name: text })
+                  }
+                  placeholder="e.g. My Awesome Chama"
+                  className={`border rounded-xl px-4 py-3 mb-4 text-base ${editFormData.name !== chama?.name ? "border-emerald-500 bg-emerald-50" : "bg-gray-50 border-gray-200"}`}
+                />
+
                 <View className="flex-row justify-between items-center mb-2">
                   <Text className="text-gray-700 font-medium">Amount ({isEditKESMode ? "KES" : "USDC"})</Text>
                   {user?.location === "KE" && (
@@ -1324,7 +1344,7 @@ Alert.alert("Error", "An unexpected error occurred");
                   )}
                 </View>
                 {isEditKESMode ? (
-                  <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 flex-row items-center mb-4">
+                  <View className={`border rounded-xl px-4 flex-row items-center mb-4 ${editFormData.amountKES !== (kesRate > 0 ? (chama?.contribution! * kesRate).toFixed(2) : "") ? "border-emerald-500 bg-emerald-50" : "bg-gray-50 border-gray-200"}`}>
                     <Text className="text-gray-500 font-bold mr-2 text-base">KES</Text>
                     <TextInput
                       value={editFormData.amountKES}
@@ -1335,7 +1355,7 @@ Alert.alert("Error", "An unexpected error occurred");
                     />
                   </View>
                 ) : (
-                  <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 flex-row items-center mb-4">
+                  <View className={`border rounded-xl px-4 flex-row items-center mb-4 ${editFormData.amount !== chama?.contribution.toString() ? "border-emerald-500 bg-emerald-50" : "bg-gray-50 border-gray-200"}`}>
                     <Text className="text-gray-500 font-bold mr-2 text-base">USDC</Text>
                     <TextInput
                       value={editFormData.amount}
@@ -1349,25 +1369,41 @@ Alert.alert("Error", "An unexpected error occurred");
 
                 <Text className="text-gray-700 font-medium mb-2">Cycle Time (days)</Text>
                 <TextInput
-                  value={editFormData.cycle}
+                  value={editFormData.duration}
                   onChangeText={(text) =>
-                    setEditFormData({ ...editFormData, cycle: text })
+                    setEditFormData({ ...editFormData, duration: text })
                   }
                   placeholder="e.g. 7"
                   keyboardType="numeric"
-                  className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-4 text-base"
+                  className={`border rounded-xl px-4 py-3 mb-4 text-base ${editFormData.duration !== chama?.duration.toString() ? "border-emerald-500 bg-emerald-50" : "bg-gray-50 border-gray-200"}`}
                 />
 
-                <Text className="text-gray-700 font-medium mb-2">Current Round</Text>
-                <TextInput
-                  value={editFormData.round}
-                  onChangeText={(text) =>
-                    setEditFormData({ ...editFormData, round: text })
-                  }
-                  placeholder="e.g. 1"
-                  keyboardType="numeric"
-                  className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-4 text-base"
-                />
+                <View className="flex-row gap-4 mb-4">
+                  <View className="flex-1">
+                    <Text className="text-gray-700 font-medium mb-2">Current Cycle</Text>
+                    <TextInput
+                      value={editFormData.cycle}
+                      onChangeText={(text) =>
+                        setEditFormData({ ...editFormData, cycle: text })
+                      }
+                      placeholder="e.g. 1"
+                      keyboardType="numeric"
+                      className={`border rounded-xl px-4 py-3 text-base ${editFormData.cycle !== chama?.currentCycle.toString() ? "border-emerald-500 bg-emerald-50" : "bg-gray-50 border-gray-200"}`}
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-gray-700 font-medium mb-2">Current Round</Text>
+                    <TextInput
+                      value={editFormData.round}
+                      onChangeText={(text) =>
+                        setEditFormData({ ...editFormData, round: text })
+                      }
+                      placeholder="e.g. 1"
+                      keyboardType="numeric"
+                      className={`border rounded-xl px-4 py-3 text-base ${editFormData.round !== chama?.currentRound.toString() ? "border-emerald-500 bg-emerald-50" : "bg-gray-50 border-gray-200"}`}
+                    />
+                  </View>
+                </View>
 
                 <Text className="text-gray-700 font-medium mb-2">Pay Date & Time</Text>
                 <View className="flex-row gap-4 mb-8">

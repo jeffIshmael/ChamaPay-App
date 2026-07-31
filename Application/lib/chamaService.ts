@@ -831,7 +831,9 @@ return { success: false, error: "Failed to set payout order" };
 
 export const updateChamaDetails = async (
   chamaId: number,
+  newName: string,
   newAmount: string,
+  newDuration: number,
   newCycle: number,
   newRound: number,
   newPayDate: number,
@@ -846,7 +848,9 @@ export const updateChamaDetails = async (
       },
       body: JSON.stringify({
         chamaId,
+        newName,
         newAmount,
+        newDuration,
         newCycle,
         newRound,
         newPayDate,
