@@ -9,11 +9,14 @@ import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
-import { Mail, Shield, ChevronLeft, KeyRound, ChevronDown, ChevronUp } from "lucide-react-native";
+import { Mail, Shield, ChevronLeft, KeyRound, ChevronDown, ChevronUp, Check } from "lucide-react-native";
 import { useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Image,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -76,6 +79,25 @@ export default function AuthScreen() {
   const [loadingMessage, setLoadingMessage] = useState("");
   const router = useRouter();
   const inputRef = useRef<TextInput>(null);
+
+  // --- Verification modal UX state ---
+  // Kept separate from the global `isLoading`/AuthLoadingView so the modal
+  // itself can show inline feedback instead of being hidden behind a
+  // full-screen overlay while it's open.
+  const [verifying, setVerifying] = useState(false);
+  const [verifySuccess, setVerifySuccess] = useState(false);
+  const verifyingRef = useRef(false); // guards against double-submit races
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const successAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (showVerificationModal) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [showVerificationModal]);
 
   const { setAuth, isAuthenticated } = useAuth();
   const insets = useSafeAreaInsets();
@@ -418,9 +440,13 @@ setErrorText("Failed to sign in with Apple. Please try again.");
       const data = await resp.json();
 
       if (resp.ok) {
-        // Show verification modal instead of routing
-        setShowVerificationModal(true);
+        // Reset any leftover state from a previous attempt, then show the modal
         setVerificationCode("");
+        setVerifySuccess(false);
+        setErrorText("");
+        successAnim.setValue(0);
+        shakeAnim.setValue(0);
+        setShowVerificationModal(true);
       } else {
         setErrorText(data?.message || "Failed to send verification code");
       }
@@ -431,37 +457,76 @@ setErrorText("Failed to sign in with Apple. Please try again.");
     }
   };
 
+  // Quick shake on the code boxes to signal a wrong/rejected code
+  const triggerShake = () => {
+    shakeAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 1, duration: 55, easing: Easing.linear, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -1, duration: 55, easing: Easing.linear, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 1, duration: 55, easing: Easing.linear, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -1, duration: 55, easing: Easing.linear, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 55, easing: Easing.linear, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const closeVerificationModal = () => {
+    if (verifying || verifySuccess) return; // don't allow closing mid-verification/navigation
+    setShowVerificationModal(false);
+    setVerificationCode("");
+    setErrorText("");
+  };
+
   const handleVerifyCode = async (code: string) => {
-    setIsLoading(true);
+    if (verifyingRef.current) return; // ignore double-fires (e.g. fast re-entry of last digit)
+    verifyingRef.current = true;
+    setVerifying(true);
     setErrorText("");
     try {
-      const res = await fetch(`${serverUrl}/auth/verify-email-code`, {
+      const res = await fetch(`${serverUrl}/auth/verify-code`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.toLowerCase().trim(), code }),
       });
       const data = await res.json();
+
       if (res.ok && data.success) {
-        if (data.isNewUser) {
-          setShowVerificationModal(false);
-          router.replace({
-            pathname: "/wallet-setup",
-            params: { mode: "email", email: email.toLowerCase().trim(), name: "", picture: "" },
-          } as any);
-        } else {
-          await setAuth(data.token, data.user, data.refreshToken);
-          setShowVerificationModal(false);
-          router.replace("/(tabs)");
-        }
+        // Show a brief success state inside the modal before navigating,
+        // so the transition doesn't feel like an abrupt cut.
+        setVerifySuccess(true);
+        Animated.timing(successAnim, {
+          toValue: 1,
+          duration: 280,
+          easing: Easing.out(Easing.back(1.4)),
+          useNativeDriver: true,
+        }).start();
+
+        setTimeout(async () => {
+          if (data.isNewUser) {
+            setShowVerificationModal(false);
+            router.replace({
+              pathname: "/wallet-setup",
+              params: { mode: "email", email: email.toLowerCase().trim(), name: "", picture: "" },
+            } as any);
+          } else {
+            await setAuth(data.token, data.user, data.refreshToken);
+            setShowVerificationModal(false);
+            router.replace("/(tabs)");
+          }
+        }, 600);
       } else {
+        triggerShake();
         setErrorText(data.message || "Invalid code");
-        setVerificationCode(""); 
+        setVerificationCode("");
+        setTimeout(() => inputRef.current?.focus(), 50);
       }
     } catch (e) {
+      triggerShake();
       setErrorText("Network error");
       setVerificationCode("");
+      setTimeout(() => inputRef.current?.focus(), 50);
     } finally {
-      setIsLoading(false);
+      setVerifying(false);
+      verifyingRef.current = false;
     }
   };
 
@@ -548,7 +613,7 @@ setErrorText("Failed to sign in with Apple. Please try again.");
             </View>
 
             {/* Error Message */}
-            {errorText ? (
+            {errorText && !showVerificationModal ? (
               <View
                 className="flex-row items-center bg-red-50 p-4 rounded-2xl mb-6 border border-red-200"
                 style={styles.card}
@@ -613,6 +678,8 @@ setErrorText("Failed to sign in with Apple. Please try again.");
                         autoCorrect={false}
                         editable={!isLoading}
                         autoFocus={true}
+                        onSubmitEditing={handleEmailSubmit}
+                        returnKeyType="send"
                       />
                       <Pressable
                         onPress={handleEmailSubmit}
@@ -720,96 +787,169 @@ setErrorText("Failed to sign in with Apple. Please try again.");
       )}
 
       {/* Verification Modal */}
-      <Modal visible={showVerificationModal} animationType="fade" transparent={true}>
-        <View className="flex-1 justify-center items-center bg-black/50 px-4">
+      <Modal
+        visible={showVerificationModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={closeVerificationModal}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          className="flex-1 justify-center items-center bg-black/50 px-4"
+        >
           <View className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-xl relative">
             {/* Header Icons */}
             <View className="flex-row justify-between w-full mb-4">
               <Pressable
-                onPress={() => setShowVerificationModal(false)}
+                onPress={closeVerificationModal}
+                disabled={verifying || verifySuccess}
                 className="w-8 h-8 bg-gray-100 rounded-full items-center justify-center"
+                style={(verifying || verifySuccess) && { opacity: 0.4 }}
               >
                 <ChevronLeft size={20} color="#6b7280" />
               </Pressable>
               <Pressable
-                onPress={() => setShowVerificationModal(false)}
+                onPress={closeVerificationModal}
+                disabled={verifying || verifySuccess}
                 className="w-8 h-8 bg-gray-100 rounded-full items-center justify-center"
+                style={(verifying || verifySuccess) && { opacity: 0.4 }}
               >
                 <Text className="text-gray-500 text-lg leading-none mb-1">×</Text>
               </Pressable>
             </View>
 
             <View className="items-center mb-6">
-              <View className="w-16 h-16 bg-[#e0f2f1] rounded-full items-center justify-center mb-4">
-                <KeyRound size={28} color="#26a6a2" />
+              <View
+                className="w-16 h-16 rounded-full items-center justify-center mb-4"
+                style={{ backgroundColor: verifySuccess ? "#dcfce7" : "#e0f2f1" }}
+              >
+                {verifySuccess ? (
+                  <Check size={28} color="#16a34a" />
+                ) : (
+                  <KeyRound size={28} color="#26a6a2" />
+                )}
               </View>
               <Text className="text-xl font-bold text-gray-900 mb-2 text-center">
-                Enter confirmation code
+                {verifySuccess ? "Verified!" : "Enter confirmation code"}
               </Text>
-              <Text className="text-gray-500 text-center text-sm leading-relaxed px-2">
-                Please check <Text className="font-bold text-gray-800">{email}</Text> for an email and enter your code below.
-              </Text>
+              {!verifySuccess && (
+                <Text className="text-gray-500 text-center text-sm leading-relaxed px-2">
+                  Please check <Text className="font-bold text-gray-800">{email}</Text> for an email and enter your code below.
+                </Text>
+              )}
             </View>
 
             {/* Code Input Boxes */}
-            <Pressable 
-              onPress={() => inputRef.current?.focus()} 
-              className="flex-row justify-center mb-6 gap-x-2 relative"
+            <Animated.View
+              style={{
+                transform: [
+                  {
+                    translateX: shakeAnim.interpolate({
+                      inputRange: [-1, 0, 1],
+                      outputRange: [-10, 0, 10],
+                    }),
+                  },
+                ],
+              }}
             >
-              <TextInput
-                ref={inputRef}
-                value={verificationCode}
-                onChangeText={(val) => {
-                  setVerificationCode(val);
-                  if (val.length === 6) {
-                    handleVerifyCode(val);
-                  }
-                }}
-                maxLength={6}
-                keyboardType="number-pad"
-                autoFocus={true}
-                className="absolute w-full h-full opacity-0" 
-                editable={!isLoading}
-                caretHidden={true}
-              />
-              {[0, 1, 2, 3, 4, 5].map((index) => (
-                <View
-                  key={index}
-                  className={`w-11 h-14 rounded-xl items-center justify-center bg-white`}
-                  style={{
-                    borderWidth: verificationCode.length === index ? 2 : 1,
-                    borderColor: verificationCode.length === index ? "#26a6a2" : "#d1d5db",
+              <Pressable
+                onPress={() => !verifying && !verifySuccess && inputRef.current?.focus()}
+                className="flex-row justify-center mb-2 gap-x-2 relative"
+              >
+                <TextInput
+                  ref={inputRef}
+                  value={verificationCode}
+                  onChangeText={(val) => {
+                    setVerificationCode(val);
+                    if (val.length === 6) {
+                      handleVerifyCode(val);
+                    }
                   }}
-                >
-                  <Text className="text-2xl font-bold text-gray-900">
-                    {verificationCode[index] || ""}
-                  </Text>
-                </View>
-              ))}
-            </Pressable>
+                  maxLength={6}
+                  keyboardType="number-pad"
+                  className="absolute w-full h-full z-10" 
+                  style={{ opacity: 0.01 }}
+                  editable={!verifying && !verifySuccess}
+                  caretHidden={true}
+                />
+                {[0, 1, 2, 3, 4, 5].map((index) => {
+                  const filled = index < verificationCode.length;
+                  const isActive = verificationCode.length === index && !verifying && !verifySuccess;
+                  return (
+                    <View
+                      key={index}
+                      className="w-11 h-14 rounded-xl items-center justify-center bg-white"
+                      style={{
+                        borderWidth: isActive ? 2 : 1,
+                        borderColor: verifySuccess
+                          ? "#16a34a"
+                          : errorText
+                          ? "#ef4444"
+                          : isActive
+                          ? "#26a6a2"
+                          : filled
+                          ? "#26a6a2"
+                          : "#d1d5db",
+                        backgroundColor: verifySuccess ? "#f0fdf4" : "white",
+                        opacity: verifying ? 0.5 : 1,
+                      }}
+                    >
+                      {verifySuccess ? (
+                        index === 5 && (
+                          <Animated.View
+                            style={{
+                              opacity: successAnim,
+                              transform: [{ scale: successAnim }],
+                            }}
+                          >
+                            <Check size={18} color="#16a34a" />
+                          </Animated.View>
+                        )
+                      ) : (
+                        <Text className="text-2xl font-bold text-gray-900">
+                          {verificationCode[index] || ""}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })}
+              </Pressable>
+            </Animated.View>
+
+            {/* Inline verifying indicator */}
+            {verifying && (
+              <View className="flex-row items-center justify-center mb-4 mt-1">
+                <ActivityIndicator size="small" color="#26a6a2" />
+                <Text className="text-gray-500 text-xs font-medium ml-2">Verifying...</Text>
+              </View>
+            )}
 
             {/* Error Message */}
-            {errorText ? (
-              <Text className="text-red-500 text-center mb-4 font-medium text-sm">
+            {errorText && !verifySuccess ? (
+              <Text className="text-red-500 text-center mb-2 mt-2 font-medium text-sm">
                 {errorText}
               </Text>
-            ) : null}
+            ) : (
+              <View style={{ height: verifying ? 0 : 8 }} />
+            )}
 
             {/* Resend Link */}
-            <View className="items-center pb-2">
-              <Text className="text-gray-500 text-sm">
-                Didn't get an email?{" "}
-                <Text
-                  onPress={isSendingEmail ? undefined : handleEmailSubmit}
-                  className="font-medium"
-                  style={{ color: isSendingEmail ? "#9ca3af" : "#26a6a2" }}
-                >
-                  {isSendingEmail ? "Sending..." : "Resend code"}
+            {!verifySuccess && (
+              <View className="items-center pb-2 pt-2">
+                <Text className="text-gray-500 text-sm">
+                  Didn't get an email?{" "}
+                  <Text
+                    onPress={isSendingEmail || verifying ? undefined : handleEmailSubmit}
+                    className="font-medium"
+                    style={{ color: isSendingEmail || verifying ? "#9ca3af" : "#26a6a2" }}
+                  >
+                    {isSendingEmail ? "Sending..." : "Resend code"}
+                  </Text>
                 </Text>
-              </Text>
-            </View>
+              </View>
+            )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

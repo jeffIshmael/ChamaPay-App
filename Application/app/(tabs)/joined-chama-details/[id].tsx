@@ -144,13 +144,73 @@ export default function JoinedChamaDetails() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState({
     amount: "",
+    amountKES: "",
     cycle: "",
     round: "",
   });
+  const [isEditKESMode, setIsEditKESMode] = useState(false);
   const [showPayDatePicker, setShowPayDatePicker] = useState(false);
   const [showPayTimePicker, setShowPayTimePicker] = useState(false);
   const [selectedPayDate, setSelectedPayDate] = useState(new Date());
   const [isUpdatingDetails, setIsUpdatingDetails] = useState(false);
+
+  const openEditModal = () => {
+    if (chama) {
+      const isKES = user?.location === "KE";
+      setIsEditKESMode(isKES);
+      
+      const usdcAmt = chama.contribution.toString();
+      const kesAmt = kesRate > 0 ? (chama.contribution * kesRate).toFixed(2) : "";
+      
+      setEditFormData({
+        amount: usdcAmt,
+        amountKES: kesAmt,
+        cycle: chama.duration.toString(),
+        round: chama.currentRound.toString(),
+      });
+      setSelectedPayDate(new Date(chama.contributionDueDate));
+      setShowEditModal(true);
+    }
+  };
+
+  const hasEditDetailsChanged = () => {
+    if (!chama) return false;
+    const initialCycleDays = chama.duration.toString();
+    const initialRound = chama.currentRound.toString();
+    const initialAmount = chama.contribution.toString();
+    const initialPayDate = new Date(chama.contributionDueDate).getTime();
+    
+    return (
+      editFormData.amount !== initialAmount ||
+      editFormData.cycle !== initialCycleDays ||
+      editFormData.round !== initialRound ||
+      selectedPayDate.getTime() !== initialPayDate
+    );
+  };
+
+  const handleEditAmountKESChange = (text: string) => {
+    if (text === "" || /^\d*\.?\d*$/.test(text)) {
+      const decimalCount = (text.match(/\./g) || []).length;
+      if (decimalCount <= 1) {
+        setEditFormData((prev) => {
+          const usdcValue = text && kesRate > 0 ? (parseFloat(text) / kesRate).toFixed(3) : "";
+          return { ...prev, amountKES: text, amount: usdcValue };
+        });
+      }
+    }
+  };
+
+  const handleEditAmountUSDCChange = (text: string) => {
+    if (text === "" || /^\d*\.?\d*$/.test(text)) {
+      const decimalCount = (text.match(/\./g) || []).length;
+      if (decimalCount <= 1) {
+        setEditFormData((prev) => {
+          const kesValue = text && kesRate > 0 ? (parseFloat(text) * kesRate).toFixed(2) : "";
+          return { ...prev, amount: text, amountKES: kesValue };
+        });
+      }
+    }
+  };
 
   const handleUpdateDetails = async () => {
     if (!chama) return;
@@ -669,7 +729,7 @@ Alert.alert("Error", "An unexpected error occurred");
               {isAdmin && chama.canJoin && (
                 <>
                   <TouchableOpacity
-                    onPress={() => setShowEditModal(true)}
+                    onPress={openEditModal}
                     className="p-2 rounded-full"
                     activeOpacity={0.7}
                   >
@@ -1255,24 +1315,45 @@ Alert.alert("Error", "An unexpected error occurred");
               </View>
 
               <ScrollView className="p-6">
-                <Text className="text-gray-700 font-medium mb-2">Amount</Text>
-                <TextInput
-                  value={editFormData.amount}
-                  onChangeText={(text) =>
-                    setEditFormData({ ...editFormData, amount: text })
-                  }
-                  placeholder="e.g. 50"
-                  keyboardType="numeric"
-                  className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-4 text-base"
-                />
+                <View className="flex-row justify-between items-center mb-2">
+                  <Text className="text-gray-700 font-medium">Amount ({isEditKESMode ? "KES" : "USDC"})</Text>
+                  {user?.location === "KE" && (
+                    <TouchableOpacity onPress={() => setIsEditKESMode(!isEditKESMode)} className="bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">
+                      <Text className="text-emerald-700 text-[10px] font-bold">Switch to {isEditKESMode ? "USDC" : "KES"}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {isEditKESMode ? (
+                  <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 flex-row items-center mb-4">
+                    <Text className="text-gray-500 font-bold mr-2 text-base">KES</Text>
+                    <TextInput
+                      value={editFormData.amountKES}
+                      onChangeText={handleEditAmountKESChange}
+                      placeholder="e.g. 1000"
+                      keyboardType="numeric"
+                      className="flex-1 text-gray-900 text-base py-3"
+                    />
+                  </View>
+                ) : (
+                  <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 flex-row items-center mb-4">
+                    <Text className="text-gray-500 font-bold mr-2 text-base">USDC</Text>
+                    <TextInput
+                      value={editFormData.amount}
+                      onChangeText={handleEditAmountUSDCChange}
+                      placeholder="e.g. 50"
+                      keyboardType="numeric"
+                      className="flex-1 text-gray-900 text-base py-3"
+                    />
+                  </View>
+                )}
 
-                <Text className="text-gray-700 font-medium mb-2">Cycle Time (seconds)</Text>
+                <Text className="text-gray-700 font-medium mb-2">Cycle Time (days)</Text>
                 <TextInput
                   value={editFormData.cycle}
                   onChangeText={(text) =>
                     setEditFormData({ ...editFormData, cycle: text })
                   }
-                  placeholder="e.g. 86400"
+                  placeholder="e.g. 7"
                   keyboardType="numeric"
                   className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-4 text-base"
                 />
@@ -1398,9 +1479,9 @@ Alert.alert("Error", "An unexpected error occurred");
                 
                 <TouchableOpacity
                   onPress={handleUpdateDetails}
-                  disabled={isUpdatingDetails}
+                  disabled={!hasEditDetailsChanged() || isUpdatingDetails}
                   className={`bg-downy-800 py-4 rounded-xl items-center shadow-sm ${
-                    isUpdatingDetails ? "opacity-70" : ""
+                    (!hasEditDetailsChanged() || isUpdatingDetails) ? "opacity-70" : ""
                   }`}
                 >
                   <Text className="text-white font-semibold text-lg">
