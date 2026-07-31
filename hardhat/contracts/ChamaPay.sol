@@ -499,6 +499,18 @@ contract ChamaPay is
         chama.payDate = _newPayDate;
     }
 
+    function updateChamaRound(
+        uint _chamaId,
+        uint _newRound
+    ) public whenNotPaused {
+        require(_chamaId < totalChamas, "Chama does not exist");
+        Chama storage chama = chamas[_chamaId];
+        require(msg.sender == owner() || msg.sender == aiAgent, "Only owner or aiAgent can update");
+        require(_newRound > 0, "Round must be greater than 0");
+        
+        chama.round = _newRound;
+    }
+
     function checkPayDate(uint[] memory chamaIds) public onlyAiAgent nonReentrant whenNotPaused {
         for (uint i = 0; i < chamaIds.length; i++) {
             uint chamaId = chamaIds[i];
