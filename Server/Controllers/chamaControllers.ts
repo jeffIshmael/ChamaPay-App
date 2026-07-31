@@ -817,15 +817,15 @@ export const withdrawFromChamaBalance = async (req: Request, res: Response) => {
 // update chama details
 export const updateChamaDetailsController = async (req: Request, res: Response) => {
   try {
-    const { chamaId, newAmount, newCycle, newRound, newPayDate } = req.body;
+    const { chamaId, newName, newAmount, newDuration, newCycle, newRound, newPayDate } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
-    if (!chamaId || !newAmount || !newCycle || !newRound || !newPayDate) {
-      return res.status(400).json({ success: false, error: "All fields (chamaId, newAmount, newCycle, newRound, newPayDate) are required" });
+    if (!chamaId || !newAmount || !newDuration || !newCycle || !newRound || !newPayDate) {
+      return res.status(400).json({ success: false, error: "All fields except name are required" });
     }
 
     const user = await prisma.user.findUnique({
@@ -866,7 +866,8 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
       newAmount.toString(),
       Number(newCycle),
       Number(newRound),
-      Number(newPayDate)
+      Number(newPayDate),
+      Number(newDuration)
     );
 
     if (!txHash) {
@@ -877,8 +878,12 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
     const updatedChama = await prisma.chama.update({
       where: { id: Number(chamaId) },
       data: {
+        ...(newName ? { name: newName } : {}),
         amount: newAmount.toString(),
-        cycleTime: Number(newCycle),
+        cycleTime: Number(newDuration),
+        cycle: Number(newCycle),
+        round: Number(newRound),
+        payDate: new Date(newPayDate),
       },
     });
 
@@ -886,10 +891,17 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
     if (emails.length > 0) {
       await emailService.sendBulkChamaUpdateEmails(
         emails, 
-        chama.name, 
-        `The chama details have been updated by the admin. The new contribution amount is ${newAmount} USDC and the new cycle time is ${newCycle} days.`
+        updatedChama.name, 
+        `The chama details have been updated by the admin. The new contribution amount is ${newAmount} USDC, cycle time is ${newDuration} days, and we are on cycle ${newCycle}, round ${newRound}.`
       );
     }
+    
+    // Send Push Notifications
+    await sendExpoNotificationToAllChamaMembers(
+      "Chama Details Updated",
+      `The admin has updated the details for ${updatedChama.name}. New contribution is ${newAmount} USDC and cycle time is ${newDuration} days.`,
+      Number(chamaId)
+    );
 
     return res.status(200).json({ success: true, txHash, chama: updatedChama });
   } catch (error: any) {

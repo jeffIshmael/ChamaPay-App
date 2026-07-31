@@ -188,7 +188,7 @@ export const bcMoonwellDeposit = async (privateKey: `0x${string}`, amount: strin
     }
 };
 
-export const bcUpdateChamaDetails = async (privateKey: `0x${string}`, chamaBlockchainId: bigint, newAmount: string, newCycle: number, newRound: number, newPayDate: number) => {
+export const bcUpdateChamaDetails = async (privateKey: `0x${string}`, chamaBlockchainId: bigint, newAmount: string, newCycle: number, newRound: number, newPayDate: number, newDuration: number) => {
     try {
         const amountInWei = parseUnits(newAmount, 6);
         const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey);
@@ -196,7 +196,7 @@ export const bcUpdateChamaDetails = async (privateKey: `0x${string}`, chamaBlock
             address: contractAddress,
             abi: contractABI,
             functionName: 'updateChamaDetails',
-            args: [chamaBlockchainId, amountInWei, BigInt(newCycle), BigInt(newRound), BigInt(newPayDate)],
+            args: [chamaBlockchainId, amountInWei, BigInt(newCycle), BigInt(newRound), BigInt(newPayDate), BigInt(newDuration)],
             dataSuffix: builderCodeDataSuffix,
             ...(authorization ? { authorization } : {}),
         });
