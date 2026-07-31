@@ -10,7 +10,7 @@ import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
 import { Mail, Shield, ChevronLeft, KeyRound, ChevronDown, ChevronUp } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -72,8 +72,10 @@ export default function AuthScreen() {
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const router = useRouter();
+  const inputRef = useRef<TextInput>(null);
 
   const { setAuth, isAuthenticated } = useAuth();
   const insets = useSafeAreaInsets();
@@ -402,7 +404,7 @@ setErrorText("Failed to sign in with Apple. Please try again.");
       return;
     }
 
-    setIsLoading(true);
+    setIsSendingEmail(true);
     setErrorText("");
 
     try {
@@ -425,7 +427,7 @@ setErrorText("Failed to sign in with Apple. Please try again.");
     } catch (error) {
       setErrorText("Failed to send verification code. Please try again.");
     } finally {
-      setIsLoading(false);
+      setIsSendingEmail(false);
     }
   };
 
@@ -614,10 +616,10 @@ setErrorText("Failed to sign in with Apple. Please try again.");
                       />
                       <Pressable
                         onPress={handleEmailSubmit}
-                        disabled={!email || isLoading}
+                        disabled={!email || isSendingEmail}
                         className="px-4 h-full justify-center items-center"
                       >
-                        {isLoading ? (
+                        {isSendingEmail ? (
                           <ActivityIndicator size="small" color="#26a6a2" />
                         ) : (
                           <Text className={`font-semibold text-base ${email ? "text-gray-800" : "text-gray-300"}`}>
@@ -750,8 +752,12 @@ setErrorText("Failed to sign in with Apple. Please try again.");
             </View>
 
             {/* Code Input Boxes */}
-            <View className="flex-row justify-center mb-6 gap-x-2 relative">
+            <Pressable 
+              onPress={() => inputRef.current?.focus()} 
+              className="flex-row justify-center mb-6 gap-x-2 relative"
+            >
               <TextInput
+                ref={inputRef}
                 value={verificationCode}
                 onChangeText={(val) => {
                   setVerificationCode(val);
@@ -780,7 +786,7 @@ setErrorText("Failed to sign in with Apple. Please try again.");
                   </Text>
                 </View>
               ))}
-            </View>
+            </Pressable>
 
             {/* Error Message */}
             {errorText ? (
@@ -794,28 +800,13 @@ setErrorText("Failed to sign in with Apple. Please try again.");
               <Text className="text-gray-500 text-sm">
                 Didn't get an email?{" "}
                 <Text
-                  onPress={handleEmailSubmit}
+                  onPress={isSendingEmail ? undefined : handleEmailSubmit}
                   className="font-medium"
-                  style={{ color: "#26a6a2" }}
+                  style={{ color: isSendingEmail ? "#9ca3af" : "#26a6a2" }}
                 >
-                  Resend code
+                  {isSendingEmail ? "Sending..." : "Resend code"}
                 </Text>
               </Text>
-            </View>
-
-            {/* Powered by */}
-            <View className="items-center mt-4">
-              <View className="flex-row items-center">
-                <Text className="text-xs text-gray-400 mr-2">Protected by</Text>
-                <Image
-                  source={require("@/assets/images/thirdweb.png")}
-                  className="w-4 h-4 mr-1 rounded-full opacity-50"
-                  resizeMode="contain"
-                />
-                <Text className="text-xs font-bold text-gray-400">
-                  Thirdweb
-                </Text>
-              </View>
             </View>
           </View>
         </View>

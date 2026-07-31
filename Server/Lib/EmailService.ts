@@ -54,7 +54,7 @@ class EmailService {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>ChamaPay Email Verification</title>
+        <title>Chamapay Email Verification</title>
         <style>
           body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -67,11 +67,11 @@ class EmailService {
       <body>
         <div class="container">
           <div class="header">
-            <h1>🏦 ChamaPay</h1>
+            <h1>🏦 Chamapay</h1>
             <p>Digital Circular Savings</p>
           </div>
           <div class="content">
-            <h2>Welcome to ChamaPay, ${name}!</h2>
+            <h2>Welcome to Chamapay, ${name}!</h2>
             <p>Thank you for joining our community-based savings platform. To complete your registration, please verify your email address using the code below:</p>
             
             <div class="otp-code">
@@ -88,7 +88,7 @@ class EmailService {
             <p>Once verified, you'll receive your secure blockchain wallet and can start creating or joining chamas!</p>
           </div>
           <div class="footer">
-            <p>© ${new Date().getFullYear()} ChamaPay. All rights reserved.</p>
+            <p>© ${new Date().getFullYear()} Chamapay. All rights reserved.</p>
             <p>This is an automated email, please do not reply.</p>
           </div>
         </div>
@@ -99,7 +99,7 @@ class EmailService {
 
   private getAnotherOTPEmailTemplate(otp: string): string {
     return `  <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #26a6a2;">Welcome to ChamaPay!</h2>
+            <h2 style="color: #26a6a2;">Welcome to Chamapay!</h2>
             <p>Your verification code is:</p>
             <div style=" background-color: #f0fafa; padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0;">
               <h1 style="color: #26a6a2; font-size: 36px; margin: 0; letter-spacing: 8px;">${otp}</h1>
@@ -112,12 +112,12 @@ class EmailService {
   async sendResendOTPEmail(email: string, code: string) {
     try {
       const { data, error } = await resend.emails.send({
-        from: "ChamaPay <noreply@chamapay.xyz>",
+        from: "Chamapay <noreply@chamapay.xyz>",
         to: email,
-        subject: "ChamaPay - Your Verification Code",
+        subject: "Chamapay - Your Verification Code",
         html: `
           <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #26a6a2;">Welcome to ChamaPay!</h2>
+            <h2 style="color: #26a6a2;">Welcome to Chamapay!</h2>
             <p>Your verification code is:</p>
             <div style="background-color: #d1f6f1; padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0;">
               <h1 style="color: #26a6a2; font-size: 36px; margin: 0; letter-spacing: 8px;">${code}</h1>
@@ -143,14 +143,14 @@ class EmailService {
   async sendPayoutEmail(email: string, amount: string, chamaName: string, round: number) {
     try {
       const { data, error } = await resend.emails.send({
-        from: "ChamaPay Updates <updates@chamapay.xyz>",
+        from: "Chamapay Updates <updates@chamapay.xyz>",
         to: email,
         subject: `Payout Received - ${chamaName}`,
         html: `
           <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #26a6a2;">Payout Received 🎉</h2>
             <p>Great news! You have received a payout of <strong>${amount} USDC</strong> for round ${round} of your chama <strong>${chamaName}</strong>.</p>
-            <p>Check your wallet in the ChamaPay app to view your updated balance.</p>
+            <p>Check your wallet in the Chamapay app to view your updated balance.</p>
           </div>
         `,
       });
@@ -166,7 +166,7 @@ class EmailService {
     if (emails.length === 0) return { success: true };
     try {
       const payload = emails.map((email) => ({
-        from: "ChamaPay Reminders <reminders@chamapay.xyz>",
+        from: "Chamapay Reminders <reminders@chamapay.xyz>",
         to: email,
         subject: `Upcoming Payout Reminder - ${chamaName}`,
         html: `
@@ -196,7 +196,7 @@ class EmailService {
     if (emails.length === 0) return { success: true };
     try {
       const payload = emails.map((email) => ({
-        from: "ChamaPay Updates <updates@chamapay.xyz>",
+        from: "Chamapay Updates <updates@chamapay.xyz>",
         to: email,
         subject: `Update from ${chamaName}`,
         html: `
@@ -226,7 +226,7 @@ class EmailService {
   async sendUSDCReceivedEmail(email: string, amount: string, txHash: string) {
     try {
       const { data, error } = await resend.emails.send({
-        from: "ChamaPay Wallet <deposits@chamapay.xyz>",
+        from: "Chamapay Wallet <deposits@chamapay.xyz>",
         to: email,
         subject: "USDC Deposit Received 💰",
         html: `
