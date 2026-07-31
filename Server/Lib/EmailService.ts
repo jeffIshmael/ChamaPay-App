@@ -38,29 +38,13 @@ class EmailService {
     return crypto.randomInt(100000, 999999).toString();
   }
 
-  // Send OTP email
+  // Send OTP email (legacy, replacing with Resend)
   async sendOTPEmail(
     email: string,
     otp: string,
     name: string = "User"
   ): Promise<EmailResult> {
-    const mailOptions: SendMailOptions = {
-      from: process.env.EMAIL_FROM || "chamapay37@gmail.com",
-      to: email,
-      subject: "ChamaPay - Email Verification Code",
-      html: this.getAnotherOTPEmailTemplate(otp),
-    };
-
-    try {
-      const result = await this.transporter.sendMail(mailOptions);
-      console.log("OTP email sent successfully:", result.messageId);
-      return { success: true, messageId: result.messageId };
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      console.error("Error sending OTP email:", error);
-      return { success: false, error: errorMessage };
-    }
+    return this.sendResendOTPEmail(email, otp);
   }
 
   // Email template for OTP
@@ -128,7 +112,7 @@ class EmailService {
   async sendResendOTPEmail(email: string, code: string) {
     try {
       const { data, error } = await resend.emails.send({
-        from: "ChamaPay <onboarding@resend.dev>", // Use your domain later
+        from: "ChamaPay <noreply@chamapay.xyz>",
         to: email,
         subject: "ChamaPay - Your Verification Code",
         html: `
@@ -153,6 +137,111 @@ class EmailService {
     } catch (error) {
       console.error("Error sending OTP email:", error);
       return { success: false, error: "Failed to send email" };
+    }
+  }
+
+  async sendPayoutEmail(email: string, amount: string, chamaName: string, round: number) {
+    try {
+      const { data, error } = await resend.emails.send({
+        from: "ChamaPay Updates <updates@chamapay.xyz>",
+        to: email,
+        subject: `Payout Received - ${chamaName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #26a6a2;">Payout Received 🎉</h2>
+            <p>Great news! You have received a payout of <strong>${amount} USDC</strong> for round ${round} of your chama <strong>${chamaName}</strong>.</p>
+            <p>Check your wallet in the ChamaPay app to view your updated balance.</p>
+          </div>
+        `,
+      });
+      if (error) console.error("Resend error:", error);
+      return { success: !error };
+    } catch (error) {
+      console.error("Error sending payout email:", error);
+      return { success: false };
+    }
+  }
+
+  async sendBulkReminderEmails(emails: string[], chamaName: string, daysLeft: number) {
+    if (emails.length === 0) return { success: true };
+    try {
+      const payload = emails.map((email) => ({
+        from: "ChamaPay Reminders <reminders@chamapay.xyz>",
+        to: email,
+        subject: `Upcoming Payout Reminder - ${chamaName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #26a6a2;">Payout Approaching ⌛</h2>
+            <p>This is a reminder that the payout for your chama <strong>${chamaName}</strong> is in <strong>${daysLeft} days</strong>.</p>
+            <p>Please make sure you have contributed your share on time!</p>
+          </div>
+        `,
+      }));
+
+      // Resend batch send takes up to 100 emails at a time.
+      const batches = [];
+      for (let i = 0; i < payload.length; i += 100) {
+        batches.push(resend.batch.send(payload.slice(i, i + 100)));
+      }
+      
+      await Promise.all(batches);
+      return { success: true };
+    } catch (error) {
+      console.error("Error sending bulk reminder emails:", error);
+      return { success: false };
+    }
+  }
+
+  async sendBulkChamaUpdateEmails(emails: string[], chamaName: string, message: string) {
+    if (emails.length === 0) return { success: true };
+    try {
+      const payload = emails.map((email) => ({
+        from: "ChamaPay Updates <updates@chamapay.xyz>",
+        to: email,
+        subject: `Update from ${chamaName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #26a6a2;">Chama Update 📢</h2>
+            <p>There is a new update for your chama <strong>${chamaName}</strong>:</p>
+            <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #26a6a2; margin: 15px 0;">
+              ${message}
+            </div>
+          </div>
+        `,
+      }));
+
+      const batches = [];
+      for (let i = 0; i < payload.length; i += 100) {
+        batches.push(resend.batch.send(payload.slice(i, i + 100)));
+      }
+      
+      await Promise.all(batches);
+      return { success: true };
+    } catch (error) {
+      console.error("Error sending bulk update emails:", error);
+      return { success: false };
+    }
+  }
+
+  async sendUSDCReceivedEmail(email: string, amount: string, txHash: string) {
+    try {
+      const { data, error } = await resend.emails.send({
+        from: "ChamaPay Wallet <deposits@chamapay.xyz>",
+        to: email,
+        subject: "USDC Deposit Received 💰",
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #26a6a2;">Deposit Confirmed!</h2>
+            <p>Your wallet has successfully received a deposit of <strong>${amount} USDC</strong>.</p>
+            <p style="font-size: 12px; color: #666;">Transaction Hash: ${txHash}</p>
+          </div>
+        `,
+      });
+      if (error) console.error("Resend error:", error);
+      return { success: !error };
+    } catch (error) {
+      console.error("Error sending USDC received email:", error);
+      return { success: false };
     }
   }
 }

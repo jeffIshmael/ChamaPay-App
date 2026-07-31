@@ -742,12 +742,12 @@
       "inputs": [
         {
           "internalType": "uint256",
-          "name": "_chamaId",
+          "name": "",
           "type": "uint256"
         },
         {
           "internalType": "uint256",
-          "name": "_amount",
+          "name": "",
           "type": "uint256"
         }
       ],
@@ -869,6 +869,29 @@
       "inputs": [
         {
           "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_duration",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_firstPayoutDate",
+          "type": "uint256"
+        }
+      ],
+      "name": "createPrivateChama",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
           "name": "_chamaId",
           "type": "uint256"
         }
@@ -907,11 +930,6 @@
           "internalType": "uint256",
           "name": "_amount",
           "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "fromMiniapp",
-          "type": "bool"
         }
       ],
       "name": "depositCash",
@@ -1445,8 +1463,41 @@
     {
       "inputs": [
         {
+          "internalType": "uint256",
+          "name": "_chamaId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_newAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_newCycle",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_newRound",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_newPayDate",
+          "type": "uint256"
+        }
+      ],
+      "name": "updateChamaDetails",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "address",
-          "name": "_memberAddress",
+          "name": "",
           "type": "address"
         },
         {
@@ -1456,7 +1507,7 @@
         },
         {
           "internalType": "uint256",
-          "name": "_amount",
+          "name": "",
           "type": "uint256"
         }
       ],

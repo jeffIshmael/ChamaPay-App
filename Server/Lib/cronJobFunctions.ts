@@ -9,14 +9,16 @@ import {
   getFirstPayoutChamas,
   shuffleArray,
 } from "./HelperFunctions";
-import { checkPayoutResult } from "./Thirdweb";
+
 import {
   pimlicoProcessPayout,
   pimlicoSetPayoutOrder,
+  checkPayoutResult
 } from "./pimlicoAgent";
 import { notifyAllChamaMembers, notifyUser } from "./prismaFunctions";
 import { formatUnits } from "viem";
 import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } from "./ExpoNotificationFunctions";
+import emailService from "./EmailService";
 
 const prisma = new PrismaClient();
 
@@ -138,6 +140,9 @@ export const checkStartDate = async () => {
         `Payout for ${chama.name} chama is in 3 days. Make sure you have contributed!`,
         chama.id
       );
+
+      const emails = chama.members.map((m: any) => m.user.email);
+      await emailService.sendBulkReminderEmails(emails, chama.name, 3);
     }
 
     return { successful: successful.length, failed: failed.length };
@@ -220,6 +225,7 @@ async function processDisbursePayout(
     sendExpoNotificationToAUser(user.id, userTitle, userMessage),
     notifyAllChamaMembers(chama.id, othersMessage, "payout_received", user.id),
     sendExpoNotificationToAllChamaMembers(othersTitle, othersMessage, chama.id, user.id),
+    emailService.sendPayoutEmail(user.email, displayableAmount, chama.name, chama.round),
   ]);
 }
 

@@ -1,5 +1,5 @@
 // the blockchain functions of interest are :- setting payout order, triggering payout function
-import { erc20Abi, createPublicClient, http } from "viem";
+import { erc20Abi, createPublicClient, http, TransactionReceipt, parseEventLogs } from "viem";
 import { getAgentSmartWallet } from "../Blockchain/AgentWallet";
 import { contractABI, contractAddress, USDCAddress, builderCodeDataSuffix } from "../Blockchain/Constants";
 import { base } from "viem/chains";
@@ -167,35 +167,69 @@ export const pimlicoDepositForUser = async (
   }
 };
 
-// function to add locked funds to a chama
-export const pimlicoAddLockedFundsToChama = async (
-  memberAddress: `0x${string}`,
+// Check if payout was a disburse or refund by querying events
+export const checkPayoutResult = async (
   chamaBlockchainId: number,
-  amount: bigint
+  receipt: TransactionReceipt
 ) => {
   try {
-    const { smartAccountClient, authorization } = await getAgentSmartWallet();
-
-    const addLockedFundsToChamaHash = await smartAccountClient.writeContract({
-      address: contractAddress,
+    const logs = parseEventLogs({
       abi: contractABI,
-      functionName: "updateLockedAmount",
-      args: [memberAddress, chamaBlockchainId, amount],
-      dataSuffix: builderCodeDataSuffix,
-      ...(authorization ? { authorization } : {}),
-    });
+      logs: receipt.logs,
+    }) as any[];
 
-    const addLockedFundsToChamaTransaction = await publicClient.waitForTransactionReceipt({
-      hash: addLockedFundsToChamaHash
-    })
+    const chamaIdBigInt = BigInt(chamaBlockchainId);
+    const timestamp = Date.now();
 
-    if (!addLockedFundsToChamaTransaction) {
-      throw new Error("unable to get the process add locked funds to chama agent transaction");
+    const disbursedEvent = logs.find(
+      (log) =>
+        log.eventName === "FundsDisbursed" &&
+        (log.args as any).chamaId === chamaIdBigInt
+    );
+
+    if (disbursedEvent) {
+      const args = disbursedEvent.args as any;
+      return {
+        type: "disburse" as const,
+        recipient: args.recipient as string,
+        amount: args.amount as bigint,
+        timestamp: timestamp,
+        transactionHash: receipt.transactionHash,
+      };
     }
 
-    return addLockedFundsToChamaTransaction.transactionHash;
+    const refundIssuedEvent = logs.find(
+      (log) =>
+        log.eventName === "RefundIssued" &&
+        (log.args as any).chamaId === chamaIdBigInt
+    );
+
+    const refundUpdatedEvent = logs.find(
+      (log) =>
+        log.eventName === "RefundUpdated" &&
+        ((log.args as any)._chamaId === chamaIdBigInt ||
+          (log.args as any).chamaId === chamaIdBigInt)
+    );
+
+    if (refundIssuedEvent || refundUpdatedEvent) {
+      const refundArgs = refundIssuedEvent?.args as any;
+      return {
+        type: "refund" as const,
+        timestamp: timestamp,
+        transactionHash: receipt.transactionHash,
+        member: refundArgs?.member as string | undefined,
+        amount: refundArgs?.amount as bigint | undefined,
+      };
+    }
+
+    return {
+      type: "unknown" as const,
+      timestamp: timestamp,
+      transactionHash: receipt.transactionHash,
+    };
   } catch (error) {
-    console.error("Error processing agent add locked funds to chama tx:", error);
+    console.error("Error checking payout result:", error);
     throw error;
   }
 };
+

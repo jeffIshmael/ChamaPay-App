@@ -99,6 +99,44 @@ contract ChamaPay is
     event PayoutDone(uint indexed _chamaId, address indexed _receiver, uint _amount);
     event FeesWithdrawn(address indexed _address, uint amount);
 
+    function createPrivateChama(
+        uint _amount, 
+        uint _duration, 
+        uint _firstPayoutDate
+    ) public nonReentrant whenNotPaused {
+        require(_firstPayoutDate >= block.timestamp, "First payout date must be in the future.");
+        require(_duration > 0, "Duration must be greater than zero.");
+        require(_amount > 0, "Amount must be greater than 0.");
+
+        Chama storage newChama = chamas.push();
+        newChama.chamaId = totalChamas;
+        newChama.amount = _amount;
+        newChama.startDate = block.timestamp;
+        newChama.duration = _duration;
+        newChama.maxMembers = 0; // Deprecated
+        newChama.payDate = _firstPayoutDate; // Passed from frontend representing first payout date
+        newChama.admin = msg.sender;
+        newChama.members.push(msg.sender);
+        newChama.cycle = 1;
+        newChama.round = 1;
+        newChama.balances[msg.sender] = 0;
+        newChama.hasSent[msg.sender] = false;
+        newChama.isPublic = false; // Deprecated
+
+        totalChamas++;
+
+        emit ChamaRegistered(
+            totalChamas - 1, 
+            _amount,
+            0, 
+            _duration, 
+            block.timestamp, 
+            false,  
+            msg.sender
+        );
+    }
+
+    // Deprecated: use createPrivateChama instead
     function registerChama(
         uint _amount, 
         uint _duration, 
@@ -109,15 +147,7 @@ contract ChamaPay is
         require(_startDate >= block.timestamp, "Start date must be in the future.");
         require(_duration > 0, "Duration must be greater than zero.");
         require(_amount > 0, "Amount must be greater than 0.");
-        require(_maxMembers <= 15, "Maximum number of members is 15.");
         
-        if(_isPublic) {
-            require(
-                USDCToken.transferFrom(msg.sender, address(this), _amount * _maxMembers),
-                "Token transfer failed"
-            );
-        }
-
         Chama storage newChama = chamas.push();
         newChama.chamaId = totalChamas;
         newChama.amount = _amount;
@@ -132,10 +162,6 @@ contract ChamaPay is
         newChama.balances[msg.sender] = 0;
         newChama.hasSent[msg.sender] = false;
         newChama.isPublic = _isPublic;
-
-        if (_isPublic) {
-            newChama.lockedAmounts[msg.sender] = _amount * _maxMembers;
-        }
 
         totalChamas++;
 
@@ -153,7 +179,6 @@ contract ChamaPay is
     function addMember(address _address, uint _chamaId) public onlyAdmin(_chamaId) whenNotPaused {
         require(_chamaId < chamas.length, "The chamaId does not exist");
         Chama storage chama = chamas[_chamaId];
-        require(chama.members.length < 15, "Chama already has max members.");
         require(chama.round == 1, "member cannot join mid cycle.");
         require(!isMember(_chamaId,_address), "Already a member of the chama.");
         chama.members.push(_address);
@@ -163,29 +188,12 @@ contract ChamaPay is
         emit MemberAdded(_chamaId, _address);
     }
 
-    function addPublicMember(uint _chamaId, uint _amount) public nonReentrant whenNotPaused {
-        require(_chamaId < chamas.length, "The chamaId does not exist");
-        Chama storage chama = chamas[_chamaId];
-        require(chama.isPublic, "This is not a public chama.");
-        require(chama.members.length < chama.maxMembers, "Chama already has max members");
-        require(!isMember(_chamaId, msg.sender), "Already a member of the chama.");
-        require(chama.round == 1, "member cannot join mid cycle.");
-        require(_amount >= chama.amount * chama.maxMembers, "Amount too small.");
-        
-        require(
-            USDCToken.transferFrom(msg.sender, address(this), _amount),
-            "Token transfer failed"
-        );
-        
-        chama.members.push(msg.sender);
-        if(block.timestamp > chama.startDate && chama.payoutOrder.length > 0) {
-            chama.payoutOrder.push(msg.sender);
-        }
-        chama.lockedAmounts[msg.sender] += _amount;
-        emit MemberAdded(_chamaId, msg.sender);
+    // Deprecated: public chamas no longer supported
+    function addPublicMember(uint /*_chamaId*/, uint /*_amount*/) public nonReentrant whenNotPaused {
+        revert("Public chamas are deprecated.");
     }
 
-    function depositCash(uint _chamaId, uint _amount, bool fromMiniapp) 
+    function depositCash(uint _chamaId, uint _amount) 
         public 
         onlyMembers(_chamaId) 
         nonReentrant 
@@ -200,14 +208,7 @@ contract ChamaPay is
             "Token transfer failed"
         );
 
-        // if its from a miniapp, we will have charged a 0.5% tx fee already
-        if (fromMiniapp) {
-            uint txFee = _amount / 200;
-            chama.balances[msg.sender] += _amount - txFee;
-            totalFees += txFee;
-        } else {
-            chama.balances[msg.sender] += _amount;
-        }
+        chama.balances[msg.sender] += _amount;
 
         if (chama.balances[msg.sender] >= chama.amount) {
             chama.hasSent[msg.sender] = true;
@@ -236,27 +237,9 @@ contract ChamaPay is
         emit OnrampUpdated(_chamaId, _memberAddress, _amount);
     }
 
-    function updateLockedAmount(address _memberAddress, uint _chamaId, uint _amount) public memberOrAgent(_chamaId) nonReentrant whenNotPaused {
-        require(_chamaId < totalChamas, "Chama does not exist.");
-        require(isMember(_chamaId, _memberAddress), "User is not a member.");
-        Chama storage chama = chamas[_chamaId];
-
-        uint requiredAmount = chama.amount * chama.maxMembers;
-        uint userLocked = chama.lockedAmounts[_memberAddress];
-
-        require(userLocked <= requiredAmount, "User already has required locked amount.");
-
-        uint remainingAmount = requiredAmount - userLocked;
-        require(remainingAmount <= _amount, "Amount exceeded.");
-
-        require(
-            USDCToken.transferFrom(msg.sender, address(this), _amount),
-            "Token transfer failed"
-        );
-       
-        chama.lockedAmounts[_memberAddress] += _amount;
-
-        emit LockedAmountUpdated(_chamaId, _memberAddress, _amount, remainingAmount);
+    // Deprecated: public chamas no longer supported
+    function updateLockedAmount(address /*_memberAddress*/, uint _chamaId, uint /*_amount*/) public memberOrAgent(_chamaId) nonReentrant whenNotPaused {
+        revert("Public chamas are deprecated.");
     }
 
     function withdrawBalance(uint _chamaId, uint _amount) public onlyMembers(_chamaId) nonReentrant whenNotPaused {
@@ -295,7 +278,7 @@ contract ChamaPay is
         Chama storage chama = chamas[_chamaId];
 
         for (uint i = 0; i < chama.members.length; i++) {
-            uint membersBalance = chama.balances[chama.members[i]] + chama.lockedAmounts[chama.members[i]];
+            uint membersBalance = chama.balances[chama.members[i]];
             if (membersBalance < chama.amount) {
                 return false;
             }
@@ -398,28 +381,14 @@ contract ChamaPay is
         for (uint i = 0; i < chama.members.length; i++) {
             address m = chama.members[i];
             totalAvailable += chama.balances[m];
-
-            if (chama.isPublic) {
-                totalAvailable += chama.lockedAmounts[m];
-            }
         }
 
         require(totalAvailable >= totalPay, "Not enough total funds");
 
-        // Fix any underfunded members BEFORE payout
+        // Ensure all members have enough balance BEFORE payout
         for (uint i = 0; i < chama.members.length; i++) {
             address member = chama.members[i];
-
-            if (chama.balances[member] < contributionAmount) {
-                uint deficit = contributionAmount - chama.balances[member];
-
-                require(chama.isPublic, "Private: member has insufficient balance");
-                require(chama.lockedAmounts[member] >= deficit, "Insufficient locked funds");
-
-                // Cover deficit
-                chama.lockedAmounts[member] -= deficit;
-                chama.balances[member] += deficit;
-            }
+            require(chama.balances[member] >= contributionAmount, "Member has insufficient balance");
         }
 
 
@@ -467,16 +436,6 @@ contract ChamaPay is
             chama.balances[_member] = 0;
         }
 
-        if(chama.isPublic) {
-            uint lockedAmount = chama.lockedAmounts[_member];
-            if (lockedAmount > 0) {
-                processPayout(_member, lockedAmount);
-                recordWithdrawal(_chamaId, _member, lockedAmount);
-                chama.lockedAmounts[_member] = 0;
-                emit RefundIssued(_chamaId, _member, lockedAmount);
-            }
-        }
-
         for (uint i = 0; i < chama.members.length; i++) {
             if (chama.members[i] == _member) {
                 chama.members[i] = chama.members[chama.members.length - 1];
@@ -517,6 +476,27 @@ contract ChamaPay is
         chamas.pop();
 
         emit ChamaDeleted(_chamaId);
+    }
+
+    function updateChamaDetails(
+        uint _chamaId, 
+        uint _newAmount, 
+        uint _newCycle, 
+        uint _newRound, 
+        uint _newPayDate
+    ) public whenNotPaused {
+        require(_chamaId < totalChamas, "Chama does not exist");
+        Chama storage chama = chamas[_chamaId];
+        require(msg.sender == chama.admin || msg.sender == aiAgent, "Only admin or aiAgent can update");
+        require(chama.round == 1, "Cannot edit details during an active cycle (round > 1)");
+        require(_newAmount > 0, "Amount must be greater than 0");
+        require(_newCycle > 0, "Cycle must be greater than 0");
+        require(_newRound > 0, "Round must be greater than 0");
+        
+        chama.amount = _newAmount;
+        chama.cycle = _newCycle;
+        chama.round = _newRound;
+        chama.payDate = _newPayDate;
     }
 
     function checkPayDate(uint[] memory chamaIds) public onlyAiAgent nonReentrant whenNotPaused {

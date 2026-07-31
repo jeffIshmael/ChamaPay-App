@@ -3,12 +3,13 @@ import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import { contractAddress } from "../Blockchain/Constants";
 import { bcGetTotalChamas, getEachMemberBalance, getUserChamaBalance } from "../Blockchain/ReadFunctions";
-import { bcCreateChama, bcDepositFundsToChama, bcDepositFundsForMember, bcAddMemberToPrivateChama, bcJoinPublicChama, bcAddLockedFundsToChama, bcWithdrawFundsFromChama, bcAdminSetPayoutOrder } from "../Blockchain/WriteFunction";
+import { bcCreateChama, bcDepositFundsToChama, bcDepositFundsForMember, bcAddMemberToPrivateChama, bcUpdateChamaDetails, bcWithdrawFundsFromChama, bcAdminSetPayoutOrder } from "../Blockchain/WriteFunction";
 import { approveTx } from "../Blockchain/erc20Functions";
 import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
+import emailService from "../Lib/EmailService";
 import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
-import { notifyAllChamaMembers } from "../Lib/prismaFunctions";
-import { pimlicoAddLockedFundsToChama } from "../Lib/pimlicoAgent";
+import { notifyAllChamaMembers, addMemberToPayout } from "../Lib/prismaFunctions";
+
 import { getCached, setCache } from "../Lib/cache";
 
 const prisma = new PrismaClient();
@@ -370,39 +371,8 @@ export const getChamasUserIsMemberOf = async (req: Request, res: Response) => {
   }
 };
 
-// get public chamas a user is not member of
-export const getPublicChamasUserIsNotMemberOf = async (
-  req: Request,
-  res: Response
-) => {
-  try {
-    const userId = req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
-    }
-    const chamas = await prisma.chama.findMany({
-      where: {
-        type: "Public",
-        members: {
-          none: {
-            userId: userId,
-          },
-        },
-      },
-      include: {
-        members: true,
-      },
-    });
-    return res.status(200).json({ success: true, chamas: chamas });
-  } catch (error) {
-    console.log(error);
-    return res.status(500).json({
-      success: false,
-      error: "Failed to get public chamas user is not member of",
-    });
-  }
-};
 
+// 
 // deposit funds to a chama
 export const depositToChama = async (req: Request, res: Response) => {
   try {
@@ -577,6 +547,11 @@ export const addMemberToChama = async (req: Request, res: Response) => {
     const chama = await prisma.chama.findUnique({
       where: {
         id: Number(chamaId)
+      },
+      include: {
+        members: {
+          include: { user: true }
+        }
       }
     });
     if (!chama) {
@@ -584,59 +559,50 @@ export const addMemberToChama = async (req: Request, res: Response) => {
         .status(400)
         .json({ success: false, error: "Chama not found." });
     }
+    if (chama.round !== 1) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Cannot add user in the middle of cycle." });
+    }
 
-    if (isPublic) {
-      // we need to approve spending because there is collateral required
-      const privateKey = await getPrivateKey(user.id);
-      if (!privateKey.success || privateKey.privateKey === null) {
+    // check whether the one requesting is the admin
+    const isAdmin = user.id === chama.adminId;
+    if (!isAdmin) {
+      return res.status(400).json({ success: false, error: "You are not the admin of this chama." });
+    }
+    const privateKey = await getPrivateKey(user.id);
+    if (!privateKey.success || privateKey.privateKey === null) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Unable to get signing client." });
+    }
+    // the main function of adding the member
+    const chamaBlockchainId = BigInt(Number(chama.blockchainId));
+    const addingTxHash = await bcAddMemberToPrivateChama(privateKey.privateKey, chamaBlockchainId, memberBeingAdded.address as `0x${string}`);
+    if (!addingTxHash) {
+      return res
+        .status(400)
+        .json({ success: false, error: `Unable to add ${user.userName} to ${chama.name} chama onchain.` });
+    }
+
+    // Also add to payout order on-chain if payout order is already set off-chain
+    const offchainPayoutOrder = chama.payOutOrder ? JSON.parse(chama.payOutOrder) : [];
+    if (offchainPayoutOrder.length > 0) {
+      const onchainPayoutArray = offchainPayoutOrder.map((p: any) => p.userAddress as `0x${string}`);
+      onchainPayoutArray.push(memberBeingAdded.smartAddress as `0x${string}`);
+      
+      const setOrderTx = await bcAdminSetPayoutOrder(
+        privateKey.privateKey,
+        Number(chamaBlockchainId),
+        onchainPayoutArray
+      );
+      if (!setOrderTx) {
         return res
           .status(400)
-          .json({ success: false, error: "Unable to get signing client." });
-      }
-      const approveTxHash = await approveTx(privateKey.privateKey, amount, contractAddress);
-      if (!approveTxHash) {
-        return res
-          .status(400)
-          .json({ success: false, error: "Unable to approve transaction." });
-      }
-      // the main function of joining
-      const chamaBlockchainId = BigInt(Number(chama.blockchainId));
-      const joinTxHash = await bcJoinPublicChama(privateKey.privateKey, chamaBlockchainId, amount);
-      if (!joinTxHash) {
-        return res
-          .status(400)
-          .json({ success: false, error: `Unable to join ${chama.name} chama onchain.` });
-      }
-      await prisma.payment.create({
-        data: {
-          amount: amount,
-          description: `Joining collateral`,
-          txHash: joinTxHash,
-          chamaId: parseInt(chamaId),
-          userId: memberId,
-        },
-      });
-    } else {
-      // check whether the one requesting is the admin
-      const isAdmin = user.id === chama.adminId;
-      if (!isAdmin) {
-        return res.status(400).json({ success: false, error: "You are not the admin of this chama." });
-      }
-      const privateKey = await getPrivateKey(user.id);
-      if (!privateKey.success || privateKey.privateKey === null) {
-        return res
-          .status(400)
-          .json({ success: false, error: "Unable to get signing client." });
-      }
-      // the main function of adding the member
-      const chamaBlockchainId = BigInt(Number(chama.blockchainId));
-      const addingTxHash = await bcAddMemberToPrivateChama(privateKey.privateKey, chamaBlockchainId, memberBeingAdded.address as `0x${string}`);
-      if (!addingTxHash) {
-        return res
-          .status(400)
-          .json({ success: false, error: `Unable to add ${user.userName} to ${chama.name} chama onchain.` });
+          .json({ success: false, error: `Unable to update payout order onchain for ${user.userName}.` });
       }
     }
+
 
     const chamaMember = await prisma.chamaMember.create({
       data: {
@@ -652,14 +618,15 @@ export const addMemberToChama = async (req: Request, res: Response) => {
         .json({ success: false, error: "Failed to add member" });
     }
 
+    await addMemberToPayout(parseInt(chamaId), memberBeingAdded.id);
+
     // notify the member has been added
-    if (!isPublic) {
-      await sendExpoNotificationToAUser(
-        memberBeingAdded.id,
-        `Successfully added.`,
-        `You have been added to ${chama.name} chama.`,
-      );
-    }
+    await notifyAllChamaMembers(
+      parseInt(chamaId),
+      `A new member has joined ${chama.name} chama.`,
+      "join",
+      memberBeingAdded.id
+    );
 
     await sendExpoNotificationToAllChamaMembers(
       `New member joined.`,
@@ -667,6 +634,12 @@ export const addMemberToChama = async (req: Request, res: Response) => {
       parseInt(chamaId),
       [memberBeingAdded.id]
     );
+
+    const emails = chama.members.map((m: any) => m.user.email);
+    if (emails.length > 0) {
+      await emailService.sendBulkChamaUpdateEmails(emails, chama.name, `A new member, ${memberBeingAdded.userName}, has joined the chama.`);
+    }
+
     return res
       .status(200)
       .json({ success: true, message: "Member added successfully" });
@@ -841,24 +814,22 @@ export const withdrawFromChamaBalance = async (req: Request, res: Response) => {
   }
 };
 
-// add locked amount
-export const addLockedAmount = async (req: Request, res: Response) => {
+// update chama details
+export const updateChamaDetailsController = async (req: Request, res: Response) => {
   try {
-    const { chamaId, amount, isOnramp } = req.body;
+    const { chamaId, newAmount, newCycle, newRound, newPayDate } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
-    if (!chamaId || !amount || isOnramp === undefined) {
-      return res.status(400).json({ success: false, error: "Chama ID and amount are required" });
+    if (!chamaId || !newAmount || !newCycle || !newRound || !newPayDate) {
+      return res.status(400).json({ success: false, error: "All fields (chamaId, newAmount, newCycle, newRound, newPayDate) are required" });
     }
 
     const user = await prisma.user.findUnique({
-      where: {
-        id: Number(userId),
-      },
+      where: { id: Number(userId) },
     });
 
     if (!user) {
@@ -866,8 +837,9 @@ export const addLockedAmount = async (req: Request, res: Response) => {
     }
 
     const chama = await prisma.chama.findUnique({
-      where: {
-        id: Number(chamaId),
+      where: { id: Number(chamaId) },
+      include: { 
+        members: { include: { user: true } }
       },
     });
 
@@ -875,49 +847,54 @@ export const addLockedAmount = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, error: "Chama not found" });
     }
 
-    let txHash: `0x${string}` | null = null;
-
-    // if its an onramp, we let the agent deposit the funds
-    if (isOnramp) {
-      const agentTxHash = await pimlicoAddLockedFundsToChama(user.smartAddress as `0x${string}`, Number(chama.blockchainId), amount);
-      if (!agentTxHash) {
-        return res.status(400).json({ success: false, error: "Unable to add locked funds to chama with agent." });
-      }
-      txHash = agentTxHash;
-    } else {
-      // the onchain function
-      // get the user's private key
-      const privateKey = await getPrivateKey(Number(userId));
-      if (!privateKey.success || privateKey.privateKey === null) {
-        return res.status(400).json({ success: false, error: "Unable to get signing client." });
-      }
-
-      const withdrawTxHash = await bcAddLockedFundsToChama(privateKey.privateKey, user.smartAddress as `0x${string}`, Number(chama.blockchainId), amount);
-      if (!withdrawTxHash) {
-        return res.status(400).json({ success: false, error: "Unable to add locked funds to chama." });
-      }
-      txHash = withdrawTxHash;
+    // Check if the user is the admin of the chama
+    const isAdmin = chama.adminId === Number(userId);
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: "Only the admin can update chama details" });
     }
 
-    // record the transaction
-    const payment = await prisma.payment.create({
+    // Get the user's private key
+    const privateKeyResult = await getPrivateKey(Number(userId));
+    if (!privateKeyResult.success || privateKeyResult.privateKey === null) {
+      return res.status(400).json({ success: false, error: "Unable to get signing client." });
+    }
+
+    // Call the blockchain function
+    const txHash = await bcUpdateChamaDetails(
+      privateKeyResult.privateKey,
+      BigInt(chama.blockchainId),
+      newAmount.toString(),
+      Number(newCycle),
+      Number(newRound),
+      Number(newPayDate)
+    );
+
+    if (!txHash) {
+      return res.status(400).json({ success: false, error: "Unable to update chama details onchain." });
+    }
+
+    // Update the database
+    const updatedChama = await prisma.chama.update({
+      where: { id: Number(chamaId) },
       data: {
-        amount: amount,
-        description: `Locked funds`,
-        txHash: txHash,
-        chamaId: Number(chamaId),
-        userId: Number(userId),
+        amount: newAmount.toString(),
+        cycleTime: Number(newCycle),
       },
     });
 
-    if (!payment) {
-      return res.status(400).json({ success: false, error: "Unable to record locked funds." });
+    const emails = chama.members.map((m: any) => m.user.email);
+    if (emails.length > 0) {
+      await emailService.sendBulkChamaUpdateEmails(
+        emails, 
+        chama.name, 
+        `The chama details have been updated by the admin. The new contribution amount is ${newAmount} USDC and the new cycle time is ${newCycle} days.`
+      );
     }
 
-    return res.status(200).json({ success: true, lockedFunds: payment });
-  } catch (error) {
-    console.error("Error adding locked funds to chama:", error);
-    return res.status(500).json({ success: false, error: "Failed to add locked funds to chama" });
+    return res.status(200).json({ success: true, txHash, chama: updatedChama });
+  } catch (error: any) {
+    console.error("Error updating chama details:", error);
+    return res.status(500).json({ success: false, error: error.message || "Failed to update chama details" });
   }
 };
 
