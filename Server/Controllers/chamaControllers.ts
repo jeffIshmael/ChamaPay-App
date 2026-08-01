@@ -618,7 +618,25 @@ export const addMemberToChama = async (req: Request, res: Response) => {
 
     const emails = chama.members.map((m: any) => m.user.email);
     if (emails.length > 0) {
-      await emailService.sendBulkChamaUpdateEmails(emails, chama.name, `A new member, ${memberBeingAdded.userName}, has joined the chama.`);
+      await emailService.sendMemberAddedToExistingMembersEmail(
+        emails,
+        chama.name,
+        memberBeingAdded.userName,
+        chama.members.length + 1
+      );
+    }
+
+    if (memberBeingAdded.email) {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      const adminName = user?.userName || "the Admin";
+      await emailService.sendMemberAddedToNewMemberEmail(
+        memberBeingAdded.email,
+        chama.name,
+        adminName,
+        chama.amount,
+        chama.cycleTime,
+        chama.payDate
+      );
     }
 
     return res

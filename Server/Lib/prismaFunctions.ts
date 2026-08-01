@@ -2,6 +2,7 @@
 import { PrismaClient } from "@prisma/client";
 import { PayoutOrder } from "./cronJobFunctions";
 import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } from "./ExpoNotificationFunctions";
+import emailService from "./EmailService";
 
 const prisma = new PrismaClient();
 
@@ -229,6 +230,47 @@ export async function handleRequest(
         updatedRequest.userId,
         updatedRequest.chamaId
       );
+
+      // fetch chama to get members, amount, cycleTime, and payDate for emails
+      const chamaForEmails = await prisma.chama.findUnique({
+        where: { id: updatedRequest.chamaId },
+        include: {
+          members: {
+            include: { user: true }
+          },
+          admin: true
+        }
+      });
+      const newMemberUser = await prisma.user.findUnique({
+        where: { id: updatedRequest.userId }
+      });
+      if (chamaForEmails && newMemberUser) {
+        // email existing members
+        const existingEmails = chamaForEmails.members
+          .filter(m => m.userId !== updatedRequest.userId)
+          .map(m => m.user.email);
+        if (existingEmails.length > 0) {
+          await emailService.sendMemberAddedToExistingMembersEmail(
+            existingEmails,
+            chamaForEmails.name,
+            newMemberUser.userName,
+            chamaForEmails.members.length
+          );
+        }
+        
+        // email new member
+        if (newMemberUser.email) {
+          const adminName = chamaForEmails.admin.userName || "the Admin";
+          await emailService.sendMemberAddedToNewMemberEmail(
+            newMemberUser.email,
+            chamaForEmails.name,
+            adminName,
+            chamaForEmails.amount,
+            chamaForEmails.cycleTime,
+            chamaForEmails.payDate
+          );
+        }
+      }
     }
     const title = approve
       ? "You’ve been approved 🎉"
