@@ -11,15 +11,14 @@ import { ArrowLeft } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Image,
   ScrollView,
   Text,
   TextInput,
+  ToastAndroid,
   TouchableOpacity,
-  View,
-  ToastAndroid
+  View
 } from "react-native";
 
 interface MobileMoneyPayProps {
@@ -226,7 +225,14 @@ const MobileMoneyPay = ({
     setStatusMessage("Initiating M-Pesa payment request...");
 
     try {
-      const fullPhoneNumber = `0${phoneNumber}`;
+      let formattedPhone = phoneNumber;
+      if (formattedPhone.startsWith("0")) {
+        formattedPhone = formattedPhone.substring(1);
+      }
+      if (formattedPhone.startsWith("254")) {
+        formattedPhone = formattedPhone.substring(3);
+      }
+      const fullPhoneNumber = `254${formattedPhone}`;
 
       const result = await pretiumOnramp(
         fullPhoneNumber,
@@ -546,9 +552,9 @@ const MobileMoneyPay = ({
                   placeholder="712345678"
                   placeholderTextColor="#9CA3AF"
                   keyboardType="phone-pad"
-                  maxLength={9}
+                  maxLength={10}
                   value={phoneNumber}
-                  onChangeText={(text) => setPhoneNumber(text.replace(/[^0-9]/g, "").slice(0, 9))}
+                  onChangeText={(text) => setPhoneNumber(text.replace(/[^0-9]/g, "").slice(0, 10))}
                   editable={!loading}
                 />
               </View>

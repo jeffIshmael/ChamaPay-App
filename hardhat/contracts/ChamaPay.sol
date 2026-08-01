@@ -182,7 +182,7 @@ contract ChamaPay is
         require(chama.round == 1, "member cannot join mid cycle.");
         require(!isMember(_chamaId,_address), "Already a member of the chama.");
         chama.members.push(_address);
-        if(block.timestamp > chama.startDate && chama.payoutOrder.length > 0 ) {
+        if(chama.payoutOrder.length > 0 ) {
             chama.payoutOrder.push(_address);
         }
         emit MemberAdded(_chamaId, _address);
@@ -256,21 +256,6 @@ contract ChamaPay is
         
         chama.balances[msg.sender] -= _amount;
         emit BalanceWithdrawn(_chamaId, msg.sender, _amount);
-    }
-
-    function addMemberToPayoutOrder(uint _chamaId, address[] memory _member) public  whenNotPaused {
-        Chama storage chama = chamas[_chamaId];
-        require(chama.admin == msg.sender || msg.sender == aiAgent || msg.sender == owner(), "Only admin or aiAgent");
-        require(chama.round == 1, "Cannot add member to payout order during an active round");
-        
-        for (uint i = 0; i < _member.length; i++) {
-            require(isMember(_chamaId, _member[i]), "Member is not a member of the chama");
-        }
-        
-        for (uint i = 0; i < _member.length; i++) {
-            chama.payoutOrder.push(_member[i]);
-        }
-        emit MemberAddedToPayoutOrder(_chamaId, _member);
     }
 
     function _allMembersContributed(uint _chamaId) private view returns (bool) {

@@ -3,12 +3,12 @@ import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import { contractAddress } from "../Blockchain/Constants";
 import { bcGetTotalChamas, getEachMemberBalance, getUserChamaBalance } from "../Blockchain/ReadFunctions";
-import { bcCreateChama, bcDepositFundsToChama, bcDepositFundsForMember, bcAddMemberToPrivateChama, bcUpdateChamaDetails, bcWithdrawFundsFromChama, bcAdminSetPayoutOrder } from "../Blockchain/WriteFunction";
+import { bcAddMemberToPrivateChama, bcAdminSetPayoutOrder, bcCreateChama, bcDepositFundsForMember, bcDepositFundsToChama, bcUpdateChamaDetails, bcWithdrawFundsFromChama } from "../Blockchain/WriteFunction";
 import { approveTx } from "../Blockchain/erc20Functions";
-import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
 import emailService from "../Lib/EmailService";
+import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
 import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
-import { notifyAllChamaMembers, addMemberToPayout } from "../Lib/prismaFunctions";
+import { addMemberToPayout, notifyAllChamaMembers } from "../Lib/prismaFunctions";
 
 import { getCached, setCache } from "../Lib/cache";
 
@@ -243,7 +243,7 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
         getUserChamaBalance(user.smartAddress, BigInt(Number(chama.blockchainId))),
         getEachMemberBalance(BigInt(Number(chama.blockchainId))),
       ]);
-      
+
       cachedBalances = {
         userBalance: JSON.parse(JSON.stringify(userBalance, bigIntReplacer)),
         eachMemberBalance: JSON.parse(JSON.stringify(eachMemberBalance, bigIntReplacer))
@@ -271,7 +271,7 @@ export const getChamaMessages = async (req: Request, res: Response) => {
   try {
     const { chamaId } = req.params;
     const { cursor } = req.query;
-    
+
     const messages = await prisma.message.findMany({
       where: { chamaId: Number(chamaId) },
       take: 20,
@@ -578,31 +578,12 @@ export const addMemberToChama = async (req: Request, res: Response) => {
     }
     // the main function of adding the member
     const chamaBlockchainId = BigInt(Number(chama.blockchainId));
-    const addingTxHash = await bcAddMemberToPrivateChama(privateKey.privateKey, chamaBlockchainId, memberBeingAdded.address as `0x${string}`);
+    const addingTxHash = await bcAddMemberToPrivateChama(privateKey.privateKey, chamaBlockchainId, memberBeingAdded.smartAddress as `0x${string}`);
     if (!addingTxHash) {
       return res
         .status(400)
         .json({ success: false, error: `Unable to add ${user.userName} to ${chama.name} chama onchain.` });
     }
-
-    // Also add to payout order on-chain if payout order is already set off-chain
-    const offchainPayoutOrder = chama.payOutOrder ? JSON.parse(chama.payOutOrder) : [];
-    if (offchainPayoutOrder.length > 0) {
-      const onchainPayoutArray = offchainPayoutOrder.map((p: any) => p.userAddress as `0x${string}`);
-      onchainPayoutArray.push(memberBeingAdded.smartAddress as `0x${string}`);
-      
-      const setOrderTx = await bcAdminSetPayoutOrder(
-        privateKey.privateKey,
-        Number(chamaBlockchainId),
-        onchainPayoutArray
-      );
-      if (!setOrderTx) {
-        return res
-          .status(400)
-          .json({ success: false, error: `Unable to update payout order onchain for ${user.userName}.` });
-      }
-    }
-
 
     const chamaMember = await prisma.chamaMember.create({
       data: {
@@ -838,7 +819,7 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
 
     const chama = await prisma.chama.findUnique({
       where: { id: Number(chamaId) },
-      include: { 
+      include: {
         members: { include: { user: true } }
       },
     });
@@ -890,12 +871,12 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
     const emails = chama.members.map((m: any) => m.user.email);
     if (emails.length > 0) {
       await emailService.sendBulkChamaUpdateEmails(
-        emails, 
-        updatedChama.name, 
+        emails,
+        updatedChama.name,
         `The chama details have been updated by the admin. The new contribution amount is ${newAmount} USDC, cycle time is ${newDuration} days, and we are on cycle ${newCycle}, round ${newRound}.`
       );
     }
-    
+
     // Send Push Notifications
     await sendExpoNotificationToAllChamaMembers(
       "Chama Details Updated",
