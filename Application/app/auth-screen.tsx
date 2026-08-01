@@ -120,7 +120,7 @@ export default function AuthScreen() {
         } else {
           await setAuth(data.token, data.user, data.refreshToken);
           setShowVerificationModal(false);
-          router.replace("/(tabs)");
+          router.replace("/pin-setup");
         }
       } else {
         setErrorText(data.message || "Invalid code");

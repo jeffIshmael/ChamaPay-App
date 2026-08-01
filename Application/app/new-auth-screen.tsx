@@ -510,7 +510,7 @@ setErrorText("Failed to sign in with Apple. Please try again.");
           } else {
             await setAuth(data.token, data.user, data.refreshToken);
             setShowVerificationModal(false);
-            router.replace("/(tabs)");
+            router.replace("/pin-setup");
           }
         }, 600);
       } else {
