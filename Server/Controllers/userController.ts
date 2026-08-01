@@ -726,27 +726,7 @@ export const confirmJoinRequest = async (
         return;
       }
 
-      // Also add to payout order on-chain if payout order is already set off-chain
-      const offchainPayoutOrder = chama.payOutOrder ? JSON.parse(chama.payOutOrder) : [];
-      if (offchainPayoutOrder.length > 0) {
-        const onchainPayoutArray = offchainPayoutOrder.map((p: any) => p.userAddress as `0x${string}`);
-        onchainPayoutArray.push(requestingUser.smartAddress as `0x${string}`);
-        
-        const setOrderTx = await bcAdminSetPayoutOrder(
-          privateKeyResponse.privateKey,
-          Number(chamaBlockchainId),
-          onchainPayoutArray
-        );
-        if (!setOrderTx) {
-          res
-            .status(400)
-            .json({
-              success: false,
-              error: `unable to update payout order onchain for ${userName}.`,
-            });
-          return;
-        }
-      }
+
     }
 
     const result = await handleRequest(

@@ -273,6 +273,89 @@ class EmailService {
       return { success: false };
     }
   }
+  async sendMemberAddedToExistingMembersEmail(emails: string[], chamaName: string, newMemberName: string, totalMembers: number) {
+    try {
+      const body = `
+        ${heading("New member joined")}
+        ${paragraph(
+          `<strong style="color:${INK};">${newMemberName}</strong> has just been added to <strong style="color:${INK};">${chamaName}</strong>.`
+        )}
+        <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="font-size:13px; color:${MUTED};">Chama</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${chamaName}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Total Members</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${totalMembers}</td>
+            </tr>
+          </table>
+        </div>
+      `;
+
+      const payload = emails.map((email) => ({
+        from: "Chamapay <updates@chamapay.xyz>",
+        to: email,
+        subject: `New member joined — ${chamaName}`,
+        html: wrapEmail(body, { preheader: `${newMemberName} joined ${chamaName}` }),
+      }));
+
+      const batches = [];
+      for (let i = 0; i < payload.length; i += 100) {
+        batches.push(resend.batch.send(payload.slice(i, i + 100)));
+      }
+
+      await Promise.all(batches);
+      return { success: true };
+    } catch (error) {
+      console.error("Error sending existing member update emails:", error);
+      return { success: false };
+    }
+  }
+
+  async sendMemberAddedToNewMemberEmail(email: string, chamaName: string, adminName: string, contributionAmount: string, cycleDays: number, nextPayoutDate: Date) {
+    try {
+      const formatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+      const formattedDate = formatter.format(nextPayoutDate);
+
+      const body = `
+        ${heading("You've been added to a Chama 🎉")}
+        ${paragraph(
+          `Congratulations! You have been added to <strong style="color:${INK};">${chamaName}</strong> by <strong>${adminName}</strong>.`
+        )}
+        <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="font-size:13px; color:${MUTED};">Chama</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${chamaName}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Contribution</td>
+              <td style="font-size:13px; color:${SUCCESS}; text-align:right; font-weight:700; padding-top:8px;">${contributionAmount} USDC every ${cycleDays} days</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Next Payout Date</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${formattedDate}</td>
+            </tr>
+          </table>
+        </div>
+        ${paragraph("Open the Chamapay app to view your Chama details and start contributing!")}
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <welcome@chamapay.xyz>",
+        to: email,
+        subject: `You have been added to ${chamaName}`,
+        html: wrapEmail(body, { preheader: `You were added to ${chamaName} by ${adminName}` }),
+      });
+      if (error) console.error("Resend error:", error);
+      return { success: !error };
+    } catch (error) {
+      console.error("Error sending new member welcome email:", error);
+      return { success: false };
+    }
+  }
 }
 
 export default new EmailService();

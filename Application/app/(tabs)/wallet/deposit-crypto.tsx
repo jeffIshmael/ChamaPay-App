@@ -21,9 +21,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Import utilities
 import {
-  formatCurrency,
   formatPhoneNumber,
-  isValidPhoneNumber,
+  isValidPhoneNumber
 } from "@/Utils/pretiumUtils";
 import SupportedWalletLogos from "@/components/SupportedWalletLogos";
 
@@ -139,8 +138,15 @@ export default function DepositCryptoScreen() {
     setProcessingStep("initiating");
 
     try {
-      const fullPhoneNumber = `0${phoneNumber}`;
-// Initiate onramp
+      let formattedPhone = phoneNumber;
+      if (formattedPhone.startsWith("0")) {
+        formattedPhone = formattedPhone.substring(1);
+      }
+      if (formattedPhone.startsWith("254")) {
+        formattedPhone = formattedPhone.substring(3);
+      }
+      const fullPhoneNumber = `254${formattedPhone}`;
+      // Initiate onramp
       const result = await pretiumOnramp(
         fullPhoneNumber,
         Number(depositAmount.toFixed(2)),
@@ -182,7 +188,7 @@ export default function DepositCryptoScreen() {
       ToastAndroid.show(`Successfully deposited ${Number(cryptoAmount).toFixed(4)} USDC`, ToastAndroid.SHORT);
       emptyInputs();
       setProcessingStep("idle");
-      
+
       router.push("/(tabs)/wallet");
     } catch (error: any) {
       setIsProcessing(false);
