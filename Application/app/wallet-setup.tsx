@@ -135,10 +135,12 @@ export default function WalletSetup() {
 
     setSavingName(true);
     try {
+      const finalPicture = params.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(username.trim())}&background=1c8584&color=fff&size=256`;
+
       const res = await registerUser({
         email: params.email,
         userName: username.trim(),
-        profileImageUrl: params.picture,
+        profileImageUrl: finalPicture,
       });
 
       if (res.success && res.user) {
