@@ -25,10 +25,8 @@ import {
   TextInput,
   View,
   Modal,
-  Dimensions
 } from "react-native";
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
 import AuthLoadingView from "@/components/AuthLoadingView";
@@ -50,15 +48,6 @@ const GoogleIcon = () => (
     <Path
       fill="#EA4335"
       d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-    />
-  </Svg>
-);
-
-const AppleIcon = () => (
-  <Svg width={18} height={18} viewBox="0 0 24 24">
-    <Path
-      fill="#ffffff"
-      d="M19.665 17.025c-.315.735-.69 1.41-1.125 2.02-.59.835-1.071 1.41-1.44 1.725-.575.53-1.191.805-1.854.825-.474 0-1.047-.135-1.72-.405-.674-.27-1.293-.405-1.86-.405-.59 0-1.225.135-1.905.405-.68.27-1.234.41-1.665.42-.64.03-1.27-.255-1.89-.855-.405-.375-.91-1.005-1.515-1.89-.65-.945-1.185-2.04-1.605-3.285-.45-1.365-.675-2.685-.675-3.96 0-1.465.32-2.73.96-3.795.5-.855 1.165-1.53 1.995-2.025.83-.495 1.72-.75 2.67-.765.525 0 1.215.155 2.07.465.855.31 1.405.47 1.65.48.18 0 .79-.195 1.83-.585 1-.36 1.845-.51 2.535-.45 1.875.15 3.285.885 4.23 2.205-1.68 1.02-2.52 2.46-2.52 4.32 0 1.44.54 2.64 1.62 3.6.48.45 1.02.795 1.62 1.035-.13.39-.27.765-.42 1.125zM15.27 2.385c0 .435-.16.9-.48 1.395-.305.48-.69.87-1.155 1.17-.435.27-.84.42-1.215.45-.03-.09-.06-.195-.075-.315a2.77 2.77 0 0 1 .66-2.04c.22-.27.5-.495.84-.675.34-.18.665-.28.975-.3.01.105.02.21.02.315z"
     />
   </Svg>
 );
@@ -114,9 +103,9 @@ export default function AuthScreen() {
   // CRITICAL: Detect deep link on mount to prevent flicker
   useEffect(() => {
     const handleUrl = (event: { url: string }) => {
-const url = event.url;
+      const url = event.url;
       if (url && (url.includes("code=") || url.includes("token=") || url.includes("state=") || url.includes("prompt="))) {
-setIsLoading(true);
+        setIsLoading(true);
         setLoadingMessage("Signing in...");
       }
     };
@@ -127,9 +116,9 @@ setIsLoading(true);
       // 1. Check if auth was in progress before app backgrounded/killed
       const isAuthPending = await SecureStore.getItemAsync("google_auth_pending");
       if (isAuthPending === "true") {
-setIsLoading(true);
+        setIsLoading(true);
         setLoadingMessage("Signing in...");
-        
+
         // Safety timeout to clear it if response never arrives
         setTimeout(async () => {
           const stillPending = await SecureStore.getItemAsync("google_auth_pending");
@@ -148,8 +137,8 @@ setIsLoading(true);
 
       // 2. Check initial URL just in case
       const url = await Linking.getInitialURL();
-if (url && (url.includes("code=") || url.includes("token=") || url.includes("state=") || url.includes("prompt="))) {
-setIsLoading(true);
+      if (url && (url.includes("code=") || url.includes("token=") || url.includes("state=") || url.includes("prompt="))) {
+        setIsLoading(true);
         setLoadingMessage("Signing in...");
       }
     };
@@ -160,11 +149,11 @@ setIsLoading(true);
     };
   }, []);
 
-// Handle Google OAuth response logic reactively
+  // Handle Google OAuth response logic reactively
   useEffect(() => {
     const handleResponse = async () => {
       if (response) {
-// Clear pending auth state since we have a response
+        // Clear pending auth state since we have a response
         await SecureStore.deleteItemAsync("google_auth_pending");
 
         if (response.type === "success") {
@@ -174,29 +163,29 @@ setIsLoading(true);
 
           try {
             if (authentication?.accessToken) {
-await handleGoogleAuth(authentication.accessToken, 'access');
+              await handleGoogleAuth(authentication.accessToken, 'access');
             } else if (authentication?.idToken) {
-await handleGoogleAuth(authentication.idToken, 'id');
+              await handleGoogleAuth(authentication.idToken, 'id');
             } else if (params?.id_token) {
-await handleGoogleAuth(params.id_token, 'id');
+              await handleGoogleAuth(params.id_token, 'id');
             } else if (params?.access_token) {
-await handleGoogleAuth(params.access_token, 'access');
+              await handleGoogleAuth(params.access_token, 'access');
             } else {
-setErrorText("Authentication successful but no tokens found.");
+              setErrorText("Authentication successful but no tokens found.");
               setIsLoading(false);
               setLoadingMessage("");
             }
           } catch (err) {
-setErrorText("Error completing sign in.");
+            setErrorText("Error completing sign in.");
             setIsLoading(false);
             setLoadingMessage("");
           }
         } else if (response.type === "error") {
-setErrorText(`Google Auth Error: ${response.error?.message || 'Unknown error'}`);
+          setErrorText(`Google Auth Error: ${response.error?.message || 'Unknown error'}`);
           setIsLoading(false);
           setLoadingMessage("");
         } else if (response.type === "cancel" || response.type === "dismiss") {
-// Delay hiding the loading screen in case this "dismiss" is just the browser closing 
+          // Delay hiding the loading screen in case this "dismiss" is just the browser closing
           // automatically during a successful deep-link redirect on Android.
           // We change the message so the user knows something is happening.
           setLoadingMessage("Signing in...");
@@ -206,7 +195,7 @@ setErrorText(`Google Auth Error: ${response.error?.message || 'Unknown error'}`)
             // If success arrived, setLoadingMessage was called with "Redirecting..." etc.
             setLoadingMessage((currentMsg) => {
               if (currentMsg === "Signing in...") {
-setIsLoading(false);
+                setIsLoading(false);
                 return "";
               }
               return currentMsg;
@@ -220,11 +209,11 @@ setIsLoading(false);
   }, [response]);
 
   useEffect(() => {
-}, [isLoading, loadingMessage]);
+  }, [isLoading, loadingMessage]);
 
   const handleGoogleAuth = async (token: string | undefined, type: 'access' | 'id' = 'access') => {
-if (!token) {
-setErrorText(`Failed to get ${type} token from Google`);
+    if (!token) {
+      setErrorText(`Failed to get ${type} token from Google`);
       setIsLoading(false);
       setLoadingMessage("");
       return;
@@ -267,19 +256,19 @@ setErrorText(`Failed to get ${type} token from Google`);
       }
 
       setLoadingMessage("Checking account...");
-const userDetails = await checkUserDetails(email);
-if (userDetails.success) {
+      const userDetails = await checkUserDetails(email);
+      if (userDetails.success) {
         setLoadingMessage("Taking you to your account...");
-const resp = await fetch(`${serverUrl}/auth/authenticate`, {
+        const resp = await fetch(`${serverUrl}/auth/authenticate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, provider: "google" }),
         });
 
         const data = await resp.json();
-if (resp.ok && data?.token && data?.user) {
+        if (resp.ok && data?.token && data?.user) {
           setLoadingMessage("Almost there...");
-await setAuth(data.token, data.user, data.refreshToken || null);
+          await setAuth(data.token, data.user, data.refreshToken || null);
 
           const storedPin = await SecureStore.getItemAsync("user_pin");
           if (storedPin) {
@@ -288,13 +277,13 @@ await setAuth(data.token, data.user, data.refreshToken || null);
             router.replace("/pin-setup");
           }
         } else {
-setErrorText(data?.message || "Authentication failed on server.");
+          setErrorText(data?.message || "Authentication failed on server.");
           setIsLoading(false);
           setLoadingMessage("");
         }
       } else {
         setLoadingMessage("Preparing your wallet...");
-router.push({
+        router.push({
           pathname: "/wallet-setup",
           params: {
             email,
@@ -304,24 +293,24 @@ router.push({
         } as any);
       }
     } catch (error) {
-setErrorText("Failed to sign in with Google. Please try again.");
+      setErrorText("Failed to sign in with Google. Please try again.");
       setIsLoading(false);
       setLoadingMessage("");
     }
   };
 
   const handleGoogleSignIn = async () => {
-setIsLoading(true);
+    setIsLoading(true);
     setLoadingMessage("Opening Google...");
     setErrorText("");
     try {
       await SecureStore.setItemAsync("google_auth_pending", "true");
       const result = await promptAsync();
-// Removed immediate setIsLoading(false) on cancel/dismiss here because 
+      // Removed immediate setIsLoading(false) on cancel/dismiss here because
       // Android Custom Tabs often return "dismiss" when closing automatically for a deep link.
       // The useEffect watching 'response' will handle true cancellations with a timeout.
     } catch (error) {
-setErrorText(`Failed to start Google sign in: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setErrorText(`Failed to start Google sign in: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setIsLoading(false);
       setLoadingMessage("");
     }
@@ -407,7 +396,7 @@ setErrorText(`Failed to start Google sign in: ${error instanceof Error ? error.m
         setLoadingMessage("");
         return;
       }
-setErrorText("Failed to sign in with Apple. Please try again.");
+      setErrorText("Failed to sign in with Apple. Please try again.");
       setIsLoading(false);
       setLoadingMessage("");
     }
@@ -532,7 +521,6 @@ setErrorText("Failed to sign in with Apple. Please try again.");
 
   return (
     <View className="flex-1 bg-white">
-      {/* <StatusBar style="dark" translucent backgroundColor="transparent" /> */}
       {/* Gradient Background */}
       <View
         className="absolute top-0 left-0 right-0 overflow-hidden"
@@ -569,18 +557,19 @@ setErrorText("Failed to sign in with Apple. Please try again.");
       />
 
       <SafeAreaView className="flex-1">
-          <ScrollView
+        <ScrollView
           className="flex-1"
-          contentContainerStyle={{ flexGrow: 1, minHeight: SCREEN_HEIGHT }}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <View className="flex-1 px-6 justify-between">
-            {/* Header with Logo */}
-            <View
-              className="items-center flex-1 justify-center"
-              style={{ paddingTop: 60 }}
-            >
+          {/* Single centered content block — logo + buttons move together as one unit,
+              so a taller/shorter usable screen height (custom nav bars, gesture UI,
+              different status bar heights) just re-centers everything instead of
+              stranding the buttons near the bottom edge. */}
+          <View className="px-6">
+            {/* Logo / Title */}
+            <View className="items-center mb-10">
               <View
                 className="mb-8 rounded-full overflow-hidden"
                 style={{
@@ -588,10 +577,6 @@ setErrorText("Failed to sign in with Apple. Please try again.");
                   height: 140,
                   backgroundColor: "transparent",
                   shadowColor: "#26a6a2",
-                  // shadowOffset: { width: 0, height: 10 },
-                  // shadowOpacity: 0.25,
-                  // shadowRadius: 20,
-                  // elevation: 8,
                 }}
               >
                 <Image
@@ -626,7 +611,7 @@ setErrorText("Failed to sign in with Apple. Please try again.");
             ) : null}
 
             {/* Auth Section */}
-            <View className="pb-8">
+            <View>
               {/* Auth Buttons in Column */}
               <View className="mb-6">
                 {/* Email Button / Input Section */}
@@ -714,7 +699,7 @@ setErrorText("Failed to sign in with Apple. Please try again.");
                     styles.authButton,
                     {
                       borderWidth: 1,
-                      borderColor: "#e5e7eb", // gray-200
+                      borderColor: "#e5e7eb",
                     },
                     (isLoading || !request || isAuthenticated) && { opacity: 0.6 },
                   ]}
@@ -742,13 +727,12 @@ setErrorText("Failed to sign in with Apple. Please try again.");
                       styles.authButton,
                       {
                         borderWidth: 1,
-                        borderColor: "#e5e7eb", // gray-200
+                        borderColor: "#e5e7eb",
                       },
                       isLoading && { opacity: 0.6 },
                     ]}
                   >
                     <View className="w-10 h-10 bg-gray-100 rounded-lg items-center justify-center ml-1">
-                      {/* Apple icon with black fill */}
                       <Svg width={18} height={18} viewBox="0 0 24 24">
                         <Path
                           fill="#000000"
@@ -764,7 +748,7 @@ setErrorText("Failed to sign in with Apple. Please try again.");
               </View>
 
               {/* Terms */}
-              <Text className="text-xs text-gray-500 text-center px-8 leading-relaxed mb-6">
+              <Text className="text-xs text-gray-500 text-center px-8 leading-relaxed">
                 By continuing, you agree to our{" "}
                 <Text className="font-semibold" style={{ color: "#26a6a2" }}>
                   Terms of Service
@@ -781,8 +765,8 @@ setErrorText("Failed to sign in with Apple. Please try again.");
 
       {/* Loading Overlay - Using Video-based AuthLoadingView */}
       {(isLoading || isAuthenticated) && (
-        <AuthLoadingView 
-          message={loadingMessage || (isAuthenticated ? "Completing sign in..." : "Processing...")} 
+        <AuthLoadingView
+          message={loadingMessage || (isAuthenticated ? "Completing sign in..." : "Processing...")}
         />
       )}
 
@@ -867,7 +851,7 @@ setErrorText("Failed to sign in with Apple. Please try again.");
                   }}
                   maxLength={6}
                   keyboardType="number-pad"
-                  className="absolute w-full h-full z-10" 
+                  className="absolute w-full h-full z-10"
                   style={{ opacity: 0.01 }}
                   editable={!verifying && !verifySuccess}
                   caretHidden={true}
