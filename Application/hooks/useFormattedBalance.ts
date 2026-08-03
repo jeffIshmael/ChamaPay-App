@@ -8,22 +8,25 @@ import { useCurrencyStore } from '../store/useCurrencyStore';
 export function useFormattedBalance() {
   const { currency, platformRate } = useCurrencyStore();
 
-  const formatBalance = (usdcBalance: number | string | undefined | null) => {
+  const formatBalance = (usdcBalance: number | string | undefined | null, noDecimals?: boolean) => {
     if (usdcBalance === undefined || usdcBalance === null) {
-      return currency === 'KES' ? 'Ksh 0.00' : '0.00 USDC';
+      return currency === 'KES' ? (noDecimals ? 'Ksh 0' : 'Ksh 0.00') : (noDecimals ? '0 USDC' : '0.00 USDC');
     }
 
     const numericBalance = typeof usdcBalance === 'string' ? parseFloat(usdcBalance) : usdcBalance;
     
     if (isNaN(numericBalance)) {
-      return currency === 'KES' ? 'Ksh 0.00' : '0.00 USDC';
+      return currency === 'KES' ? (noDecimals ? 'Ksh 0' : 'Ksh 0.00') : (noDecimals ? '0 USDC' : '0.00 USDC');
     }
+
+    const minFrac = noDecimals ? 0 : 2;
+    const maxFrac = noDecimals ? 0 : 2;
 
     if (currency === 'KES') {
       const kesValue = numericBalance * platformRate;
-      return ` ${kesValue.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES`;
+      return ` ${kesValue.toLocaleString('en-KE', { minimumFractionDigits: minFrac, maximumFractionDigits: maxFrac })} KES`;
     } else {
-      return `${numericBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`;
+      return `${numericBalance.toLocaleString('en-US', { minimumFractionDigits: minFrac, maximumFractionDigits: maxFrac })} USDC`;
     }
   };
 
@@ -38,7 +41,7 @@ export function useFormattedBalance() {
   /**
    * Returns formatted parts for complex UI layouts
    */
-  const formatBalanceParts = (usdcBalance: number | string | undefined | null) => {
+  const formatBalanceParts = (usdcBalance: number | string | undefined | null, noDecimals?: boolean) => {
     if (usdcBalance === undefined || usdcBalance === null) {
       return { whole: "0", decimal: "00", symbol: currency === 'KES' ? 'KES' : 'USDC' };
     }
@@ -50,7 +53,9 @@ export function useFormattedBalance() {
     }
 
     const value = currency === 'KES' ? numericBalance * platformRate : numericBalance;
-    const formattedString = value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const minFrac = noDecimals ? 0 : 2;
+    const maxFrac = noDecimals ? 0 : 2;
+    const formattedString = value.toLocaleString('en-US', { minimumFractionDigits: minFrac, maximumFractionDigits: maxFrac });
     const [whole, decimal] = formattedString.split('.');
     
     return { whole, decimal: decimal || "00", symbol: currency === 'KES' ? 'KES' : 'USDC' };

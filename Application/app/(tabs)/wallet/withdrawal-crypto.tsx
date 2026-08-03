@@ -614,7 +614,7 @@ setProcessingStep("failed");
           >
             {/* Modal Header */}
             <View className="bg-downy-50/80 py-7 px-6 border-b border-downy-100/50 items-center">
-              <View className="w-18 h-18 bg-white rounded-3xl items-center justify-center shadow-md mb-3 border border-downy-100/30">
+              <View className="w-18 h-18 items-center justify-center">
                 <Image
                   source={require("@/assets/images/mpesa.png")}
                   className="w-14 h-14"
@@ -697,10 +697,28 @@ setProcessingStep("failed");
 
                         <View className="flex-row items-center justify-between mb-2">
                           <Text className="text-sm text-gray-600 font-medium">
+                            Amount in KES
+                          </Text>
+                          <Text className="text-sm font-black text-gray-900">
+                            KES {formatCurrency(finalAmountKES.toFixed(2))}
+                          </Text>
+                        </View>
+
+                        <View className="flex-row items-center justify-between mb-2">
+                          <Text className="text-sm text-gray-600 font-medium">
+                            Processing Fee
+                          </Text>
+                          <Text className="text-sm font-black text-amber-600">
+                            - KES {withdrawalToMpesaFee(finalAmountKES).toFixed(2)}
+                          </Text>
+                        </View>
+
+                        <View className="flex-row items-center justify-between mb-2 pt-2 border-t border-downy-100/30">
+                          <Text className="text-sm text-gray-900 font-bold">
                             You Receive
                           </Text>
                           <Text className="text-xl font-black text-downy-800">
-                            KES {formatCurrency(finalAmountKES.toFixed(2))}
+                            KES {formatCurrency(Number(finalAmountKES.toFixed(2)) - withdrawalToMpesaFee(finalAmountKES))}
                           </Text>
                         </View>
 

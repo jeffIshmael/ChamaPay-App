@@ -509,6 +509,21 @@ export const depositToChama = async (req: Request, res: Response) => {
       },
     });
 
+    if (memberForId) {
+      const targetUser = await prisma.user.findUnique({ where: { id: memberForId } });
+      if (targetUser && targetUser.emailNotify) {
+        const callerUser = await prisma.user.findUnique({ where: { id: userId } });
+        const amountKES = targetUser.location === "KE" ? (parseFloat(amount) * parseFloat(process.env.CHAMAPAY_RATE || "132")).toFixed(2) : null;
+        await emailService.sendPaidForSomeoneEmail(
+          targetUser.email,
+          callerUser?.userName || "Someone",
+          amount.toString(),
+          amountKES,
+          chama.name
+        );
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: "Deposit successful",
@@ -648,11 +663,13 @@ export const addMemberToChama = async (req: Request, res: Response) => {
     if (memberBeingAdded.email) {
       const user = await prisma.user.findUnique({ where: { id: userId } });
       const adminName = user?.userName || "the Admin";
+      const amountKES = memberBeingAdded.location === "KE" ? (parseFloat(chama.amount) * parseFloat(process.env.CHAMAPAY_RATE || "132")).toFixed(2) : null;
       await emailService.sendMemberAddedToNewMemberEmail(
         memberBeingAdded.email,
         chama.name,
         adminName,
         chama.amount,
+        amountKES,
         chama.cycleTime,
         chama.payDate
       );

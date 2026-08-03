@@ -103,5 +103,4 @@ describe("FX Reserve Logic", () => {
       expect(mockResponse.status).toHaveBeenCalledWith(200);
     });
   });
-  });
 });

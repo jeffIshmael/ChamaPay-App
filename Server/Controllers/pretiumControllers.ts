@@ -317,7 +317,7 @@ export async function pretiumCallback(req: Request, res: Response) {
       if (memberForId) {
         const targetUser = await prisma.user.findUnique({
           where: { id: memberForId },
-          select: { smartAddress: true, userName: true }
+          select: { smartAddress: true, userName: true, email: true, emailNotify: true, location: true }
         });
         if (targetUser && targetUser.smartAddress) {
           targetUserId = memberForId;
@@ -337,9 +337,13 @@ export async function pretiumCallback(req: Request, res: Response) {
             // Note: pimlicoDepositForUser expects the actual blockchain ID of the chama if it's a chama deposit
             // But since chamaId is what we have, we might need the actual chama's blockchainId.
             let actualBlockchainId = bigintBlockchainId;
+            let chamaName = "Chama";
             if (transaction.chamaId) {
               const chama = await prisma.chama.findUnique({ where: { id: transaction.chamaId } });
-              if (chama) actualBlockchainId = Number(chama.blockchainId);
+              if (chama) {
+                actualBlockchainId = Number(chama.blockchainId);
+                chamaName = chama.name;
+              }
             }
             txResult = await pimlicoDepositForUser(actualBlockchainId, targetAddress as `0x${string}`, bigintAmount);
           } else {
@@ -367,6 +371,31 @@ export async function pretiumCallback(req: Request, res: Response) {
             });
 
             console.log(`✅ Onchain transfer successful: ${txResult}`);
+
+            if (memberForId) {
+              const targetUser = await prisma.user.findUnique({
+                where: { id: memberForId },
+                select: { email: true, emailNotify: true, location: true }
+              });
+              if (targetUser && targetUser.emailNotify) {
+                const amountUSDC = transaction.cusdAmount ? transaction.cusdAmount.toString() : transaction.amount.toString();
+                const amountKES = targetUser.location === "KE" ? transaction.amount.toString() : null;
+                // Wait, if transaction.type === "payment" and we are inside memberForId, chamaName should be defined from above.
+                let chamaName = "Chama";
+                if (transaction.chamaId) {
+                  const chama = await prisma.chama.findUnique({ where: { id: transaction.chamaId } });
+                  if (chama) chamaName = chama.name;
+                }
+                
+                await emailService.sendPaidForSomeoneEmail(
+                  targetUser.email,
+                  transaction.user.userName || "Someone",
+                  amountUSDC,
+                  amountKES,
+                  chamaName
+                );
+              }
+            }
           }
         } catch (err) {
           console.error("Onchain transfer failed:", err);
@@ -413,10 +442,12 @@ export async function pretiumCallback(req: Request, res: Response) {
           dateStyle: "medium",
           timeStyle: "short",
         });
-        const displayAmount = transaction.cusdAmount ? transaction.cusdAmount.toString() : transaction.amount.toString();
+        const displayAmountUSDC = transaction.cusdAmount ? transaction.cusdAmount.toString() : transaction.amount.toString();
+        const displayAmountKES = transaction.user.location === "KE" ? transaction.amount.toString() : null;
         await emailService.sendMpesaDepositEmail(
           transaction.user.email,
-          displayAmount,
+          displayAmountUSDC,
+          displayAmountKES,
           body.receipt_number,
           transaction.account_number || "M-Pesa",
           timeStr
@@ -519,10 +550,12 @@ export async function pretiumOfframpCallback(
           dateStyle: "medium",
           timeStyle: "short",
         });
-        const displayAmount = transaction.cusdAmount ? transaction.cusdAmount.toString() : transaction.amount.toString();
+        const displayAmountUSDC = transaction.cusdAmount ? transaction.cusdAmount.toString() : transaction.amount.toString();
+        const displayAmountKES = transaction.user.location === "KE" ? transaction.amount.toString() : null;
         await emailService.sendMpesaWithdrawEmail(
           transaction.user.email,
-          displayAmount,
+          displayAmountUSDC,
+          displayAmountKES,
           body.receipt_number,
           transaction.account_number || "M-Pesa",
           timeStr
