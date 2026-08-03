@@ -26,14 +26,14 @@ export const depositToMoonwell = async (req: Request, res: Response): Promise<an
 
     // Get the cdpWalletId of user
     const user = await prisma.user.findUnique({ where: { id: userId }});
-    if (!user || !user.hashedPrivkey) {
+    if (!user || !user.cdpWalletId) {
       return res.status(401).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
     console.log(`Executing Moonwell deposit for user ${userId}, amount ${amount}`);
 
     // Execute the Moonwell deposit on-chain
-    const depositTxHash = await bcMoonwellDeposit(user.hashedPrivkey as `0x${string}`, amount.toString());
+    const depositTxHash = await bcMoonwellDeposit(user.cdpWalletId, amount.toString());
     
     if (!depositTxHash) {
       return res.status(401).json({ success: false, error: "Failed to deposit to Moonwell." });

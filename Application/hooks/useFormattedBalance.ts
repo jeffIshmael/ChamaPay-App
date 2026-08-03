@@ -21,7 +21,7 @@ export function useFormattedBalance() {
 
     if (currency === 'KES') {
       const kesValue = numericBalance * platformRate;
-      return `Ksh ${kesValue.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      return ` ${kesValue.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES`;
     } else {
       return `${numericBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`;
     }
