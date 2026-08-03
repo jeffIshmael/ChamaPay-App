@@ -177,6 +177,7 @@ model PretiumTransaction {
   isRealesed       Boolean
   message          String?
   chamaId          Int?
+  memberForId      Int?
   cusdAmount       Decimal? @db.Decimal(18, 6)
   exchangeRate     Decimal? @db.Decimal(10, 2)
   walletAddress    String?

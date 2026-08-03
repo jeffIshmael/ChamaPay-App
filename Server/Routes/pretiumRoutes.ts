@@ -8,7 +8,6 @@ import {
   pretiumVerifyNumber,
   pretiumCallback,
   pretiumCheckTransaction,
-  pretiumCheckTriggerDepositFor,
   pretiumCheckNgnBankDetails,
   pretiumCheckMobileNoDetails,
   pretiumMobileTransfer,
@@ -34,8 +33,6 @@ router.post("/mobileOfframp", authenticate, pretiumMobileTransfer);
 // check trnsaction status (DB-backed)
 router.post("/transactionStatus",authenticate, pretiumCheckTransaction);
 router.get("/status/:code", authenticate, getPretiumDbStatus);
-// trigger deposit for
-router.post("/agentDeposit",authenticate, pretiumCheckTriggerDepositFor);
 // verify ngn bank details
 router.post("/validate/ngnBank",authenticate, pretiumCheckNgnBankDetails);
 // verify mobile network details

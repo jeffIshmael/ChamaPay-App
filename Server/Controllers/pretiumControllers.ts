@@ -64,6 +64,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
     exchangeRate,
     isDeposit,
     chamaId,
+    memberForId,
   } = req.body;
   const userId = req.user?.userId;
   try {
@@ -130,6 +131,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
         exchangeRate: exchangeRate,
         walletAddress: user.smartAddress,
         chamaId: chamaId ? Number(chamaId) : null,
+        memberForId: memberForId ? Number(memberForId) : null,
       },
     });
 
@@ -287,15 +289,87 @@ export async function pretiumCallback(req: Request, res: Response) {
     }
 
     if (body.is_released) {
+      // Avoid duplicate processing if already released
+      if (transaction.isRealesed) {
+        console.log(`⚠️ Transaction already released: ${body.transaction_code}`);
+        return;
+      }
+
+      // Update tx to indicate Pretium has released funds
       await prisma.pretiumTransaction.update({
         where: { transactionCode: body.transaction_code },
         data: {
           blockchainTxHash: body.transaction_hash,
-          isRealesed: body.is_released,
+          isRealesed: true,
         },
       });
 
-      console.log(`❌ ${transaction.type} ${body.status}:`, body.message);
+      console.log(`Pretium released USDC for ${transaction.type}. Initiating onchain transfer...`);
+
+      // Determine target address
+      let targetUserId = transaction.userId;
+      let targetAddress = transaction.user.smartAddress;
+      let description = transaction.type === "payment" ? "deposited" : "Wallet deposit";
+
+      if (transaction.memberForId) {
+        const targetUser = await prisma.user.findUnique({
+          where: { id: transaction.memberForId },
+          select: { smartAddress: true, userName: true }
+        });
+        if (targetUser && targetUser.smartAddress) {
+          targetUserId = transaction.memberForId;
+          targetAddress = targetUser.smartAddress;
+          description = `Deposited by @${transaction.user.userName || "Unknown"} on behalf of @${targetUser.userName}`;
+        }
+      }
+
+      const usdcAmountToCredit = transaction.cusdAmount;
+      if (usdcAmountToCredit && targetAddress) {
+        const bigintAmount = parseUnits(usdcAmountToCredit.toString(), 6);
+        let txResult;
+
+        try {
+          if (transaction.type === "payment") {
+            const bigintBlockchainId = transaction.chamaId ? Number(transaction.chamaId) : 0;
+            // Note: pimlicoDepositForUser expects the actual blockchain ID of the chama if it's a chama deposit
+            // But since chamaId is what we have, we might need the actual chama's blockchainId.
+            let actualBlockchainId = bigintBlockchainId;
+            if (transaction.chamaId) {
+              const chama = await prisma.chama.findUnique({ where: { id: transaction.chamaId } });
+              if (chama) actualBlockchainId = Number(chama.blockchainId);
+            }
+            txResult = await pimlicoDepositForUser(actualBlockchainId, targetAddress as `0x${string}`, bigintAmount);
+          } else {
+            txResult = await pimlicoTransferToUser(targetAddress as `0x${string}`, bigintAmount);
+          }
+
+          if (txResult) {
+            // Update the payment
+            await prisma.payment.create({
+              data: {
+                amount: transaction.amount.toString(),
+                description: description,
+                chamaId: transaction.chamaId || null,
+                txHash: txResult,
+                userId: targetUserId,
+              },
+            });
+
+            // Mark the PretiumTransaction as COMPLETELY done now!
+            await prisma.pretiumTransaction.update({
+              where: { transactionCode: body.transaction_code },
+              data: {
+                status: "COMPLETE",
+              },
+            });
+
+            console.log(`✅ Onchain transfer successful: ${txResult}`);
+          }
+        } catch (err) {
+          console.error("Onchain transfer failed:", err);
+          // If it fails, we keep it as processing/pending so we can retry or alert
+        }
+      }
       return;
     }
 
@@ -313,36 +387,38 @@ export async function pretiumCallback(req: Request, res: Response) {
       return;
     }
 
-    // Payment successful - update the tx in  the db
-    await prisma.pretiumTransaction.update({
-      where: { transactionCode: body.transaction_code },
-      data: {
-        status: body.status,
-        receiptNumber: body.receipt_number,
-        message: body.message,
-      },
-    });
-
-    console.log(
-      `✅ ${transaction.type} successful - Receipt: ${body.receipt_number}`
-    );
-
-    // Send M-Pesa Deposit Email
-    if (transaction.user.emailNotify && transaction.type === "payment") {
-      const timeStr = new Date().toLocaleString("en-US", {
-        timeZone: "Africa/Nairobi",
-        dateStyle: "medium",
-        timeStyle: "short",
+    // Payment successful from M-Pesa but not yet released onchain
+    if (body.status === "COMPLETE") {
+      await prisma.pretiumTransaction.update({
+        where: { transactionCode: body.transaction_code },
+        data: {
+          // DO NOT UPDATE STATUS TO COMPLETE YET! Wait for is_released.
+          status: "processing", 
+          receiptNumber: body.receipt_number,
+          message: body.message,
+        },
       });
-      // Use cusdAmount if available, otherwise amount
-      const displayAmount = transaction.cusdAmount ? transaction.cusdAmount.toString() : transaction.amount.toString();
-      await emailService.sendMpesaDepositEmail(
-        transaction.user.email,
-        displayAmount,
-        body.receipt_number,
-        transaction.account_number || "M-Pesa",
-        timeStr
+
+      console.log(
+        `⏳ ${transaction.type} M-Pesa successful - Receipt: ${body.receipt_number}. Waiting for USDC release...`
       );
+
+      // Send M-Pesa Deposit Email (We can send it now or wait for final. Let's send it now since M-Pesa is deducted)
+      if (transaction.user.emailNotify && transaction.type === "payment") {
+        const timeStr = new Date().toLocaleString("en-US", {
+          timeZone: "Africa/Nairobi",
+          dateStyle: "medium",
+          timeStyle: "short",
+        });
+        const displayAmount = transaction.cusdAmount ? transaction.cusdAmount.toString() : transaction.amount.toString();
+        await emailService.sendMpesaDepositEmail(
+          transaction.user.email,
+          displayAmount,
+          body.receipt_number,
+          transaction.account_number || "M-Pesa",
+          timeStr
+        );
+      }
     }
   } catch (error) {
     console.error("Error processing callback:", error);
@@ -544,128 +620,7 @@ export async function pretiumCheckTransaction(req: Request, res: Response) {
   }
 }
 
-// confirm state of onramp tx then trigger deposit for user
-export async function pretiumCheckTriggerDepositFor(
-  req: Request,
-  res: Response
-) {
-  const { transactionCode, chamaBlockchainId, chamaId, amount, memberForId } = req.body;
-  const userId = req.user?.userId;
-  try {
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: "Authentication required",
-      });
-    }
 
-    // Get user's wallet address
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { smartAddress: true, userName: true },
-    });
-    console.log("the user is", user);
-    // get pretium the transaction
-    const pretiumTransaction = await prisma.pretiumTransaction.findUnique({
-      where: {
-        transactionCode: transactionCode,
-      }
-    })
-
-    if (!pretiumTransaction) {
-      return res.status(400).json({
-        success: false,
-        details: `Cannot get the status of ${transactionCode}`,
-      });
-    }
-
-    const statusResult = await checkPretiumTxStatus(transactionCode);
-    if (!statusResult) {
-      return res.status(400).json({
-        success: false,
-        details: `Cannot get the status of ${transactionCode}`,
-      });
-    }
-    console.log("The transaction status", statusResult);
-    if (!statusResult.is_released) {
-      return res.status(400).json({
-        success: false,
-        details: `${transactionCode} transaction has not yet processed.`,
-      });
-    }
-
-    let targetUserId = userId;
-    let description = pretiumTransaction.type === "payment" ? "deposited" : "Wallet deposit";
-    let targetAddress = user?.smartAddress;
-
-    if (memberForId) {
-      const targetUser = await prisma.user.findUnique({
-        where: { id: memberForId },
-        select: { smartAddress: true, userName: true }
-      });
-      if (!targetUser || !targetUser.smartAddress) {
-        return res.status(404).json({
-          success: false,
-          details: "Target user or their smart address not found",
-        });
-      }
-      targetUserId = memberForId;
-      targetAddress = targetUser.smartAddress;
-      description = `Deposited by @${user?.userName || "Unknown"} on behalf of @${targetUser.userName}`;
-    }
-
-    const usdcAmountToCredit = pretiumTransaction.cusdAmount;
-    if (!usdcAmountToCredit) {
-      return res.status(400).json({ success: false, details: "USDC amount not found" });
-    }
-    const bigintAmount = parseUnits(usdcAmountToCredit.toString(), 6);
-    console.log("the user address is", targetAddress);
-    
-    let txResult;
-    if (pretiumTransaction.type === "payment") {
-      const bigintBlockchainId = Number(chamaBlockchainId);
-      txResult = await pimlicoDepositForUser(
-        bigintBlockchainId,
-        targetAddress as `0x${string}`,
-        bigintAmount
-      );
-    } else {
-      // type === "deposit"
-      txResult = await pimlicoTransferToUser(
-        targetAddress as `0x${string}`,
-        bigintAmount
-      );
-    }
-
-    if (!txResult) {
-      return res.status(400).json({
-        success: false,
-        details: `Error in the blockchain transaction.`,
-      });
-    }
-
-    // update the payment
-    await prisma.payment.create({
-      data: {
-        amount: pretiumTransaction.amount.toString(),
-        description: description,
-        chamaId: chamaId || null,
-        txHash: txResult,
-        userId: targetUserId,
-      },
-    });
-    return res.status(200).json({
-      success: true,
-      details: txResult,
-    });
-  } catch (error) {
-    console.log("error in checking transaction status", error);
-    return res.status(500).json({
-      success: false,
-      error: error,
-    });
-  }
-}
 
 // check ngn bank details
 export async function pretiumCheckNgnBankDetails(req: Request, res: Response) {
