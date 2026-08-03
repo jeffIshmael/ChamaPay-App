@@ -386,7 +386,7 @@ Alert.alert(
                       <HandCoins color="#3b82f6" size={20} />
                       <Text className=" font-semibold text-blue-700 ml-1.5" numberOfLines={1}>
                         <Text className="text-lg font-semibold text-blue-700 ml-1.5" numberOfLines={1}>
-                          {formatBalance(chama.contribution)}
+                          {formatBalance(chama.contribution, true)}
                           / {formatDays(Number(chama.duration))}
                         </Text>
                       </Text>

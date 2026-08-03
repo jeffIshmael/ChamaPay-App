@@ -146,12 +146,13 @@ class EmailService {
     }
   }
 
-  async sendPayoutEmail(email: string, amount: string, chamaName: string, round: number) {
+  async sendPayoutEmail(email: string, amountUSDC: string, amountKES: string | null, chamaName: string, round: number) {
     try {
+      const amountDisplay = amountKES ? `${amountUSDC} USDC (approx. ${amountKES} KES)` : `${amountUSDC} USDC`;
       const body = `
         ${heading("Payout received")}
         ${paragraph(
-          `You've received a payout of <strong style="color:${INK};">${amount} USDC</strong> for round ${round} of <strong style="color:${INK};">${chamaName}</strong>.`
+          `You've received a payout of <strong style="color:${INK};">${amountDisplay}</strong> for round ${round} of <strong style="color:${INK};">${chamaName}</strong>.`
         )}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
@@ -165,7 +166,7 @@ class EmailService {
             </tr>
             <tr>
               <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Amount</td>
-              <td style="font-size:13px; color:${SUCCESS}; text-align:right; font-weight:700; padding-top:8px;">${amount} USDC</td>
+              <td style="font-size:13px; color:${SUCCESS}; text-align:right; font-weight:700; padding-top:8px;">${amountDisplay}</td>
             </tr>
           </table>
         </div>
@@ -176,7 +177,7 @@ class EmailService {
         from: "Chamapay <updates@chamapay.xyz>",
         to: email,
         subject: `Payout received — ${chamaName}`,
-        html: wrapEmail(body, { preheader: `You received ${amount} USDC from ${chamaName}` }),
+        html: wrapEmail(body, { preheader: `You received ${amountUSDC} USDC from ${chamaName}` }),
       });
       if (error) console.error("Resend error:", error);
       return { success: !error };
@@ -248,12 +249,13 @@ class EmailService {
     }
   }
 
-  async sendMpesaDepositEmail(email: string, amount: string, receiptNumber: string, phoneNumber: string, time: string) {
+  async sendMpesaDepositEmail(email: string, amountUSDC: string, amountKES: string | null, receiptNumber: string, phoneNumber: string, time: string) {
     try {
+      const amountDisplay = amountKES ? `${amountUSDC} USDC (approx. ${amountKES} KES)` : `${amountUSDC} USDC`;
       const trimmedPhone = phoneNumber.length > 4 ? `...${phoneNumber.slice(-4)}` : phoneNumber;
       const body = `
         ${heading("M-Pesa Deposit Confirmed")}
-        ${paragraph(`You have successfully deposited <strong style="color:${SUCCESS};">${amount} USDC</strong> via M-Pesa.`)}
+        ${paragraph(`You have successfully deposited <strong style="color:${SUCCESS};">${amountDisplay}</strong> via M-Pesa.`)}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
@@ -276,7 +278,7 @@ class EmailService {
         from: "Chamapay <deposits@chamapay.xyz>",
         to: email,
         subject: "M-Pesa deposit received",
-        html: wrapEmail(body, { preheader: `${amount} USDC deposited to your wallet via M-Pesa` }),
+        html: wrapEmail(body, { preheader: `${amountUSDC} USDC deposited to your wallet via M-Pesa` }),
       });
       if (error) console.error("Resend error:", error);
       return { success: !error };
@@ -286,12 +288,13 @@ class EmailService {
     }
   }
 
-  async sendMpesaWithdrawEmail(email: string, amount: string, receiptNumber: string, phoneNumber: string, time: string) {
+  async sendMpesaWithdrawEmail(email: string, amountUSDC: string, amountKES: string | null, receiptNumber: string, phoneNumber: string, time: string) {
     try {
+      const amountDisplay = amountKES ? `${amountUSDC} USDC (received ${amountKES} KES)` : `${amountUSDC} USDC`;
       const trimmedPhone = phoneNumber.length > 4 ? `...${phoneNumber.slice(-4)}` : phoneNumber;
       const body = `
         ${heading("M-Pesa Withdrawal Confirmed")}
-        ${paragraph(`You have successfully withdrawn <strong style="color:${SUCCESS};">${amount} USDC</strong> to your M-Pesa.`)}
+        ${paragraph(`You have successfully withdrawn <strong style="color:${SUCCESS};">${amountDisplay}</strong> to your M-Pesa.`)}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
@@ -314,7 +317,7 @@ class EmailService {
         from: "Chamapay <withdrawals@chamapay.xyz>",
         to: email,
         subject: "M-Pesa withdrawal processed",
-        html: wrapEmail(body, { preheader: `${amount} USDC withdrawn to your M-Pesa` }),
+        html: wrapEmail(body, { preheader: `${amountUSDC} USDC withdrawn to your M-Pesa` }),
       });
       if (error) console.error("Resend error:", error);
       return { success: !error };
@@ -324,11 +327,12 @@ class EmailService {
     }
   }
 
-  async sendUSDCReceivedEmail(email: string, amount: string, senderDisplayName: string, time: string) {
+  async sendUSDCReceivedEmail(email: string, amountUSDC: string, amountKES: string | null, senderDisplayName: string, time: string) {
     try {
+      const amountDisplay = amountKES ? `${amountUSDC} USDC (approx. ${amountKES} KES)` : `${amountUSDC} USDC`;
       const body = `
         ${heading("USDC Received")}
-        ${paragraph(`You have received <strong style="color:${SUCCESS};">${amount} USDC</strong> from ${senderDisplayName}.`)}
+        ${paragraph(`You have received <strong style="color:${SUCCESS};">${amountDisplay}</strong> from ${senderDisplayName}.`)}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
@@ -347,7 +351,7 @@ class EmailService {
         from: "Chamapay <transfers@chamapay.xyz>",
         to: email,
         subject: "USDC received",
-        html: wrapEmail(body, { preheader: `${amount} USDC received from ${senderDisplayName}` }),
+        html: wrapEmail(body, { preheader: `${amountUSDC} USDC received from ${senderDisplayName}` }),
       });
       if (error) console.error("Resend error:", error);
       return { success: !error };
@@ -397,10 +401,11 @@ class EmailService {
     }
   }
 
-  async sendMemberAddedToNewMemberEmail(email: string, chamaName: string, adminName: string, contributionAmount: string, cycleDays: number, nextPayoutDate: Date) {
+  async sendMemberAddedToNewMemberEmail(email: string, chamaName: string, adminName: string, contributionAmountUSDC: string, contributionAmountKES: string | null, cycleDays: number, nextPayoutDate: Date) {
     try {
       const formatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
       const formattedDate = formatter.format(nextPayoutDate);
+      const amountDisplay = contributionAmountKES ? `${contributionAmountUSDC} USDC (approx. ${contributionAmountKES} KES)` : `${contributionAmountUSDC} USDC`;
 
       const body = `
         ${heading("You've been added to a Chama 🎉")}
@@ -415,7 +420,7 @@ class EmailService {
             </tr>
             <tr>
               <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Contribution</td>
-              <td style="font-size:13px; color:${SUCCESS}; text-align:right; font-weight:700; padding-top:8px;">${contributionAmount} USDC every ${cycleDays} days</td>
+              <td style="font-size:13px; color:${SUCCESS}; text-align:right; font-weight:700; padding-top:8px;">${amountDisplay} every ${cycleDays} days</td>
             </tr>
             <tr>
               <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Next Payout Date</td>
@@ -436,6 +441,29 @@ class EmailService {
       return { success: !error };
     } catch (error) {
       console.error("Error sending new member welcome email:", error);
+      return { success: false };
+    }
+  }
+  async sendPaidForSomeoneEmail(email: string, payerName: string, amountUSDC: string, amountKES: string | null, chamaName: string) {
+    try {
+      const amountDisplay = amountKES ? `${amountUSDC} USDC (approx. ${amountKES} KES)` : `${amountUSDC} USDC`;
+      const body = `
+        ${heading("Payment Received on your behalf")}
+        ${paragraph(
+          `<strong style="color:${INK};">${payerName}</strong> has paid <strong style="color:${SUCCESS};">${amountDisplay}</strong> for your contribution to <strong style="color:${INK};">${chamaName}</strong>.`
+        )}
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <updates@chamapay.xyz>",
+        to: email,
+        subject: `Payment received for ${chamaName}`,
+        html: wrapEmail(body, { preheader: `${payerName} paid your contribution for ${chamaName}` }),
+      });
+      if (error) console.error("Resend error:", error);
+      return { success: !error };
+    } catch (error) {
+      console.error("Error sending paid for someone email:", error);
       return { success: false };
     }
   }

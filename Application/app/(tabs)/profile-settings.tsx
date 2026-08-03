@@ -354,46 +354,81 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
           )}
 
           {/* Currency Display */}
-          <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
-            <View className="flex-row items-center gap-3 mb-6">
-              <View>
-                <Text className="text-lg font-bold text-gray-900">
-                  Currency Display
-                </Text>
-                <Text className="text-gray-600 text-sm">
-                  Choose your preferred currency
-                </Text>
+          {user?.location === "KE" && (
+            <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
+              <View className="flex-row items-center gap-3 mb-6">
+                <View>
+                  <Text className="text-lg font-bold text-gray-900">
+                    Currency Preference
+                  </Text>
+                  <Text className="text-gray-600 text-sm">
+                    Choose your preferred primary currency
+                  </Text>
+                </View>
+              </View>
+              <View className="gap-4">
+                <TouchableOpacity
+                  onPress={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
+                  className="flex-row items-center justify-between p-4 bg-gray-50 rounded-xl"
+                >
+                  <View className="flex-1 pr-4">
+                    <View className="flex-row items-center mb-1">
+                      {currency === "KES" ? (
+                        <Image source={require("../../assets/images/kenya-flag.png")} style={{ width: 20, height: 20, marginRight: 8, borderRadius: 10 }} />
+                      ) : (
+                        <Image source={require("../../assets/images/usdclogo.png")} style={{ width: 20, height: 20, marginRight: 8 }} />
+                      )}
+                      <Text className="text-gray-900 font-semibold text-base">
+                        {currency === "KES" ? "Kenyan Shilling (KES)" : "USD Coin (USDC)"}
+                      </Text>
+                    </View>
+                    <Text className="text-sm text-gray-600 mt-1">
+                      Current selection: {currency}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center justify-center">
+                    <ChevronDown size={20} color="#6b7280" style={{ transform: [{ rotate: showCurrencyDropdown ? '180deg' : '0deg' }] }} />
+                  </View>
+                </TouchableOpacity>
+
+                {showCurrencyDropdown && (
+                  <View className="bg-gray-50 rounded-xl overflow-hidden mt-1 border border-gray-100 shadow-sm">
+                    <TouchableOpacity
+                      onPress={() => {
+                        setCurrency("KES");
+                        setShowCurrencyDropdown(false);
+                      }}
+                      className={`flex-row items-center justify-between p-4 border-b border-gray-100 ${currency === "KES" ? "bg-downy-50" : ""}`}
+                    >
+                      <View className="flex-row items-center">
+                        <Image source={require("../../assets/images/kenya-flag.png")} style={{ width: 20, height: 20, marginRight: 8, borderRadius: 10 }} />
+                        <Text className={`font-semibold text-base ${currency === "KES" ? "text-downy-700" : "text-gray-700"}`}>
+                          Kenyan Shilling (KES)
+                        </Text>
+                      </View>
+                      {currency === "KES" && <Check size={20} color="#1c8584" />}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        setCurrency("USDC");
+                        setShowCurrencyDropdown(false);
+                      }}
+                      className={`flex-row items-center justify-between p-4 ${currency === "USDC" ? "bg-downy-50" : ""}`}
+                    >
+                      <View className="flex-row items-center">
+                        <Image source={require("../../assets/images/usdclogo.png")} style={{ width: 20, height: 20, marginRight: 8 }} />
+                        <Text className={`font-semibold text-base ${currency === "USDC" ? "text-downy-700" : "text-gray-700"}`}>
+                          USD Coin (USDC)
+                        </Text>
+                      </View>
+                      {currency === "USDC" && <Check size={20} color="#1c8584" />}
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             </View>
-            <View className="gap-4">
-              <TouchableOpacity
-                onPress={() => {
-                  setCurrency(currency === "USDC" ? "KES" : "USDC");
-                }}
-                className="flex-row items-center justify-between p-4 bg-gray-50 rounded-xl"
-              >
-                <View className="flex-1 pr-4">
-                  <Text className="text-gray-900 font-semibold text-base">
-                    Default Currency
-                  </Text>
-                  <Text className="text-sm text-gray-600 mt-1">
-                    Tap to toggle between USDC and KES
-                  </Text>
-                </View>
-                <View className="flex-row items-center bg-white px-3 py-2 rounded-lg border border-gray-200">
-                  {currency === "KES" ? (
-                    <Text className="text-base font-medium mr-2">🇰🇪 KES</Text>
-                  ) : (
-                    <View className="flex-row items-center mr-2">
-                      <Image source={require("../../assets/images/usdclogo.png")} style={{ width: 16, height: 16, marginRight: 4 }} />
-                      <Text className="text-base font-medium">USDC</Text>
-                    </View>
-                  )}
-                  <ChevronDown size={16} color="#6b7280" />
-                </View>
-              </TouchableOpacity>
-            </View>
-          </View>
+          )}
 
           {/* Notification Settings */}
           <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">

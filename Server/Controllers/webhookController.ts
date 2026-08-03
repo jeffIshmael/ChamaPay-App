@@ -182,7 +182,8 @@ export const handleAlchemyWebhook = async (
                             dateStyle: "medium",
                             timeStyle: "short",
                         });
-                        await emailService.sendUSDCReceivedEmail(user.email, amount, senderDisplayName, timeStr);
+                        const amountKES = user.location === "KE" ? (parseFloat(amount) * parseFloat(process.env.CHAMAPAY_RATE || "132")).toFixed(2) : null;
+                        await emailService.sendUSDCReceivedEmail(user.email, amount, amountKES, senderDisplayName, timeStr);
                     }
 
                 } catch (dbError) {

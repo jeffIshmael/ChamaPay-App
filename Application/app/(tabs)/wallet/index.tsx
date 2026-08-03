@@ -43,6 +43,7 @@ import {
   View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { withdrawalToMpesaFee } from "@/Utils/transactionFeeUtils";
 
 interface Transaction {
   id: number;
@@ -422,6 +423,34 @@ setTransactionError("Failed to load transactions");
                     </View>
                   )}
 
+                {/* Breakdown for M-PESA Withdrawals */}
+                {selectedTransaction.isPretiumTx && selectedTransaction.type === "withdrew" && selectedTransaction.fiatAmount ? (
+                  <View className="py-3 border-b border-gray-100">
+                    <Text className="text-gray-600 font-medium mb-3">Withdrawal Breakdown</Text>
+                    <View className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                      <View className="flex-row justify-between items-center mb-2">
+                        <Text className="text-sm text-gray-500">Total Amount</Text>
+                        <Text className="text-sm font-semibold text-gray-900">
+                          {selectedTransaction.fiatAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES
+                        </Text>
+                      </View>
+                      <View className="flex-row justify-between items-center mb-2">
+                        <Text className="text-sm text-gray-500">Processing Fee</Text>
+                        <Text className="text-sm font-semibold text-amber-600">
+                          - {withdrawalToMpesaFee(selectedTransaction.fiatAmount).toFixed(2)} KES
+                        </Text>
+                      </View>
+                      <View className="w-full h-px bg-gray-200 my-2" />
+                      <View className="flex-row justify-between items-center mt-2">
+                        <Text className="text-sm font-bold text-gray-900">Received Amount</Text>
+                        <Text className="text-sm font-bold text-gray-900">
+                          {(selectedTransaction.fiatAmount - withdrawalToMpesaFee(selectedTransaction.fiatAmount)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ) : null}
+
                 {/* Receipt Number (for Pretium) or Transaction Hash */}
                 {selectedTransaction.isPretiumTx &&
                   selectedTransaction.receiptNumber ? (
@@ -610,43 +639,44 @@ setTransactionError("Failed to load transactions");
                 </Text>
 
                 <View className="mb-8">
-                  {isRefreshingBalance && !refreshing ? (
-                    <View className="flex-row items-baseline">
-                      <View className="bg-white/20 h-14 w-40 rounded-lg animate-pulse" />
+                  <View className="flex-row items-center justify-between w-full pr-4">
+                    <View>
+                      {isRefreshingBalance && !refreshing ? (
+                        <View className="flex-row items-baseline">
+                          <View className="bg-white/20 h-14 w-40 rounded-lg animate-pulse" />
+                        </View>
+                      ) : (
+                        <View className="flex-row items-baseline">
+                          <Text className="text-5xl text-white font-bold tracking-tight">
+                            {balanceVisible && userBalance
+                              ? formatBalanceParts(userBalance).whole
+                              : "---"}
+                          </Text>
+                          <Text className="text-5xl text-white font-medium">
+                            .{balanceVisible && userBalance
+                              ? formatBalanceParts(userBalance).decimal
+                              : "00"}
+                          </Text>
+                          <Text className="text-lg text-white/90 ml-1 font-medium">
+                            {formatBalanceParts(userBalance).symbol}
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                  ) : (
-                    <View className="flex-row items-baseline justify-between w-full pr-4">
-                      <View className="flex-row items-baseline">
-                        <Text className="text-5xl text-white font-bold tracking-tight">
-                          {balanceVisible && userBalance
-                            ? formatBalanceParts(userBalance).whole
-                            : "---"}
-                        </Text>
-                        <Text className="text-5xl text-white font-medium">
-                          .{balanceVisible && userBalance
-                            ? formatBalanceParts(userBalance).decimal
-                            : "00"}
-                        </Text>
-                        <Text className="text-lg text-white/90 ml-1 font-medium">
-                          {formatBalanceParts(userBalance).symbol}
-                        </Text>
-                      </View>
-                      
-                      <View className="flex-row items-center gap-6">
-                        <TouchableOpacity onPress={fetchBalances} className="p-1">
-                          <RefreshCw size={20} color="rgba(255, 255, 255, 0.8)" />
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity onPress={() => setBalanceVisible(!balanceVisible)} className="p-1">
-                          {balanceVisible ? (
-                            <EyeOff size={20} color="rgba(255, 255, 255, 0.8)" />
-                          ) : (
-                            <Eye size={20} color="rgba(255, 255, 255, 0.8)" />
-                          )}
-                        </TouchableOpacity>
-                      </View>
+
+                    <View className="flex-row items-center gap-6">
+                      <TouchableOpacity onPress={fetchBalances} className="p-1">
+                        <RefreshCw size={20} color="rgba(255, 255, 255, 0.8)" />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setBalanceVisible(!balanceVisible)} className="p-1">
+                        {balanceVisible ? (
+                          <EyeOff size={20} color="rgba(255, 255, 255, 0.8)" />
+                        ) : (
+                          <Eye size={20} color="rgba(255, 255, 255, 0.8)" />
+                        )}
+                      </TouchableOpacity>
                     </View>
-                  )}
+                  </View>
 
                   {balanceVisible && currency === "KES" && (
                     isRefreshingBalance && !refreshing ? (

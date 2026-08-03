@@ -225,7 +225,7 @@ async function processDisbursePayout(
     sendExpoNotificationToAUser(user.id, userTitle, userMessage),
     notifyAllChamaMembers(chama.id, othersMessage, "payout_received", user.id),
     sendExpoNotificationToAllChamaMembers(othersTitle, othersMessage, chama.id, user.id),
-    emailService.sendPayoutEmail(user.email, displayableAmount, chama.name, chama.round),
+    emailService.sendPayoutEmail(user.email, displayableAmount, user.location === "KE" ? (parseFloat(displayableAmount) * parseFloat(process.env.CHAMAPAY_RATE || "132")).toFixed(2) : null, chama.name, chama.round),
   ]);
 }
 
