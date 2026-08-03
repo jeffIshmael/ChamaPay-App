@@ -4,6 +4,7 @@ import { Request, Response } from "express";
 import { USDCAddress, contractAddress } from "../Blockchain/Constants";
 import { sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
 import emailService from "../Lib/EmailService";
+import { privateKeyToAccount } from "viem/accounts";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -15,6 +16,9 @@ if(!pretium_address){
     console.error("SETTLEMENT_ADDRESS not configured");
     process.exit(1);
 }
+
+const agentPrivateKey = process.env.AGENT_PRIVATE_KEY;
+const agentAddress = agentPrivateKey ? privateKeyToAccount(agentPrivateKey as `0x${string}`).address : null;
 
 // Alchemy webhook signature validation
 const validateAlchemySignature = (
@@ -146,8 +150,10 @@ export const handleAlchemyWebhook = async (
             const title = "💰 USDC Received";
             const body = `You've received ${amount} USDC from ${senderDisplayName}`;
 
-            // ensure its not a chama payment
-            if (fromAddress !== contractAddress.toLowerCase() && fromAddress !== pretium_address.toLowerCase()) {
+            // ensure its not a chama payment or a deposit from our agent
+            if (fromAddress !== contractAddress.toLowerCase() && 
+                fromAddress !== pretium_address.toLowerCase() &&
+                (!agentAddress || fromAddress !== agentAddress.toLowerCase())) {
                 try {
                     // 5. Commit to Database FIRST
                     // If this fails (e.g. unique constraint), it will throw and the code below won't run
