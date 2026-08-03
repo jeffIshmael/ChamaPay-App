@@ -266,6 +266,7 @@ export async function handleRequest(
             chamaForEmails.name,
             adminName,
             chamaForEmails.amount,
+            (Number(chamaForEmails.amount) * 132).toFixed(0),
             chamaForEmails.cycleTime,
             chamaForEmails.payDate
           );
