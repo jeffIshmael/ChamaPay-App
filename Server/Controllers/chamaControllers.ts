@@ -7,7 +7,7 @@ import { bcAddMemberToPrivateChama, bcAdminSetPayoutOrder, bcCreateChama, bcDepo
 import { approveTx } from "../Blockchain/erc20Functions";
 import emailService from "../Lib/EmailService";
 import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
-import { generateUniqueSlug } from "../Lib/HelperFunctions";
+import { getPrivateKey, generateUniqueSlug } from "../Lib/HelperFunctions";
 import { addMemberToPayout, notifyAllChamaMembers } from "../Lib/prismaFunctions";
 
 import { getCached, setCache } from "../Lib/cache";
@@ -869,14 +869,15 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
       return res.status(403).json({ success: false, error: "Only the admin can update chama details" });
     }
 
-    // Get the user's CDP wallet
-    if (!user.hashedPrivkey) {
-      return res.status(400).json({ success: false, error: "Unable to get user CDP wallet." });
+    // Get the user's private key
+    const privKeyData = await getPrivateKey(Number(userId));
+    if (!privKeyData.success || !privKeyData.privateKey) {
+      return res.status(400).json({ success: false, error: "Unable to get user private key." });
     }
 
     // Call the blockchain function
     const txHash = await bcUpdateChamaDetails(
-      user.hashedPrivkey as `0x${string}`,
+      privKeyData.privateKey,
       BigInt(chama.blockchainId),
       newAmount.toString(),
       Number(newCycle),
