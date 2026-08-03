@@ -56,6 +56,7 @@ interface Transaction {
   status: string;
   isPretiumTx?: boolean;
   receiptNumber?: string;
+  fiatAmount?: number;
 }
 export interface Quote {
   currencyCode: CurrencyCode;
