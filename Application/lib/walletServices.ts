@@ -15,6 +15,7 @@ export interface Transaction {
   status: "completed" | "pending" | "failed";
   isPretiumTx?: boolean;
   receiptNumber?: string;
+  fiatAmount?: number;
 }
 
 interface ApiTransaction {
@@ -31,6 +32,7 @@ interface ApiTransaction {
   shortcode?: string;
   receiptNumber?: string | null;
   isPretiumTx: boolean;
+  fiatAmount?: number;
 }
 
 interface TransactionsResponse {
@@ -69,6 +71,7 @@ const transformApiTransaction = (tx: ApiTransaction): Transaction => {
       status: "completed",
       isPretiumTx: true,
       receiptNumber: tx.receiptNumber || undefined,
+      fiatAmount: tx.fiatAmount,
     };
   }
 

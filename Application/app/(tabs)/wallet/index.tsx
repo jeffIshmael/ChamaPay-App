@@ -252,14 +252,19 @@ setTransactionError("Failed to load transactions");
             className={`font-bold text-base ${getTransactionTextColor(tx.type)}`}
           >
             {tx.type === "sent" || tx.type === "withdrew" ? "-" : "+"}
-            {formatBalance(tx.amount)}
+            {currency === "KES" && tx.fiatAmount 
+              ? ` ${tx.fiatAmount.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES`
+              : formatBalance(tx.amount)}
           </Text>
           {currency === "KES" && (
             <Text className="text-[10px] text-gray-400">
-              ({parseFloat(tx.amount).toLocaleString(undefined, {
+              ({tx.fiatAmount ? tx.fiatAmount.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }) : parseFloat(tx.amount).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 4,
-              })} USDC)
+              })} {tx.fiatAmount ? "KES" : "USDC"})
             </Text>
           )}
           <Text className="text-xs text-gray-400 mt-1">
@@ -564,17 +569,7 @@ setTransactionError("Failed to load transactions");
       <View className="flex-1 bg-gray-50">
         <StatusBar style="light" />
 
-        <ScrollView
-          className="flex-1 bg-gray-50"
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#1c8584"
-              colors={["#1c8584"]}
-            />
-          }
-        >
+        <View className="flex-1 bg-gray-50">
           {/* Card Section */}
           <View
             className="px-4 bg-downy-600 rounded-b-3xl"
@@ -745,7 +740,18 @@ setTransactionError("Failed to load transactions");
           </View>
 
           {/* Transaction History Section */}
-          <View className="flex-1 px-6 mt-6 pb-24">
+          <ScrollView
+            className="flex-1 px-6 mt-6"
+            contentContainerStyle={{ paddingBottom: 96 }}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="#1c8584"
+                colors={["#1c8584"]}
+              />
+            }
+          >
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-2xl font-bold text-gray-900">
                 Recent Activity
@@ -811,8 +817,8 @@ setTransactionError("Failed to load transactions");
                   ))}
                 </View>
               )}
-          </View>
-        </ScrollView>
+          </ScrollView>
+        </View>
       </View>
 
       {/* Transaction Details Modal */}
