@@ -16,9 +16,12 @@ import {
   DollarSign,
   Download,
   ExternalLink,
+  Eye,
+  EyeOff,
   History,
   Plus,
   QrCode,
+  RefreshCw,
   Send,
   Upload
 } from "lucide-react-native";
@@ -53,6 +56,7 @@ interface Transaction {
   status: string;
   isPretiumTx?: boolean;
   receiptNumber?: string;
+  fiatAmount?: number;
 }
 export interface Quote {
   currencyCode: CurrencyCode;
@@ -252,14 +256,19 @@ setTransactionError("Failed to load transactions");
             className={`font-bold text-base ${getTransactionTextColor(tx.type)}`}
           >
             {tx.type === "sent" || tx.type === "withdrew" ? "-" : "+"}
-            {formatBalance(tx.amount)}
+            {currency === "KES" && tx.fiatAmount 
+              ? ` ${tx.fiatAmount.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES`
+              : formatBalance(tx.amount)}
           </Text>
           {currency === "KES" && (
             <Text className="text-[10px] text-gray-400">
-              ({parseFloat(tx.amount).toLocaleString(undefined, {
+              ({tx.fiatAmount ? tx.fiatAmount.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }) : parseFloat(tx.amount).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 4,
-              })} USDC)
+              })} {tx.fiatAmount ? "KES" : "USDC"})
             </Text>
           )}
           <Text className="text-xs text-gray-400 mt-1">
@@ -564,17 +573,7 @@ setTransactionError("Failed to load transactions");
       <View className="flex-1 bg-gray-50">
         <StatusBar style="light" />
 
-        <ScrollView
-          className="flex-1 bg-gray-50"
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#1c8584"
-              colors={["#1c8584"]}
-            />
-          }
-        >
+        <View className="flex-1 bg-gray-50">
           {/* Card Section */}
           <View
             className="px-4 bg-downy-600 rounded-b-3xl"
@@ -616,20 +615,36 @@ setTransactionError("Failed to load transactions");
                       <View className="bg-white/20 h-14 w-40 rounded-lg animate-pulse" />
                     </View>
                   ) : (
-                    <View className="flex-row items-baseline">
-                      <Text className="text-5xl text-white font-bold tracking-tight">
-                        {balanceVisible && userBalance
-                          ? formatBalanceParts(userBalance).whole
-                          : "---"}
-                      </Text>
-                      <Text className="text-5xl text-white font-medium">
-                        .{balanceVisible && userBalance
-                          ? formatBalanceParts(userBalance).decimal
-                          : "00"}
-                      </Text>
-                      <Text className="text-lg text-white/90 ml-1 font-medium">
-                        {formatBalanceParts(userBalance).symbol}
-                      </Text>
+                    <View className="flex-row items-baseline justify-between w-full pr-4">
+                      <View className="flex-row items-baseline">
+                        <Text className="text-5xl text-white font-bold tracking-tight">
+                          {balanceVisible && userBalance
+                            ? formatBalanceParts(userBalance).whole
+                            : "---"}
+                        </Text>
+                        <Text className="text-5xl text-white font-medium">
+                          .{balanceVisible && userBalance
+                            ? formatBalanceParts(userBalance).decimal
+                            : "00"}
+                        </Text>
+                        <Text className="text-lg text-white/90 ml-1 font-medium">
+                          {formatBalanceParts(userBalance).symbol}
+                        </Text>
+                      </View>
+                      
+                      <View className="flex-row items-center gap-6">
+                        <TouchableOpacity onPress={fetchBalances} className="p-1">
+                          <RefreshCw size={20} color="rgba(255, 255, 255, 0.8)" />
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity onPress={() => setBalanceVisible(!balanceVisible)} className="p-1">
+                          {balanceVisible ? (
+                            <EyeOff size={20} color="rgba(255, 255, 255, 0.8)" />
+                          ) : (
+                            <Eye size={20} color="rgba(255, 255, 255, 0.8)" />
+                          )}
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   )}
 
@@ -745,7 +760,7 @@ setTransactionError("Failed to load transactions");
           </View>
 
           {/* Transaction History Section */}
-          <View className="flex-1 px-6 mt-6 pb-24">
+          <View className="flex-1 px-6 mt-6">
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-2xl font-bold text-gray-900">
                 Recent Activity
@@ -765,7 +780,20 @@ setTransactionError("Failed to load transactions");
 
             <View className="h-px bg-gray-200 mb-4" />
 
-            {/* Loading State */}
+            <ScrollView
+              className="flex-1"
+              contentContainerStyle={{ paddingBottom: 96 }}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor="#1c8584"
+                  colors={["#1c8584"]}
+                />
+              }
+            >
+              {/* Loading State */}
             {loadingTransactions && !refreshing && <LoadingState />}
 
             {/* Error State */}
@@ -811,8 +839,9 @@ setTransactionError("Failed to load transactions");
                   ))}
                 </View>
               )}
+            </ScrollView>
           </View>
-        </ScrollView>
+        </View>
       </View>
 
       {/* Transaction Details Modal */}

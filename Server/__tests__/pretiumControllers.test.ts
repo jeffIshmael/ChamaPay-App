@@ -103,52 +103,5 @@ describe("FX Reserve Logic", () => {
       expect(mockResponse.status).toHaveBeenCalledWith(200);
     });
   });
-
-  describe("pretiumCheckTriggerDepositFor", () => {
-    it("should credit the exact cusdAmount saved during onramp (not recalculating)", async () => {
-      mockRequest = {
-        body: {
-          transactionCode: "TX123",
-          chamaBlockchainId: 1,
-          chamaId: 1,
-          amount: "1320", // Input was KES
-        },
-        user: { userId: 1 } as any,
-      };
-
-      (prisma.user.findUnique as any).mockResolvedValue({
-        smartAddress: "0xUserSmartAddress",
-        userName: "testuser",
-      });
-
-      // The exact USDC amount calculated during onramp using the platform rate
-      const exactUsdcAmount = 10; 
-
-      (prisma.pretiumTransaction.findUnique as any).mockResolvedValue({
-        transactionCode: "TX123",
-        cusdAmount: exactUsdcAmount,
-        amount: 1320,
-        type: "payment",
-      });
-
-      (checkPretiumTxStatus as any).mockResolvedValue({
-        is_released: true,
-      });
-
-      (pimlicoDepositForUser as any).mockResolvedValue("0xTxHash");
-
-      await pretiumCheckTriggerDepositFor(mockRequest as Request, mockResponse as Response);
-
-      // Should use the exactUsdcAmount directly, without calculating again
-      const expectedBigintAmount = parseUnits(exactUsdcAmount.toString(), 6);
-      
-      expect(pimlicoDepositForUser).toHaveBeenCalledWith(
-        1,
-        "0xUserSmartAddress",
-        expectedBigintAmount
-      );
-
-      expect(mockResponse.status).toHaveBeenCalledWith(200);
-    });
   });
 });

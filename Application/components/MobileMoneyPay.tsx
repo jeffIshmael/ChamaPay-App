@@ -5,7 +5,7 @@ import {
   pollPretiumPaymentStatus,
   pretiumOnramp
 } from "@/lib/pretiumService";
-import { useExchangeRateStore } from "@/store/useExchangeRateStore";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { PRETIUM_TRANSACTION_LIMIT } from "@/Utils/pretiumUtils";
 import { ArrowLeft } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
@@ -56,10 +56,8 @@ const MobileMoneyPay = ({
 
   const [isKESMode, setIsKESMode] = useState(false);
   const { token, user } = useAuth();
-  const { fetchRate: globalFetchRate, rates, loading: loadingRates } = useExchangeRateStore();
-
-  const theExhangeQuote = rates["KES"]?.data || null;
-  const loadingRate = loadingRates["KES"] || false;
+  const { platformRate: sellingRate } = useCurrencyStore();
+  const loadingRate = false;
 
   // Animation values
   const [fadeAnim] = useState(new Animated.Value(1));
@@ -72,7 +70,7 @@ const MobileMoneyPay = ({
     return /^[71]\d{8}$/.test(phone);
   };
 
-  const sellingRate = theExhangeQuote?.exchangeRate?.selling_rate || 0;
+  
 
   // Calculate remaining amount in KES
   const remainingInKES = sellingRate
@@ -82,12 +80,7 @@ const MobileMoneyPay = ({
   const minimumKES = PRETIUM_TRANSACTION_LIMIT.KE.min; // Minimum KES amount
   const maximumKES = PRETIUM_TRANSACTION_LIMIT.KE.max; // Maximum KES amount
 
-  // Fetch exchange rate for KES
-  useEffect(() => {
-    globalFetchRate("KES");
-    const interval = setInterval(() => globalFetchRate("KES"), 60000);
-    return () => clearInterval(interval);
-  }, []);
+  
 
   const handleKESChange = (text: string) => {
     if (text === "" || /^\d*\.?\d*$/.test(text)) {

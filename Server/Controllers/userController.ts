@@ -247,6 +247,7 @@ export const getUserTransactions = async (
         id: p.id,
         source: "pretium" as const,
         amount: p.cusdAmount?.toString() ?? p.amount.toString(),
+        fiatAmount: Number(p.amount),
         txHash: p.blockchainTxHash ?? "",
         doneAt: p.updatedAt.toISOString(),
         isOnramp: p.isOnramp,
