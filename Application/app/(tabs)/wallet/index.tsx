@@ -740,18 +740,7 @@ setTransactionError("Failed to load transactions");
           </View>
 
           {/* Transaction History Section */}
-          <ScrollView
-            className="flex-1 px-6 mt-6"
-            contentContainerStyle={{ paddingBottom: 96 }}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor="#1c8584"
-                colors={["#1c8584"]}
-              />
-            }
-          >
+          <View className="flex-1 px-6 mt-6">
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-2xl font-bold text-gray-900">
                 Recent Activity
@@ -771,7 +760,20 @@ setTransactionError("Failed to load transactions");
 
             <View className="h-px bg-gray-200 mb-4" />
 
-            {/* Loading State */}
+            <ScrollView
+              className="flex-1"
+              contentContainerStyle={{ paddingBottom: 96 }}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor="#1c8584"
+                  colors={["#1c8584"]}
+                />
+              }
+            >
+              {/* Loading State */}
             {loadingTransactions && !refreshing && <LoadingState />}
 
             {/* Error State */}
@@ -817,7 +819,8 @@ setTransactionError("Failed to load transactions");
                   ))}
                 </View>
               )}
-          </ScrollView>
+            </ScrollView>
+          </View>
         </View>
       </View>
 
