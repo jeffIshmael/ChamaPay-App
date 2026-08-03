@@ -2,7 +2,7 @@
 import fetch from "node-fetch";
 
 const PINATA_JWT = process.env.PINATA_JWT;
-const PINATA_GATEWAY = process.env.PINATA_GATEWAY || "gateway.pinata.cloud";
+const PINATA_GATEWAY = process.env.PINATA_GATEWAY || "red-above-locust-968.mypinata.cloud";
 
 interface PinataResult {
   data: {
