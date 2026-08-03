@@ -164,7 +164,7 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
     // Get user's wallet address
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { smartAddress: true, hashedPrivkey: true },
+      select: { smartAddress: true, hashedPrivkey: true, cdpWalletId: true },
     });
 
     if (!user || !user.smartAddress) {
@@ -182,13 +182,13 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
       });
     }
     // get the users cdp wallet
-    if (!user.hashedPrivkey) {
+    if (!user.cdpWalletId) {
       return res.status(400).json({
         success: false,
         error: "Unable to get user CDP wallet",
       });
     }
-    const txHash = await transferTx(user.hashedPrivkey as `0x${string}`, usdcAmount.toString(), settlementAddress as `0x${string}`);
+    const txHash = await transferTx(user.cdpWalletId, usdcAmount.toString(), settlementAddress as `0x${string}`);
     if (!txHash) {
       return res.status(400).json({
         success: false,
@@ -861,17 +861,17 @@ export async function pretiumMobileTransfer(req: Request, res: Response) {
     // Get user
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { smartAddress: true, hashedPrivkey: true },
+      select: { smartAddress: true, hashedPrivkey: true, cdpWalletId: true },
     });
 
-    if (!user || !user.smartAddress || !user.hashedPrivkey) {
+    if (!user || !user.smartAddress || !user.cdpWalletId) {
       return res.status(400).json({
         success: false,
         error: "User or CDP wallet not found.",
       });
     }
     // send the usdc to the pretium settlement address
-    const txHash = await transferTx(user.hashedPrivkey as `0x${string}`, usdcAmount, settlementAddress as `0x${string}`);
+    const txHash = await transferTx(user.cdpWalletId, usdcAmount, settlementAddress as `0x${string}`);
     if (!txHash) {
       return res.status(400).json({
         success: false,

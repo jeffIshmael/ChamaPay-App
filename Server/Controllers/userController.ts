@@ -706,7 +706,7 @@ export const confirmJoinRequest = async (
       const adminUser = await prisma.user.findUnique({
         where: { id: userId },
       });
-      if (!adminUser || !adminUser.hashedPrivkey) {
+      if (!adminUser || !adminUser.cdpWalletId) {
         res
           .status(400)
           .json({ success: false, error: `unable to get signing client.` });
@@ -714,7 +714,7 @@ export const confirmJoinRequest = async (
       }
       const chamaBlockchainId = BigInt(Number(chama.blockchainId));
       const addingMemberTx = await bcAddMemberToPrivateChama(
-        adminUser.hashedPrivkey as `0x${string}`,
+        adminUser.cdpWalletId,
         chamaBlockchainId,
         requestingUser.smartAddress,
       );
@@ -1034,7 +1034,7 @@ export const transferUSDC = async (
       return;
     }
 
-    if (!user.hashedPrivkey) {
+    if (!user.cdpWalletId) {
       res
         .status(400)
         .json({ success: false, error: "Failed to get user CDP wallet" });
@@ -1045,14 +1045,14 @@ export const transferUSDC = async (
 
     if (Number(fee) > 0) {
       transferTxHash = await transferWithFeeTx(
-        user.hashedPrivkey as `0x${string}`,
+        user.cdpWalletId,
         amount,
         receiver as `0x${string}`,
         fee,
       );
     } else {
       transferTxHash = await transferTx(
-        user.hashedPrivkey as `0x${string}`,
+        user.cdpWalletId,
         amount,
         receiver as `0x${string}`,
       );

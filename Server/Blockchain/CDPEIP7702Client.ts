@@ -10,7 +10,7 @@ import {
     type Hash,
     type Hex,
 } from "viem";
-import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
+import { type PrivateKeyAccount } from "viem/accounts";
 import { builderCodeDataSuffix } from "./Constants";
 
 dotenv.config();
@@ -46,41 +46,10 @@ const getCdpClient = () => {
     return cdpClient;
 };
 
-/** CDP account names: 2–36 chars, alphanumeric and hyphens only. */
-const accountNameFor = (address: Address) => {
-    const hex = address.slice(2).toLowerCase();
-    return `chamapay-${hex.slice(0, 27)}`;
-};
-
-const getOrImportCdpAccount = async (
-    cdp: CdpClient,
-    privateKey: Hex,
-    address: Address
-) => {
-    try {
-        return await cdp.evm.getAccount({ address });
-    } catch {
-        // Account not in CDP yet — import below.
-    }
-
-    try {
-        return await cdp.evm.importAccount({
-            privateKey,
-            name: accountNameFor(address),
-        });
-    } catch (error) {
-        const message = String(error).toLowerCase();
-        if (message.includes("already_exists") || message.includes("already exists")) {
-            return await cdp.evm.getAccount({ address });
-        }
-        throw error;
-    }
-};
-
 /** CDP registers the delegated EOA as a smart account only after createEvmEip7702Delegation. */
 const isCdpDelegatedAccount = async (
     cdp: CdpClient,
-    serverAccount: Awaited<ReturnType<typeof getOrImportCdpAccount>>
+    serverAccount: any
 ) => {
     try {
         await cdp.evm.getSmartAccount({
@@ -97,13 +66,12 @@ const isCdpDelegatedAccount = async (
     }
 };
 
-const ensureEip7702Delegation = async (privateKey: Hex) => {
-    const owner = privateKeyToAccount(privateKey);
+const ensureEip7702Delegation = async (address: Address) => {
     const cdp = getCdpClient();
-    const serverAccount = await getOrImportCdpAccount(cdp, privateKey, owner.address);
+    const serverAccount = await cdp.evm.getAccount({ address });
 
     if (!(await isCdpDelegatedAccount(cdp, serverAccount))) {
-        console.log(`Creating EIP-7702 delegation for ${owner.address}`);
+        console.log(`Creating EIP-7702 delegation for ${address}`);
         const { delegationOperationId } = await cdp.evm.createEvmEip7702Delegation({
             address: serverAccount.address,
             network: NETWORK,
@@ -114,7 +82,7 @@ const ensureEip7702Delegation = async (privateKey: Hex) => {
                 delegationOperationId,
             });
         console.log(
-            `EIP-7702 delegation complete for ${owner.address} (status: ${delegationOperation.status})`
+            `EIP-7702 delegation complete for ${address} (status: ${delegationOperation.status})`
         );
     }
 
@@ -209,17 +177,19 @@ const buildSmartAccountClient = (
     },
 });
 
-export const createEIP7702SmartAccount = async (privateKey: string) => {
+export const createEIP7702SmartAccount = async (cdpWalletId: string) => {
     try {
-        const key = privateKey as Hex;
-        const owner = privateKeyToAccount(key);
-        const delegated = await ensureEip7702Delegation(key);
+        const address = cdpWalletId as Address;
+        const delegated = await ensureEip7702Delegation(address);
+        
+        // Mock the owner object since sendDelegatedUserOperation only uses the delegated EvmSmartAccount natively
+        const ownerMock = { address } as unknown as PrivateKeyAccount;
 
         return {
-            smartAccountClient: buildSmartAccountClient(delegated, owner),
+            smartAccountClient: buildSmartAccountClient(delegated, ownerMock),
             safeSmartAccount: {
-                address: owner.address,
-                getAddress: async () => owner.address,
+                address,
+                getAddress: async () => address,
             },
             authorization: null,
         };

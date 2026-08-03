@@ -23,14 +23,14 @@ if (!treasuryWallet) {
 }
 
 export const approveTx = async (
-  cdpAddress: string,
+  cdpWalletId: string,
   amount: string,
   spender: `0x${string}`,
 ) => {
   try {
     const amountInWei = parseUnits(amount, 6);
     const { smartAccountClient, authorization } =
-      await createEIP7702SmartAccount(cdpAddress);
+      await createEIP7702SmartAccount(cdpWalletId);
 
     const hash = await smartAccountClient.writeContract({
       address: USDCAddress,
@@ -51,14 +51,14 @@ export const approveTx = async (
 };
 
 export const transferTx = async (
-  cdpAddress: string,
+  cdpWalletId: string,
   amount: string,
   recipient: `0x${string}`,
 ) => {
   try {
     const amountInWei = parseUnits(amount, 6);
     const { smartAccountClient, authorization } =
-      await createEIP7702SmartAccount(cdpAddress);
+      await createEIP7702SmartAccount(cdpWalletId);
 
     const hash = await smartAccountClient.writeContract({
       address: USDCAddress,
@@ -80,7 +80,7 @@ export const transferTx = async (
 
 // function to transfer with fee
 export const transferWithFeeTx = async (
-  cdpAddress: string,
+  cdpWalletId: string,
   amount: string,
   recipient: `0x${string}`,
   fee: string,
@@ -89,7 +89,7 @@ export const transferWithFeeTx = async (
     const amountInWei = parseUnits(amount, 6);
     const feeInWei = parseUnits(fee, 6);
     const { smartAccountClient, authorization } =
-      await createEIP7702SmartAccount(cdpAddress);
+      await createEIP7702SmartAccount(cdpWalletId);
 
     const hash = await smartAccountClient.sendTransaction({
       calls: [

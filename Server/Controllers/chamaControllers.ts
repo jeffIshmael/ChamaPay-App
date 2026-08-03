@@ -52,7 +52,7 @@ export const createChama = async (
 
     // get the cdp wallet of user
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user || !user.hashedPrivkey) {
+    if (!user || !user.cdpWalletId) {
       return res.status(401).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
@@ -62,14 +62,14 @@ export const createChama = async (
 
     // if its a public we need to first approve spending
     if (collateralRequired) {
-      const approveTxHash = await approveTx(user.hashedPrivkey as `0x${string}`, (Number(amount) * maxNo).toString(), contractAddress as `0x${string}`);
+      const approveTxHash = await approveTx(user.cdpWalletId, (Number(amount) * maxNo).toString(), contractAddress as `0x${string}`);
       if (!approveTxHash) {
         return res.status(401).json({ success: false, error: "Approve transaction failed." });
       }
     }
 
     // register in the blockchain
-    const creationTxHash = await bcCreateChama(user.hashedPrivkey as `0x${string}`, amount, BigInt(Number(cycleTime)), BigInt(startDateInSecs), BigInt(Number(maxNo)), collateralRequired);
+    const creationTxHash = await bcCreateChama(user.cdpWalletId, amount, BigInt(Number(cycleTime)), BigInt(startDateInSecs), BigInt(Number(maxNo)), collateralRequired);
     if (!creationTxHash) {
       return res.status(401).json({ success: false, error: "Failed to register onchain." });
     }
@@ -473,12 +473,12 @@ export const depositToChama = async (req: Request, res: Response) => {
     }
 
     const callerUserForDeposit = await prisma.user.findUnique({ where: { id: userId } });
-    if (!callerUserForDeposit || !callerUserForDeposit.hashedPrivkey) {
+    if (!callerUserForDeposit || !callerUserForDeposit.cdpWalletId) {
       return res.status(401).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
     // approve transaction
-    const approveTxHash = await approveTx(callerUserForDeposit.hashedPrivkey as `0x${string}`, amount, contractAddress as `0x${string}`);
+    const approveTxHash = await approveTx(callerUserForDeposit.cdpWalletId, amount, contractAddress as `0x${string}`);
     if (!approveTxHash) {
       return res.status(401).json({ success: false, error: "deposit approve transaction failed." });
     }
@@ -489,9 +489,9 @@ export const depositToChama = async (req: Request, res: Response) => {
     // do the deposit onchain
     let depositTxHash;
     if (memberForId && memberForAddress) {
-      depositTxHash = await bcDepositFundsForMember(callerUserForDeposit.hashedPrivkey as `0x${string}`, BigInt(Number(blockchainId)), memberForAddress, amount);
+      depositTxHash = await bcDepositFundsForMember(callerUserForDeposit.cdpWalletId, BigInt(Number(blockchainId)), memberForAddress, amount);
     } else {
-      depositTxHash = await bcDepositFundsToChama(callerUserForDeposit.hashedPrivkey as `0x${string}`, BigInt(Number(blockchainId)), amount);
+      depositTxHash = await bcDepositFundsToChama(callerUserForDeposit.cdpWalletId, BigInt(Number(blockchainId)), amount);
     }
 
     if (!depositTxHash) {
@@ -590,14 +590,14 @@ export const addMemberToChama = async (req: Request, res: Response) => {
     if (!isAdmin) {
       return res.status(400).json({ success: false, error: "You are not the admin of this chama." });
     }
-    if (!user.hashedPrivkey) {
+    if (!user.cdpWalletId) {
       return res
         .status(400)
         .json({ success: false, error: "Unable to get user CDP wallet." });
     }
     // the main function of adding the member
     const chamaBlockchainId = BigInt(Number(chama.blockchainId));
-    const addingTxHash = await bcAddMemberToPrivateChama(user.hashedPrivkey as `0x${string}`, chamaBlockchainId, memberBeingAdded.smartAddress as `0x${string}`);
+    const addingTxHash = await bcAddMemberToPrivateChama(user.cdpWalletId, chamaBlockchainId, memberBeingAdded.smartAddress as `0x${string}`);
     if (!addingTxHash) {
       return res
         .status(400)
@@ -799,11 +799,11 @@ export const withdrawFromChamaBalance = async (req: Request, res: Response) => {
     }
 
     // the onchain function
-    if (!user || !user.hashedPrivkey) {
+    if (!user || !user.cdpWalletId) {
       return res.status(400).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
-    const withdrawTxHash = await bcWithdrawFundsFromChama(user.hashedPrivkey as `0x${string}`, Number(chama.blockchainId), amount);
+    const withdrawTxHash = await bcWithdrawFundsFromChama(user.cdpWalletId, Number(chama.blockchainId), amount);
     if (!withdrawTxHash) {
       return res.status(400).json({ success: false, error: "Unable to withdraw from chama." });
     }
@@ -870,14 +870,13 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
     }
 
     // Get the user's private key
-    const privKeyData = await getPrivateKey(Number(userId));
-    if (!privKeyData.success || !privKeyData.privateKey) {
-      return res.status(400).json({ success: false, error: "Unable to get user private key." });
+    if (!user.cdpWalletId) {
+      return res.status(400).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
     // Call the blockchain function
     const txHash = await bcUpdateChamaDetails(
-      privKeyData.privateKey,
+      user.cdpWalletId,
       BigInt(chama.blockchainId),
       newAmount.toString(),
       Number(newCycle),
@@ -1006,11 +1005,11 @@ export const adminSetPayoutOrder = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Payout order must include all current members of the chama." });
     }
 
-    if (!user.hashedPrivkey) {
+    if (!user.cdpWalletId) {
       return res.status(400).json({ success: false, error: "Unable to get user CDP wallet." });
     }
     const formattedBcOrder = payoutOrder.map((address: string) => address as `0x${string}`);
-    const payoutOrderTxHash = await bcAdminSetPayoutOrder(user.hashedPrivkey as `0x${string}`, Number(chama.blockchainId), formattedBcOrder);
+    const payoutOrderTxHash = await bcAdminSetPayoutOrder(user.cdpWalletId, Number(chama.blockchainId), formattedBcOrder);
     if (!payoutOrderTxHash) {
       return res.status(400).json({ success: false, error: "Unable to set payout order onchain." });
     }
