@@ -1,8 +1,7 @@
 import { Card } from "@/components/ui/Card";
 import { Member, PayoutScheduleItem } from "@/constants/mockData";
 import { useAuth } from "@/Contexts/AuthContext";
-import { useCurrencyStore } from "@/store/useCurrencyStore";
-import { useExchangeRateStore } from "@/store/useExchangeRateStore";
+import { useFormattedBalance } from "@/hooks/useFormattedBalance";
 import { setPayoutOrderApi } from "@/lib/chamaService";
 import { CheckCircle, Clock, User } from "lucide-react-native";
 import React, { FC, useMemo, useState } from "react";
@@ -77,9 +76,7 @@ const ScheduleTab: FC<Props> = ({
   onRefresh,
 }) => {
   const { user, token } = useAuth();
-  const { currency } = useCurrencyStore();
-  const { rates } = useExchangeRateStore();
-  const kesRate = rates["KES"]?.rate || 0;
+  const { formatBalance } = useFormattedBalance();
 
   const [orderedMembers, setOrderedMembers] = useState<string[]>([]);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
@@ -389,9 +386,7 @@ Alert.alert("Error", "An unexpected error occurred.");
                 <View className="items-end">
                   <Text className={`text-sm font-medium ${payout.paid ? "text-emerald-700" : "text-gray-900"}`}>
                     {estimatedPayoutAmount > 0
-                      ? currency === "KES" && kesRate > 0
-                        ? `${(estimatedPayoutAmount * kesRate).toFixed(2)} KES`
-                        : `${estimatedPayoutAmount.toFixed(3)} USDC`
+                      ? formatBalance(estimatedPayoutAmount)
                       : "—"}
                   </Text>
                   <View className={`px-2 py-1 rounded-full mt-1 ${getStatusBadgeColor(status)}`}>

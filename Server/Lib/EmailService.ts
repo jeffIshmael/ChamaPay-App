@@ -248,23 +248,106 @@ class EmailService {
     }
   }
 
-  async sendUSDCReceivedEmail(email: string, amount: string, txHash: string) {
+  async sendMpesaDepositEmail(email: string, amount: string, receiptNumber: string, phoneNumber: string, time: string) {
     try {
-      const shortHash = txHash.length > 18 ? `${txHash.slice(0, 10)}…${txHash.slice(-8)}` : txHash;
+      const trimmedPhone = phoneNumber.length > 4 ? `...${phoneNumber.slice(-4)}` : phoneNumber;
       const body = `
-        ${heading("Deposit confirmed")}
-        ${paragraph(`You just received <strong style="color:${SUCCESS};">${amount} USDC</strong>.`)}
+        ${heading("M-Pesa Deposit Confirmed")}
+        ${paragraph(`You have successfully deposited <strong style="color:${SUCCESS};">${amount} USDC</strong> via M-Pesa.`)}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
-          <p style="margin:0; font-size:12px; color:${MUTED};">Transaction hash</p>
-          <p style="margin:4px 0 0; font-size:13px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; color:${INK}; word-break:break-all;">${shortHash}</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="font-size:13px; color:${MUTED};">Receipt Number</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${receiptNumber}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Phone Number</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${trimmedPhone}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Time</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${time}</td>
+            </tr>
+          </table>
         </div>
       `;
 
       const { data, error } = await resend.emails.send({
         from: "Chamapay <deposits@chamapay.xyz>",
         to: email,
-        subject: "USDC deposit received",
-        html: wrapEmail(body, { preheader: `${amount} USDC deposited to your wallet` }),
+        subject: "M-Pesa deposit received",
+        html: wrapEmail(body, { preheader: `${amount} USDC deposited to your wallet via M-Pesa` }),
+      });
+      if (error) console.error("Resend error:", error);
+      return { success: !error };
+    } catch (error) {
+      console.error("Error sending M-Pesa deposit email:", error);
+      return { success: false };
+    }
+  }
+
+  async sendMpesaWithdrawEmail(email: string, amount: string, receiptNumber: string, phoneNumber: string, time: string) {
+    try {
+      const trimmedPhone = phoneNumber.length > 4 ? `...${phoneNumber.slice(-4)}` : phoneNumber;
+      const body = `
+        ${heading("M-Pesa Withdrawal Confirmed")}
+        ${paragraph(`You have successfully withdrawn <strong style="color:${SUCCESS};">${amount} USDC</strong> to your M-Pesa.`)}
+        <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="font-size:13px; color:${MUTED};">Receipt Number</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${receiptNumber}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Phone Number</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${trimmedPhone}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Time</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${time}</td>
+            </tr>
+          </table>
+        </div>
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <withdrawals@chamapay.xyz>",
+        to: email,
+        subject: "M-Pesa withdrawal processed",
+        html: wrapEmail(body, { preheader: `${amount} USDC withdrawn to your M-Pesa` }),
+      });
+      if (error) console.error("Resend error:", error);
+      return { success: !error };
+    } catch (error) {
+      console.error("Error sending M-Pesa withdrawal email:", error);
+      return { success: false };
+    }
+  }
+
+  async sendUSDCReceivedEmail(email: string, amount: string, senderDisplayName: string, time: string) {
+    try {
+      const body = `
+        ${heading("USDC Received")}
+        ${paragraph(`You have received <strong style="color:${SUCCESS};">${amount} USDC</strong> from ${senderDisplayName}.`)}
+        <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="font-size:13px; color:${MUTED};">Sender</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${senderDisplayName}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Time</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${time}</td>
+            </tr>
+          </table>
+        </div>
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <transfers@chamapay.xyz>",
+        to: email,
+        subject: "USDC received",
+        html: wrapEmail(body, { preheader: `${amount} USDC received from ${senderDisplayName}` }),
       });
       if (error) console.error("Resend error:", error);
       return { success: !error };

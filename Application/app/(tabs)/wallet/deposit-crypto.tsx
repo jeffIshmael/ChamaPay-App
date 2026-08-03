@@ -1,9 +1,9 @@
 import { useAuth } from "@/Contexts/AuthContext";
 import { pollPretiumPaymentStatus, pretiumOnramp } from "@/lib/pretiumService";
-import { useExchangeRateStore } from "@/store/useExchangeRateStore";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Check, Smartphone } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -46,10 +46,9 @@ export default function DepositCryptoScreen() {
 
   const { user, token } = useAuth();
   const { USDCBalance } = useLocalSearchParams();
-  const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
+  const { platformRate } = useCurrencyStore();
 
-  const theExhangeQuote = rates["KES"]?.data || null;
-  const onrampRate = theExhangeQuote?.exchangeRate.selling_rate || 0;
+  const onrampRate = platformRate || 132;
 
   const MINIMUM_DEPOSIT = 100;
   const KENYA_PHONE_CODE = "254";
@@ -99,10 +98,6 @@ export default function DepositCryptoScreen() {
       setKesAmount((presetUSDC * onrampRate).toFixed(2));
     }
   };
-
-  useEffect(() => {
-    globalFetchRate("KES");
-  }, []);
 
   const emptyInputs = () => {
     setAmount("");

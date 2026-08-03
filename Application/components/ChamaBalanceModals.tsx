@@ -1,6 +1,6 @@
 import { useAuth } from "@/Contexts/AuthContext";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
-import { useExchangeRateStore } from "@/store/useExchangeRateStore";
+import { useFormattedBalance } from "@/hooks/useFormattedBalance";
 import { CheckCircle, Lock, Wallet } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -39,8 +39,7 @@ export const WithdrawModal = ({
     const { token } = useAuth();
 
     const { currency: userCurrency } = useCurrencyStore();
-    const { rates } = useExchangeRateStore();
-    const kesRate = rates["KES"]?.rate || 0;
+    const { formatBalance, platformRate: kesRate } = useFormattedBalance();
 
     const isKESActive = userCurrency === "KES" && kesRate > 0;
 
@@ -179,9 +178,7 @@ setError("Failed to process withdrawal. Please try again.");
                                     <View className="flex-row justify-between items-center mb-2">
                                         <Text className="text-gray-600 text-sm">Available Balance</Text>
                                         <Text className="text-gray-900 font-bold">
-                                            {isKESActive
-                                                ? `${(balance * kesRate).toFixed(2)} KES`
-                                                : `${balance.toFixed(3)} ${currency}`}
+                                            {formatBalance(balance)}
                                         </Text>
                                     </View>
                                     {isKESActive && (

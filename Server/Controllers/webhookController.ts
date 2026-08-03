@@ -171,7 +171,12 @@ export const handleAlchemyWebhook = async (
                     console.log(`Sending notification to user ${user.id}: ${body}`);
                     await sendExpoNotificationToAUser(user.id, title, body);
                     if (user.emailNotify) {
-                        await emailService.sendUSDCReceivedEmail(user.email, amount, txHash);
+                        const timeStr = new Date().toLocaleString("en-US", {
+                            timeZone: "Africa/Nairobi",
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                        });
+                        await emailService.sendUSDCReceivedEmail(user.email, amount, senderDisplayName, timeStr);
                     }
 
                 } catch (dbError) {

@@ -13,8 +13,10 @@ import {
   verifyNgnBankDetails,
   verifyPhoneNo,
 } from "../Lib/PretiumFunctions";
-import { pimlicoDepositForUser } from "../Lib/pimlicoAgent";
+import { pimlicoDepositForUser, pimlicoTransferToUser } from "../Lib/pimlicoAgent";
 import { parseUnits } from "viem";
+import * as cronJobFunctions from "../Lib/cronJobFunctions";
+import emailService from "../Lib/EmailService";
 import { settlementAddress } from "../Lib/PretiumFunctions";
 import { transferTx } from "../Blockchain/erc20Functions";
 import { generateUniqueSlug } from "../Lib/HelperFunctions";
@@ -60,7 +62,6 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
     amount,
     phoneNo,
     exchangeRate,
-    usdcAmount,
     isDeposit,
     chamaId,
   } = req.body;
@@ -93,11 +94,15 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
         error: "Amount and phone number are required",
       });
     }
-    // deposit has no additional fee while payment has do lets handle them
-    // No additional fee while depositing
-    const receivingAddress = isDeposit
-      ? user.smartAddress
-      : "0x1C059486B99d6A2D9372827b70084fbfD014E978";
+    
+    // Calculate exact required USDC based on platform rate (FX Reserve logic)
+    const platformRate = parseFloat(process.env.CHAMAPAY_RATE || "132");
+    const exactUsdcAmount = parseFloat(amount) / platformRate;
+
+    // For both deposits and payments, route through the treasury (FX Reserve) to absorb rate differences
+    const treasuryAddress = "0x1C059486B99d6A2D9372827b70084fbfD014E978";
+    const receivingAddress = treasuryAddress;
+    
     const result = await pretiumOnramp(
       phoneNo,
       amount,
@@ -121,7 +126,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
         type: isDeposit ? "deposit" : "payment",
         status: result.status,
         isRealesed: false,
-        cusdAmount: usdcAmount,
+        cusdAmount: exactUsdcAmount, // Store the exact amount we owe the user based on platform rate
         exchangeRate: exchangeRate,
         walletAddress: user.smartAddress,
         chamaId: chamaId ? Number(chamaId) : null,
@@ -159,7 +164,7 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
     // Get user's wallet address
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { smartAddress: true, cdpWalletId: true },
+      select: { smartAddress: true, hashedPrivkey: true },
     });
 
     if (!user || !user.smartAddress) {
@@ -177,13 +182,13 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
       });
     }
     // get the users cdp wallet
-    if (!user.cdpWalletId) {
+    if (!user.hashedPrivkey) {
       return res.status(400).json({
         success: false,
         error: "Unable to get user CDP wallet",
       });
     }
-    const txHash = await transferTx(user.cdpWalletId, amount, settlementAddress as `0x${string}`);
+    const txHash = await transferTx(user.hashedPrivkey as `0x${string}`, usdcAmount.toString(), settlementAddress as `0x${string}`);
     if (!txHash) {
       return res.status(400).json({
         success: false,
@@ -273,6 +278,7 @@ export async function pretiumCallback(req: Request, res: Response) {
     // Find transaction
     const transaction = await prisma.pretiumTransaction.findUnique({
       where: { transactionCode: body.transaction_code },
+      include: { user: true }
     });
 
     if (!transaction) {
@@ -320,6 +326,24 @@ export async function pretiumCallback(req: Request, res: Response) {
     console.log(
       `✅ ${transaction.type} successful - Receipt: ${body.receipt_number}`
     );
+
+    // Send M-Pesa Deposit Email
+    if (transaction.user.emailNotify && transaction.type === "payment") {
+      const timeStr = new Date().toLocaleString("en-US", {
+        timeZone: "Africa/Nairobi",
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+      // Use cusdAmount if available, otherwise amount
+      const displayAmount = transaction.cusdAmount ? transaction.cusdAmount.toString() : transaction.amount.toString();
+      await emailService.sendMpesaDepositEmail(
+        transaction.user.email,
+        displayAmount,
+        body.receipt_number,
+        transaction.account_number || "M-Pesa",
+        timeStr
+      );
+    }
   } catch (error) {
     console.error("Error processing callback:", error);
   }
@@ -349,6 +373,7 @@ export async function pretiumOfframpCallback(
       where: {
         transactionCode: body.transaction_code,
       },
+      include: { user: true }
     });
 
     if (!transaction) {
@@ -407,6 +432,23 @@ export async function pretiumOfframpCallback(
       console.log(
         `✅ Offramp successful - Receipt: ${body.receipt_number}`
       );
+
+      // Send M-Pesa Withdraw Email
+      if (transaction.user.emailNotify) {
+        const timeStr = new Date().toLocaleString("en-US", {
+          timeZone: "Africa/Nairobi",
+          dateStyle: "medium",
+          timeStyle: "short",
+        });
+        const displayAmount = transaction.cusdAmount ? transaction.cusdAmount.toString() : transaction.amount.toString();
+        await emailService.sendMpesaWithdrawEmail(
+          transaction.user.email,
+          displayAmount,
+          body.receipt_number,
+          transaction.account_number || "M-Pesa",
+          timeStr
+        );
+      }
     }
   } catch (error) {
     console.error(
@@ -537,13 +579,6 @@ export async function pretiumCheckTriggerDepositFor(
       });
     }
 
-    if (pretiumTransaction.type !== "payment") {
-      return res.status(400).json({
-        success: false,
-        details: `This is not a payment transaction`,
-      });
-    }
-
     const statusResult = await checkPretiumTxStatus(transactionCode);
     if (!statusResult) {
       return res.status(400).json({
@@ -560,7 +595,7 @@ export async function pretiumCheckTriggerDepositFor(
     }
 
     let targetUserId = userId;
-    let description = "deposited";
+    let description = pretiumTransaction.type === "payment" ? "deposited" : "Wallet deposit";
     let targetAddress = user?.smartAddress;
 
     if (memberForId) {
@@ -579,28 +614,42 @@ export async function pretiumCheckTriggerDepositFor(
       description = `Deposited by @${user?.userName || "Unknown"} on behalf of @${targetUser.userName}`;
     }
 
-    // we will trigger the agent to deposit for the user
-    const bigintAmount = parseUnits(amount, 6);
-    const bigintBlockchainId = Number(chamaBlockchainId);
+    const usdcAmountToCredit = pretiumTransaction.cusdAmount;
+    if (!usdcAmountToCredit) {
+      return res.status(400).json({ success: false, details: "USDC amount not found" });
+    }
+    const bigintAmount = parseUnits(usdcAmountToCredit.toString(), 6);
     console.log("the user address is", targetAddress);
-    const txResult = await pimlicoDepositForUser(
-      bigintBlockchainId,
-      targetAddress as `0x${string}`,
-      bigintAmount
-    );
+    
+    let txResult;
+    if (pretiumTransaction.type === "payment") {
+      const bigintBlockchainId = Number(chamaBlockchainId);
+      txResult = await pimlicoDepositForUser(
+        bigintBlockchainId,
+        targetAddress as `0x${string}`,
+        bigintAmount
+      );
+    } else {
+      // type === "deposit"
+      txResult = await pimlicoTransferToUser(
+        targetAddress as `0x${string}`,
+        bigintAmount
+      );
+    }
+
     if (!txResult) {
       return res.status(400).json({
         success: false,
-        details: `Error in the blockchain deposit for function.`,
+        details: `Error in the blockchain transaction.`,
       });
     }
 
     // update the payment
     await prisma.payment.create({
       data: {
-        amount: amount,
+        amount: pretiumTransaction.amount.toString(),
         description: description,
-        chamaId: chamaId,
+        chamaId: chamaId || null,
         txHash: txResult,
         userId: targetUserId,
       },
@@ -812,17 +861,17 @@ export async function pretiumMobileTransfer(req: Request, res: Response) {
     // Get user
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { smartAddress: true, cdpWalletId: true },
+      select: { smartAddress: true, hashedPrivkey: true },
     });
 
-    if (!user || !user.smartAddress || !user.cdpWalletId) {
+    if (!user || !user.smartAddress || !user.hashedPrivkey) {
       return res.status(400).json({
         success: false,
         error: "User or CDP wallet not found.",
       });
     }
     // send the usdc to the pretium settlement address
-    const txHash = await transferTx(user.cdpWalletId, usdcAmount, settlementAddress as `0x${string}`);
+    const txHash = await transferTx(user.hashedPrivkey as `0x${string}`, usdcAmount, settlementAddress as `0x${string}`);
     if (!txHash) {
       return res.status(400).json({
         success: false,

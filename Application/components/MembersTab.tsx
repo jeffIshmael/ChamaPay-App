@@ -1,8 +1,7 @@
 import { Card } from "@/components/ui/Card";
 import { Member } from "@/constants/mockData";
 import { useAuth } from "@/Contexts/AuthContext";
-import { useCurrencyStore } from "@/store/useCurrencyStore";
-import { useExchangeRateStore } from "@/store/useExchangeRateStore";
+import { useFormattedBalance } from "@/hooks/useFormattedBalance";
 import { Crown, DollarSign, Lock, User } from "lucide-react-native";
 import React, { FC } from "react";
 import { ScrollView, Text, View, Image } from "react-native";
@@ -25,9 +24,7 @@ const getInitials = (name: string) => {
 
 const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
   const { user } = useAuth();
-  const { currency } = useCurrencyStore();
-  const { rates } = useExchangeRateStore();
-  const kesRate = rates["KES"]?.rate || 0;
+  const { formatBalance } = useFormattedBalance();
   const totalMembers = members?.length || 0;
   const adminMembers = members?.filter(m => m && m.role === "Admin").length || 0;
 
@@ -131,10 +128,7 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
                               <DollarSign size={14} color="#6b7280" />
                               <Text className="text-sm text-gray-600">
                                 Balance:{" "}
-                                {currency === "KES" &&
-                                  kesRate > 0
-                                  ? `${(memberBalance.balance * kesRate).toFixed(0)} KES`
-                                  : `${memberBalance.balance > 0 ? memberBalance.balance.toFixed(3) : "0"} USDC`}
+                                {formatBalance(memberBalance.balance || 0)}
                               </Text>
                             </View>
 
@@ -144,10 +138,7 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
                                 <Lock size={14} color="#f59e0b" />
                                 <Text className="text-sm text-amber-600">
                                   Locked:{" "}
-                                  {currency === "KES" &&
-                                    kesRate > 0
-                                    ? `${(memberBalance.locked * kesRate).toFixed(0)} KES`
-                                    : `${memberBalance.locked > 0 ? memberBalance.locked.toFixed(3) : "0"} USDC`}
+                                  {formatBalance(memberBalance.locked || 0)}
                                 </Text>
                               </View>
                             )}

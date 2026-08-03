@@ -2,7 +2,8 @@
 
 End-to-end platform digitizing ROSCAs (chamas) with a mobile app, backend API, and smart contracts deployed on the **Base Mainnet**. 
 
-ChamaPay is fully powered by **Coinbase Developer Platform (CDP) Server-Signers**. The backend utilizes the CDP SDK and HSM-backed wallets to completely eliminate the need for storing raw user private keys.
+ChamaPay is a revolutionary decentralized application that brings traditional African ROSCAs (Rotating Savings and Credit Associations, aka "Chamas") on-chain. It is fully powered by the **Coinbase Developer Platform (CDP)** using **Server-Signers** and **EIP-7702 Smart Accounts**. 
+This architecture completely eliminates the need for users to manage seed phrases or private keys, while leveraging the **CDP Paymaster** for 100% gasless transactions on the **Base Mainnet**.
 
 ## Overview
 
@@ -170,8 +171,9 @@ ChamaPay-App/
 
 ## Security
 
-- ChamaPay leverages **CDP Server-Signers** to custody user assets on Base. 
-- Legacy encrypted private keys are deprecated. All blockchain actions run through the `@coinbase/cdp-sdk`.
+- **Asset Custody**: ChamaPay leverages **CDP Server-Signers** to custody user assets on Base.
+- **Gasless Transactions**: Through **EIP-7702 Smart Accounts**, we delegate EOA execution to smart accounts that utilize the **CDP Paymaster** to sponsor all user transactions.
+- **Legacy Migration**: Legacy encrypted private keys are deprecated. All blockchain actions run through the `@coinbase/cdp-sdk`.
 - Never commit secrets. Use `.env` files locally and secure secrets in CI/CD.
 - JWTs are used for API auth; use HTTPS in production.
 

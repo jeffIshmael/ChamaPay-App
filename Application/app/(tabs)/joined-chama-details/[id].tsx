@@ -23,7 +23,7 @@ import {
 import { generateChamaShareUrl } from "@/lib/encryption";
 import { shareChamaLink } from "@/lib/userService";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
-import { useExchangeRateStore } from "@/store/useExchangeRateStore";
+import { useFormattedBalance } from "@/hooks/useFormattedBalance";
 import { formatTimeRemaining } from "@/Utils/helperFunctions";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -80,9 +80,8 @@ export default function JoinedChamaDetails() {
   const [paymentAmount, setPaymentAmount] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
   const [chama, setChama] = useState<JoinedChama | null>(null);
-  const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
   const { currency } = useCurrencyStore();
-  const kesRate = rates["KES"]?.rate || 0;
+  const { platformRate: kesRate } = useFormattedBalance();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showUSDCPaymentModal, setShowUSDCPaymentModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -339,7 +338,6 @@ export default function JoinedChamaDetails() {
 
   useEffect(() => {
     fetchChama();
-    globalFetchRate("KES");
     fetchMyWalletBalance();
   }, [id, token]);
 
@@ -653,7 +651,6 @@ Alert.alert("Error", "An unexpected error occurred");
       currency={chama.currency}
       isPublic={chama.isPublic}
       collateralAmount={chama.collateralAmount}
-      kesRate={kesRate}
       myCollateral={myCollateral}
       chamaName={chama.name}
       chamaId={Number(chama.id)}

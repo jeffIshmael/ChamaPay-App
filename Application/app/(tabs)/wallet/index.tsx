@@ -5,7 +5,7 @@ import { CurrencyCode } from "@/lib/pretiumService";
 import { getUserBalance } from "@/lib/userService";
 import { getTheUserTx } from "@/lib/walletServices";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
-import { useExchangeRateStore } from "@/store/useExchangeRateStore";
+import { useFormattedBalance } from "@/hooks/useFormattedBalance";
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -74,6 +74,7 @@ export default function CryptoWallet() {
   const [receiveModalVisible, setReceiveModalVisible] = useState(false);
   const { user, token } = useAuth();
   const { currency } = useCurrencyStore();
+  const { formatBalance, formatBalanceParts } = useFormattedBalance();
 
   const [refreshing, setRefreshing] = useState(false);
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
@@ -113,21 +114,11 @@ setTransactionError("Failed to load transactions");
     }
   };
 
-  const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
-  const theExhangeQuote = rates["KES"]?.data || null;
-
-  const fetchRate = async () => {
-    try {
-      await globalFetchRate("KES");
-    } catch { /* ignored */ }
-  };
-
   // Refresh all data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-fetchBalances();
+      fetchBalances();
       getTx();
-      fetchRate();
     }, [token])
   );
 
@@ -140,9 +131,6 @@ fetchBalances();
     getTx();
   }, [token]);
 
-  useEffect(() => {
-    fetchRate();
-  }, []);
 
   const getRelativeTime = (dateString: string): string => {
     const date = new Date(dateString);
@@ -168,7 +156,7 @@ fetchBalances();
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([fetchBalances(), getTx(), fetchRate()]);
+    await Promise.all([fetchBalances(), getTx()]);
     setRefreshing(false);
   };
 
@@ -264,17 +252,9 @@ fetchBalances();
             className={`font-bold text-base ${getTransactionTextColor(tx.type)}`}
           >
             {tx.type === "sent" || tx.type === "withdrew" ? "-" : "+"}
-            {currency === "KES" && theExhangeQuote?.exchangeRate.selling_rate
-              ? `${(parseFloat(tx.amount) * theExhangeQuote.exchangeRate.selling_rate).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })} KES`
-              : `${parseFloat(tx.amount).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 4,
-              })} USDC`}
+            {formatBalance(tx.amount)}
           </Text>
-          {currency === "KES" && theExhangeQuote?.exchangeRate.selling_rate && (
+          {currency === "KES" && (
             <Text className="text-[10px] text-gray-400">
               ({parseFloat(tx.amount).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
@@ -360,17 +340,9 @@ fetchBalances();
                     selectedTransaction.type === "withdrew"
                     ? "-"
                     : "+"}
-                  {currency === "KES" && theExhangeQuote?.exchangeRate.selling_rate
-                    ? `${(parseFloat(selectedTransaction.amount) * theExhangeQuote.exchangeRate.selling_rate).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })} KES`
-                    : `${parseFloat(selectedTransaction.amount).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 4,
-                    })} USDC`}
+                  {formatBalance(selectedTransaction.amount)}
                 </Text>
-                {currency === "KES" && theExhangeQuote?.exchangeRate.selling_rate && (
+                {currency === "KES" && (
                   <Text className="text-white/70 text-sm font-medium mt-1">
                     ({parseFloat(selectedTransaction.amount).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
@@ -646,35 +618,17 @@ fetchBalances();
                   ) : (
                     <View className="flex-row items-baseline">
                       <Text className="text-5xl text-white font-bold tracking-tight">
-                        {balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && currency === "KES"
-                          ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          }).split('.')[0]
-                          : balanceVisible && currency !== "KES"
-                            ? Number(usdcBalance) > 0 ? Number(usdcBalance).toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }).split('.')[0]
-                              : "0"
-                            : "---"}
+                        {balanceVisible && userBalance
+                          ? formatBalanceParts(userBalance).whole
+                          : "---"}
                       </Text>
                       <Text className="text-5xl text-white font-medium">
-                        .{balanceVisible && theExhangeQuote?.exchangeRate.selling_rate && userBalance && currency === "KES"
-                          ? (Number(userBalance) * theExhangeQuote?.exchangeRate.selling_rate).toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          }).split('.')[1] || "00"
-                          : balanceVisible && currency !== "KES"
-                            ? Number(usdcBalance) > 0 ? Number(usdcBalance).toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }).split('.')[1] || "00"
-                              : "00"
-                            : ""}
+                        .{balanceVisible && userBalance
+                          ? formatBalanceParts(userBalance).decimal
+                          : "00"}
                       </Text>
                       <Text className="text-lg text-white/90 ml-1 font-medium">
-                        {currency === "KES" ? "KES" : "USDC"}
+                        {formatBalanceParts(userBalance).symbol}
                       </Text>
                     </View>
                   )}
@@ -729,8 +683,6 @@ fetchBalances();
                   router.push({
                     pathname: "/wallet/deposit-crypto",
                     params: {
-                      currencyCode: theExhangeQuote?.currencyCode,
-                      onramp: theExhangeQuote?.exchangeRate.selling_rate,
                       USDCBalance: usdcBalance,
                     },
                   })
@@ -776,8 +728,6 @@ fetchBalances();
                       USDCBalance: usdcBalance,
                       totalBalance: usdcBalance,
                       address: user?.smartAddress,
-                      currencyCode: theExhangeQuote?.currencyCode,
-                      offramp: theExhangeQuote?.exchangeRate.buying_rate,
                     },
                   })
                 }

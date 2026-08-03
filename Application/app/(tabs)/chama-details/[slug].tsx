@@ -14,7 +14,7 @@ import {
   shareChamaLink,
 } from "@/lib/userService";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
-import { useExchangeRateStore } from "@/store/useExchangeRateStore";
+import { useFormattedBalance } from "@/hooks/useFormattedBalance";
 import { formatTimeRemaining } from "@/Utils/helperFunctions";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from 'expo-clipboard';
@@ -81,9 +81,8 @@ export default function ChamaDetails() {
   const [progressPercentage, setProgressPercentage] = useState<number>();
   const [sendingLink, setSendingLink] = useState(false);
   const { token, user } = useAuth();
-  const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
   const { currency } = useCurrencyStore();
-  const kesRate = rates["KES"]?.rate || 0;
+  const { formatBalance } = useFormattedBalance();
 
   useEffect(() => {
     // Check auth on mount
@@ -128,7 +127,6 @@ Alert.alert("Error", "Failed to load chama details. Please try again.");
       }
     };
     fetchChama();
-    globalFetchRate("KES");
   }, [slug, token]);
 
   const formatDate = (dateString: string) => {
@@ -385,9 +383,7 @@ ToastAndroid.show("Failed to request to join chama. Please try again.", ToastAnd
                 ? {
                   step: "1",
                   title: "Join & Lock Collateral",
-                  description: kesRate > 0 && currency === "KES"
-                    ? `Lock ${(Number(chama.collateralAmount) * kesRate).toFixed(2)} KES (${chama.collateralAmount?.toFixed(3)} USDC) as collateral to serve as security in case of default.`
-                    : `Lock ${chama.collateralAmount?.toFixed(3)} ${chama.currency} as collateral to serve as security in case of default.`,
+                  description: `Lock ${formatBalance(chama.collateralAmount || 0)} (${chama.collateralAmount?.toFixed(3)} USDC) as collateral to serve as security in case of default.`,
                   icon: "🔒",
                   bgColor: "bg-emerald-50",
                   borderColor: "border-emerald-100",
@@ -404,9 +400,7 @@ ToastAndroid.show("Failed to request to join chama. Please try again.", ToastAnd
               {
                 step: "2",
                 title: "Monthly Contributions",
-                description: kesRate > 0 && currency === "KES"
-                  ? `Contribute ${(Number(chama.contribution) * kesRate).toFixed(2)} KES (${chama.contribution?.toFixed(3)} USDC) every month on schedule`
-                  : `Contribute ${chama.contribution?.toFixed(3)} ${chama.currency} every month on schedule`,
+                description: `Contribute ${formatBalance(chama.contribution || 0)} (${chama.contribution?.toFixed(3)} USDC) every month on schedule`,
                 icon: "💰",
                 bgColor: "bg-blue-50",
                 borderColor: "border-blue-100",
@@ -486,10 +480,8 @@ ToastAndroid.show("Failed to request to join chama. Please try again.", ToastAnd
               <Text className="text-gray-600 text-sm">
                 Monthly Contribution
               </Text>
-              <Text className="font-semibold text-gray-900">
-                {kesRate > 0 && currency === "KES"
-                  ? `${(Number(chama.contribution) * kesRate).toFixed(2)} KES (${chama.contribution?.toFixed(3)} ${chama.currency})`
-                  : `${chama.contribution?.toFixed(3)} ${chama.currency}`}
+              <Text className="text-gray-900 font-semibold text-right">
+                {formatBalance(chama.contribution || 0)} ({chama.contribution?.toFixed(3)} {chama.currency})
               </Text>
             </View>
 
@@ -498,10 +490,8 @@ ToastAndroid.show("Failed to request to join chama. Please try again.", ToastAnd
                 <Text className="text-gray-600 text-sm">
                   Total Pool (when full)
                 </Text>
-                <Text className="font-semibold text-gray-900">
-                  {kesRate > 0 && currency === "KES"
-                    ? `${(Number(chama.collateralAmount) * kesRate).toFixed(2)} KES (${chama.collateralAmount?.toFixed(3)} ${chama.currency})`
-                    : `${chama.collateralAmount?.toFixed(3)} ${chama.currency}`}
+                <Text className="text-gray-900 font-semibold text-right">
+                  {formatBalance(chama.collateralAmount || 0)} ({chama.collateralAmount?.toFixed(3)} {chama.currency})
                 </Text>
               </View>
             )}
@@ -515,12 +505,10 @@ ToastAndroid.show("Failed to request to join chama. Please try again.", ToastAnd
 
             <View className="flex-row justify-between items-center py-3">
               <Text className="text-gray-600 text-sm">Collateral Required</Text>
-              <Text className="font-semibold text-gray-900">
-                {!chama.isPublic
-                  ? "N/A"
-                  : kesRate > 0 && currency === "KES"
-                    ? `${(Number(chama.collateralAmount) * kesRate).toFixed(2)} KES (${chama.collateralAmount} USDC)`
-                    : `${chama.collateralAmount} USDC`}
+              <Text className="text-emerald-900 font-bold mb-4">
+                  {chama.isPublic
+                    ? formatBalance(chama.collateralAmount || 0) + ` (${chama.collateralAmount} USDC)`
+                    : "No Collateral"}
               </Text>
             </View>
           </View>
@@ -738,11 +726,8 @@ ToastAndroid.show("Failed to request to join chama. Please try again.", ToastAnd
                       Contribution amount
                     </Text>
                   </View>
-                  <Text className="font-bold text-gray-900 text-lg">
-                    {kesRate > 0 && currency === "KES"
-                      ? `${(Number(chama.contribution) * kesRate).toFixed(2)} KES`
-                      : `${chama.contribution} ${chama.currency}`} / {chama.frequency}
-                    {/* {kesRate > 0 && user?.location === "KE" && <Text className="text-xs font-medium text-gray-500"> ({chama.contribution} {chama.currency})</Text>} */}
+                  <Text className="text-2xl font-bold text-gray-900">
+                    {formatBalance(chama.contribution || 0)}
                   </Text>
                 </View>
                 <View className="flex-1 bg-white rounded-2xl p-4 shadow-md">
@@ -752,13 +737,10 @@ ToastAndroid.show("Failed to request to join chama. Please try again.", ToastAnd
                       Collateral Required
                     </Text>
                   </View>
-                  <Text className="font-bold text-gray-900 text-lg">
+                  <Text className="text-2xl font-bold text-gray-900">
                     {!chama.isPublic
-                      ? "N/A"
-                      : kesRate > 0 && currency === "KES"
-                        ? `${(Number(chama.collateralAmount) * kesRate).toFixed(2)} KES`
-                        : `${chama.collateralAmount} ${chama.currency}`}
-                    {/* {chama.isPublic && kesRate > 0 && user?.location === "KE" && <Text className="text-xs font-medium text-gray-500"> ({chama.collateralAmount} {chama.currency})</Text>} */}
+                      ? "None"
+                      : formatBalance(chama.collateralAmount || 0)}
                   </Text>
                 </View>
               </View>

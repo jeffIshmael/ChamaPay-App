@@ -52,7 +52,7 @@ export const createChama = async (
 
     // get the cdp wallet of user
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user || !user.cdpWalletId) {
+    if (!user || !user.hashedPrivkey) {
       return res.status(401).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
@@ -62,14 +62,14 @@ export const createChama = async (
 
     // if its a public we need to first approve spending
     if (collateralRequired) {
-      const approveTxHash = await approveTx(user.cdpWalletId, (Number(amount) * maxNo).toString(), contractAddress as `0x${string}`);
+      const approveTxHash = await approveTx(user.hashedPrivkey as `0x${string}`, (Number(amount) * maxNo).toString(), contractAddress as `0x${string}`);
       if (!approveTxHash) {
         return res.status(401).json({ success: false, error: "Approve transaction failed." });
       }
     }
 
     // register in the blockchain
-    const creationTxHash = await bcCreateChama(user.cdpWalletId, amount, BigInt(Number(cycleTime)), BigInt(startDateInSecs), BigInt(Number(maxNo)), collateralRequired);
+    const creationTxHash = await bcCreateChama(user.hashedPrivkey as `0x${string}`, amount, BigInt(Number(cycleTime)), BigInt(startDateInSecs), BigInt(Number(maxNo)), collateralRequired);
     if (!creationTxHash) {
       return res.status(401).json({ success: false, error: "Failed to register onchain." });
     }
@@ -360,7 +360,29 @@ export const getChamasUserIsMemberOf = async (req: Request, res: Response) => {
         },
       },
     });
-    return res.status(200).json({ success: true, chamas: chamas });
+
+    const chamasWithUnread = await Promise.all(
+      chamas.map(async (member) => {
+        const unreadCount = await prisma.message.count({
+          where: {
+            chamaId: member.chamaId,
+            timestamp: {
+              gt: member.lastReadTime,
+            },
+          },
+        });
+        
+        return {
+          ...member,
+          chama: {
+            ...member.chama,
+            unreadMessages: unreadCount,
+          }
+        };
+      })
+    );
+
+    return res.status(200).json({ success: true, chamas: chamasWithUnread });
   } catch (error) {
     console.log(error);
     return res.status(500).json({
@@ -451,12 +473,12 @@ export const depositToChama = async (req: Request, res: Response) => {
     }
 
     const callerUserForDeposit = await prisma.user.findUnique({ where: { id: userId } });
-    if (!callerUserForDeposit || !callerUserForDeposit.cdpWalletId) {
+    if (!callerUserForDeposit || !callerUserForDeposit.hashedPrivkey) {
       return res.status(401).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
     // approve transaction
-    const approveTxHash = await approveTx(callerUserForDeposit.cdpWalletId, amount, contractAddress as `0x${string}`);
+    const approveTxHash = await approveTx(callerUserForDeposit.hashedPrivkey as `0x${string}`, amount, contractAddress as `0x${string}`);
     if (!approveTxHash) {
       return res.status(401).json({ success: false, error: "deposit approve transaction failed." });
     }
@@ -467,9 +489,9 @@ export const depositToChama = async (req: Request, res: Response) => {
     // do the deposit onchain
     let depositTxHash;
     if (memberForId && memberForAddress) {
-      depositTxHash = await bcDepositFundsForMember(callerUserForDeposit.cdpWalletId, BigInt(Number(blockchainId)), memberForAddress, amount);
+      depositTxHash = await bcDepositFundsForMember(callerUserForDeposit.hashedPrivkey as `0x${string}`, BigInt(Number(blockchainId)), memberForAddress, amount);
     } else {
-      depositTxHash = await bcDepositFundsToChama(callerUserForDeposit.cdpWalletId, BigInt(Number(blockchainId)), amount);
+      depositTxHash = await bcDepositFundsToChama(callerUserForDeposit.hashedPrivkey as `0x${string}`, BigInt(Number(blockchainId)), amount);
     }
 
     if (!depositTxHash) {
@@ -568,14 +590,14 @@ export const addMemberToChama = async (req: Request, res: Response) => {
     if (!isAdmin) {
       return res.status(400).json({ success: false, error: "You are not the admin of this chama." });
     }
-    if (!user.cdpWalletId) {
+    if (!user.hashedPrivkey) {
       return res
         .status(400)
         .json({ success: false, error: "Unable to get user CDP wallet." });
     }
     // the main function of adding the member
     const chamaBlockchainId = BigInt(Number(chama.blockchainId));
-    const addingTxHash = await bcAddMemberToPrivateChama(user.cdpWalletId, chamaBlockchainId, memberBeingAdded.smartAddress as `0x${string}`);
+    const addingTxHash = await bcAddMemberToPrivateChama(user.hashedPrivkey as `0x${string}`, chamaBlockchainId, memberBeingAdded.smartAddress as `0x${string}`);
     if (!addingTxHash) {
       return res
         .status(400)
@@ -777,11 +799,11 @@ export const withdrawFromChamaBalance = async (req: Request, res: Response) => {
     }
 
     // the onchain function
-    if (!user || !user.cdpWalletId) {
+    if (!user || !user.hashedPrivkey) {
       return res.status(400).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
-    const withdrawTxHash = await bcWithdrawFundsFromChama(user.cdpWalletId, Number(chama.blockchainId), amount);
+    const withdrawTxHash = await bcWithdrawFundsFromChama(user.hashedPrivkey as `0x${string}`, Number(chama.blockchainId), amount);
     if (!withdrawTxHash) {
       return res.status(400).json({ success: false, error: "Unable to withdraw from chama." });
     }
@@ -848,13 +870,13 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
     }
 
     // Get the user's CDP wallet
-    if (!user.cdpWalletId) {
+    if (!user.hashedPrivkey) {
       return res.status(400).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
     // Call the blockchain function
     const txHash = await bcUpdateChamaDetails(
-      user.cdpWalletId,
+      user.hashedPrivkey as `0x${string}`,
       BigInt(chama.blockchainId),
       newAmount.toString(),
       Number(newCycle),
@@ -880,19 +902,52 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
       },
     });
 
+    // Build the dynamic notification message
+    const changes: string[] = [];
+    const adminName = user.userName || "The admin";
+
+    if (newName && newName !== chama.name) {
+      changes.push(`${adminName} changed the name of the chama from "${chama.name}" to "${newName}"`);
+    }
+    if (newAmount && newAmount.toString() !== chama.amount) {
+      changes.push(`${adminName} changed the contribution amount from ${chama.amount} USDC to ${newAmount} USDC`);
+    }
+    if (newDuration && Number(newDuration) !== chama.cycleTime) {
+      changes.push(`${adminName} changed the cycle time from ${chama.cycleTime} days to ${newDuration} days`);
+    }
+    if (newCycle && Number(newCycle) !== chama.cycle) {
+      changes.push(`${adminName} changed the cycle from ${chama.cycle} to ${newCycle}`);
+    }
+    if (newRound && Number(newRound) !== chama.round) {
+      changes.push(`${adminName} changed the round from ${chama.round} to ${newRound}`);
+    }
+    
+    const oldPayDateStr = new Date(chama.payDate).toISOString().split('T')[0];
+    const newPayDateStr = new Date(newPayDate).toISOString().split('T')[0];
+    if (newPayDate && oldPayDateStr !== newPayDateStr) {
+      changes.push(`${adminName} changed the pay date from ${oldPayDateStr} to ${newPayDateStr}`);
+    }
+
+    let notificationMessage = "";
+    if (changes.length > 0) {
+      notificationMessage = changes.join(". ") + ".";
+    } else {
+      notificationMessage = `The chama details have been updated by ${adminName}.`;
+    }
+
     const emails = chama.members.map((m: any) => m.user.email);
     if (emails.length > 0) {
       await emailService.sendBulkChamaUpdateEmails(
         emails,
         updatedChama.name,
-        `The chama details have been updated by the admin. The new contribution amount is ${newAmount} USDC, cycle time is ${newDuration} days, and we are on cycle ${newCycle}, round ${newRound}.`
+        notificationMessage
       );
     }
 
     // Send Push Notifications
     await sendExpoNotificationToAllChamaMembers(
       "Chama Details Updated",
-      `The admin has updated the details for ${updatedChama.name}. New contribution is ${newAmount} USDC and cycle time is ${newDuration} days.`,
+      notificationMessage,
       Number(chamaId)
     );
 
@@ -950,11 +1005,11 @@ export const adminSetPayoutOrder = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Payout order must include all current members of the chama." });
     }
 
-    if (!user.cdpWalletId) {
+    if (!user.hashedPrivkey) {
       return res.status(400).json({ success: false, error: "Unable to get user CDP wallet." });
     }
     const formattedBcOrder = payoutOrder.map((address: string) => address as `0x${string}`);
-    const payoutOrderTxHash = await bcAdminSetPayoutOrder(user.cdpWalletId, Number(chama.blockchainId), formattedBcOrder);
+    const payoutOrderTxHash = await bcAdminSetPayoutOrder(user.hashedPrivkey as `0x${string}`, Number(chama.blockchainId), formattedBcOrder);
     if (!payoutOrderTxHash) {
       return res.status(400).json({ success: false, error: "Unable to set payout order onchain." });
     }
