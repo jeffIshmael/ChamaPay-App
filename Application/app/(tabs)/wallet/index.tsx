@@ -16,9 +16,12 @@ import {
   DollarSign,
   Download,
   ExternalLink,
+  Eye,
+  EyeOff,
   History,
   Plus,
   QrCode,
+  RefreshCw,
   Send,
   Upload
 } from "lucide-react-native";
@@ -611,20 +614,36 @@ setTransactionError("Failed to load transactions");
                       <View className="bg-white/20 h-14 w-40 rounded-lg animate-pulse" />
                     </View>
                   ) : (
-                    <View className="flex-row items-baseline">
-                      <Text className="text-5xl text-white font-bold tracking-tight">
-                        {balanceVisible && userBalance
-                          ? formatBalanceParts(userBalance).whole
-                          : "---"}
-                      </Text>
-                      <Text className="text-5xl text-white font-medium">
-                        .{balanceVisible && userBalance
-                          ? formatBalanceParts(userBalance).decimal
-                          : "00"}
-                      </Text>
-                      <Text className="text-lg text-white/90 ml-1 font-medium">
-                        {formatBalanceParts(userBalance).symbol}
-                      </Text>
+                    <View className="flex-row items-baseline justify-between w-full pr-4">
+                      <View className="flex-row items-baseline">
+                        <Text className="text-5xl text-white font-bold tracking-tight">
+                          {balanceVisible && userBalance
+                            ? formatBalanceParts(userBalance).whole
+                            : "---"}
+                        </Text>
+                        <Text className="text-5xl text-white font-medium">
+                          .{balanceVisible && userBalance
+                            ? formatBalanceParts(userBalance).decimal
+                            : "00"}
+                        </Text>
+                        <Text className="text-lg text-white/90 ml-1 font-medium">
+                          {formatBalanceParts(userBalance).symbol}
+                        </Text>
+                      </View>
+                      
+                      <View className="flex-row items-center gap-6">
+                        <TouchableOpacity onPress={fetchBalances} className="p-1">
+                          <RefreshCw size={20} color="rgba(255, 255, 255, 0.8)" />
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity onPress={() => setBalanceVisible(!balanceVisible)} className="p-1">
+                          {balanceVisible ? (
+                            <EyeOff size={20} color="rgba(255, 255, 255, 0.8)" />
+                          ) : (
+                            <Eye size={20} color="rgba(255, 255, 255, 0.8)" />
+                          )}
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   )}
 
