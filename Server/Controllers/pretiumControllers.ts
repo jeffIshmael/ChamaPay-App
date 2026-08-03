@@ -17,7 +17,7 @@ import { pimlicoDepositForUser } from "../Lib/pimlicoAgent";
 import { parseUnits } from "viem";
 import { settlementAddress } from "../Lib/PretiumFunctions";
 import { transferTx } from "../Blockchain/erc20Functions";
-import { getPrivateKey } from "../Lib/HelperFunctions";
+import { generateUniqueSlug } from "../Lib/HelperFunctions";
 import { getCached, setCache } from "../Lib/cache";
 
 const prisma = new PrismaClient();
@@ -159,7 +159,7 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
     // Get user's wallet address
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { smartAddress: true },
+      select: { smartAddress: true, cdpWalletId: true },
     });
 
     if (!user || !user.smartAddress) {
@@ -176,16 +176,14 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
         error: "Amount and phone number are required",
       });
     }
-    // send the usdc to the pretium settlement address
-    // get the users private key
-    const userPrivateKey = await getPrivateKey(userId);
-    if (!userPrivateKey.success || userPrivateKey.privateKey === null) {
+    // get the users cdp wallet
+    if (!user.cdpWalletId) {
       return res.status(400).json({
         success: false,
-        error: "Unable to get user signing client",
+        error: "Unable to get user CDP wallet",
       });
     }
-    const txHash = await transferTx(userPrivateKey.privateKey, amount, settlementAddress as `0x${string}`);
+    const txHash = await transferTx(user.cdpWalletId, amount, settlementAddress as `0x${string}`);
     if (!txHash) {
       return res.status(400).json({
         success: false,
@@ -402,6 +400,7 @@ export async function pretiumOfframpCallback(
           status: body.status,
           receiptNumber: body.receipt_number,
           message: body.message,
+          isRealesed: true,
         },
       });
 
@@ -813,25 +812,17 @@ export async function pretiumMobileTransfer(req: Request, res: Response) {
     // Get user
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { smartAddress: true },
+      select: { smartAddress: true, cdpWalletId: true },
     });
 
-    if (!user || !user.smartAddress) {
+    if (!user || !user.smartAddress || !user.cdpWalletId) {
       return res.status(400).json({
         success: false,
-        error: "User  not found.",
+        error: "User or CDP wallet not found.",
       });
     }
     // send the usdc to the pretium settlement address
-    // get the users private key
-    const userPrivateKey = await getPrivateKey(userId);
-    if (!userPrivateKey.success || userPrivateKey.privateKey === null) {
-      return res.status(400).json({
-        success: false,
-        error: "Unable to get user signing client",
-      });
-    }
-    const txHash = await transferTx(userPrivateKey.privateKey, usdcAmount, settlementAddress as `0x${string}`);
+    const txHash = await transferTx(user.cdpWalletId, usdcAmount, settlementAddress as `0x${string}`);
     if (!txHash) {
       return res.status(400).json({
         success: false,

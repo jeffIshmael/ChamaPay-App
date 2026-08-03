@@ -8,7 +8,7 @@ import { addAddressToWebhook } from "../Lib/AlchemyWebhook";
 import emailService from "../Lib/EmailService";
 import Encryption from "../Lib/Encryption";
 import { sendWhatsAppOTP } from "../Lib/WhatsAppService";
-import { createUserWallet } from "../Lib/walletService";
+import { cdp } from "../Lib/HelperFunctions";
 
 const prisma = new PrismaClient();
 
@@ -409,39 +409,20 @@ export const registerUser = async (
       return;
     }
 
-    // create the wallet
-    const newWallet = await createUserWallet();
-
-    const masterKey = process.env.ENCRYPTION_SECRET;
-    if (!masterKey) {
-      throw new Error("ENCRYPTION_MASTER_KEY not configured");
-    }
-
-    // Create composite encryption key: hash(email + masterKey)
-    const encryptionKey = crypto
-      .createHash("sha256")
-      .update(`${formattedEmail}:${masterKey}`)
-      .digest("hex");
-    const passphrase = newWallet.mnemonic?.phrase ?? "";
-    const encryptedPassphrase = Encryption.encrypt(passphrase, encryptionKey);
-    const encryptedPrivkey = Encryption.encrypt(
-      newWallet.privateKey,
-      encryptionKey
-    );
-
-    const hashedPassphrase = Encryption.encodeEncryptedText(JSON.stringify(encryptedPassphrase));
-    const hashedPrivkey = Encryption.encodeEncryptedText(JSON.stringify(encryptedPrivkey));
+    // create the wallet using CDP Server-Signer
+    const cdpAccount = await cdp.evm.createAccount();
 
     // Create new user
     const newUser = await prisma.user.create({
       data: {
         email: formattedEmail,
         userName,
-        address: newWallet.address,
-        smartAddress: newWallet.address,
+        address: cdpAccount.address,
+        smartAddress: cdpAccount.address,
+        cdpWalletId: cdpAccount.address,
         profileImageUrl: profileImageUrl || null,
-        hashedPrivkey: hashedPrivkey,
-        hashedPassphrase: hashedPassphrase,
+        hashedPrivkey: "", // Deprecated
+        hashedPassphrase: "", // Deprecated
         location: country,
       },
     });

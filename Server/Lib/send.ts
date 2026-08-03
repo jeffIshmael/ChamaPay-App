@@ -1,19 +1,19 @@
-// a function to send USDC  from user's address
-import { privateKeyToAccount } from "viem/accounts";
-import { getPrivateKey } from "./HelperFunctions";
+import { PrismaClient } from "@prisma/client";
 import { createPublicClient, erc20Abi, http, parseUnits } from "viem";
 import { base } from "viem/chains";
 import { USDCAddress, builderCodeDataSuffix } from "../Blockchain/Constants";
 import { createEIP7702SmartAccount } from "../Blockchain/EIP7702Client";
+const prisma = new PrismaClient();
+
 // sending USDC
 export const sendUsdc = async (userId: number, amount: string, toAddress: string) => {
     try {
-        const privateKey = await getPrivateKey(userId);
-        if (!privateKey.success && privateKey.privateKey == null) {
-            throw new Error("Private key not found");
+        const user = await prisma.user.findUnique({ where: { id: userId }});
+        if (!user || !user.cdpWalletId) {
+            throw new Error("CDP wallet not found");
         }
         
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(privateKey.privateKey!);
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(user.cdpWalletId);
         const publicClient = createPublicClient({
             chain: base,
             transport: http()
@@ -25,7 +25,7 @@ export const sendUsdc = async (userId: number, amount: string, toAddress: string
             abi: erc20Abi,
             functionName: "transfer",
             args: [toAddress as `0x${string}`, amountBigInt],
-            account: smartAccountClient.account,
+            account: smartAccountClient.account.address as `0x${string}`,
         })
         const hash = await smartAccountClient.writeContract({
             ...request,

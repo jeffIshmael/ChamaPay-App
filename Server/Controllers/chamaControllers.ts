@@ -7,7 +7,7 @@ import { bcAddMemberToPrivateChama, bcAdminSetPayoutOrder, bcCreateChama, bcDepo
 import { approveTx } from "../Blockchain/erc20Functions";
 import emailService from "../Lib/EmailService";
 import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
-import { generateUniqueSlug, getPrivateKey } from "../Lib/HelperFunctions";
+import { generateUniqueSlug } from "../Lib/HelperFunctions";
 import { addMemberToPayout, notifyAllChamaMembers } from "../Lib/prismaFunctions";
 
 import { getCached, setCache } from "../Lib/cache";
@@ -50,12 +50,11 @@ export const createChama = async (
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
-    // get the private key of user
-    const result = await getPrivateKey(userId);
-    if (!result.success || result.privateKey == null) {
-      return res.status(401).json({ success: false, error: "Unable to get private key." });
+    // get the cdp wallet of user
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.cdpWalletId) {
+      return res.status(401).json({ success: false, error: "Unable to get user CDP wallet." });
     }
-
 
     const startDateInSecs = new Date(startDate).getTime() / 1000;
     // the blockchain Id
@@ -63,14 +62,14 @@ export const createChama = async (
 
     // if its a public we need to first approve spending
     if (collateralRequired) {
-      const approveTxHash = await approveTx(result.privateKey, (Number(amount) * maxNo).toString(), contractAddress as `0x${string}`);
+      const approveTxHash = await approveTx(user.cdpWalletId, (Number(amount) * maxNo).toString(), contractAddress as `0x${string}`);
       if (!approveTxHash) {
         return res.status(401).json({ success: false, error: "Approve transaction failed." });
       }
     }
 
     // register in the blockchain
-    const creationTxHash = await bcCreateChama(result.privateKey, amount, BigInt(Number(cycleTime)), BigInt(startDateInSecs), BigInt(Number(maxNo)), collateralRequired);
+    const creationTxHash = await bcCreateChama(user.cdpWalletId, amount, BigInt(Number(cycleTime)), BigInt(startDateInSecs), BigInt(Number(maxNo)), collateralRequired);
     if (!creationTxHash) {
       return res.status(401).json({ success: false, error: "Failed to register onchain." });
     }
@@ -451,14 +450,13 @@ export const depositToChama = async (req: Request, res: Response) => {
       memberForAddress = targetUser.smartAddress;
     }
 
-    // get the private key of user
-    const result = await getPrivateKey(userId);
-    if (!result.success || result.privateKey == null) {
-      return res.status(401).json({ success: false, error: "Unable to get private key." });
+    const callerUserForDeposit = await prisma.user.findUnique({ where: { id: userId } });
+    if (!callerUserForDeposit || !callerUserForDeposit.cdpWalletId) {
+      return res.status(401).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
     // approve transaction
-    const approveTxHash = await approveTx(result.privateKey, amount, contractAddress as `0x${string}`);
+    const approveTxHash = await approveTx(callerUserForDeposit.cdpWalletId, amount, contractAddress as `0x${string}`);
     if (!approveTxHash) {
       return res.status(401).json({ success: false, error: "deposit approve transaction failed." });
     }
@@ -469,9 +467,9 @@ export const depositToChama = async (req: Request, res: Response) => {
     // do the deposit onchain
     let depositTxHash;
     if (memberForId && memberForAddress) {
-      depositTxHash = await bcDepositFundsForMember(result.privateKey, BigInt(Number(blockchainId)), memberForAddress, amount);
+      depositTxHash = await bcDepositFundsForMember(callerUserForDeposit.cdpWalletId, BigInt(Number(blockchainId)), memberForAddress, amount);
     } else {
-      depositTxHash = await bcDepositFundsToChama(result.privateKey, BigInt(Number(blockchainId)), amount);
+      depositTxHash = await bcDepositFundsToChama(callerUserForDeposit.cdpWalletId, BigInt(Number(blockchainId)), amount);
     }
 
     if (!depositTxHash) {
@@ -570,15 +568,14 @@ export const addMemberToChama = async (req: Request, res: Response) => {
     if (!isAdmin) {
       return res.status(400).json({ success: false, error: "You are not the admin of this chama." });
     }
-    const privateKey = await getPrivateKey(user.id);
-    if (!privateKey.success || privateKey.privateKey === null) {
+    if (!user.cdpWalletId) {
       return res
         .status(400)
-        .json({ success: false, error: "Unable to get signing client." });
+        .json({ success: false, error: "Unable to get user CDP wallet." });
     }
     // the main function of adding the member
     const chamaBlockchainId = BigInt(Number(chama.blockchainId));
-    const addingTxHash = await bcAddMemberToPrivateChama(privateKey.privateKey, chamaBlockchainId, memberBeingAdded.smartAddress as `0x${string}`);
+    const addingTxHash = await bcAddMemberToPrivateChama(user.cdpWalletId, chamaBlockchainId, memberBeingAdded.smartAddress as `0x${string}`);
     if (!addingTxHash) {
       return res
         .status(400)
@@ -780,13 +777,11 @@ export const withdrawFromChamaBalance = async (req: Request, res: Response) => {
     }
 
     // the onchain function
-    // get the user's private key
-    const privateKey = await getPrivateKey(Number(userId));
-    if (!privateKey.success || privateKey.privateKey === null) {
-      return res.status(400).json({ success: false, error: "Unable to get signing client." });
+    if (!user || !user.cdpWalletId) {
+      return res.status(400).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
-    const withdrawTxHash = await bcWithdrawFundsFromChama(privateKey.privateKey, Number(chama.blockchainId), amount);
+    const withdrawTxHash = await bcWithdrawFundsFromChama(user.cdpWalletId, Number(chama.blockchainId), amount);
     if (!withdrawTxHash) {
       return res.status(400).json({ success: false, error: "Unable to withdraw from chama." });
     }
@@ -852,15 +847,14 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
       return res.status(403).json({ success: false, error: "Only the admin can update chama details" });
     }
 
-    // Get the user's private key
-    const privateKeyResult = await getPrivateKey(Number(userId));
-    if (!privateKeyResult.success || privateKeyResult.privateKey === null) {
-      return res.status(400).json({ success: false, error: "Unable to get signing client." });
+    // Get the user's CDP wallet
+    if (!user.cdpWalletId) {
+      return res.status(400).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
     // Call the blockchain function
     const txHash = await bcUpdateChamaDetails(
-      privateKeyResult.privateKey,
+      user.cdpWalletId,
       BigInt(chama.blockchainId),
       newAmount.toString(),
       Number(newCycle),
@@ -956,12 +950,11 @@ export const adminSetPayoutOrder = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Payout order must include all current members of the chama." });
     }
 
-    const privateKey = await getPrivateKey(Number(userId));
-    if (!privateKey.success || privateKey.privateKey === null) {
-      return res.status(400).json({ success: false, error: "Unable to get signing client." });
+    if (!user.cdpWalletId) {
+      return res.status(400).json({ success: false, error: "Unable to get user CDP wallet." });
     }
     const formattedBcOrder = payoutOrder.map((address: string) => address as `0x${string}`);
-    const payoutOrderTxHash = await bcAdminSetPayoutOrder(privateKey.privateKey, Number(chama.blockchainId), formattedBcOrder);
+    const payoutOrderTxHash = await bcAdminSetPayoutOrder(user.cdpWalletId, Number(chama.blockchainId), formattedBcOrder);
     if (!payoutOrderTxHash) {
       return res.status(400).json({ success: false, error: "Unable to set payout order onchain." });
     }

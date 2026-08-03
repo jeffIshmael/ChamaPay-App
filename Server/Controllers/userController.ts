@@ -7,7 +7,7 @@ import { transferTx, transferWithFeeTx } from "../Blockchain/erc20Functions";
 import { getUserBalance } from "../Blockchain/ReadFunctions";
 import { bcAddMemberToPrivateChama, bcAdminSetPayoutOrder } from "../Blockchain/WriteFunction";
 import { sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
-import { getPrivateKey } from "../Lib/HelperFunctions";
+import { generateUniqueSlug } from "../Lib/HelperFunctions";
 import {
   checkHasPendingRequest,
   getSentRequests,
@@ -208,9 +208,12 @@ export const getUserTransactions = async (
       prisma.pretiumTransaction.findMany({
         where: {
           userId,
-          isRealesed: true,
           chamaId: null,
           status: "COMPLETE",
+          OR: [
+            { isRealesed: true },
+            { isOnramp: false }
+          ],
           ...(dateFilter ? { updatedAt: dateFilter } : {}),
         },
         orderBy: { updatedAt: "desc" },
@@ -700,11 +703,10 @@ export const confirmJoinRequest = async (
           .json({ success: false, error: `${userName} not found.` });
         return;
       }
-      const privateKeyResponse = await getPrivateKey(userId);
-      if (
-        !privateKeyResponse.success ||
-        privateKeyResponse.privateKey === null
-      ) {
+      const adminUser = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+      if (!adminUser || !adminUser.cdpWalletId) {
         res
           .status(400)
           .json({ success: false, error: `unable to get signing client.` });
@@ -712,7 +714,7 @@ export const confirmJoinRequest = async (
       }
       const chamaBlockchainId = BigInt(Number(chama.blockchainId));
       const addingMemberTx = await bcAddMemberToPrivateChama(
-        privateKeyResponse.privateKey,
+        adminUser.cdpWalletId,
         chamaBlockchainId,
         requestingUser.smartAddress,
       );
@@ -1032,11 +1034,10 @@ export const transferUSDC = async (
       return;
     }
 
-    const privateKey = await getPrivateKey(user.id);
-    if (!privateKey.success || privateKey.privateKey === null) {
+    if (!user.cdpWalletId) {
       res
         .status(400)
-        .json({ success: false, error: "Failed to get private key" });
+        .json({ success: false, error: "Failed to get user CDP wallet" });
       return;
     }
 
@@ -1044,14 +1045,14 @@ export const transferUSDC = async (
 
     if (Number(fee) > 0) {
       transferTxHash = await transferWithFeeTx(
-        privateKey.privateKey,
+        user.cdpWalletId,
         amount,
         receiver as `0x${string}`,
         fee,
       );
     } else {
       transferTxHash = await transferTx(
-        privateKey.privateKey,
+        user.cdpWalletId,
         amount,
         receiver as `0x${string}`,
       );

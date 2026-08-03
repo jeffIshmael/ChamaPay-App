@@ -253,7 +253,7 @@ class EmailService {
       const shortHash = txHash.length > 18 ? `${txHash.slice(0, 10)}…${txHash.slice(-8)}` : txHash;
       const body = `
         ${heading("Deposit confirmed")}
-        ${paragraph(`Your wallet just received <strong style="color:${SUCCESS};">${amount} USDC</strong>.`)}
+        ${paragraph(`You just received <strong style="color:${SUCCESS};">${amount} USDC</strong>.`)}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <p style="margin:0; font-size:12px; color:${MUTED};">Transaction hash</p>
           <p style="margin:4px 0 0; font-size:13px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; color:${INK}; word-break:break-all;">${shortHash}</p>

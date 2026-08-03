@@ -13,6 +13,8 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 
 contract ChamaPay is 
@@ -77,6 +79,9 @@ contract ChamaPay is
 
     Payment[] public payments;
 
+    bool public migrationComplete;
+    mapping(address => bool) public hasMigrated;
+
     event ChamaRegistered(uint indexed id, uint amount, uint duration, uint maxMembers, uint startDate, bool _isPublic, address indexed admin);
     event CashDeposited(uint indexed chamaId, address indexed receiver, uint amount);
     event OnrampUpdated(uint indexed chamaId, address indexed memberAddress, uint amount);
@@ -98,6 +103,8 @@ contract ChamaPay is
     event TransferDone(address indexed _receiver, uint _amount, bool _success, uint _contractBal, uint _receiverBalBefore);
     event PayoutDone(uint indexed _chamaId, address indexed _receiver, uint _amount);
     event FeesWithdrawn(address indexed _address, uint amount);
+    event UserMigrated(address indexed oldAddress, address indexed newAddress, uint256 timestamp);
+    event MigrationFinalized(uint256 timestamp);
 
     function createPrivateChama(
         uint _amount, 
@@ -707,5 +714,66 @@ contract ChamaPay is
     modifier onlyAiAgent() {
         require(msg.sender == aiAgent || msg.sender == owner(), "Only aiAgent or owner");
         _;
+    }
+
+    modifier migrationActive() {
+        require(!migrationComplete, "ChamaPay: migration window closed");
+        _;
+    }
+
+    function migrateUser(
+        address oldAddress,
+        address newAddress,
+        bytes calldata newAddressSignature
+    ) external onlyOwner migrationActive {
+        require(oldAddress != address(0) && newAddress != address(0), "ChamaPay: zero address");
+        require(oldAddress != newAddress, "ChamaPay: same address");
+        require(!hasMigrated[oldAddress], "ChamaPay: already migrated");
+
+        bytes32 messageHash = keccak256(
+            abi.encodePacked("ChamaPay Migration v1:", address(this), oldAddress)
+        );
+        bytes32 ethSignedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+        address recovered = ECDSA.recover(ethSignedMessageHash, newAddressSignature);
+        require(recovered == newAddress, "ChamaPay: new address did not authorize migration");
+
+        for (uint256 i = 0; i < chamas.length; i++) {
+            Chama storage chama = chamas[i];
+
+            for (uint256 j = 0; j < chama.members.length; j++) {
+                if (chama.members[j] == oldAddress) {
+                    chama.members[j] = newAddress;
+                }
+            }
+
+            if (chama.balances[oldAddress] > 0) {
+                chama.balances[newAddress] += chama.balances[oldAddress];
+                chama.balances[oldAddress] = 0;
+            }
+
+            chama.hasSent[newAddress] = chama.hasSent[oldAddress];
+            delete chama.hasSent[oldAddress];
+
+            chama.lockedAmounts[newAddress] = chama.lockedAmounts[oldAddress];
+            delete chama.lockedAmounts[oldAddress];
+
+            for (uint256 j = 0; j < chama.payoutOrder.length; j++) {
+                if (chama.payoutOrder[j] == oldAddress) {
+                    chama.payoutOrder[j] = newAddress;
+                }
+            }
+
+            if (chama.admin == oldAddress) {
+                chama.admin = newAddress;
+            }
+        }
+
+        hasMigrated[oldAddress] = true;
+        emit UserMigrated(oldAddress, newAddress, block.timestamp);
+    }
+
+    function finalizeMigration() external onlyOwner {
+        migrationComplete = true;
+        emit MigrationFinalized(block.timestamp);
     }
 }

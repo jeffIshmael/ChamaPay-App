@@ -19,6 +19,7 @@ model User {
   profileImageUrl     String?
   hashedPassphrase    String
   hashedPrivkey       String
+  cdpWalletId         String?
   location            String?
   emailNotify         Boolean              @default(true)
   expoPushToken       String?
