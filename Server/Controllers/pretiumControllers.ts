@@ -15,6 +15,8 @@ import {
 } from "../Lib/PretiumFunctions";
 import { pimlicoDepositForUser } from "../Lib/pimlicoAgent";
 import { parseUnits } from "viem";
+import * as cronJobFunctions from "../Lib/cronJobFunctions";
+import emailService from "../Lib/EmailService";
 import { settlementAddress } from "../Lib/PretiumFunctions";
 import { transferTx } from "../Blockchain/erc20Functions";
 import { generateUniqueSlug } from "../Lib/HelperFunctions";
@@ -159,7 +161,7 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
     // Get user's wallet address
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { smartAddress: true, cdpWalletId: true },
+      select: { smartAddress: true, hashedPrivkey: true },
     });
 
     if (!user || !user.smartAddress) {
@@ -177,13 +179,13 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
       });
     }
     // get the users cdp wallet
-    if (!user.cdpWalletId) {
+    if (!user.hashedPrivkey) {
       return res.status(400).json({
         success: false,
         error: "Unable to get user CDP wallet",
       });
     }
-    const txHash = await transferTx(user.cdpWalletId, amount, settlementAddress as `0x${string}`);
+    const txHash = await transferTx(user.hashedPrivkey as `0x${string}`, amount, settlementAddress as `0x${string}`);
     if (!txHash) {
       return res.status(400).json({
         success: false,
@@ -273,6 +275,7 @@ export async function pretiumCallback(req: Request, res: Response) {
     // Find transaction
     const transaction = await prisma.pretiumTransaction.findUnique({
       where: { transactionCode: body.transaction_code },
+      include: { user: true }
     });
 
     if (!transaction) {
@@ -320,6 +323,24 @@ export async function pretiumCallback(req: Request, res: Response) {
     console.log(
       `✅ ${transaction.type} successful - Receipt: ${body.receipt_number}`
     );
+
+    // Send M-Pesa Deposit Email
+    if (transaction.user.emailNotify && transaction.type === "payment") {
+      const timeStr = new Date().toLocaleString("en-US", {
+        timeZone: "Africa/Nairobi",
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+      // Use cusdAmount if available, otherwise amount
+      const displayAmount = transaction.cusdAmount ? transaction.cusdAmount.toString() : transaction.amount.toString();
+      await emailService.sendMpesaDepositEmail(
+        transaction.user.email,
+        displayAmount,
+        body.receipt_number,
+        transaction.account_number || "M-Pesa",
+        timeStr
+      );
+    }
   } catch (error) {
     console.error("Error processing callback:", error);
   }
@@ -349,6 +370,7 @@ export async function pretiumOfframpCallback(
       where: {
         transactionCode: body.transaction_code,
       },
+      include: { user: true }
     });
 
     if (!transaction) {
@@ -407,6 +429,23 @@ export async function pretiumOfframpCallback(
       console.log(
         `✅ Offramp successful - Receipt: ${body.receipt_number}`
       );
+
+      // Send M-Pesa Withdraw Email
+      if (transaction.user.emailNotify) {
+        const timeStr = new Date().toLocaleString("en-US", {
+          timeZone: "Africa/Nairobi",
+          dateStyle: "medium",
+          timeStyle: "short",
+        });
+        const displayAmount = transaction.cusdAmount ? transaction.cusdAmount.toString() : transaction.amount.toString();
+        await emailService.sendMpesaWithdrawEmail(
+          transaction.user.email,
+          displayAmount,
+          body.receipt_number,
+          transaction.account_number || "M-Pesa",
+          timeStr
+        );
+      }
     }
   } catch (error) {
     console.error(
@@ -812,17 +851,17 @@ export async function pretiumMobileTransfer(req: Request, res: Response) {
     // Get user
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { smartAddress: true, cdpWalletId: true },
+      select: { smartAddress: true, hashedPrivkey: true },
     });
 
-    if (!user || !user.smartAddress || !user.cdpWalletId) {
+    if (!user || !user.smartAddress || !user.hashedPrivkey) {
       return res.status(400).json({
         success: false,
         error: "User or CDP wallet not found.",
       });
     }
     // send the usdc to the pretium settlement address
-    const txHash = await transferTx(user.cdpWalletId, usdcAmount, settlementAddress as `0x${string}`);
+    const txHash = await transferTx(user.hashedPrivkey as `0x${string}`, usdcAmount, settlementAddress as `0x${string}`);
     if (!txHash) {
       return res.status(400).json({
         success: false,

@@ -231,7 +231,3 @@ export const createEIP7702SmartAccount = async (privateKey: string) => {
 
 export const createCDPSmartAccount = createEIP7702SmartAccount;
 
-export {
-    createCDPSmartAccount,
-    createEIP7702SmartAccount,
-} from "./CDPEIP7702Client";
