@@ -34,6 +34,15 @@ if (!pretiumApiKey || !settlementAddress || !serverUrl) {
   throw new Error("Pretium api key or settlement address not set.");
 }
 
+function formatPretiumPhone(phone: string): string {
+  let cleaned = phone.replace(/\D/g, '');
+  if (cleaned.startsWith('254') && cleaned.length === 12) {
+    cleaned = '0' + cleaned.substring(3);
+  }
+  return cleaned;
+}
+
+
 // function to get the quote
 export async function getQuote(currencyCode: string): Promise<Quote | null> {
   try {
@@ -76,7 +85,7 @@ export async function pretiumOnramp(
     const response = await axios.post(
       "https://api.xwift.africa/v1/onramp/KES",
       {
-        shortcode: phoneNumber,
+        shortcode: formatPretiumPhone(phoneNumber),
         amount: amount,
         mobile_network: "Safaricom",
         chain: "BASE",
@@ -120,7 +129,7 @@ export async function pretiumOfframp(
       "https://api.xwift.africa/v1/pay/KES",
       {
         type: "MOBILE",
-        shortcode: phoneNumber,
+        shortcode: formatPretiumPhone(phoneNumber),
         amount: amount,
         fee: kesFee,
         mobile_network: "Safaricom",
@@ -160,7 +169,7 @@ export async function verifyPhoneNo(
       "https://api.xwift.africa/v1/validation/KES",
       {
         type: "MOBILE",
-        shortcode: phonenumber,
+        shortcode: formatPretiumPhone(phonenumber),
         mobile_network: "Safaricom",
       },
       {
