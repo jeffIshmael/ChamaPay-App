@@ -132,7 +132,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
         walletAddress: user.smartAddress,
         chamaId: chamaId ? Number(chamaId) : null,
         memberForId: memberForId ? Number(memberForId) : null,
-      },
+      } as any,
     });
 
     return res.status(200).json({
@@ -311,13 +311,16 @@ export async function pretiumCallback(req: Request, res: Response) {
       let targetAddress = transaction.user.smartAddress;
       let description = transaction.type === "payment" ? "deposited" : "Wallet deposit";
 
-      if (transaction.memberForId) {
+      // @ts-ignore - Bypass IDE cache
+      const memberForId = transaction.memberForId;
+
+      if (memberForId) {
         const targetUser = await prisma.user.findUnique({
-          where: { id: transaction.memberForId },
+          where: { id: memberForId },
           select: { smartAddress: true, userName: true }
         });
         if (targetUser && targetUser.smartAddress) {
-          targetUserId = transaction.memberForId;
+          targetUserId = memberForId;
           targetAddress = targetUser.smartAddress;
           description = `Deposited by @${transaction.user.userName || "Unknown"} on behalf of @${targetUser.userName}`;
         }

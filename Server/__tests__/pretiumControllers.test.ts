@@ -1,7 +1,7 @@
 import { describe, expect, it, jest, beforeEach } from '@jest/globals';
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
-import { initiatePretiumOnramp, pretiumCheckTriggerDepositFor } from "../Controllers/pretiumControllers";
+import { initiatePretiumOnramp, pretiumCallback } from "../Controllers/pretiumControllers";
 import { pretiumOnramp, checkPretiumTxStatus } from "../Lib/PretiumFunctions";
 import { pimlicoDepositForUser, pimlicoTransferToUser } from "../Lib/pimlicoAgent";
 import { parseUnits } from "viem";
@@ -71,8 +71,8 @@ describe("FX Reserve Logic", () => {
           isDeposit: true,
           chamaId: 1,
         },
-        user: { userId: 1 } as any,
-      };
+        user: { userId: 1 },
+      } as any;
 
       (prisma.user.findUnique as any).mockResolvedValue({
         smartAddress: "0xUserSmartAddress",
