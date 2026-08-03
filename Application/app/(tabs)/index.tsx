@@ -9,7 +9,7 @@ import { decryptChamaSlug, parseChamaShareUrl } from "@/lib/encryption";
 import { registerForPushNotificationsAsync } from "@/lib/notificationUtils";
 import { updateUserPushToken } from "@/lib/userService";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
-import { useExchangeRateStore } from "@/store/useExchangeRateStore";
+import { useFormattedBalance } from "@/hooks/useFormattedBalance";
 import { formatDays, formatTimeRemaining } from "@/Utils/helperFunctions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
@@ -49,9 +49,8 @@ export default function HomeScreen() {
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [pasteLink, setPasteLink] = useState("");
   const [isProcessingLink, setIsProcessingLink] = useState(false);
-  const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
   const { currency } = useCurrencyStore();
-  const kesRate = rates["KES"]?.rate || 0;
+  const { formatBalance } = useFormattedBalance();
   const hasInitialized = React.useRef(false);
 
   // Fetch user's chamas using React Query
@@ -81,8 +80,6 @@ export default function HomeScreen() {
 
   // Update rates on component mount
   useEffect(() => {
-    globalFetchRate("KES");
-
     if (hasInitialized.current) return;
     hasInitialized.current = true;
 
@@ -389,9 +386,7 @@ Alert.alert(
                       <HandCoins color="#3b82f6" size={20} />
                       <Text className=" font-semibold text-blue-700 ml-1.5" numberOfLines={1}>
                         <Text className="text-lg font-semibold text-blue-700 ml-1.5" numberOfLines={1}>
-                          {kesRate > 0 && currency === "KES"
-                            ? `${(Number(chama.contribution) * kesRate).toFixed(2)} KES`
-                            : `${chama.contribution?.toFixed(3)} USDC`}
+                          {formatBalance(chama.contribution)}
                           / {formatDays(Number(chama.duration))}
                         </Text>
                       </Text>

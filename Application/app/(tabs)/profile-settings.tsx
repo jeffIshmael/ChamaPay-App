@@ -353,6 +353,48 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
             </View>
           )}
 
+          {/* Currency Display */}
+          <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
+            <View className="flex-row items-center gap-3 mb-6">
+              <View>
+                <Text className="text-lg font-bold text-gray-900">
+                  Currency Display
+                </Text>
+                <Text className="text-gray-600 text-sm">
+                  Choose your preferred currency
+                </Text>
+              </View>
+            </View>
+            <View className="gap-4">
+              <TouchableOpacity
+                onPress={() => {
+                  setCurrency(currency === "USDC" ? "KES" : "USDC");
+                }}
+                className="flex-row items-center justify-between p-4 bg-gray-50 rounded-xl"
+              >
+                <View className="flex-1 pr-4">
+                  <Text className="text-gray-900 font-semibold text-base">
+                    Default Currency
+                  </Text>
+                  <Text className="text-sm text-gray-600 mt-1">
+                    Tap to toggle between USDC and KES
+                  </Text>
+                </View>
+                <View className="flex-row items-center bg-white px-3 py-2 rounded-lg border border-gray-200">
+                  {currency === "KES" ? (
+                    <Text className="text-base font-medium mr-2">🇰🇪 KES</Text>
+                  ) : (
+                    <View className="flex-row items-center mr-2">
+                      <Image source={require("../../assets/images/usdclogo.png")} style={{ width: 16, height: 16, marginRight: 4 }} />
+                      <Text className="text-base font-medium">USDC</Text>
+                    </View>
+                  )}
+                  <ChevronDown size={16} color="#6b7280" />
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {/* Notification Settings */}
           <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
             <View className="flex-row items-center gap-3 mb-6">

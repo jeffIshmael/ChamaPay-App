@@ -167,6 +167,38 @@ export const pimlicoDepositForUser = async (
   }
 };
 
+// function to trigger direct wallet transfer (deposit) for user
+export const pimlicoTransferToUser = async (
+  memberAddress: `0x${string}`,
+  amount: bigint
+) => {
+  try {
+    const { smartAccountClient, authorization } = await getAgentSmartWallet();
+
+    const transferHash = await smartAccountClient.writeContract({
+      address: USDCAddress,
+      abi: erc20Abi,
+      functionName: "transfer",
+      args: [memberAddress, amount],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+
+    const transferTransaction = await publicClient.waitForTransactionReceipt({
+      hash: transferHash
+    });
+
+    if (!transferTransaction) {
+      throw new Error("unable to get the transfer transaction");
+    }
+
+    return transferTransaction.transactionHash;
+  } catch (error) {
+    console.error("Error processing agent transfer to user tx:", error);
+    throw error;
+  }
+};
+
 // Check if payout was a disburse or refund by querying events
 export const checkPayoutResult = async (
   chamaBlockchainId: number,

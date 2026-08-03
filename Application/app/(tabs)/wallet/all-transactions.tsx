@@ -2,7 +2,7 @@ import { ResolvedAddress } from "@/components/ResolvedAddress";
 import { useAuth } from "@/Contexts/AuthContext";
 import { getTheUserTx } from "@/lib/walletServices";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
-import { useExchangeRateStore } from "@/store/useExchangeRateStore";
+import { useFormattedBalance } from "@/hooks/useFormattedBalance";
 import { useRouter } from "expo-router";
 import {
   ArrowDownRight,
@@ -55,15 +55,8 @@ export default function AllTransactions() {
   const [modalVisible, setModalVisible] = useState(false);
   const { token, user } = useAuth();
   const { currency } = useCurrencyStore();
+  const { formatBalance } = useFormattedBalance();
   const [refreshing, setRefreshing] = useState(false);
-  const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
-  const theExhangeQuote = rates["KES"]?.data || null;
-
-  const fetchRate = async () => {
-    try {
-      await globalFetchRate("KES");
-    } catch { /* ignored */ }
-  };
 
   const getTx = async (cursor?: string | null) => {
     if (!token) return;
@@ -107,7 +100,6 @@ if (!isLoadMore) {
 
   useEffect(() => {
     getTx();
-    fetchRate();
   }, [token]);
 
   const onRefresh = async () => {
@@ -274,17 +266,9 @@ if (!isLoadMore) {
             className={`font-bold text-base ${getTransactionTextColor(tx.type)}`}
           >
             {tx.type === "sent" || tx.type === "withdrew" ? "-" : "+"}
-            {currency === "KES" && theExhangeQuote?.exchangeRate.selling_rate
-              ? `${(parseFloat(tx.amount) * theExhangeQuote.exchangeRate.selling_rate).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })} KES`
-              : `${parseFloat(tx.amount).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 4,
-              })} USDC`}
+            {formatBalance(tx.amount)}
           </Text>
-          {currency === "KES" && theExhangeQuote?.exchangeRate.selling_rate && (
+          {currency === "KES" && (
             <Text className="text-[10px] text-gray-400">
               ({parseFloat(tx.amount).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
@@ -367,17 +351,9 @@ if (!isLoadMore) {
                     selectedTransaction.type === "withdrew"
                     ? "-"
                     : "+"}
-                  {currency === "KES" && theExhangeQuote?.exchangeRate.selling_rate
-                    ? `${(parseFloat(selectedTransaction.amount) * theExhangeQuote.exchangeRate.selling_rate).toLocaleString(undefined, {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    })} KES`
-                    : `${parseFloat(selectedTransaction.amount).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 4,
-                    })} USDC`}
+                  {formatBalance(selectedTransaction.amount)}
                 </Text>
-                {currency === "KES" && theExhangeQuote?.exchangeRate.selling_rate && (
+                {currency === "KES" && (
                   <Text className="text-white/70 text-sm font-medium mt-1">
                     ({parseFloat(selectedTransaction.amount).toLocaleString(undefined, {
                       minimumFractionDigits: 2,

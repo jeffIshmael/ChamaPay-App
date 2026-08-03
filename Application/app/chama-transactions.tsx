@@ -1,7 +1,7 @@
 import { ResolvedAddress } from "@/components/ResolvedAddress";
 import { Transaction } from "@/constants/mockData";
 import { useAuth } from "@/Contexts/AuthContext";
-import { useExchangeRateStore } from "@/store/useExchangeRateStore";
+import { useFormattedBalance } from "@/hooks/useFormattedBalance";
 import { getRelativeTime } from "@/Utils/helperFunctions";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, CornerUpRight, ExternalLink, Minus, Plus, Receipt } from "lucide-react-native"; // ReceiptIcon is not in lucide-react-native, using Receipt
@@ -14,8 +14,7 @@ export default function ChamaTransactions() {
     const insets = useSafeAreaInsets();
     const { transactions, chamaName } = useLocalSearchParams();
     const { user } = useAuth();
-    const { rates } = useExchangeRateStore();
-    const kesRate = rates["KES"]?.rate || 0;
+    const { formatBalance } = useFormattedBalance();
 
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -103,9 +102,7 @@ export default function ChamaTransactions() {
                         ) : (
                             <Minus size={12} color="#ea580c" style={{ marginRight: 2 }} />
                         )}
-                        {kesRate > 0 && user?.location === "KE"
-                            ? `  ${(Number(transaction.amount) * kesRate).toFixed(2)} KES`
-                            : `  ${(transaction.amount || 0).toString()} ${currency}`}
+                        {formatBalance(transaction.amount || 0)}
                     </Text>
                     <Text className="text-xs text-gray-400">
                         {getRelativeTime(transaction.date)}
@@ -184,16 +181,9 @@ export default function ChamaTransactions() {
                                 <View className="space-y-4 mb-6">
                                     <View className="bg-gray-50 rounded-xl p-4">
                                         <Text className="text-sm text-gray-500 mb-1">Amount</Text>
-                                        <Text className="text-2xl font-bold text-gray-900">
-                                            {kesRate > 0 && user?.location === "KE"
-                                                ? `${(parseFloat(selectedTransaction.amount?.toString() || "0") * kesRate).toFixed(2)} KES`
-                                                : `${parseFloat(selectedTransaction.amount?.toString() || "0").toLocaleString()} USDC`}
+                                        <Text className="text-2xl font-bold text-gray-900 mt-2">
+                                            {formatBalance(selectedTransaction.amount || 0)}
                                         </Text>
-                                        {kesRate > 0 && user?.location === "KE" && (
-                                            <Text className="text-sm font-medium text-gray-400 mt-1">
-                                                ≈ {parseFloat(selectedTransaction.amount?.toString() || "0").toFixed(2)} USDC
-                                            </Text>
-                                        )}
                                     </View>
 
                                     <View className="bg-gray-50 rounded-xl p-4">

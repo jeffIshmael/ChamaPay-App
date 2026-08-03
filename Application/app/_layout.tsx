@@ -10,6 +10,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import "./global.css";
 
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
+import { serverUrl } from "@/constants/serverUrl";
 import { logAppOpen } from "@/lib/analytics";
 
 const queryClient = new QueryClient({
@@ -33,31 +35,43 @@ function RootLayoutNav() {
   const [isReady, setIsReady] = useState(false);
   const [hasSplashHidden, setHasSplashHidden] = useState(false);
   const hydrateRates = useExchangeRateStore((state) => state.hydrate);
+  const setPlatformRate = useCurrencyStore((state) => state.setPlatformRate);
 
   // Initialize app resources
   useEffect(() => {
     const initializeApp = async () => {
-try {
+      try {
         // Set system UI background IMMEDIATELY
         await SystemUI.setBackgroundColorAsync("#d1f6f1");
-// Hydrate exchange rates (don't await - do it in background)
+        
+        // Hydrate exchange rates (don't await - do it in background)
         hydrateRates();
+        
+        // Fetch platform rate from backend (non-blocking)
+        fetch(`${serverUrl}/api/rates`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data && data.rate) {
+              setPlatformRate(data.rate);
+            }
+          })
+          .catch((err) => console.log("Failed to fetch platform rate:", err));
         
         // Log app open
         logAppOpen();
 
-// Small delay to ensure everything is painted
+        // Small delay to ensure everything is painted
         await new Promise(resolve => setTimeout(resolve, 100));
 
         setIsReady(true);
-} catch (error) {
-// ALWAYS set ready to prevent app from hanging
+      } catch (error) {
+        // ALWAYS set ready to prevent app from hanging
         setIsReady(true);
       }
     };
 
     initializeApp();
-  }, [hydrateRates]);
+  }, [hydrateRates, setPlatformRate]);
 
   // Hide native splash - with robust error handling
   useEffect(() => {

@@ -1,5 +1,5 @@
-import { useExchangeRateStore } from "@/store/useExchangeRateStore";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { useFormattedBalance } from "@/hooks/useFormattedBalance";
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -68,11 +68,9 @@ export default function CreateChama() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showMembersDropdown, setShowMembersDropdown] = useState(false);
 
-  const { fetchRate: globalFetchRate, rates } = useExchangeRateStore();
-  const kesRate = rates["KES"]?.rate || 0;
+  const { platformRate: kesRate } = useFormattedBalance();
 
   useEffect(() => {
-    globalFetchRate("KES");
     if (user?.location === "KE") {
       setIsKESMode(true);
     }

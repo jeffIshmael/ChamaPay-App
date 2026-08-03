@@ -377,16 +377,16 @@ return;
         {/* Message Input - Fixed at bottom */}
         <View className="bg-white border-t border-gray-200 px-4 py-3 pb-6">
           <View className="flex-row items-center gap-2">
-            <View className="flex-1 bg-gray-50 rounded-full px-5 py-3.5 border border-gray-300">
+            <View className="flex-1 bg-gray-50 rounded-3xl px-5 py-3 border border-gray-300 min-h-[48px] justify-center">
               <TextInput
                 value={newMessage}
                 onChangeText={setNewMessage}
                 placeholder="Type a message..."
                 className="text-[15px] text-gray-900"
-                multiline={false}
+                multiline={true}
+                style={{ maxHeight: 100 }}
                 placeholderTextColor="#9ca3af"
-                returnKeyType="send"
-                onSubmitEditing={handleSend}
+                returnKeyType="default"
                 maxLength={500}
               />
             </View>

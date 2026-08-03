@@ -15,11 +15,11 @@ import {
 import React, { FC, useState } from "react";
 import { Dimensions, Linking, Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../Contexts/AuthContext";
-import { useCurrencyStore } from "../store/useCurrencyStore";
 import { formatDate } from "../Utils/helperFunctions";
 import { AddLockedFundsModal, WithdrawModal } from "./ChamaBalanceModals";
 import { ResolvedAddress } from "./ResolvedAddress";
 import { Card } from "./ui/Card";
+import { useFormattedBalance } from "@/hooks/useFormattedBalance";
 
 type Props = {
   myContributions: number;
@@ -38,7 +38,6 @@ type Props = {
   chamaStatus: string;
   currency: string;
   isPublic: boolean;
-  kesRate: number;
   myCollateral: number;
   chamaPayDate: string;
   collateralAmount: number;
@@ -66,7 +65,6 @@ const ChamaOverviewTab: FC<Props> = ({
   chamaPayDate,
   currency,
   isPublic,
-  kesRate,
   collateralAmount,
   myCollateral,
   chamaName,
@@ -82,7 +80,7 @@ const ChamaOverviewTab: FC<Props> = ({
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showAddLockedModal, setShowAddLockedModal] = useState(false);
   const { user } = useAuth();
-  const { currency: userCurrency } = useCurrencyStore();
+  const { formatBalance } = useFormattedBalance();
 
   const handleTransactionPress = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
@@ -154,17 +152,9 @@ const ChamaOverviewTab: FC<Props> = ({
 
                   {/* Balance Amount */}
                   <View className="px-4 py-4">
-                    <View className="mb-4">
                       <Text className="text-3xl font-bold text-gray-900">
-                        {kesRate > 0 && userCurrency === "KES"
-                          ? `${(myContributions * kesRate).toFixed(2)} KES`
-                          : `${myContributions > 0 ? myContributions.toFixed(3) : 0} ${currency}`}
+                        {formatBalance(myContributions || 0)}
                       </Text>
-                      {kesRate > 0 && userCurrency === "KES" && (
-                        <Text className="text-xs text-gray-500 mt-1">
-                          ≈ {myContributions > 0 ? myContributions.toFixed(3) : 0} {currency}
-                        </Text>
-                      )}
                     </View>
 
                     {/* Payment Warning */}
@@ -179,9 +169,7 @@ const ChamaOverviewTab: FC<Props> = ({
                               Outstanding Payment
                             </Text>
                             <Text className="text-orange-700 text-xs">
-                              {kesRate > 0 && userCurrency === "KES"
-                                ? `${(remainingAmount * kesRate).toFixed(2)} KES`
-                                : `${remainingAmount.toFixed(3)} ${currency}`}
+                              {formatBalance(remainingAmount || 0)}
                               {" • Due: "}
                               {formatDate(contributionDueDate as unknown as string)}
                             </Text>
@@ -254,7 +242,6 @@ const ChamaOverviewTab: FC<Props> = ({
                         </>
                       )}
                     </View>
-                  </View>
                 </View>
               </View>
 
@@ -291,15 +278,8 @@ const ChamaOverviewTab: FC<Props> = ({
                     <View className="px-4 py-4">
                       <View className="mb-4">
                         <Text className="text-3xl font-bold text-gray-900">
-                          {kesRate > 0 && userCurrency === "KES"
-                            ? `${(myCollateral * kesRate).toFixed(2)} KES`
-                            : `${myCollateral > 0 ? myCollateral.toFixed(3) : 0} ${currency}`}
+                          {formatBalance(myCollateral || 0)}
                         </Text>
-                        {kesRate > 0 && userCurrency === "KES" && (
-                          <Text className="text-xs text-gray-500 mt-1">
-                            ≈ {myCollateral > 0 ? myCollateral.toFixed(3) : 0} {currency}
-                          </Text>
-                        )}
                       </View>
 
                       {/* Collateral Info */}
@@ -311,9 +291,7 @@ const ChamaOverviewTab: FC<Props> = ({
                               Required Collateral
                             </Text>
                             <Text className="text-purple-700 text-xs">
-                              {kesRate > 0 && userCurrency === "KES"
-                                ? `${(collateralAmount * kesRate).toFixed(2)} KES`
-                                : `${collateralAmount > 0 ? collateralAmount.toFixed(3) : 0} ${currency}`}
+                              {formatBalance(collateralAmount || 0)}
                               {collateralAmount >= (contribution * 10) && (
                                 <Text className="text-emerald-600 font-bold">
                                   {" "}✓ Complete
@@ -383,15 +361,8 @@ const ChamaOverviewTab: FC<Props> = ({
               <View className="px-4 py-4">
                 <View className="mb-4">
                   <Text className="text-3xl font-bold text-gray-900">
-                    {kesRate > 0 && userCurrency === "KES"
-                      ? `${myContributions > 0 ? (myContributions * kesRate).toFixed(2) : 0} KES`
-                      : `${myContributions > 0 ? myContributions.toFixed(3) : 0} ${currency}`}
+                    {formatBalance(myContributions || 0)}
                   </Text>
-                  {kesRate > 0 && userCurrency === "KES" && (
-                    <Text className="text-xs text-gray-500 mt-1">
-                      ≈ {myContributions > 0 ? myContributions.toFixed(3) : 0} {currency}
-                    </Text>
-                  )}
                 </View>
 
                 {remainingAmount > 0 ? (
@@ -405,9 +376,7 @@ const ChamaOverviewTab: FC<Props> = ({
                           Outstanding Payment
                         </Text>
                         <Text className="text-orange-700 text-xs">
-                          {kesRate > 0 && userCurrency === "KES"
-                            ? `${(remainingAmount * kesRate).toFixed(2)} KES`
-                            : `${remainingAmount.toFixed(3)} ${currency}`}
+                          {formatBalance(remainingAmount || 0)}
                           {" • Due: "}
                           {new Date(contributionDueDate).toLocaleDateString("en-US", {
                             month: "short",
@@ -566,10 +535,7 @@ const ChamaOverviewTab: FC<Props> = ({
                   Amount
                 </Text>
                 <Text className="text-lg font-bold text-emerald-600">
-                  {kesRate > 0 && userCurrency === "KES"
-                    ? `${(nextPayoutAmount * kesRate).toFixed(2)} KES`
-                    : `${nextPayoutAmount.toFixed(3)} ${currency}`}
-                  {/* {kesRate > 0 && userCurrency === "KES" && <Text className="text-sm font-medium text-emerald-400"> ({nextPayoutAmount.toFixed(3)} {currency})</Text>} */}
+                  {formatBalance(nextPayoutAmount || 0)}
                 </Text>
               </View>
               <View className="flex-row justify-between items-center">
@@ -680,10 +646,7 @@ const ChamaOverviewTab: FC<Props> = ({
                           style={{ marginRight: 2 }}
                         />
                       )}
-
-                      {kesRate > 0 && userCurrency === "KES"
-                        ? `  ${(Number(transaction.amount) * kesRate).toFixed(2)} KES`
-                        : `  ${(transaction.amount || 0).toString()} ${currency}`}
+                      {formatBalance(transaction.amount || 0)}
                     </Text>
                     <Text className="text-xs text-gray-400">
                       {getRelativeTime(transaction.date)}
@@ -787,16 +750,8 @@ const ChamaOverviewTab: FC<Props> = ({
                 <View className="space-y-4 mb-6">
                   <View className="bg-gray-50 rounded-xl p-4">
                     <Text className="text-sm text-gray-600 mb-1">Amount</Text>
-                    <Text className="text-xl font-bold text-gray-900">
-                      {kesRate > 0 && userCurrency === "KES"
-                        ? `${(parseFloat(selectedTransaction.amount?.toString() || "0") * kesRate).toFixed(2)} KES`
-                        : `${parseFloat(selectedTransaction.amount?.toString() || "0").toFixed(3)} ${currency}`}
-                      {kesRate > 0 && userCurrency === "KES" && (
-                        <Text className="text-sm font-medium text-gray-500">
-                          {" "}
-                          ({parseFloat(selectedTransaction.amount?.toString() || "0").toFixed(3)} {currency})
-                        </Text>
-                      )}
+                    <Text className="text-xl font-bold text-gray-900 mt-2">
+                      {formatBalance(selectedTransaction.amount || 0)}
                     </Text>
                   </View>
 

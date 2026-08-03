@@ -360,7 +360,29 @@ export const getChamasUserIsMemberOf = async (req: Request, res: Response) => {
         },
       },
     });
-    return res.status(200).json({ success: true, chamas: chamas });
+
+    const chamasWithUnread = await Promise.all(
+      chamas.map(async (member) => {
+        const unreadCount = await prisma.message.count({
+          where: {
+            chamaId: member.chamaId,
+            timestamp: {
+              gt: member.lastReadTime,
+            },
+          },
+        });
+        
+        return {
+          ...member,
+          chama: {
+            ...member.chama,
+            unreadMessages: unreadCount,
+          }
+        };
+      })
+    );
+
+    return res.status(200).json({ success: true, chamas: chamasWithUnread });
   } catch (error) {
     console.log(error);
     return res.status(500).json({

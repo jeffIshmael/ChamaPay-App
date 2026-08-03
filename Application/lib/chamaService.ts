@@ -129,6 +129,7 @@ export interface BackendChama {
   };
   userBalance?: [];
   eachMemberBalance?: [];
+  unreadMessages?: number;
 }
 
 interface allUserDetails {
@@ -478,7 +479,7 @@ export const transformChamaData = (
 
     status: backendChama.status as "active" | "inactive",
 
-    unreadMessages: 0,
+    unreadMessages: backendChama.unreadMessages || 0,
     isPublic: backendChama.type === "Public",
     currentCycle: backendChama.cycle,
     currentRound: backendChama.round,
