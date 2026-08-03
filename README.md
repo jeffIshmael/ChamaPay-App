@@ -1,12 +1,14 @@
 # ChamaPay Platform
 
-End-to-end platform digitizing ROSCAs (chamas) with a mobile app, backend API, and smart contracts on Celo.
+End-to-end platform digitizing ROSCAs (chamas) with a mobile app, backend API, and smart contracts deployed on the **Base Mainnet**. 
+
+ChamaPay is fully powered by **Coinbase Developer Platform (CDP) Server-Signers**. The backend utilizes the CDP SDK and HSM-backed wallets to completely eliminate the need for storing raw user private keys.
 
 ## Overview
 
 - **Mobile (Expo/React Native)**: User app for creating/joining chamas, contributions, payouts, chat
-- **Server (Node/Express/Prisma)**: Auth, wallet encryption/management, user/chama APIs
-- **Smart Contracts (Hardhat/Solidity)**: On-chain funds, rotation and payouts
+- **Server (Node/Express/Prisma)**: Auth, CDP Wallet management (`cdpWalletId`), user/chama APIs powered by `viem` and `@coinbase/cdp-sdk`
+- **Smart Contracts (Hardhat/Solidity)**: On-chain funds, rotation, and payouts on Base Mainnet.
 
 ### Key Links
 
@@ -134,7 +136,7 @@ npm run build && npm start
 
 ## Smart Contracts (hardhat/)
 
-Hardhat workspace for Solidity contracts (ChamaPay on Celo).
+Hardhat workspace for Solidity contracts (ChamaPay on Base).
 
 ### Install & Use
 
@@ -168,9 +170,10 @@ ChamaPay-App/
 
 ## Security
 
-- Never commit secrets. Use `.env` files locally and secure secrets in CI/CD
-- Wallet mnemonics and private keys are encrypted server-side
-- JWTs are used for API auth; use HTTPS in production
+- ChamaPay leverages **CDP Server-Signers** to custody user assets on Base. 
+- Legacy encrypted private keys are deprecated. All blockchain actions run through the `@coinbase/cdp-sdk`.
+- Never commit secrets. Use `.env` files locally and secure secrets in CI/CD.
+- JWTs are used for API auth; use HTTPS in production.
 
 ## Troubleshooting
 

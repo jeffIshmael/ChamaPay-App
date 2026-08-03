@@ -1,6 +1,5 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-import { getPrivateKey } from "../Lib/HelperFunctions";
 import { bcMoonwellDeposit } from "../Blockchain/WriteFunction";
 
 const prisma = new PrismaClient();
@@ -25,16 +24,16 @@ export const depositToMoonwell = async (req: Request, res: Response): Promise<an
       });
     }
 
-    // Get the private key of user
-    const result = await getPrivateKey(userId);
-    if (!result.success || result.privateKey == null) {
-      return res.status(401).json({ success: false, error: "Unable to get private key." });
+    // Get the cdpWalletId of user
+    const user = await prisma.user.findUnique({ where: { id: userId }});
+    if (!user || !user.cdpWalletId) {
+      return res.status(401).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
     console.log(`Executing Moonwell deposit for user ${userId}, amount ${amount}`);
 
     // Execute the Moonwell deposit on-chain
-    const depositTxHash = await bcMoonwellDeposit(result.privateKey, amount.toString());
+    const depositTxHash = await bcMoonwellDeposit(user.cdpWalletId, amount.toString());
     
     if (!depositTxHash) {
       return res.status(401).json({ success: false, error: "Failed to deposit to Moonwell." });

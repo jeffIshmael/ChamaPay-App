@@ -170,7 +170,9 @@ export const handleAlchemyWebhook = async (
                     // If this fails, the DB record still exists, so a retry will be caught by Step 3
                     console.log(`Sending notification to user ${user.id}: ${body}`);
                     await sendExpoNotificationToAUser(user.id, title, body);
-                    await emailService.sendUSDCReceivedEmail(user.email, amount, txHash);
+                    if (user.emailNotify) {
+                        await emailService.sendUSDCReceivedEmail(user.email, amount, txHash);
+                    }
 
                 } catch (dbError) {
                     console.error(`Failed to record transfer ${txHash} for user ${user.id}:`, dbError);

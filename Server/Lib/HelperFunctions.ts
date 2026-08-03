@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import dotenv from "dotenv";
 import Encryption from "./Encryption";
 import crypto from "crypto";
+import { CdpClient } from "@coinbase/cdp-sdk";
 
 dotenv.config();
 
@@ -13,6 +14,11 @@ const encryptionSecret = process.env.ENCRYPTION_SECRET;
 if (!encryptionSecret) {
   throw new Error("ENCRYPTION_SECRET not configured");
 }
+
+export const cdp = new CdpClient({
+  apiKeyId: process.env.CDP_API_KEY_ID,
+  apiKeySecret: process.env.CDP_API_KEY_SECRET,
+});
 
 // Function to generate unique slug
 export async function generateUniqueSlug(baseName: string): Promise<string> {
@@ -174,5 +180,22 @@ export async function getPrivateKey(userId: number): Promise<{ success: boolean,
   } catch (error) {
     console.log(error);
     return { success: false, privateKey: null };
+  }
+}
+
+// Function to get the CDP Server Wallet for a user
+export async function getCdpWallet(userId: number) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user || !user.cdpWalletId) {
+      throw new Error("User or CDP Wallet not found");
+    }
+    const account = await cdp.evm.getAccount({ address: user.cdpWalletId as any });
+    return account;
+  } catch (error) {
+    console.error(`Failed to get CDP Wallet for user ${userId}:`, error);
+    return null;
   }
 }
