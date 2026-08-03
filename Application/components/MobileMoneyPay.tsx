@@ -241,7 +241,8 @@ const MobileMoneyPay = ({
         parsedUSDC,
         false,
         token,
-        chamaId
+        chamaId,
+        recipient?.userId
       );
 
       if (!result.success) {
@@ -272,23 +273,10 @@ const MobileMoneyPay = ({
         }
       );
 
-      setCurrentStep("sending_usdc");
-      setStatusMessage("Sending USDC to your chama...");
-
-      const txResult = await agentDeposit(
-        result.transactionCode,
-        chamaBlockchainId,
-        usdcAmount,
-        chamaId,
-        token,
-        recipient?.userId
-      );
-
-      if (!txResult.success) {
-        throw new Error(txResult.error || "Failed to deposit for user.");
-      }
-
-      const txHashResult = txResult.details;
+      // Since the backend webhook handles the actual blockchain transfer, 
+      // polling until "completed" means the USDC has successfully arrived!
+      
+      const txHashResult = onrampResult?.details?.blockchain_tx_hash || "";
       setTxHash(txHashResult);
       setLoading(false);
       setCurrentStep("completed");

@@ -18,6 +18,7 @@ export async function pretiumOnramp(
   isDeposit: boolean,
   token: string,
   chamaId?: number,
+  memberForId?: number
 ) {
   try {
     const response = await fetch(`${serverUrl}/pretium/onramp`, {
@@ -33,6 +34,7 @@ export async function pretiumOnramp(
         usdcAmount,
         isDeposit,
         chamaId,
+        memberForId,
       }),
     });
     const data = await response.json();
@@ -195,35 +197,7 @@ export const pollPretiumPaymentStatus = async (
 };
 
 // function to trigger agent deposit(agent to send USDC to chama on behalf of user)
-export async function agentDeposit(
-  transactionCode: string,
-  chamaBlockchainId: number,
-  usdcAmount: string,
-  chamaId: number,
-  token: string,
-  memberForId?: number
-) {
-  try {
-    const response = await fetch(`${serverUrl}/pretium/agentDeposit`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        transactionCode,
-        chamaBlockchainId,
-        chamaId,
-        amount: usdcAmount,
-        memberForId,
-      }),
-    });
-    const data = await response.json();
-    return data;
-  } catch (error) {
-return { success: false, error: "Failed to check payment status" };
-  }
-}
+// We removed agentDeposit as it's handled via the webhook now
 
 // function to validate the phone number
 export async function verifyPhoneNumber(phoneNumber: string) {
