@@ -347,7 +347,9 @@ setTransactionError("Failed to load transactions");
                     selectedTransaction.type === "withdrew"
                     ? "-"
                     : "+"}
-                  {formatBalance(selectedTransaction.amount)}
+                  {currency === "KES" && selectedTransaction.fiatAmount
+                    ? ` ${selectedTransaction.fiatAmount.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES`
+                    : formatBalance(selectedTransaction.amount)}
                 </Text>
                 {currency === "KES" && (
                   <Text className="text-white/70 text-sm font-medium mt-1">
@@ -935,7 +937,7 @@ setTransactionError("Failed to load transactions");
                     Clipboard.setStringAsync(user.smartAddress);
                   }
                 }}
-                className="bg-emerald-100 p-2 rounded-lg"
+                className="bg-downy-100 p-2 rounded-lg"
               >
                 <Copy size={20} color="#10b981" />
               </TouchableOpacity>
@@ -943,7 +945,7 @@ setTransactionError("Failed to load transactions");
 
             <TouchableOpacity
               onPress={() => setReceiveModalVisible(false)}
-              className="w-full bg-emerald-500 py-4 rounded-xl items-center"
+              className="w-full bg-downy-600 py-4 rounded-xl items-center"
             >
               <Text className="text-white font-bold text-lg">Done</Text>
             </TouchableOpacity>
