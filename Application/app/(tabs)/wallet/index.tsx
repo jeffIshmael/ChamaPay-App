@@ -263,13 +263,10 @@ setTransactionError("Failed to load transactions");
           </Text>
           {currency === "KES" && (
             <Text className="text-[10px] text-gray-400">
-              ({tx.fiatAmount ? tx.fiatAmount.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              }) : parseFloat(tx.amount).toLocaleString(undefined, {
+              ({parseFloat(tx.amount).toLocaleString('en-US', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 4,
-              })} {tx.fiatAmount ? "KES" : "USDC"})
+              })} USDC)
             </Text>
           )}
           <Text className="text-xs text-gray-400 mt-1">
@@ -394,14 +391,21 @@ setTransactionError("Failed to load transactions");
                   selectedTransaction.recipient && (
                     <View className="py-3 border-b border-gray-100">
                       <Text className="text-gray-600 font-medium mb-2">To</Text>
-                      <View className="bg-gray-50 p-3 rounded-lg">
+                      <TouchableOpacity 
+                        onPress={() => {
+                          Clipboard.setStringAsync(selectedTransaction.recipient!);
+                          Alert.alert("Copied", "Recipient address copied to clipboard");
+                        }}
+                        className="bg-gray-50 p-3 rounded-lg flex-row items-center justify-between"
+                      >
                         <ResolvedAddress
                           address={selectedTransaction.recipient}
                           type="recipient"
                           showPrefix={false}
                           textClassName="text-gray-900 font-mono text-sm"
                         />
-                      </View>
+                        <Copy size={16} color="#9ca3af" />
+                      </TouchableOpacity>
                     </View>
                   )}
 
@@ -412,14 +416,21 @@ setTransactionError("Failed to load transactions");
                       <Text className="text-gray-600 font-medium mb-2">
                         From
                       </Text>
-                      <View className="bg-gray-50 p-3 rounded-lg">
+                      <TouchableOpacity 
+                        onPress={() => {
+                          Clipboard.setStringAsync(selectedTransaction.sender!);
+                          Alert.alert("Copied", "Sender address copied to clipboard");
+                        }}
+                        className="bg-gray-50 p-3 rounded-lg flex-row items-center justify-between"
+                      >
                         <ResolvedAddress
                           address={selectedTransaction.sender}
                           type="sender"
                           showPrefix={false}
                           textClassName="text-gray-900 font-mono text-sm"
                         />
-                      </View>
+                        <Copy size={16} color="#9ca3af" />
+                      </TouchableOpacity>
                     </View>
                   )}
 
@@ -458,26 +469,40 @@ setTransactionError("Failed to load transactions");
                     <Text className="text-gray-600 font-medium mb-2">
                       M-PESA Receipt Number
                     </Text>
-                    <View className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                    <TouchableOpacity
+                      onPress={() => {
+                        Clipboard.setStringAsync(selectedTransaction.receiptNumber!);
+                        Alert.alert("Copied", "M-PESA Receipt Number copied to clipboard");
+                      }}
+                      className="bg-purple-50 p-3 rounded-lg border border-purple-200 flex-row items-center justify-between"
+                    >
                       <Text className="text-purple-900 font-mono text-sm font-semibold">
                         {selectedTransaction.receiptNumber}
                       </Text>
-                    </View>
+                      <Copy size={16} color="#7e22ce" />
+                    </TouchableOpacity>
                   </View>
                 ) : (
                   <View className="py-3">
                     <Text className="text-gray-600 font-medium mb-2">
                       Transaction Hash
                     </Text>
-                    <View className="bg-gray-50 p-3 rounded-lg">
+                    <TouchableOpacity
+                      onPress={() => {
+                        Clipboard.setStringAsync(selectedTransaction.hash);
+                        Alert.alert("Copied", "Transaction hash copied to clipboard");
+                      }}
+                      className="bg-gray-50 p-3 rounded-lg flex-row items-center justify-between"
+                    >
                       <Text
-                        className="text-gray-900 font-mono text-xs"
+                        className="text-gray-900 font-mono text-xs flex-1 mr-2"
                         numberOfLines={2}
                         ellipsizeMode="middle"
                       >
                         {selectedTransaction.hash}
                       </Text>
-                    </View>
+                      <Copy size={16} color="#9ca3af" />
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>

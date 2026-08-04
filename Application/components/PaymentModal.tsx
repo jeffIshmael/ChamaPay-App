@@ -6,6 +6,7 @@ import { useAuth } from "@/Contexts/AuthContext";
 import { getAllBalances } from "@/constants/viem";
 import MobileMoneyPay from "./MobileMoneyPay";
 import USDCPay from "./USDCPay";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
 
 interface PaymentModalProps {
   visible: boolean;
@@ -40,6 +41,11 @@ const PaymentModal = ({
   const [showUSDCPay, setShowUSDCPay] = useState(false);
   const [USDCBalance, setUSDCBalance] = useState<string | null>(null);
   const { user } = useAuth();
+  const { currency, platformRate } = useCurrencyStore();
+
+  const displayBalance = currency === "KES"
+    ? `KSh ${Math.floor(Number(USDCBalance || 0) * platformRate).toLocaleString()}`
+    : `${Number(USDCBalance || 0).toFixed(3)} USDC`;
 
   const handlePaymentMethod = (method: string) => {
     setPaymentMethod(method);
@@ -82,7 +88,7 @@ const fetchUSDCBalance = async () => {
                     <ArrowLeft size={24} color="#374151" />
                   </TouchableOpacity>
                   <View className="flex-1 items-center">
-                    <Text className="text-xl font-semibold">Pay with:</Text>
+                    <Text className="text-xl font-semibold">Choose method:</Text>
                   </View>
                 </View>
                 <View className="w-full items-center">
@@ -95,13 +101,13 @@ const fetchUSDCBalance = async () => {
                   >
                     <View className="flex-row items-center">
                       <Image
-                        source={require("../assets/images/usdclogo.png")}
-                        className="w-10 h-10 mr-4"
+                        source={require("../assets/images/icon.png")}
+                        className="w-10 h-10 mr-4 rounded-full"
                       />
                       <View>
-                        <Text className="text-lg font-medium">USDC</Text>
+                        <Text className="text-lg font-medium">Pay from account</Text>
                         <Text className="text-xs text-gray-500">
-                          {Number(USDCBalance) > 0 ? Number(USDCBalance).toFixed(3) : 0} USDC
+                          {displayBalance} available
                         </Text>
                       </View>
                     </View>
@@ -116,10 +122,10 @@ const fetchUSDCBalance = async () => {
                     <View className="flex-row items-center">
                       <Image
                         source={require("../assets/images/mpesa.png")}
-                        className="w-10 h-10 mr-2"
+                        className="w-10 h-10 mr-4"
                         resizeMode="contain"
                       />
-                      <Text className="text-lg font-medium">M-Pesa</Text>
+                      <Text className="text-lg font-medium">Pay with M-Pesa</Text>
                     </View>
                     <Text className="text-2xl text-gray-500">➔</Text>
                   </TouchableOpacity>

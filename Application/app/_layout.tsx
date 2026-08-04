@@ -36,6 +36,7 @@ function RootLayoutNav() {
   const [hasSplashHidden, setHasSplashHidden] = useState(false);
   const hydrateRates = useExchangeRateStore((state) => state.hydrate);
   const setPlatformRate = useCurrencyStore((state) => state.setPlatformRate);
+  const { setCurrency, hasSetCurrency } = useCurrencyStore();
 
   // Initialize app resources
   useEffect(() => {
@@ -93,6 +94,14 @@ setHasSplashHidden(true);
 
     hideSplash();
   }, [isLoading, isReady, hasSplashHidden]);
+
+  // Set default currency if not set
+  const { user } = useAuth();
+  useEffect(() => {
+    if (isAuthenticated && user?.location === "KE" && !hasSetCurrency) {
+      setCurrency("KES");
+    }
+  }, [isAuthenticated, user?.location, hasSetCurrency, setCurrency]);
 
   // Keep returning null while initializing. 
   // The native splash screen will remain visible because of SplashScreen.preventAutoHideAsync()

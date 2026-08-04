@@ -350,11 +350,20 @@ Alert.alert("Error", "An unexpected error occurred.");
           const status = getPayoutStatus(payout, index);
           const member = getMemberByAddress(payout.userAddress);
           const isUserTurn = isCurrentUserPayout(payout.userAddress);
+          const isMe = member?.name === user?.userName;
 
           return (
             <Card
               key={`${payout.userAddress}-${index}`}
-              className={`p-4 border ${payout.paid ? "bg-downy-200/10 border-downy-500" : ""}`}
+              className={`p-4 border ${
+                isMe
+                  ? "border-2 border-downy-400 bg-downy-100"
+                  : isUserTurn
+                  ? "border-2 border-downy-300 bg-downy-50"
+                  : payout.paid
+                  ? "bg-downy-200/10 border-downy-500"
+                  : "border-gray-200"
+              }`}
             >
               <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center gap-3 flex-1">

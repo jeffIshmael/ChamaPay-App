@@ -55,7 +55,7 @@ export default function ProfileSettings() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, logout, isLoading, token, refreshUser } = useAuth();
-  const { currency, setCurrency } = useCurrencyStore();
+  const { currency, setCurrency, hasSetCurrency } = useCurrencyStore();
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [showSeedPhraseModal, setShowSeedPhraseModal] = useState(false);
   const [notifications, setNotifications] = useState<NotificationSettings>({
@@ -76,6 +76,12 @@ export default function ProfileSettings() {
       checkPin();
     }, [])
   );
+
+  React.useEffect(() => {
+    if (user?.location === "KE" && !hasSetCurrency) {
+      setCurrency("KES");
+    }
+  }, [user?.location, hasSetCurrency]);
 
   // Default avatar URLs based on user's initials
   const getDefaultAvatar = () => {
@@ -355,7 +361,7 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
 
           {/* Currency Display */}
           {user?.location === "KE" && (
-            <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
+            <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6" style={{ zIndex: 50, elevation: 5 }}>
               <View className="flex-row items-center gap-3 mb-6">
                 <View>
                   <Text className="text-lg font-bold text-gray-900">
@@ -366,7 +372,7 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
                   </Text>
                 </View>
               </View>
-              <View className="gap-4">
+              <View className="gap-4 relative z-50">
                 <TouchableOpacity
                   onPress={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
                   className="flex-row items-center justify-between p-4 bg-gray-50 rounded-xl"
@@ -392,7 +398,7 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
                 </TouchableOpacity>
 
                 {showCurrencyDropdown && (
-                  <View className="bg-gray-50 rounded-xl overflow-hidden mt-1 border border-gray-100 shadow-sm">
+                  <View className="absolute top-[80px] left-0 right-0 bg-white rounded-xl overflow-hidden mt-1 border border-gray-200 shadow-xl z-50">
                     <TouchableOpacity
                       onPress={() => {
                         setCurrency("KES");

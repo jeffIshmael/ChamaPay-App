@@ -506,7 +506,11 @@ export const transformChamaData = (
       ...(backendChama.payments?.map((payment) => ({
         id: `payment-${payment.id}`,
         amount: payment.amount,
-        type: payment.description === "deposited" || payment.description === "locked" ? "contribution" : "withdrawal", // Default to contribution for payments
+        type: payment.description?.toLowerCase().includes("on behalf of")
+          ? "deposit_on_behalf"
+          : payment.description?.toLowerCase().includes("deposit") || payment.description?.toLowerCase().includes("locked")
+          ? "contribution"
+          : "withdrawal",
         date: payment.doneAt,
         status: "completed",
         description: payment.description || "Contribution",

@@ -45,6 +45,8 @@ type Props = {
   chamaId: number;
   payoutSchedule: any[];
   onRefresh?: () => void;
+  isAdmin: boolean;
+  isMidPayout: boolean;
 };
 
 const ChamaOverviewTab: FC<Props> = ({
@@ -71,6 +73,8 @@ const ChamaOverviewTab: FC<Props> = ({
   chamaId,
   payoutSchedule,
   onRefresh,
+  isAdmin,
+  isMidPayout,
 }) => {
   const router = useRouter();
   const [selectedTransaction, setSelectedTransaction] =
@@ -593,7 +597,7 @@ const ChamaOverviewTab: FC<Props> = ({
                   activeOpacity={0.7}
                 >
                   <View className="flex-1 justify-center mr-4">
-                    <Text className={`text-base font-semibold capitalize mb-1 ${transaction.type === "payout" ? "text-indigo-600" : transaction.type === "contribution" ? "text-gray-900" :"text-orange-600" }`} numberOfLines={1}>
+                    <Text className={`text-base font-semibold capitalize mb-1 ${transaction.type === "payout" ? "text-indigo-600" : transaction.type === "deposit_on_behalf" ? "text-teal-600" : transaction.type === "contribution" ? "text-gray-900" :"text-orange-600" }`} numberOfLines={1}>
                       {transaction.type === "payout" ? "Cycle & Round Payout" : transaction.description}
                     </Text>
 
@@ -622,15 +626,17 @@ const ChamaOverviewTab: FC<Props> = ({
                     <Text
                       className={`text-sm font-bold flex-row items-center mb-1 ${transaction.type === "contribution"
                         ? "text-emerald-700"
-                        : transaction.type === "payout"
-                          ? "text-purple-700"
-                          : "text-orange-700"
+                        : transaction.type === "deposit_on_behalf"
+                          ? "text-teal-700"
+                          : transaction.type === "payout"
+                            ? "text-purple-700"
+                            : "text-orange-700"
                         }`}
                     >
-                      {transaction.type === "contribution" ? (
+                      {transaction.type === "contribution" || transaction.type === "deposit_on_behalf" ? (
                         <Plus
                           size={12}
-                          color={"#059669"}
+                          color={transaction.type === "deposit_on_behalf" ? "#0f766e" : "#059669"}
                           style={{ marginRight: 2 }}
                         />
                       ) : transaction.type === "payout" ? (
@@ -673,26 +679,36 @@ const ChamaOverviewTab: FC<Props> = ({
       </Card>
 
       {/* Leave Chama */}
-      <Card className="p-6 mb-6 bg-red-50 border border-red-200 rounded-xl">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1">
-            <Text className="text-lg font-semibold text-gray-900 mb-1">
-              Leave Chama
-            </Text>
-            <Text className="text-sm text-gray-600">
-              You can only leave once the current cycle is over. This action
-              cannot be undone.
-            </Text>
+      {!isAdmin && (
+        <Card className="p-6 mb-6 bg-red-50 border border-red-200 rounded-xl">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1">
+              <Text className="text-lg font-semibold text-gray-900 mb-1">
+                Leave Chama
+              </Text>
+              <Text className="text-sm text-gray-600">
+                You can only leave once the current cycle is over. This action
+                cannot be undone.
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={leaveChama}
+              disabled={isMidPayout}
+              className={`border p-3 rounded-xl ${isMidPayout ? "bg-gray-200 border-gray-300" : "bg-red-50 border-red-200"}`}
+              activeOpacity={0.8}
+            >
+              <LogOut size={20} color={isMidPayout ? "#9ca3af" : "#dc2626"} />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            onPress={leaveChama}
-            className="bg-red-50 border border-red-200 p-3 rounded-xl"
-            activeOpacity={0.8}
-          >
-            <LogOut size={20} color="#dc2626" />
-          </TouchableOpacity>
-        </View>
-      </Card>
+          {isMidPayout && (
+            <View className="mt-3 p-2 bg-amber-50 rounded-lg">
+              <Text className="text-xs text-amber-700">
+                ⚠️ You cannot leave because the current cycle is mid-payout.
+              </Text>
+            </View>
+          )}
+        </Card>
+      )}
 
       <View className="h-20" />
 

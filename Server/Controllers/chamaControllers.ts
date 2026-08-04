@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import { contractAddress } from "../Blockchain/Constants";
 import { bcGetTotalChamas, getEachMemberBalance, getUserChamaBalance } from "../Blockchain/ReadFunctions";
-import { bcAddMemberToPrivateChama, bcAdminSetPayoutOrder, bcCreateChama, bcDepositFundsForMember, bcDepositFundsToChama, bcUpdateChamaDetails, bcWithdrawFundsFromChama } from "../Blockchain/WriteFunction";
+import { bcAddMemberToPrivateChama, bcAdminSetPayoutOrder, bcCreateChama, bcDepositFundsForMember, bcDepositFundsToChama, bcUpdateChamaDetails, bcWithdrawFundsFromChama , bcLeaveChama } from "../Blockchain/WriteFunction";
 import { approveTx } from "../Blockchain/erc20Functions";
 import emailService from "../Lib/EmailService";
 import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
@@ -234,7 +234,7 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
     }
 
     // add the blockchain details
-    const cacheKey = `chama-balances-${chama.blockchainId}-${user.smartAddress}`;
+    const cacheKey = `chama-balances-${Number(chama.blockchainId)}-${user.smartAddress}`;
     let cachedBalances = getCached<any>(cacheKey);
 
     if (!cachedBalances) {
@@ -477,16 +477,7 @@ export const depositToChama = async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
-    // approve transaction
-    const approveTxHash = await approveTx(callerUserForDeposit.cdpWalletId, amount, contractAddress as `0x${string}`);
-    if (!approveTxHash) {
-      return res.status(401).json({ success: false, error: "deposit approve transaction failed." });
-    }
-
-    console.log(" The approveTxHash", approveTxHash);
-    console.log("the amount to be", amount);
-
-    // do the deposit onchain
+    // do the batched approve and deposit onchain
     let depositTxHash;
     if (memberForId && memberForAddress) {
       depositTxHash = await bcDepositFundsForMember(callerUserForDeposit.cdpWalletId, BigInt(Number(blockchainId)), memberForAddress, amount);
@@ -894,7 +885,7 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
     // Call the blockchain function
     const txHash = await bcUpdateChamaDetails(
       user.cdpWalletId,
-      BigInt(chama.blockchainId),
+      BigInt(Number(chama.blockchainId)),
       newAmount.toString(),
       Number(newCycle),
       Number(newRound),
@@ -1110,5 +1101,118 @@ export const getChamaPayouts = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Failed to get payouts:", error);
     return res.status(500).json({ success: false, error: "Failed to get payouts" });
+  }
+};
+
+
+// leave chama
+export const leaveChamaController = async (req: Request, res: Response) => {
+  try {
+    const { chamaId } = req.body;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+    if (!chamaId) {
+      return res.status(400).json({ success: false, error: "Chama ID is required" });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: Number(userId) } });
+    if (!user || !user.smartAddress) {
+      return res.status(404).json({ success: false, error: "User not found or missing wallet" });
+    }
+
+    const chama = await prisma.chama.findUnique({
+      where: { id: Number(chamaId) },
+      include: { members: { include: { user: true } }, admin: true },
+    });
+
+    if (!chama) {
+      return res.status(404).json({ success: false, error: "Chama not found" });
+    }
+
+    if (chama.adminId === Number(userId)) {
+      return res.status(400).json({ success: false, error: "Admin cannot leave the chama" });
+    }
+
+    if (chama.round > 1) {
+      return res.status(400).json({ success: false, error: "Cannot leave mid-payout cycle" });
+    }
+
+    const isMember = chama.members.some(m => m.userId === Number(userId));
+    if (!isMember) {
+      return res.status(400).json({ success: false, error: "You are not a member of this chama" });
+    }
+
+    // Call blockchain
+    const adminUser = chama.admin;
+    if (!adminUser.cdpWalletId) {
+      throw new Error("Admin CDP wallet not found");
+    }
+
+    const txHash = await bcLeaveChama(
+      adminUser.cdpWalletId,
+      user.smartAddress,
+      Number(chama.blockchainId)
+    );
+
+    // Update database
+    // Remove from ChamaMember
+    await prisma.chamaMember.deleteMany({
+      where: {
+        chamaId: Number(chamaId),
+        userId: Number(userId),
+      },
+    });
+
+    // Remove from payoutOrder offchain
+    let payoutOrder: string[] = [];
+    if (chama.payOutOrder) {
+      try {
+        payoutOrder = JSON.parse(chama.payOutOrder);
+      } catch (e) {}
+    }
+    
+    payoutOrder = payoutOrder.filter(address => address.toLowerCase() !== user.smartAddress?.toLowerCase());
+
+    // Update on-chain payout order
+    await bcAdminSetPayoutOrder(
+      adminUser.cdpWalletId,
+      Number(chama.blockchainId),
+      payoutOrder as `0x${string}`[]
+    );
+    await prisma.chama.update({
+      where: { id: Number(chamaId) },
+      data: {
+        payOutOrder: JSON.stringify(payoutOrder),
+      },
+    });
+
+    // Notify other members
+    const notificationMessage = `${user.userName} has left the chama.`;
+    const remainingEmails = chama.members
+      .filter(m => m.userId !== Number(userId) && m.user.email)
+      .map(m => m.user.email!);
+
+    if (remainingEmails.length > 0) {
+      await emailService.sendBulkChamaUpdateEmails(
+        remainingEmails,
+        chama.name,
+        notificationMessage
+      );
+    }
+    
+    // Send Push Notifications
+    await sendExpoNotificationToAllChamaMembers(
+      "Member Left",
+      notificationMessage,
+      Number(chamaId)
+    );
+
+    return res.status(200).json({ success: true, txHash });
+
+  } catch (error: any) {
+    console.error("Error leaving chama:", error);
+    return res.status(500).json({ success: false, error: error.message || "Failed to leave chama" });
   }
 };

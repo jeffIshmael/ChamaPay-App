@@ -1,7 +1,6 @@
 // File: components/MobileMoneyPay.tsx - Simplified M-Pesa Only
 import { useAuth } from "@/Contexts/AuthContext";
 import {
-  agentDeposit,
   pollPretiumPaymentStatus,
   pretiumOnramp
 } from "@/lib/pretiumService";
@@ -54,9 +53,9 @@ const MobileMoneyPay = ({
   const [statusMessage, setStatusMessage] = useState("");
   const [txHash, setTxHash] = useState("");
 
-  const [isKESMode, setIsKESMode] = useState(false);
   const { token, user } = useAuth();
-  const { platformRate: sellingRate } = useCurrencyStore();
+  const { platformRate: sellingRate, currency: preferredCurrency } = useCurrencyStore();
+  const [isKESMode, setIsKESMode] = useState(preferredCurrency === "KES");
   const loadingRate = false;
 
   // Animation values
@@ -146,6 +145,17 @@ const MobileMoneyPay = ({
     }
   }, [currentStep]);
 
+  // Set initial mode on mount based on preferred currency
+  useEffect(() => {
+    if (remainingAmount > 0 && sellingRate) {
+      if (preferredCurrency === "KES") {
+        setIsKESMode(true);
+      } else {
+        setIsKESMode(false);
+      }
+    }
+  }, [remainingAmount, sellingRate, preferredCurrency]);
+
   // Quick fill function for remaining amount
   const fillRemainingAmount = () => {
     if (remainingAmount > 0) {
@@ -185,7 +195,7 @@ const MobileMoneyPay = ({
     }
 
     if (parsedKES < minimumKES) {
-      const minUSDC = minimumKES / sellingRate;
+      const minUSDC = Math.ceil((minimumKES / sellingRate) * 100) / 100;
       ToastAndroid.show(
         `Minimum payment is ${minUSDC.toFixed(2)} USDC (approx. ${minimumKES} KES)`, ToastAndroid.SHORT
       );
@@ -491,10 +501,10 @@ const MobileMoneyPay = ({
                     Contribution Due
                   </Text>
                   <Text className="text-sm font-semibold text-amber-900">
-                    {remainingAmount.toFixed(3)} USDC remaining
+                    {preferredCurrency === "KES" ? `${remainingInKES} KES remaining` : `${remainingAmount.toFixed(3)} USDC remaining`}
                   </Text>
                   <Text className="text-xs text-amber-700 mt-0.5">
-                    ≈ {remainingInKES} KES
+                    ≈ {preferredCurrency === "KES" ? `${remainingAmount.toFixed(3)} USDC` : `${remainingInKES} KES`}
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -584,7 +594,7 @@ const MobileMoneyPay = ({
               </View>
               <View className="flex-row justify-between items-center mt-1">
                 <Text className="text-xs text-gray-500">
-                  💰 Minimum: {isKESMode ? `${minimumKES} KES` : `${(minimumKES / (sellingRate || 1)).toFixed(2)} USDC`}
+                  💰 Minimum: {isKESMode ? `${minimumKES} KES` : `${(Math.ceil((minimumKES / (sellingRate || 1)) * 100) / 100).toFixed(2)} USDC`}
                 </Text>
                 {(parseFloat(kesAmount) || 0) > 0 && (parseFloat(kesAmount) || 0) < minimumKES && (
                   <Text className="text-xs text-red-600 font-medium">

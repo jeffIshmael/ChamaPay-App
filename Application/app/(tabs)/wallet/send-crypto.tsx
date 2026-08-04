@@ -5,6 +5,7 @@ import {
   X,
   Info,
   CheckCircle,
+  ArrowUpDown,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
@@ -30,8 +31,11 @@ import { useAuth } from "@/Contexts/AuthContext";
 import { searchUsers, getUserByAddress } from "@/lib/chamaService";
 import { internalTransferFee } from "@/Utils/transactionFeeUtils";
 import SupportedWalletLogos from "@/components/SupportedWalletLogos";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
 
 export default function SendCryptoScreen() {
+  const { currency, platformRate } = useCurrencyStore();
+  const [inputCurrency, setInputCurrency] = useState<"USDC" | "KES">(currency === "KES" ? "KES" : "USDC");
   const [sendMode, setSendMode] = useState<"chamapay" | "external">("chamapay");
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
@@ -238,9 +242,27 @@ setSendMode("external");
     return !isNaN(num) && num > 0 && isFinite(num);
   };
 
+  const getUsdcAmount = (val: string) => {
+    const num = parseFloat(val);
+    if (isNaN(num)) return 0;
+    if (inputCurrency === "KES") {
+      return num / platformRate;
+    }
+    return num;
+  };
+
+  const getKesAmount = (val: string) => {
+    const num = parseFloat(val);
+    if (isNaN(num)) return 0;
+    if (inputCurrency === "USDC") {
+      return num * platformRate;
+    }
+    return num;
+  };
+
   const getFeeAmount = (): number => {
     if (sendMode === "chamapay") return 0;
-    const parsedAmount = parseFloat(amount);
+    const parsedAmount = getUsdcAmount(amount);
     if (isNaN(parsedAmount) || parsedAmount < 0.01) return 0.01;
     try {
       return internalTransferFee(parsedAmount);
@@ -250,13 +272,13 @@ setSendMode("external");
   };
 
   const getTotalAmount = (): number => {
-    const parsedAmount = parseFloat(amount);
+    const parsedAmount = getUsdcAmount(amount);
     if (isNaN(parsedAmount)) return 0;
     return parsedAmount + getFeeAmount();
   };
 
   const hasEnoughBalance = (amountStr: string): boolean => {
-    const num = parseFloat(amountStr);
+    const num = getUsdcAmount(amountStr);
     if (isNaN(num)) return false;
     const balance = parseFloat(tokenBalance) || 0;
     const fee = getFeeAmount();
@@ -297,7 +319,9 @@ setSendMode("external");
       showToast("Please select a user or enter a valid address");
       return;
     }
-    const fee = sendMode === "chamapay" ? 0 : internalTransferFee(Number(amount));
+    const finalAmountUsdc = getUsdcAmount(amount);
+    const finalAmountString = finalAmountUsdc.toFixed(3);
+    const fee = sendMode === "chamapay" ? 0 : internalTransferFee(finalAmountUsdc);
     setIsProcessing(true);
     try {
       const response = await fetch(`${serverUrl}/user/sendUSDC`, {
@@ -308,7 +332,7 @@ setSendMode("external");
         },
         body: JSON.stringify({
           receiver,
-          amount,
+          amount: finalAmountString,
           fee
         }),
       });
@@ -652,9 +676,8 @@ showToast("Failed to send transaction");
                 </Text>
                 <View className="flex-row items-center">
                   <Text className="text-gray-400 text-xs font-medium mr-1">
-                    Min: 0.1 USDC
+                    Min: {inputCurrency === "KES" ? (0.1 * platformRate).toFixed(0) : "0.1"} {inputCurrency}
                   </Text>
-                
                 </View>
               </View>
             )}
@@ -664,7 +687,9 @@ showToast("Failed to send transaction");
                 isAmountFocused ? "border-downy-600" : "border-gray-200"
               }`}
             >
-              <Text className="text-2xl font-bold text-gray-400 mr-2">$</Text>
+              <Text className="text-2xl font-bold text-gray-400 mr-2">
+                {inputCurrency === "KES" ? "KSh" : "$"}
+              </Text>
               <TextInput
                 value={amount}
                 onChangeText={handleAmountChange}
@@ -675,10 +700,23 @@ showToast("Failed to send transaction");
                 onFocus={() => setIsAmountFocused(true)}
                 onBlur={() => setIsAmountFocused(false)}
               />
+              {currency === "KES" && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setInputCurrency(prev => prev === "USDC" ? "KES" : "USDC");
+                    setAmount("");
+                  }}
+                  className="px-2 py-1.5 flex-row items-center bg-gray-200 rounded-lg mr-2"
+                >
+                  <Text className="text-gray-700 text-xs font-bold mr-1">{inputCurrency}</Text>
+                  <ArrowUpDown size={12} color="#374151" />
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
-                onPress={() =>
-                  handleAmountChange(parseFloat(tokenBalance).toString())
-                }
+                onPress={() => {
+                  const maxAmt = inputCurrency === "KES" ? parseFloat(tokenBalance) * platformRate : parseFloat(tokenBalance);
+                  handleAmountChange(maxAmt.toString());
+                }}
                 className="px-3 py-1.5 bg-emerald-100 rounded-lg"
                 activeOpacity={0.7}
               >
@@ -687,19 +725,25 @@ showToast("Failed to send transaction");
                 </Text>
               </TouchableOpacity>
             </View>
-            <View className=" flex-row gap-1 items-center mt-2">
-              <Text className="text-gray-500 text-xs font-medium">
-                Balance:
-              </Text>
-              <Text className="text-gray-700 font-semibold text-xs">
-                {parseFloat(tokenBalance).toFixed(2)} USDC
-              </Text>
+            <View className="flex-row justify-between items-center mt-2">
+              <View className="flex-row gap-1 items-center">
+                <Text className="text-gray-500 text-xs font-medium">
+                  Balance:
+                </Text>
+                <Text className="text-gray-700 font-semibold text-xs">
+                  {inputCurrency === "KES" ? (parseFloat(tokenBalance) * platformRate).toFixed(2) + " KES" : parseFloat(tokenBalance).toFixed(2) + " USDC"}
+                </Text>
+              </View>
+              {currency === "KES" && amount !== "" && (
+                <Text className="text-gray-500 text-xs font-medium">
+                  ≈ {inputCurrency === "KES" ? getUsdcAmount(amount).toFixed(2) + " USDC" : getKesAmount(amount).toFixed(2) + " KES"}
+                </Text>
+              )}
             </View>
 
             <View className=" h-px bg-gray-300 mt-4" />
             {/* Transaction Summary Card */}
             <View className="mt-4">
-
               <View className="gap-2.5">
                 <View className="flex-row justify-between items-center">
                   <Text className="text-gray-500 text-xs font-medium">
@@ -725,8 +769,8 @@ showToast("Failed to send transaction");
                   ) : (
                     <Text className="text-emerald-700 font-semibold text-xs">
                       {isValidAmount(amount)
-                        ? `${getFeeAmount().toFixed(2)} USDC`
-                        : "--- USDC"}
+                        ? (inputCurrency === "KES" ? (getFeeAmount() * platformRate).toFixed(2) + " KES" : getFeeAmount().toFixed(2) + " USDC")
+                        : `--- ${inputCurrency}`}
                     </Text>
                   )}
                 </View>
@@ -740,7 +784,7 @@ showToast("Failed to send transaction");
                         Amount to Send
                       </Text>
                       <Text className="text-gray-800 font-semibold text-xs">
-                        {parseFloat(amount).toFixed(2)} USDC
+                        {inputCurrency === "KES" ? parseFloat(amount).toFixed(2) + " KES" : getUsdcAmount(amount).toFixed(2) + " USDC"}
                       </Text>
                     </View>
 
@@ -749,7 +793,7 @@ showToast("Failed to send transaction");
                         Total Deducted
                       </Text>
                       <Text className="text-downy-700 font-extrabold text-sm">
-                        {getTotalAmount().toFixed(2)} USDC
+                        {inputCurrency === "KES" ? (getTotalAmount() * platformRate).toFixed(2) + " KES" : getTotalAmount().toFixed(2) + " USDC"}
                       </Text>
                     </View>
                   </>

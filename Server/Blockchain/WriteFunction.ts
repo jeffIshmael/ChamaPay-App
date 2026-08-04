@@ -1,4 +1,4 @@
-import { parseUnits, createPublicClient, http } from "viem";
+import { parseUnits, createPublicClient, http, encodeFunctionData, erc20Abi } from "viem";
 import { contractABI, contractAddress, builderCodeDataSuffix, USDCAddress, moonwellUSDCAddress, ERC20_APPROVE_ABI, MOONWELL_MINT_ABI } from "./Constants";
 import { createEIP7702SmartAccount } from "./EIP7702Client";
 import { base } from "viem/chains";
@@ -53,13 +53,26 @@ export const bcDepositFundsToChama = async (cdpWalletId: string, chamaBlockchain
     try {
         const amountInWei = parseUnits(amount, 6);
         const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        const hash = await smartAccountClient.writeContract({
-            address: contractAddress,
-            abi: contractABI,
-            functionName: 'depositCash',
-            args: [chamaBlockchainId, amountInWei],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
+        const hash = await smartAccountClient.sendTransaction({
+            calls: [
+                {
+                    to: USDCAddress as `0x${string}`,
+                    data: encodeFunctionData({
+                        abi: erc20Abi,
+                        functionName: 'approve',
+                        args: [contractAddress as `0x${string}`, amountInWei]
+                    })
+                },
+                {
+                    to: contractAddress as `0x${string}`,
+                    data: encodeFunctionData({
+                        abi: contractABI,
+                        functionName: 'depositCash',
+                        args: [chamaBlockchainId, amountInWei]
+                    })
+                }
+            ],
+            dataSuffix: builderCodeDataSuffix
         });
         const transaction = await publicClient.waitForTransactionReceipt({ hash });
         if (!transaction) throw new Error("Unable to deposit funds to chama onchain.");
@@ -74,13 +87,26 @@ export const bcDepositFundsForMember = async (cdpWalletId: string, chamaBlockcha
     try {
         const amountInWei = parseUnits(amount, 6);
         const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        const hash = await smartAccountClient.writeContract({
-            address: contractAddress,
-            abi: contractABI,
-            functionName: 'depositForMember',
-            args: [memberAddress as `0x${string}`, chamaBlockchainId, amountInWei],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
+        const hash = await smartAccountClient.sendTransaction({
+            calls: [
+                {
+                    to: USDCAddress as `0x${string}`,
+                    data: encodeFunctionData({
+                        abi: erc20Abi,
+                        functionName: 'approve',
+                        args: [contractAddress as `0x${string}`, amountInWei]
+                    })
+                },
+                {
+                    to: contractAddress as `0x${string}`,
+                    data: encodeFunctionData({
+                        abi: contractABI,
+                        functionName: 'depositForMember',
+                        args: [memberAddress as `0x${string}`, chamaBlockchainId, amountInWei]
+                    })
+                }
+            ],
+            dataSuffix: builderCodeDataSuffix
         });
         const transaction = await publicClient.waitForTransactionReceipt({ hash });
         if (!transaction) throw new Error("Unable to deposit funds for member onchain.");

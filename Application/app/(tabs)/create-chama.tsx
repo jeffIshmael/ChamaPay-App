@@ -34,7 +34,6 @@ const MINIMUM_CONTRIBUTION = 0.8;
 interface FormData {
   name: string;
   description: string;
-  maxMembers: string; 
   contribution: string; 
   contributionKES: string; 
   frequency: string; 
@@ -54,7 +53,6 @@ export default function CreateChama() {
   const [formData, setFormData] = useState<FormData>({
     name: "",
     description: "",
-    maxMembers: "", 
     contribution: "", 
     frequency: "", 
     contributionKES: "",
@@ -82,7 +80,7 @@ export default function CreateChama() {
 
   const getMinimumUsdc = (): number => kesRate > 0 ? MINIMUM_KES / kesRate : MINIMUM_CONTRIBUTION;
   const getContributionValue = (): number => parseFloat(formData.contribution) || 0;
-  const getMaxMembersValue = (): number => parseInt(formData.maxMembers) || 0;
+  const getMaxMembersValue = (): number => 0;
   const getFrequencyValue = (): number => parseInt(formData.frequency) || 0;
 
   const isContributionValid = (): boolean => {
@@ -133,8 +131,6 @@ export default function CreateChama() {
     isContributionValid() &&
     formData.frequency.trim() !== "" &&
     getFrequencyValue() > 0 &&
-    formData.maxMembers.trim() !== "" &&
-    getMaxMembersValue() > 0 &&
     formData.startDate.trim() !== "" &&
     formData.startTime.trim() !== "" &&
     isStartDateTimeInFuture();
@@ -324,28 +320,15 @@ export default function CreateChama() {
             <View className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <Text className="text-lg font-semibold text-gray-900 mb-4">Financial Settings</Text>
               <View className="gap-4">
-                <View className="flex-row gap-4 z-50">
-                  <View className="flex-1">
-                    <Text className="text-sm font-medium text-gray-700 mb-2">Maximum Members <Text className="text-red-500">*</Text></Text>
-                    <CustomDropdown
-                      placeholder="Select members"
-                      value={formData.maxMembers ? `${formData.maxMembers} members` : ""}
-                      options={memberOptions}
-                      show={showMembersDropdown}
-                      onToggle={() => setShowMembersDropdown(!showMembersDropdown)}
-                      onSelect={(val: any) => updateFormData("maxMembers", val.toString())}
-                    />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-sm font-medium text-gray-700 mb-2">Frequency (days) <Text className="text-red-500">*</Text></Text>
-                    <TextInput
-                      placeholder="e.g., 7 or 30"
-                      value={formData.frequency}
-                      onChangeText={(t) => { if (t === "" || /^\d+$/.test(t)) updateFormData("frequency", t); }}
-                      keyboardType="numeric"
-                      className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900"
-                    />
-                  </View>
+                <View className="mb-4">
+                  <Text className="text-sm font-medium text-gray-700 mb-2">Frequency (days) <Text className="text-red-500">*</Text></Text>
+                  <TextInput
+                    placeholder="e.g., 7 or 30"
+                    value={formData.frequency}
+                    onChangeText={(t) => { if (t === "" || /^\d+$/.test(t)) updateFormData("frequency", t); }}
+                    keyboardType="numeric"
+                    className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900"
+                  />
                 </View>
 
                 <View className="flex-row gap-4 mt-2">
@@ -393,17 +376,13 @@ export default function CreateChama() {
             </View>
 
             {/* Financial Summary */}
-            {!!(formData.contribution && formData.maxMembers && formData.frequency && formData.startDate && formData.startTime) && (
+            {!!(formData.contribution && formData.frequency && formData.startDate && formData.startTime) && (
               <View className="bg-blue-50 border border-blue-200 rounded-2xl p-5 mt-2">
                 <Text className="text-blue-900 font-bold mb-3 text-base">Financial Summary</Text>
                 
                 <View className="mb-2">
                   <Text className="text-blue-800 text-sm mb-1">• <Text className="font-semibold">First Payout:</Text> {formatDate(formData.startDate)} at {formatTime(formData.startTime)}</Text>
                   <Text className="text-blue-800 text-sm mb-1">• <Text className="font-semibold">Payout Frequency:</Text> Every {formData.frequency} days</Text>
-                  <Text className="text-blue-800 text-sm mb-1">• <Text className="font-semibold">Pool Size:</Text> {isKESMode ? 
-                    `${formatNumberWithCommas(parseFloat(formData.contributionKES || "0") * getMaxMembersValue())} KES` : 
-                    `${(getContributionValue() * getMaxMembersValue()).toFixed(2)} USDC`
-                  } per cycle</Text>
                 </View>
 
                 <View className="bg-blue-100/50 p-3 rounded-xl mt-2 border border-blue-200/60">

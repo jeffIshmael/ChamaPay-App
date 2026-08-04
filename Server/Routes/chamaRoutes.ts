@@ -13,7 +13,8 @@ import {
     getChamaMessages,
     getChamaPayments,
     getChamaPayouts,
-    updateChamaDetailsController
+    updateChamaDetailsController,
+    leaveChamaController
 } from "../Controllers/chamaControllers";
 import { miniappCheckHasJoinRequest, miniappGetChamaBySlug, miniappGetPendingRequests } from "../Controllers/miniappController";
 import authenticate from "../Middlewares/authMiddleware";
@@ -61,3 +62,5 @@ router.get("/:chamaId/payments", authenticate, getChamaPayments);
 router.get("/:chamaId/payouts", authenticate, getChamaPayouts);
 
 export default router; 
+// leave chama
+router.post("/leave", authenticate, leaveChamaController);

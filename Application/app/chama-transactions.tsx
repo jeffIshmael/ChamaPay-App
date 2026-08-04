@@ -60,7 +60,7 @@ export default function ChamaTransactions() {
                 activeOpacity={0.7}
             >
                 <View className="flex-1 justify-center mr-4">
-                    <Text className={`text-base font-semibold capitalize mb-1 ${transaction.type === "payout" ? "text-indigo-600" : "text-gray-900"}`} numberOfLines={1}>
+                    <Text className={`text-base font-semibold capitalize mb-1 ${transaction.type === "payout" ? "text-indigo-600" : transaction.type === "deposit_on_behalf" ? "text-teal-600" : "text-gray-900"}`} numberOfLines={1}>
                         {transaction.type === "payout" ? "Cycle & Round Payout" : transaction.description}
                     </Text>
 
@@ -88,15 +88,15 @@ export default function ChamaTransactions() {
 
                 <View className="items-end justify-center">
                     <Text
-                        className={`text-sm font-bold flex-row items-center mb-1 ${transaction.type === "contribution"
+                        className={`text-sm font-bold flex-row items-center mb-1 ${transaction.type === "contribution" || transaction.type === "deposit_on_behalf"
                             ? "text-emerald-700"
                             : transaction.type === "payout"
                                 ? "text-purple-700"
                                 : "text-orange-700"
                             }`}
                     >
-                        {transaction.type === "contribution" ? (
-                            <Plus size={12} color="#059669" style={{ marginRight: 2 }} />
+                        {transaction.type === "contribution" || transaction.type === "deposit_on_behalf" ? (
+                            <Plus size={12} color={transaction.type === "deposit_on_behalf" ? "#0f766e" : "#059669"} style={{ marginRight: 2 }} />
                         ) : transaction.type === "payout" ? (
                             <CornerUpRight size={12} color="#7c3aed" style={{ marginRight: 2 }} />
                         ) : (
