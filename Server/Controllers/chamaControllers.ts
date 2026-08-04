@@ -477,16 +477,7 @@ export const depositToChama = async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
-    // approve transaction
-    const approveTxHash = await approveTx(callerUserForDeposit.cdpWalletId, amount, contractAddress as `0x${string}`);
-    if (!approveTxHash) {
-      return res.status(401).json({ success: false, error: "deposit approve transaction failed." });
-    }
-
-    console.log(" The approveTxHash", approveTxHash);
-    console.log("the amount to be", amount);
-
-    // do the deposit onchain
+    // do the batched approve and deposit onchain
     let depositTxHash;
     if (memberForId && memberForAddress) {
       depositTxHash = await bcDepositFundsForMember(callerUserForDeposit.cdpWalletId, BigInt(Number(blockchainId)), memberForAddress, amount);

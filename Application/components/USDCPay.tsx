@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { serverUrl } from "../constants/serverUrl";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
 
 const USDCPay = ({
   visible,
@@ -49,22 +50,28 @@ const USDCPay = ({
   const [isSuccess, setIsSuccess] = useState(false);
   const [successData, setSuccessData] = useState<any>(null);
   const { token } = useAuth();
+  const { currency, platformRate } = useCurrencyStore();
 
   const handlePayment = async () => {
     setLoading(true);
     setError("");
 
     try {
-      const paymentAmount = Number(amount);
-      if (!paymentAmount || paymentAmount <= 0 || isNaN(paymentAmount)) {
+      const inputAmount = Number(amount);
+      if (!inputAmount || inputAmount <= 0 || isNaN(inputAmount)) {
         setError("Please enter a valid amount");
         return;
       }
 
-      if (paymentAmount > Number(USDCBalance)) {
-        setError(
-          `Insufficient balance. You have ${Number(USDCBalance).toFixed(3)} USDC available`
-        );
+      // Convert input to USDC if needed
+      const actualUSDCAmount = currency === "KES" ? inputAmount / platformRate : inputAmount;
+
+      if (actualUSDCAmount > Number(USDCBalance)) {
+        const availableAmount = currency === "KES" 
+          ? Math.floor(Number(USDCBalance) * platformRate).toLocaleString()
+          : Number(USDCBalance).toFixed(3);
+        const symbol = currency === "KES" ? "KSh" : "USDC";
+        setError(`Insufficient balance. You have ${symbol} ${availableAmount} available`);
         return;
       }
 
@@ -77,7 +84,7 @@ const USDCPay = ({
       const response = await axios.post(
         `${serverUrl}/chama/deposit`,
         {
-          amount: amount.toString(),
+          amount: actualUSDCAmount.toString(),
           blockchainId: chamaBlockchainId,
           chamaId: chamaId,
           memberForId: recipient?.userId,
@@ -94,8 +101,8 @@ const USDCPay = ({
 
       const data = {
         txHash: response.data.txHash || "",
-        message: `Successfully deposited ${amount} USDC to ${chamaName} chama${recipient ? ` on behalf of @${recipient.userName}` : ''}`,
-        amount: amount.toString(),
+        message: `Successfully deposited ${currency === "KES" ? "KSh" : ""} ${amount}${currency === "USDC" ? " USDC" : ""} to ${chamaName} chama${recipient ? ` on behalf of @${recipient.userName}` : ''}`,
+        amount: actualUSDCAmount.toString(),
       };
 
       setSuccessData(data);
@@ -120,8 +127,14 @@ setError("Failed to process payment. Please try again.");
 
   const fillRemainingAmount = () => {
     if (remainingAmount > 0) {
-      setAmount(remainingAmount.toFixed(3));
-      handleAmountChange(remainingAmount.toFixed(3));
+      if (currency === "KES") {
+        const kesAmount = Math.round(remainingAmount * platformRate).toString();
+        setAmount(kesAmount);
+        handleAmountChange(kesAmount);
+      } else {
+        setAmount(remainingAmount.toFixed(3));
+        handleAmountChange(remainingAmount.toFixed(3));
+      }
     }
   };
 
@@ -181,19 +194,23 @@ setError("Failed to process payment. Please try again.");
                 </TouchableOpacity>
 
                 <Image
-                  source={require("../assets/images/usdclogo.png")}
-                  className="w-12 h-12 mr-4"
+                  source={require("../assets/images/icon.png")}
+                  className="w-12 h-12 mr-4 rounded-full"
                 />
                 <View className="flex-1">
                   <Text className="text-xl font-semibold text-gray-900">
-                    Pay with USDC
+                    Pay from account
                   </Text>
                   <Text className="text-xs text-gray-500">To {chamaName} chama {recipient ? `on behalf of @${recipient.userName}` : ''}</Text>
                 </View>
               </View>
 
               {/* Remaining Amount Alert */}
-              {remainingAmount > 0 && !loading && Number(amount) < remainingAmount && (
+              {remainingAmount > 0 && !loading && (
+                currency === "KES" 
+                  ? Number(amount) < remainingAmount * platformRate 
+                  : Number(amount) < remainingAmount
+              ) && (
                 <View className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
                   <View className="flex-row items-center justify-between">
                     <View className="flex-1">
@@ -201,10 +218,10 @@ setError("Failed to process payment. Please try again.");
                         Contribution Due
                       </Text>
                       <Text className="text-sm font-bold text-amber-900">
-                        {remainingAmount.toFixed(3)} USDC remaining
+                        {currency === "KES" ? `KSh ${Math.round(remainingAmount * platformRate).toLocaleString()}` : `${remainingAmount.toFixed(3)} USDC`} remaining
                       </Text>
                       <Text className="text-xs text-amber-700 mt-0.5">
-                        Required: {contributionAmount.toFixed(3)} USDC
+                        Required: {currency === "KES" ? `KSh ${Math.round(contributionAmount * platformRate).toLocaleString()}` : `${contributionAmount.toFixed(3)} USDC`}
                       </Text>
                     </View>
                     <TouchableOpacity
@@ -223,7 +240,7 @@ setError("Failed to process payment. Please try again.");
               <View className="w-full">
                 <View className="mb-4">
                   <Text className="text-sm text-gray-700 mb-2 font-medium">
-                    Amount (USDC)
+                    Amount ({currency})
                   </Text>
                   <TextInput
                     className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50"
@@ -238,18 +255,20 @@ setError("Failed to process payment. Please try again.");
                 </View>
 
                 <Text className="text-black font-light text-base mb-4">
-                  Available balance: {Number(USDCBalance) > 0 ? Number(USDCBalance).toFixed(3) : 0} USDC
+                  Available balance: {currency === "KES" ? `KSh ${Math.floor(Number(USDCBalance || 0) * platformRate).toLocaleString()}` : `${Number(USDCBalance || 0).toFixed(3)} USDC`}
                 </Text>
 
                 {Number(amount) > 0 && (
                   <View className="mb-6">
                     <Text className="text-black font-semibold text-base">
-                      Total: {Number(amount).toFixed(3)} USDC
+                      Total: {currency === "KES" ? `KSh ${Number(amount).toLocaleString()}` : `${Number(amount).toFixed(3)} USDC`}
                     </Text>
 
                     {/* Show if payment covers remaining amount */}
                     {remainingAmount > 0 &&
-                      Number(amount) >= remainingAmount && (
+                      (currency === "KES"
+                        ? Number(amount) >= remainingAmount * platformRate
+                        : Number(amount) >= remainingAmount) && (
                         <View className="bg-green-100 rounded-lg p-2 mt-2">
                           <Text className="text-xs text-green-800 text-center font-medium">
                             ✓ This payment will complete your contribution
@@ -260,10 +279,25 @@ setError("Failed to process payment. Please try again.");
                 )}
 
                 <TouchableOpacity
-                  className={`py-4 rounded-xl shadow-md ${loading ? "bg-gray-400" : "bg-downy-800"
-                    }`}
+                  className={`py-4 rounded-xl shadow-md ${
+                    loading ||
+                    !amount ||
+                    Number(amount) <= 0 ||
+                    (currency === "KES"
+                      ? Number(amount) / platformRate > Number(USDCBalance)
+                      : Number(amount) > Number(USDCBalance))
+                      ? "bg-gray-400"
+                      : "bg-downy-800"
+                  }`}
                   onPress={handlePayment}
-                  disabled={loading}
+                  disabled={
+                    loading ||
+                    !amount ||
+                    Number(amount) <= 0 ||
+                    (currency === "KES"
+                      ? Number(amount) / platformRate > Number(USDCBalance)
+                      : Number(amount) > Number(USDCBalance))
+                  }
                 >
                   {loading ? (
                     <View className="flex-row items-center justify-center">
