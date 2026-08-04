@@ -9,13 +9,15 @@ interface CurrencyState {
     setCurrency: (currency: Currency) => void;
     platformRate: number;
     setPlatformRate: (rate: number) => void;
+    hasSetCurrency: boolean;
 }
 
 export const useCurrencyStore = create<CurrencyState>()(
     persist(
         (set) => ({
             currency: 'USDC',
-            setCurrency: (currency) => set({ currency }),
+            hasSetCurrency: false,
+            setCurrency: (currency) => set({ currency, hasSetCurrency: true }),
             platformRate: 132,
             setPlatformRate: (rate) => set({ platformRate: rate }),
         }),

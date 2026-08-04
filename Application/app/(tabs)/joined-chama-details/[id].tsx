@@ -23,6 +23,7 @@ import {
 import { generateChamaShareUrl } from "@/lib/encryption";
 import { shareChamaLink } from "@/lib/userService";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
+import { serverUrl } from "@/constants/serverUrl";
 import { useFormattedBalance } from "@/hooks/useFormattedBalance";
 import { formatTimeRemaining } from "@/Utils/helperFunctions";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,7 +31,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Share, Share2, User, UserPlus, Edit3, Calendar, Clock } from "lucide-react-native";
+import { ArrowLeft, Share, Share2, User, UserPlus, Edit3, Calendar, Clock, LogOut, CheckCircle } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -43,7 +44,8 @@ import {
   TextInput,
   ToastAndroid,
   TouchableOpacity,
-  View
+  View,
+  ActivityIndicator
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatUnits } from "viem";
@@ -138,6 +140,10 @@ export default function JoinedChamaDetails() {
   // Recipient Modal State
   const [showRecipientModal, setShowRecipientModal] = useState(false);
   const [selectedRecipient, setSelectedRecipient] = useState<{ userId: number; userName: string } | null>(null);
+
+  // Leave Chama State
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [isLeavingChama, setIsLeavingChama] = useState(false);
 
   // Edit Chama State
   const [showEditModal, setShowEditModal] = useState(false);
@@ -391,19 +397,41 @@ export default function JoinedChamaDetails() {
   };
 
   const leaveChama = () => {
-    Alert.alert("Leave Chama", "Are you sure you want to leave this chama?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Leave",
-        style: "destructive",
-        onPress: () => {
-          Alert.alert("Success", "Left chama successfully");
-          // Invalidate chamas cache
+    setShowLeaveModal(true);
+  };
+
+  const confirmLeaveChama = async () => {
+    if (!token || !chama) return;
+    setIsLeavingChama(true);
+    try {
+      const response = await fetch(`${serverUrl}/chama/leave`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ chamaId: chama.id }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setShowLeaveModal(false);
+        setSuccessMessage("Left chama successfully");
+        setShowSuccessModal(true);
+        // Delay navigating back so the user can read the success message
+        setTimeout(() => {
+          setShowSuccessModal(false);
           queryClient.invalidateQueries({ queryKey: ["userChamas"] });
           router.back();
-        },
-      },
-    ]);
+        }, 1500);
+      } else {
+        Alert.alert("Error", data.error || "Failed to leave chama");
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "An unexpected error occurred");
+    } finally {
+      setIsLeavingChama(false);
+    }
   };
 
   const handleUSDCPaymentSuccess = (data?: {
@@ -630,6 +658,7 @@ Alert.alert("Error", "An unexpected error occurred");
   const remainingAmount = Number(contribution) - Number(myContributions);
   const nextPayoutAmount = chama.nextPayoutAmount || 0;
   const unreadMessages = chama.unreadMessages || 0;
+  const isMidPayout = chama.currentRound > 1;
 
   const renderOverviewTab = () => (
     <ChamaOverviewTab
@@ -656,6 +685,8 @@ Alert.alert("Error", "An unexpected error occurred");
       chamaId={Number(chama.id)}
       payoutSchedule={chama.payoutSchedule}
       onRefresh={fetchChama}
+      isAdmin={isAdmin}
+      isMidPayout={isMidPayout}
     />
   );
 
@@ -1269,13 +1300,13 @@ Alert.alert("Error", "An unexpected error occurred");
         onRequestClose={() => setShowSuccessModal(false)}
       >
         <View className="flex-1 justify-center items-center bg-black/50">
-          <View className="bg-white rounded-2xl p-6 mx-6 shadow-lg">
+          <View className="bg-white rounded-2xl p-6 mx-6 shadow-lg w-[85%]">
             <View className="items-center mb-4">
               <View className="w-16 h-16 bg-green-100 rounded-full items-center justify-center mb-4">
-                <Ionicons name="checkmark" size={32} color="#059669" />
+                <CheckCircle size={32} color="#059669" />
               </View>
               <Text className="text-xl font-semibold text-gray-900 mb-2">
-                Payment Successful!
+                Success!
               </Text>
               <Text className="text-gray-600 text-center mb-4">
                 {successMessage}
@@ -1293,6 +1324,50 @@ Alert.alert("Error", "An unexpected error occurred");
                 Done
               </Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Leave Chama Confirmation Modal */}
+      <Modal
+        visible={showLeaveModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowLeaveModal(false)}
+      >
+        <View className="flex-1 bg-black/50 justify-end">
+          <View className="bg-white rounded-t-3xl p-6">
+            <View className="items-center mb-6">
+              <View className="w-16 h-16 rounded-full bg-red-100 items-center justify-center mb-4">
+                <LogOut size={32} color="#dc2626" />
+              </View>
+              <Text className="text-xl font-bold text-gray-900 mb-2">Leave Chama?</Text>
+              <Text className="text-gray-600 text-center">
+                Are you sure you want to leave this chama? This action will remove you from the payout schedule and cannot be undone.
+              </Text>
+            </View>
+            
+            <View className="flex-row gap-4">
+              <TouchableOpacity
+                className="flex-1 py-3.5 rounded-xl border border-gray-200 bg-white"
+                onPress={() => setShowLeaveModal(false)}
+                disabled={isLeavingChama}
+              >
+                <Text className="text-center font-semibold text-gray-700">Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                className="flex-1 py-3.5 rounded-xl bg-red-600 flex-row justify-center items-center"
+                onPress={confirmLeaveChama}
+                disabled={isLeavingChama}
+              >
+                {isLeavingChama ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Text className="text-center font-semibold text-white">Leave</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

@@ -1,26 +1,22 @@
 // this has the functions for pretium apis
-import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
+import { Request, Response } from "express";
 
+import { parseUnits } from "viem";
+import { transferTx } from "../Blockchain/erc20Functions";
+import emailService from "../Lib/EmailService";
 import {
-  checkPretiumTxStatus,
   getQuote,
   pretiumOfframp,
   pretiumOnramp,
+  settlementAddress,
   transferToBank,
-  transferToMobileNetwork,
   verifyMobileNetworkDetails,
   verifyNgnBankDetails,
-  verifyPhoneNo,
+  verifyPhoneNo
 } from "../Lib/PretiumFunctions";
-import { pimlicoDepositForUser, pimlicoTransferToUser } from "../Lib/pimlicoAgent";
-import { parseUnits } from "viem";
-import * as cronJobFunctions from "../Lib/cronJobFunctions";
-import emailService from "../Lib/EmailService";
-import { settlementAddress } from "../Lib/PretiumFunctions";
-import { transferTx } from "../Blockchain/erc20Functions";
-import { generateUniqueSlug } from "../Lib/HelperFunctions";
 import { getCached, setCache } from "../Lib/cache";
+import { pimlicoDepositForUser, pimlicoTransferToUser } from "../Lib/pimlicoAgent";
 
 const prisma = new PrismaClient();
 
@@ -95,7 +91,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
         error: "Amount and phone number are required",
       });
     }
-    
+
     // Calculate exact required USDC based on platform rate (FX Reserve logic)
     const platformRate = parseFloat(process.env.CHAMAPAY_RATE || "132");
     const exactUsdcAmount = parseFloat(amount) / platformRate;
@@ -103,7 +99,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
     // For both deposits and payments, route through the treasury (FX Reserve) to absorb rate differences
     const treasuryAddress = "0x1C059486B99d6A2D9372827b70084fbfD014E978";
     const receivingAddress = treasuryAddress;
-    
+
     const result = await pretiumOnramp(
       phoneNo,
       amount,
@@ -354,7 +350,7 @@ export async function pretiumCallback(req: Request, res: Response) {
             // Update the payment
             await prisma.payment.create({
               data: {
-                amount: transaction.amount.toString(),
+                amount: transaction.cusdAmount ? transaction.cusdAmount.toString() : transaction.amount.toString(),
                 description: description,
                 chamaId: transaction.chamaId || null,
                 txHash: txResult,
@@ -386,7 +382,7 @@ export async function pretiumCallback(req: Request, res: Response) {
                   const chama = await prisma.chama.findUnique({ where: { id: transaction.chamaId } });
                   if (chama) chamaName = chama.name;
                 }
-                
+
                 await emailService.sendPaidForSomeoneEmail(
                   targetUser.email,
                   transaction.user.userName || "Someone",
@@ -425,7 +421,7 @@ export async function pretiumCallback(req: Request, res: Response) {
         where: { transactionCode: body.transaction_code },
         data: {
           // DO NOT UPDATE STATUS TO COMPLETE YET! Wait for is_released.
-          status: "processing", 
+          status: "processing",
           receiptNumber: body.receipt_number,
           message: body.message,
         },
