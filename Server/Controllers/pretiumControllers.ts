@@ -546,7 +546,12 @@ export async function pretiumOfframpCallback(
     }
 
     // Handle successful offramp
-    if (body.status === "COMPLETE") {
+    if (
+      body.status === "COMPLETE" ||
+      body.status === "SUCCESS" ||
+      body.status === "SUCCESSFUL" ||
+      body.status === "COMPLETED"
+    ) {
       await prisma.pretiumTransaction.update({
         where: {
           transactionCode: body.transaction_code,
