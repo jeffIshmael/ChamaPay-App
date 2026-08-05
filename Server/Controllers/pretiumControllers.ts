@@ -341,21 +341,22 @@ export async function pretiumCallback(req: Request, res: Response) {
                 chamaName = chama.name;
               }
             }
-            // First transfer to the user who initiated the payment
-            await pimlicoTransferToUser(transaction.user.smartAddress as `0x${string}`, bigintAmount);
-
-            // Wait a few seconds for public RPCs and CDP nodes to sync the new balance
-            await new Promise((resolve) => setTimeout(resolve, 5000));
-
-            // Execute deposit from user's wallet
-            if (transaction.user.cdpWalletId) {
-              if (memberForId && targetAddress) {
-                txResult = await bcDepositFundsForMember(transaction.user.cdpWalletId, BigInt(actualBlockchainId), targetAddress, usdcAmountToCredit.toString());
-              } else {
-                txResult = await bcDepositFundsToChama(transaction.user.cdpWalletId, BigInt(actualBlockchainId), usdcAmountToCredit.toString());
-              }
+            if (memberForId && targetAddress) {
+              // Direct deposit from treasury to Chama on behalf of member (aiAgent)
+              txResult = await pimlicoDepositForUser(actualBlockchainId, targetAddress as `0x${string}`, bigintAmount);
             } else {
-              throw new Error("No CDP Wallet found for user to deposit to Chama");
+              // First transfer to the user who initiated the payment
+              await pimlicoTransferToUser(transaction.user.smartAddress as `0x${string}`, bigintAmount);
+
+              // Wait a few seconds for public RPCs and CDP nodes to sync the new balance
+              await new Promise((resolve) => setTimeout(resolve, 5000));
+
+              // Execute deposit from user's wallet
+              if (transaction.user.cdpWalletId) {
+                txResult = await bcDepositFundsToChama(transaction.user.cdpWalletId, BigInt(actualBlockchainId), usdcAmountToCredit.toString());
+              } else {
+                throw new Error("No CDP Wallet found for user to deposit to Chama");
+              }
             }
           } else if (transaction.type === "moonwell") {
             // First transfer to user from Agent

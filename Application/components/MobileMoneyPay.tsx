@@ -504,7 +504,7 @@ const MobileMoneyPay = ({
           </View>
 
           {/* Remaining Amount Alert */}
-          {remainingAmount > 0 && !loading && currentStep === "input" && Number(usdcAmount || 0) < remainingAmount && (
+          {!recipient && remainingAmount > 0 && !loading && currentStep === "input" && Number(usdcAmount || 0) < remainingAmount && (
             <View className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-2">
               <View className="flex-row items-center justify-between">
                 <View className="flex-1">
