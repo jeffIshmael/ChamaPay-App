@@ -38,3 +38,21 @@ export const getMoonwellPositions = async (address: string, chain = "base") => {
     return null;
   }
 };
+
+/**
+ * Fetches the user's historical Moonwell yields from the backend.
+ */
+export const getMoonwellYieldsHistory = async (token: string) => {
+  if (!token) return null;
+  try {
+    const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/moonwell/yields`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching Moonwell yields history:", error);
+    return null;
+  }
+};

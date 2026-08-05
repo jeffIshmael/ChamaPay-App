@@ -139,6 +139,7 @@ const fetchUSDCBalance = async () => {
               chamaId={chamaId}
               onClose={() => onClose()}
               onBack={() => setPaymentMethod("")}
+              onSuccess={handlePaymentSuccess}
               remainingAmount={remainingAmount}
               contributionAmount={paymentAmount}
               recipient={recipient}
