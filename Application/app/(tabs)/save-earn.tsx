@@ -4,7 +4,8 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCurrencyStore } from '@/store/useCurrencyStore';
 import { useExchangeRateStore } from '@/store/useExchangeRateStore';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { formatCurrency } from '@/Utils/pretiumUtils';
 import { ArrowUpRight, ShieldCheck, HandCoins, Activity, Clock, LogIn, LogOut } from 'lucide-react-native';
 import { StatusBar } from "expo-status-bar";
@@ -29,37 +30,38 @@ export default function SaveAndEarnScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const { currency } = useCurrencyStore();
-  const { fetchRate, rates } = useExchangeRateStore();
+  const { currency, platformRate } = useCurrencyStore();
+  const { fetchRate } = useExchangeRateStore();
   const [moonwellApy, setMoonwellApy] = useState<number | null>(null);
   const [moonwellBalance, setMoonwellBalance] = useState(0);
   const { user } = useAuth();
   
-  useEffect(() => {
-    fetchRate('KES');
-    getMoonwellRates().then((result) => {
-      if (result && result.success && result.data && result.data.length > 0) {
-        setMoonwellApy(result.data[0].baseSupplyApy);
-      }
-    });
-    
-    if (user?.smartAddress) {
-      getMoonwellPositions(user.smartAddress).then((data) => {
-        if (data && data.suppliedAmountDecimal) {
-          setMoonwellBalance(parseFloat(data.suppliedAmountDecimal));
+  useFocusEffect(
+    useCallback(() => {
+      fetchRate('KES');
+      getMoonwellRates().then((result) => {
+        if (result && result.success && result.data && result.data.length > 0) {
+          setMoonwellApy(result.data[0].baseSupplyApy);
         }
       });
-    }
-  }, [user?.smartAddress]);
+      
+      if (user?.smartAddress) {
+        getMoonwellPositions(user.smartAddress).then((data) => {
+          if (data && data.suppliedAmountDecimal) {
+            setMoonwellBalance(parseFloat(data.suppliedAmountDecimal));
+          }
+        });
+      }
+    }, [user?.smartAddress])
+  );
   
-  const currentExchangeRate = rates['KES']?.data?.exchangeRate?.buying_rate || 132;
   const isKES = currency === 'KES';
   
   // Helper to format based on preferred currency
   const displayAmount = (usdcAmount: number, isPositive = false) => {
     const prefix = isPositive && usdcAmount > 0 ? '+' : '';
     if (isKES) {
-      return `${prefix}KES ${formatCurrency(usdcAmount * currentExchangeRate)}`;
+      return `${prefix}KES ${formatCurrency(usdcAmount * platformRate, 0)}`;
     }
     return `${prefix}${usdcAmount.toFixed(2)} USDC`;
   };

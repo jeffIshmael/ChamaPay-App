@@ -23,10 +23,14 @@ export const getMoonwellPositions = async (address: string, chain = "base") => {
   try {
     const response = await axios.get(`${MOONWELL_API_BASE}/positions/${address}?chain=${chain}`);
     
-    // Position endpoint returns an array of markets. We need the USDC one.
-    if (response.data && Array.isArray(response.data)) {
-      const usdcMarket = response.data.find((pos: any) => pos.asset === "USDC");
-      return usdcMarket || null;
+    // Position endpoint returns { success: true, data: [...] }. We need the Native mUSDC one.
+    if (response.data && response.data.data && Array.isArray(response.data.data)) {
+      const usdcMarket = response.data.data.find(
+        (pos: any) => pos.marketAddress && pos.marketAddress.toLowerCase() === "0xedc817a28e8b93b03976fbd4a3ddbc9f7d176c22"
+      );
+      if (usdcMarket) {
+        return { ...usdcMarket, suppliedAmountDecimal: String(usdcMarket.suppliedUsd) };
+      }
     }
     return null;
   } catch (error) {

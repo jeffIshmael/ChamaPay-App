@@ -254,6 +254,37 @@ export const bcMoonwellDeposit = async (cdpWalletId: string, amount: string) => 
     }
 };
 
+export const bcMoonwellWithdraw = async (cdpWalletId: string, amount: string) => {
+    try {
+        const amountInWei = parseUnits(amount, 6);
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
+        
+        const MOONWELL_REDEEM_UNDERLYING_ABI = [{
+            inputs: [{ internalType: "uint256", name: "redeemAmount", type: "uint256" }],
+            name: "redeemUnderlying",
+            outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+            stateMutability: "nonpayable",
+            type: "function"
+        }] as const;
+
+        const withdrawHash = await smartAccountClient.writeContract({
+            address: moonwellUSDCAddress as `0x${string}`,
+            abi: MOONWELL_REDEEM_UNDERLYING_ABI,
+            functionName: 'redeemUnderlying',
+            args: [amountInWei],
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorization } : {}),
+        });
+        const withdrawTx = await publicClient.waitForTransactionReceipt({ hash: withdrawHash });
+        if (!withdrawTx || withdrawTx.status !== 'success') throw new Error("Unable to withdraw from Moonwell.");
+
+        return withdrawTx.transactionHash;
+    } catch (error) {
+        console.error("Error withdrawing from Moonwell:", error);
+        throw error;
+    }
+};
+
 export const bcUpdateChamaDetails = async (cdpWalletId: string, chamaBlockchainId: bigint, newAmount: string, newCycle: number, newRound: number, newPayDate: number, newDuration: number) => {
     try {
         const amountInWei = parseUnits(newAmount, 6);
