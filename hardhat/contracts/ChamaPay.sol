@@ -225,7 +225,7 @@ contract ChamaPay is
     }
 
 
-    function depositForMember(address _memberAddress, uint _chamaId, uint _amount) public onlyAiAgent nonReentrant whenNotPaused {
+    function depositForMember(address _memberAddress, uint _chamaId, uint _amount) public nonReentrant whenNotPaused {
         require(_chamaId < totalChamas, "Chama does not exist");
         require(isMember(_chamaId, _memberAddress), "User is not a member.");
         require(_amount > 0, "amount should be greater than 0");

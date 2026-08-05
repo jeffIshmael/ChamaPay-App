@@ -341,22 +341,21 @@ export async function pretiumCallback(req: Request, res: Response) {
                 chamaName = chama.name;
               }
             }
-            if (memberForId && targetAddress) {
-              // Direct deposit from treasury to Chama on behalf of member (aiAgent)
-              txResult = await pimlicoDepositForUser(actualBlockchainId, targetAddress as `0x${string}`, bigintAmount);
-            } else {
-              // First transfer to the user who initiated the payment
-              await pimlicoTransferToUser(transaction.user.smartAddress as `0x${string}`, bigintAmount);
+            // First transfer to the user who initiated the payment
+            await pimlicoTransferToUser(transaction.user.smartAddress as `0x${string}`, bigintAmount);
 
-              // Wait a few seconds for public RPCs and CDP nodes to sync the new balance
-              await new Promise((resolve) => setTimeout(resolve, 5000));
+            // Wait a few seconds for public RPCs and CDP nodes to sync the new balance
+            await new Promise((resolve) => setTimeout(resolve, 5000));
 
-              // Execute deposit from user's wallet
-              if (transaction.user.cdpWalletId) {
-                txResult = await bcDepositFundsToChama(transaction.user.cdpWalletId, BigInt(actualBlockchainId), usdcAmountToCredit.toString());
+            // Execute deposit from user's wallet
+            if (transaction.user.cdpWalletId) {
+              if (memberForId && targetAddress) {
+                txResult = await bcDepositFundsForMember(transaction.user.cdpWalletId, BigInt(actualBlockchainId), targetAddress, usdcAmountToCredit.toString());
               } else {
-                throw new Error("No CDP Wallet found for user to deposit to Chama");
+                txResult = await bcDepositFundsToChama(transaction.user.cdpWalletId, BigInt(actualBlockchainId), usdcAmountToCredit.toString());
               }
+            } else {
+              throw new Error("No CDP Wallet found for user to deposit to Chama");
             }
           } else if (transaction.type === "moonwell") {
             // First transfer to user from Agent
