@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Calculator, Info, ChevronDown, FileText } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { buildDailyHistory } from '../../components/DailyEarningsStatement';
+import { buildDailyHistory, DailyEarningsStatement } from '../../components/DailyEarningsStatement';
 import { TabButton } from '../../components/ui/TabButton';
 import { StatusBar } from 'expo-status-bar';
 import MoonwellDepositModal from '../../components/MoonwellDepositModal';
@@ -27,25 +27,18 @@ export default function MoonwellDetailsScreen() {
   const insets = useSafeAreaInsets();
   const { user, token } = useAuth();
   
-  const { currency } = useCurrencyStore();
-  const { fetchRate, rates } = useExchangeRateStore();
-  
-  useEffect(() => {
-    fetchRate('KES');
-  }, []);
-  
-  const currentExchangeRate = rates['KES']?.data?.exchangeRate?.buying_rate || 132;
+  const { currency, platformRate } = useCurrencyStore();
   const isKES = currency === 'KES';
   
   const displayAmount = (usdcAmount: number) => {
     if (isKES) {
-      return formatCurrency(usdcAmount * currentExchangeRate);
+      return formatCurrency(usdcAmount * platformRate, 0);
     }
     return usdcAmount.toFixed(2);
   };
   
   // Tab state
-  const [activeTab, setActiveTab] = useState<'statements' | 'simulator'>('statements');
+  const [activeTab, setActiveTab] = useState<'history' | 'simulator'>('history');
 
   // Simulator state
   const [simAmount, setSimAmount] = useState('1000');
@@ -55,11 +48,11 @@ export default function MoonwellDetailsScreen() {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
 
   // Real-time State
-  const [realApy, setRealApy] = useState(0);
+  const [realApy, setRealApy] = useState<number | null>(null);
   const [realBalance, setRealBalance] = useState(0);
   const [statements, setStatements] = useState<any[]>([]);
 
-  useEffect(() => {
+  const fetchMoonwellData = () => {
     // Fetch Moonwell APY
     getMoonwellRates().then((result) => {
       if (result && result.success && result.data && result.data.length > 0) {
@@ -85,12 +78,50 @@ export default function MoonwellDetailsScreen() {
         }
       });
     }
+  };
+
+  useEffect(() => {
+    fetchMoonwellData();
   }, [user?.smartAddress, token]);
 
-  const APY = realApy || 4.3; 
+  const APY = realApy || 0; 
   const MOCK_USER_BALANCE = realBalance;
 
   const history = buildDailyHistory(MOCK_USER_BALANCE, APY, 7);
+
+  const groupedHistory = React.useMemo(() => {
+    const groups: { [dateStr: string]: any[] } = {};
+    
+    // Add yields
+    history.forEach((h) => {
+      const dateStr = h.date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+      if (!groups[dateStr]) groups[dateStr] = [];
+      groups[dateStr].push({ type: 'yield', ...h });
+    });
+
+    // Add transactions
+    statements.forEach((tx) => {
+      const d = new Date(tx.createdAt);
+      const dateStr = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+      if (!groups[dateStr]) groups[dateStr] = [];
+      groups[dateStr].push({ type: 'tx', ...tx, date: d });
+    });
+
+    // Sort items within each day
+    Object.keys(groups).forEach(key => {
+      groups[key].sort((a, b) => b.date.getTime() - a.date.getTime());
+    });
+
+    // Sort days descending
+    return Object.keys(groups).sort((a, b) => {
+      const dateA = groups[a][0].date;
+      const dateB = groups[b][0].date;
+      return dateB.getTime() - dateA.getTime();
+    }).map(dateStr => ({
+      dateStr,
+      items: groups[dateStr]
+    }));
+  }, [history, statements]);
   
   const amountNum = parseFloat(simAmount) || 0;
   const projectedYield = amountNum * (Math.pow(1 + APY / 100, simPeriod / 12) - 1);
@@ -156,7 +187,11 @@ export default function MoonwellDetailsScreen() {
               </View>
               <View className="items-end">
                 <Text className="text-blue-800/70 text-xs font-semibold mb-0.5 uppercase tracking-wider">Current APY</Text>
-                <Text style={{ fontFamily: monoFont }} className="text-emerald-700 font-bold text-lg">{APY.toFixed(2)}%</Text>
+                {realApy === null ? (
+                  <View className="h-7 w-20 bg-emerald-700/20 rounded-md mt-1" />
+                ) : (
+                  <Text style={{ fontFamily: monoFont }} className="text-emerald-700 font-bold text-lg">{APY.toFixed(2)}%</Text>
+                )}
               </View>
             </View>
 
@@ -214,11 +249,11 @@ export default function MoonwellDetailsScreen() {
         <View className="px-5 mb-5">
           <View className="flex-row bg-gray-100 rounded-lg px-1 py-2 mb-4">
             <TabButton
-              label="Statements"
-              value="statements"
-              isActive={activeTab === 'statements'}
-              onPress={() => setActiveTab('statements')}
-              icon={<FileText size={16} color={activeTab === 'statements' ? '#0f766e' : '#4b5563'} />}
+              label="History"
+              value="history"
+              isActive={activeTab === 'history'}
+              onPress={() => setActiveTab('history')}
+              icon={<FileText size={16} color={activeTab === 'history' ? '#0f766e' : '#4b5563'} />}
             />
             <TabButton
               label="Yield Simulator"
@@ -231,23 +266,49 @@ export default function MoonwellDetailsScreen() {
         </View>
 
         {/* Tab Content */}
-        {activeTab === 'statements' ? (
+        {activeTab === 'history' ? (
           <View className="px-5 pb-6">
-            {/* <Text className="text-gray-800 font-bold text-lg mb-4">Recent Activity</Text> */}
-            {statements.length > 0 ? statements.map((tx: any, idx) => (
-              <View key={idx} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-3 flex-row justify-between items-center">
-                <View>
-                  <Text className="text-gray-900 font-bold mb-1">{tx.description || 'Deposit'}</Text>
-                  <Text className="text-gray-500 text-xs">{new Date(tx.createdAt).toLocaleDateString()}</Text>
+            {groupedHistory.length > 0 ? (
+              groupedHistory.map((group, groupIdx) => (
+                <View key={groupIdx} className="mb-6">
+                  <Text className="text-gray-800 font-bold text-lg mb-3">{group.dateStr}</Text>
+                  
+                  {group.items.map((item, itemIdx) => {
+                    if (item.type === 'yield') {
+                      return (
+                        <View key={`yield-${itemIdx}`} className="bg-white rounded-2xl p-4 shadow-sm border border-[#d1f6f1] mb-3 flex-row justify-between items-center">
+                          <View>
+                            <Text className="text-[#09272a] font-bold mb-1">Daily Yield</Text>
+                            <Text className="text-gray-500 text-xs">{item.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</Text>
+                          </View>
+                          <View className="items-end">
+                            <Text style={{ fontFamily: monoFont }} className="text-[#1a6b6b] font-bold text-base">+{displayAmount(item.earned)} {isKES ? 'KES' : 'USDC'}</Text>
+                            <Text style={{ fontFamily: monoFont }} className="text-gray-400 text-xs mt-0.5">Balance: {displayAmount(item.balance)} {isKES ? 'KES' : 'USDC'}</Text>
+                          </View>
+                        </View>
+                      );
+                    } else {
+                      return (
+                        <View key={`tx-${itemIdx}`} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-3 flex-row justify-between items-center">
+                          <View>
+                            <Text className="text-gray-900 font-bold mb-1">{item.description || 'Deposit'}</Text>
+                            <Text className="text-gray-500 text-xs">{item.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</Text>
+                          </View>
+                          <View className="items-end">
+                            <Text style={{ fontFamily: monoFont }} className="text-emerald-600 font-bold text-base">
+                              {Number(item.amount) > 0 ? '+' : ''}{displayAmount(Number(item.amount))} {isKES ? 'KES' : 'USDC'}
+                            </Text>
+                          </View>
+                        </View>
+                      );
+                    }
+                  })}
                 </View>
-                <View className="items-end">
-                  <Text style={{ fontFamily: monoFont }} className="text-emerald-600 font-bold text-base">+{displayAmount(Number(tx.amount))} {isKES ? 'KES' : 'USDC'}</Text>
-                </View>
-              </View>
-            )) : (
-              <View className="bg-white rounded-2xl p-6 items-center shadow-sm border border-gray-100">
+              ))
+            ) : (
+              <View className="bg-white rounded-2xl p-6 items-center shadow-sm border border-gray-100 mb-6">
                 <FileText size={32} color="#9ca3af" className="mb-3" />
-                <Text className="text-gray-500 font-medium">No statements yet.</Text>
+                <Text className="text-gray-500 font-medium">No history yet.</Text>
               </View>
             )}
           </View>
@@ -261,9 +322,13 @@ export default function MoonwellDetailsScreen() {
                     Yield Simulator
                   </Text>
                 </View>
-                <View className="bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">
-                  <Text className="text-emerald-700 font-bold text-xs">{APY.toFixed(2)}% APY</Text>
-                </View>
+                {realApy === null ? (
+                  <View className="h-6 w-16 bg-emerald-50 rounded-full border border-emerald-100" />
+                ) : (
+                  <View className="bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">
+                    <Text className="text-emerald-700 font-bold text-xs">{APY.toFixed(2)}% APY</Text>
+                  </View>
+                )}
               </View>
 
               {/* Amount Input */}
@@ -301,13 +366,13 @@ export default function MoonwellDetailsScreen() {
                 <View className="flex-row justify-between items-end mb-3">
                   <Text className="text-sm font-medium text-downy-900">Projected Interest</Text>
                   <Text style={{ fontFamily: monoFont }} className="text-lg font-extrabold text-emerald-600">
-                    +{isKES ? 'KSh ' : '$'}{isKES ? formatCurrency(projectedYield) : projectedYield.toFixed(2)}
+                    +{isKES ? 'KSh ' : '$'}{isKES ? formatCurrency(projectedYield, 0) : projectedYield.toFixed(2)}
                   </Text>
                 </View>
                 <View className="flex-row justify-between items-end pt-3 border-t border-downy-200">
                   <Text className="text-sm font-bold text-downy-900">Total Balance</Text>
                   <Text style={{ fontFamily: monoFont }} className="text-lg font-extrabold text-downy-900">
-                    {isKES ? 'KSh ' : '$'}{isKES ? formatCurrency(totalProjected) : totalProjected.toFixed(2)}
+                    {isKES ? 'KSh ' : '$'}{isKES ? formatCurrency(totalProjected, 0) : totalProjected.toFixed(2)}
                   </Text>
                 </View>
               </View>
@@ -366,7 +431,7 @@ export default function MoonwellDetailsScreen() {
         onClose={() => setShowDepositModal(false)}
         onSuccess={(data) => {
           setShowDepositModal(false);
-          // Handle success (e.g. reload balance or show toast)
+          fetchMoonwellData();
         }}
       />
 
@@ -376,7 +441,7 @@ export default function MoonwellDetailsScreen() {
         availableBalance={MOCK_USER_BALANCE}
         onSuccess={(data) => {
           setShowWithdrawModal(false);
-          // Handle success (e.g. reload balance or show toast)
+          fetchMoonwellData();
         }}
       />
     </View>

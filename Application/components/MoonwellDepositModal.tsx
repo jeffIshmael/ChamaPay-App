@@ -204,18 +204,18 @@ const MoonwellDepositModal = ({
             <View className="bg-white rounded-t-[30px] p-4 pb-8">
               {isSuccess ? (
                 <View className="items-center py-8">
-                  <View className="w-20 h-20 bg-green-100 rounded-full items-center justify-center mb-6">
+                  <View className="w-20 h-20 bg-downy-100 rounded-full items-center justify-center mb-6">
                     <Text className="text-green-500 text-4xl">✓</Text>
                   </View>
                   <Text className="text-2xl font-bold text-gray-900 mb-2">Deposit Successful</Text>
-                  <Text className="text-gray-500 text-center mb-8 px-4">
+                  <Text className="text-gray-500 text-center mb-4 px-4">
                     {successData?.message}
                   </Text>
                   <TouchableOpacity
                     onPress={handleFinalSuccess}
-                    className="w-full bg-[#10b981] py-4 rounded-xl"
+                    className="w-full bg-gray-500 py-4 rounded-xl"
                   >
-                    <Text className="text-white text-center font-bold text-lg">Continue</Text>
+                    <Text className="text-white text-center font-bold text-lg">Close</Text>
                   </TouchableOpacity>
                 </View>
               ) : (

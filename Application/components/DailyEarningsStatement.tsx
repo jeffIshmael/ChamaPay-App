@@ -30,7 +30,7 @@ export function useLiveDailyEarnings(principal: number, apyPercent: number) {
   return earnedToday;
 }
 
-export type DailyEntry = { label: string; earned: number; balance: number };
+export type DailyEntry = { label: string; earned: number; balance: number; date: Date };
 
 /** Generates an illustrative daily history for a given principal + APY, for demo/empty states. Replace with real accrued-interest history once the backend exposes it. */
 export function buildDailyHistory(principal: number, apyPercent: number, days = 7): DailyEntry[] {
@@ -47,6 +47,7 @@ export function buildDailyHistory(principal: number, apyPercent: number, days = 
       label: i === 0 ? 'Today' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }),
       earned,
       balance,
+      date: d,
     });
   }
   return out;
@@ -56,7 +57,22 @@ function formatUsdc(n: number, decimals = 4) {
   return n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
-export function DailyEarningsStatement({ entries }: { entries: DailyEntry[] }) {
+export function DailyEarningsStatement({ 
+  entries, 
+  isKES = false, 
+  exchangeRate = 132 
+}: { 
+  entries: DailyEntry[], 
+  isKES?: boolean, 
+  exchangeRate?: number 
+}) {
+  const displayAmount = (usdcAmount: number, decimals: number = 4) => {
+    if (isKES) {
+      return (usdcAmount * exchangeRate).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    }
+    return formatUsdc(usdcAmount, decimals);
+  };
+  
   return (
     <View className="bg-white rounded-3xl border border-[#a3ece4] overflow-hidden">
       <View className="flex-row items-center justify-between px-5 py-4 border-b border-[#a3ece4]">
@@ -80,14 +96,14 @@ export function DailyEarningsStatement({ entries }: { entries: DailyEntry[] }) {
               style={{ fontFamily: monoFont }}
               className="text-xs text-[#6b7280] mt-0.5"
             >
-              Balance {formatUsdc(entry.balance, 2)} USDC
+              Balance {displayAmount(entry.balance, 2)} {isKES ? 'KES' : 'USDC'}
             </Text>
           </View>
           <Text
             style={{ fontFamily: monoFont }}
             className="text-sm font-bold text-[#1a6b6b]"
           >
-            +{formatUsdc(entry.earned)}
+            +{displayAmount(entry.earned)}
           </Text>
         </View>
       ))}

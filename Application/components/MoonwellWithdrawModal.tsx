@@ -10,6 +10,10 @@ import {
 } from "react-native";
 import { ArrowLeft } from "lucide-react-native";
 
+import { useAuth } from "@/Contexts/AuthContext";
+import { serverUrl } from "@/constants/serverUrl";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
+
 interface MoonwellWithdrawModalProps {
   visible: boolean;
   onClose: () => void;
@@ -23,43 +27,64 @@ const MoonwellWithdrawModal = ({
   onSuccess,
   availableBalance,
 }: MoonwellWithdrawModalProps) => {
+  const { token } = useAuth();
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
   const [successData, setSuccessData] = useState<any>(null);
+  const { currency, platformRate } = useCurrencyStore();
+
+  const inputAmount = Number(amount) || 0;
+  const actualUSDCAmount = currency === "KES" ? inputAmount / platformRate : inputAmount;
+  const isAmountTooHigh = actualUSDCAmount > availableBalance;
+  
+  const displayBalance = currency === "KES"
+    ? `KSh ${Math.floor(availableBalance * platformRate).toLocaleString()}`
+    : `${availableBalance.toFixed(3)} USDC`;
+    
+  const displayError = error || (isAmountTooHigh ? `Insufficient balance. You have ${displayBalance} available` : "");
+  const isButtonDisabled = loading || !amount || isAmountTooHigh || inputAmount <= 0;
 
   const handleWithdraw = async () => {
     setLoading(true);
     setError("");
 
     try {
-      const withdrawAmount = Number(amount);
-      if (!withdrawAmount || withdrawAmount <= 0 || isNaN(withdrawAmount)) {
-        setError("Please enter a valid amount");
+      if (isAmountTooHigh) {
+        return;
+      }
+      
+      if (!token) {
+        setError("Authentication required");
         return;
       }
 
-      if (withdrawAmount > availableBalance) {
-        setError(
-          `Insufficient balance. You have ${availableBalance.toFixed(3)} USDC available to withdraw.`
-        );
-        return;
+      // Real backend Moonwell withdraw call
+      const response = await fetch(`${serverUrl}/moonwell/withdraw`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ amount: actualUSDCAmount }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccessData({
+          txHash: data.txHash,
+          message: `Successfully withdrew ${currency === "KES" ? 'KSh ' : ''}${inputAmount.toLocaleString()} ${currency === "KES" ? '' : 'USDC'} from Moonwell.`,
+          amount: amount.toString(),
+        });
+        setIsSuccess(true);
+      } else {
+        setError(data.error || "Failed to withdraw");
       }
-
-      // Simulate a backend / Moonwell withdraw transaction
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      const data = {
-        txHash: "0xMockHash...",
-        message: `Successfully withdrew ${amount} USDC from Moonwell.`,
-        amount: amount.toString(),
-      };
-
-      setSuccessData(data);
-      setIsSuccess(true);
     } catch (err) {
-      setError("Failed to process withdrawal. Please try again.");
+      console.error(err);
+      setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -124,44 +149,40 @@ const MoonwellWithdrawModal = ({
                 </View>
               </View>
 
-              <View className="items-center mb-8">
-                <View className="flex-row items-center bg-gray-50 rounded-2xl px-6 py-4 w-full justify-center">
-                  <Image
-                    source={require("../assets/images/usdclogo.png")}
-                    className="w-8 h-8 mr-3"
-                  />
-                  <TextInput
-                    className="text-4xl font-bold text-gray-900 min-w-[100px]"
-                    placeholder="0.00"
-                    keyboardType="numeric"
-                    value={amount}
-                    onChangeText={(t) => {
-                      setAmount(t);
-                      setError("");
-                    }}
-                    autoFocus
-                  />
-                </View>
-                <View className="flex-row justify-between w-full mt-3 px-2">
-                  <Text className="text-gray-500 text-sm">
-                    Available: {availableBalance.toFixed(3)} USDC
-                  </Text>
-                  <TouchableOpacity onPress={() => setAmount(availableBalance.toString())}>
-                    <Text className="text-[#10b981] font-bold text-sm">MAX</Text>
-                  </TouchableOpacity>
-                </View>
-                {error ? (
-                  <Text className="text-red-500 mt-3 text-sm text-center">{error}</Text>
-                ) : null}
-              </View>
+              <View className="flex-row items-center justify-between mb-4 mt-2">
+            <Text className="text-gray-500 font-medium">Available Balance</Text>
+            <Text className="text-gray-900 font-bold">{displayBalance}</Text>
+          </View>
 
+          <View className="mb-6">
+            <Text className="text-gray-500 font-medium mb-2">Amount to Withdraw</Text>
+            <View className={`flex-row items-center border ${isAmountTooHigh ? 'border-red-300 bg-red-50' : 'border-gray-200'} rounded-xl px-4 bg-gray-50`}>
+              <Text className="text-gray-500 font-bold mr-2 text-lg">{currency === "KES" ? 'KSh' : '$'}</Text>
+              <TextInput
+                value={amount}
+                onChangeText={setAmount}
+                keyboardType="numeric"
+                className="flex-1 py-4 text-gray-900 text-lg font-bold"
+                placeholder={`0.00`}
+                placeholderTextColor="#9ca3af"
+              />
               <TouchableOpacity
-                onPress={handleWithdraw}
-                disabled={loading || !amount}
-                className={`w-full py-4 rounded-xl items-center ${
-                  loading || !amount ? "bg-gray-300" : "bg-[#10b981]"
-                }`}
+                onPress={() => setAmount(currency === "KES" ? Math.floor(availableBalance * platformRate).toString() : availableBalance.toFixed(3))}
+                className="bg-blue-100 px-3 py-1.5 rounded-lg"
               >
+                <Text className="text-blue-700 font-bold text-xs">MAX</Text>
+              </TouchableOpacity>
+            </View>
+            {displayError ? (
+              <Text className="text-red-500 text-xs mt-2 ml-1">{displayError}</Text>
+            ) : null}
+          </View>
+
+          <TouchableOpacity
+            onPress={handleWithdraw}
+            disabled={isButtonDisabled}
+            className={`w-full py-4 rounded-xl flex-row justify-center items-center ${isButtonDisabled ? 'bg-blue-300' : 'bg-blue-600'}`}
+          >
                 {loading ? (
                   <ActivityIndicator color="white" />
                 ) : (
