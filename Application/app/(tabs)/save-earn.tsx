@@ -11,7 +11,7 @@ import { ArrowUpRight, ShieldCheck, HandCoins, Activity, Clock, LogIn, LogOut } 
 import { StatusBar } from "expo-status-bar";
 import { getMoonwellRates, getMoonwellPositions } from '@/lib/moonwellService';
 import { useAuth } from '@/Contexts/AuthContext';
-import { buildDailyHistory, useLiveDailyEarnings } from '@/components/DailyEarningsStatement';
+import { useLiveDailyEarnings } from '@/components/DailyEarningsStatement';
 
 const monoFont = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
 
@@ -35,7 +35,8 @@ export default function SaveAndEarnScreen() {
   const { fetchRate } = useExchangeRateStore();
   const [moonwellApy, setMoonwellApy] = useState<number | null>(null);
   const [moonwellBalance, setMoonwellBalance] = useState<number | null>(null);
-  const { user } = useAuth();
+  const [yieldHistory, setYieldHistory] = useState<any[]>([]);
+  const { user, token } = useAuth();
   
   useFocusEffect(
     useCallback(() => {
@@ -57,15 +58,25 @@ export default function SaveAndEarnScreen() {
       } else {
         setMoonwellBalance(0);
       }
-    }, [user?.smartAddress])
+
+      if (token) {
+        import('@/lib/moonwellService').then(({ getMoonwellYieldsHistory }) => {
+          getMoonwellYieldsHistory(token).then((res) => {
+            if (res && res.yields) {
+              setYieldHistory(res.yields);
+            }
+          });
+        });
+      }
+    }, [user?.smartAddress, token])
   );
   
   const isKES = currency === 'KES';
   
   const apyNum = moonwellApy || 0;
   const balanceNum = moonwellBalance || 0;
-  const history = React.useMemo(() => buildDailyHistory(balanceNum, apyNum, 7), [balanceNum, apyNum]);
-  const baseYield = history.reduce((sum, h) => sum + h.earned, 0);
+  
+  const baseYield = yieldHistory.reduce((sum, h) => sum + parseFloat(h.earned), 0);
   const liveYield = useLiveDailyEarnings(balanceNum, apyNum);
   const totalEarned = baseYield + liveYield;
   

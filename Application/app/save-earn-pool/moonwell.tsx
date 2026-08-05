@@ -5,13 +5,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Calculator, Info, ChevronDown, FileText } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { buildDailyHistory, DailyEarningsStatement, useLiveDailyEarnings } from '../../components/DailyEarningsStatement';
+import { DailyEarningsStatement, useLiveDailyEarnings } from '../../components/DailyEarningsStatement';
 import { TabButton } from '../../components/ui/TabButton';
 import { StatusBar } from 'expo-status-bar';
 import MoonwellDepositModal from '../../components/MoonwellDepositModal';
 import MoonwellWithdrawModal from '../../components/MoonwellWithdrawModal';
 import { useAuth } from '@/Contexts/AuthContext';
-import { getMoonwellRates, getMoonwellPositions } from '../../lib/moonwellService';
+import { getMoonwellRates, getMoonwellPositions, getMoonwellYieldsHistory } from '../../lib/moonwellService';
 import { getTheUserTx } from '../../lib/walletServices';
 import { useEffect } from 'react';
 import axios from 'axios';
@@ -51,6 +51,7 @@ export default function MoonwellDetailsScreen() {
   const [realApy, setRealApy] = useState<number | null>(null);
   const [realBalance, setRealBalance] = useState<number | null>(null);
   const [statements, setStatements] = useState<any[]>([]);
+  const [yieldHistory, setYieldHistory] = useState<any[]>([]);
 
   const fetchMoonwellData = () => {
     // Fetch Moonwell APY
@@ -75,11 +76,23 @@ export default function MoonwellDetailsScreen() {
 
     // Fetch Statements from Backend Payments
     if (token) {
-      getTheUserTx(token).then((res) => {
+      const txPromise = getTheUserTx(token).then((res) => {
         if (res && res.transactions) {
-          const mwTxs = res.transactions.filter((tx: any) => tx.rawReceiver === 'Moonwell' || tx.rawSender === 'Moonwell' || tx.description?.includes('Moonwell'));
-          setStatements(mwTxs);
+          return res.transactions.filter((tx: any) => tx.rawReceiver === 'Moonwell' || tx.rawSender === 'Moonwell' || tx.description?.includes('Moonwell'));
         }
+        return [];
+      });
+
+      const yieldPromise = getMoonwellYieldsHistory(token).then((res) => {
+        if (res && res.yields) {
+          return res.yields;
+        }
+        return [];
+      });
+
+      Promise.all([txPromise, yieldPromise]).then(([txs, yields]) => {
+        setStatements(txs);
+        setYieldHistory(yields);
       });
     }
   };
@@ -91,8 +104,7 @@ export default function MoonwellDetailsScreen() {
   const APY = realApy || 0; 
   const MOCK_USER_BALANCE = realBalance || 0;
 
-  const history = buildDailyHistory(MOCK_USER_BALANCE, APY, 7);
-  const baseYield = React.useMemo(() => history.reduce((sum, h) => sum + h.earned, 0), [history]);
+  const baseYield = React.useMemo(() => yieldHistory.reduce((sum, h) => sum + parseFloat(h.earned), 0), [yieldHistory]);
   const liveYield = useLiveDailyEarnings(MOCK_USER_BALANCE, APY);
   const totalEarned = baseYield + liveYield;
 
@@ -100,15 +112,16 @@ export default function MoonwellDetailsScreen() {
     const groups: { [dateStr: string]: any[] } = {};
 
     // Add yields
-    history.forEach((h) => {
-      const dateStr = h.date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    yieldHistory.forEach((h) => {
+      const d = new Date(h.createdAt);
+      const dateStr = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
       if (!groups[dateStr]) groups[dateStr] = [];
-      groups[dateStr].push({ type: 'yield', ...h });
+      groups[dateStr].push({ type: 'yield', ...h, date: d });
     });
 
     // Add transactions
     statements.forEach((tx) => {
-      const d = new Date(tx.createdAt);
+      const d = new Date(tx.date);
       const dateStr = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
       if (!groups[dateStr]) groups[dateStr] = [];
       groups[dateStr].push({ type: 'tx', ...tx, date: d });
@@ -128,7 +141,7 @@ export default function MoonwellDetailsScreen() {
       dateStr,
       items: groups[dateStr]
     }));
-  }, [history, statements]);
+  }, [statements, yieldHistory]);
   
   const amountNum = parseFloat(simAmount) || 0;
   const projectedYield = amountNum * (Math.pow(1 + APY / 100, simPeriod / 12) - 1);
@@ -297,8 +310,8 @@ export default function MoonwellDetailsScreen() {
                             <Text className="text-gray-500 text-xs">{item.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</Text>
                           </View>
                           <View className="items-end">
-                            <Text style={{ fontFamily: monoFont }} className="text-[#1a6b6b] font-bold text-base">+{displayAmount(item.earned)} {isKES ? 'KES' : 'USDC'}</Text>
-                            <Text style={{ fontFamily: monoFont }} className="text-gray-400 text-xs mt-0.5">Balance: {displayAmount(item.balance)} {isKES ? 'KES' : 'USDC'}</Text>
+                            <Text style={{ fontFamily: monoFont }} className="text-[#1a6b6b] font-bold text-base">+{displayAmount(parseFloat(item.earned))} {isKES ? 'KES' : 'USDC'}</Text>
+                            <Text style={{ fontFamily: monoFont }} className="text-gray-400 text-xs mt-0.5">Balance: {displayAmount(parseFloat(item.balance))} {isKES ? 'KES' : 'USDC'}</Text>
                           </View>
                         </View>
                       );

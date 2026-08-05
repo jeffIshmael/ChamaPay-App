@@ -1,6 +1,7 @@
 import { createServer } from "http";
 import { initialiseSocket } from "./Socket/socket";
 import app from "./app";
+import { initCronJobs } from "./Lib/cronService";
 
 const PORT: number = parseInt(process.env.PORT || "3000", 10);
 const server = createServer(app);
@@ -14,6 +15,9 @@ async function startServer(): Promise<void> {
 
     // initialise the socket
     initialiseSocket(server);
+
+    // Initialise scheduled cron jobs
+    initCronJobs();
 
     // Handle graceful shutdown
     process.on("SIGTERM", (): void => {

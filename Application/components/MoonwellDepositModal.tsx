@@ -288,6 +288,11 @@ const MoonwellDepositModal = ({
                 onClose();
               }}
               onBack={() => setPaymentMethod("")}
+              onSuccess={(data) => {
+                setSuccessData(data);
+                setIsSuccess(true);
+                onSuccess?.(data);
+              }}
               contributionAmount={Number(amount) || 0}
               isMoonwellDeposit={true}
             />

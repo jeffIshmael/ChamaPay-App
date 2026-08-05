@@ -5,7 +5,7 @@ import {
   pretiumOnramp
 } from "@/lib/pretiumService";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
-import { PRETIUM_TRANSACTION_LIMIT } from "@/Utils/pretiumUtils";
+import { PRETIUM_TRANSACTION_LIMIT, formatCurrency } from "@/Utils/pretiumUtils";
 import { ArrowLeft } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
@@ -26,6 +26,7 @@ interface MobileMoneyPayProps {
   chamaId: number;
   onClose: () => void;
   onBack: () => void;
+  onSuccess?: (data: any) => void;
   remainingAmount?: number;
   contributionAmount?: number;
   currency?: string;
@@ -39,6 +40,7 @@ const MobileMoneyPay = ({
   chamaId,
   onClose,
   onBack,
+  onSuccess,
   remainingAmount = 0,
   contributionAmount = 0,
   currency = "USDC",
@@ -301,7 +303,8 @@ const MobileMoneyPay = ({
         }),
       ]).start();
 
-      ToastAndroid.show(`Successfully paid ${usdcAmount} USDC to ${chamaName} chama${recipient ? ` on behalf of @${recipient.userName}` : ''}.`, ToastAndroid.SHORT);
+      const displayedAmountStr = isKESMode ? `${formatCurrency(parseFloat(kesAmount), 0)} KES` : `${usdcAmount} USDC`;
+      ToastAndroid.show(`Successfully paid ${displayedAmountStr} to ${chamaName} chama${recipient ? ` on behalf of @${recipient.userName}` : ''}.`, ToastAndroid.SHORT);
 
       setPhoneNumber("");
       setUsdcAmount("");
@@ -309,6 +312,11 @@ const MobileMoneyPay = ({
       setCurrentStep("input");
       setStatusMessage("");
       setTxHash("");
+      onSuccess?.({
+        txHash: txHashResult,
+        message: "Payment completed successfully",
+        amount: usdcAmount
+      });
       onClose();
     } catch (error: any) {
       setLoading(false);
@@ -444,7 +452,7 @@ const MobileMoneyPay = ({
                 You successfully sent
               </Text>
               <Text className="text-xl font-bold text-green-600 text-center mb-1">
-                {usdcAmount} USDC
+                {isKESMode ? `${formatCurrency(parseFloat(kesAmount), 0)} KES` : `${usdcAmount} USDC`}
               </Text>
               <Text className="text-xs text-gray-600 text-center mb-2">
                 to {chamaName}

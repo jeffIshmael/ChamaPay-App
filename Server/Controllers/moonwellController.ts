@@ -129,3 +129,34 @@ export const withdrawFromMoonwell = async (req: Request, res: Response): Promise
     });
   }
 };
+
+// Get Moonwell Yields
+export const getMoonwellYields = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+    }
+
+    const yields = await prisma.moonwellYield.findMany({
+      where: { userId: userId },
+      orderBy: { createdAt: "desc" },
+      take: 100, // Limit to last 100 days to prevent huge payload
+    });
+
+    return res.status(200).json({
+      success: true,
+      yields: yields,
+    });
+  } catch (error) {
+    console.error("Moonwell yields error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to fetch Moonwell yields",
+    });
+  }
+};
