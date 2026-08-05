@@ -4,29 +4,180 @@ import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+// Reusable InfoCard Component
+const InfoCard = ({ title, body, bullets, footer }: { title: string, body?: string, bullets?: string[], footer?: string }) => (
+    <View className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6">
+        <Text className="text-lg font-bold text-gray-900 mb-3">{title}</Text>
+        {body && (
+            <Text className="text-gray-700 text-base leading-relaxed mb-2">
+                {body}
+            </Text>
+        )}
+        {bullets && bullets.length > 0 && (
+            <View className="mt-1 mb-2">
+                {bullets.map((bullet, idx) => (
+                    <View key={idx} className="flex-row mb-3">
+                        <Text className="text-gray-700 text-base mr-2">•</Text>
+                        <Text className="text-gray-700 text-base leading-relaxed flex-1">
+                            {bullet}
+                        </Text>
+                    </View>
+                ))}
+            </View>
+        )}
+        {footer && (
+            <Text className="text-gray-700 text-base leading-relaxed mt-2 font-medium">
+                {footer}
+            </Text>
+        )}
+    </View>
+);
+
 export default function InfoScreen() {
     const router = useRouter();
     const { type } = useLocalSearchParams();
 
-    let title = "";
-    let content = "";
+    let pageData = {
+        title: "Information",
+        lastUpdated: "August 2026",
+        sections: [] as any[]
+    };
 
     switch (type) {
+        case "about":
+            pageData = {
+                title: "About Chamapay",
+                lastUpdated: "August 2026",
+                sections: [
+                    {
+                        title: "❤️ Saving together, made simple.",
+                        body: "Chamapay is a mobile app that helps friends, families and communities manage their chamas from anywhere.\n\nInstead of manually collecting contributions, tracking payments and remembering whose turn is next, Chamapay automates the process while keeping the experience familiar.\n\nMembers can:",
+                        bullets: [
+                            "Create or join trusted savings groups",
+                            "Deposit and withdraw using M-Pesa",
+                            "Receive automatic payouts based on the group's schedule",
+                            "Save idle funds and earn variable yield through Save & Earn"
+                        ],
+                        footer: "Whether you're saving with family, friends or colleagues, Chamapay makes managing a chama easier, more transparent and more convenient."
+                    },
+                    {
+                        title: "🎯 Our mission",
+                        body: "We're bringing Africa's tradition of saving together into the digital age.\n\nTechnology should remove the paperwork, not the trust."
+                    },
+                    {
+                        title: "📞 Contact",
+                        body: "Website\nwww.chamapay.xyz\n\nSupport\nsupport@chamapay.xyz"
+                    }
+                ]
+            };
+            break;
         case "privacy":
-            title = "Privacy Policy";
-            content = `At ChamaPay, your privacy is our priority. We are committed to protecting your personal information and ensuring your experience is secure.\n\n1. Information Collection\nWe collect information to provide better services to all our users. This includes basic details like your username and email, as well as onchain wallet addresses used for transactions.\n\n2. Use of Information\nWe use the information we collect to operate, maintain, and improve our app, as well as to communicate with you about updates or support inquiries.\n\n3. Data Security\nWe implement robust security measures to protect your data. Your wallet's seed phrase is never stored on our servers and remains completely under your control.\n\n4. Third-Party Sharing\nWe do not sell your personal data. We only share information with trusted third parties necessary for processing transactions or complying with legal obligations.\n\nFor more details, please contact our support team.`;
+            pageData = {
+                title: "Privacy Policy",
+                lastUpdated: "August 2026",
+                sections: [
+                    {
+                        title: "🔒 Information we collect",
+                        body: "When you use Chamapay we may collect:",
+                        bullets: [
+                            "Name",
+                            "Profile photo",
+                            "Email address",
+                            "Username",
+                            "Wallet address created for your account",
+                            "Transaction history",
+                            "Device analytics"
+                        ]
+                    },
+                    {
+                        title: "🛡️ How we use your information",
+                        body: "We use your information to:",
+                        bullets: [
+                            "Create and manage your account",
+                            "Process deposits and withdrawals",
+                            "Manage chama activities",
+                            "Improve the app",
+                            "Respond to support requests",
+                            "Send important account notifications"
+                        ]
+                    },
+                    {
+                        title: "👛 Wallets",
+                        body: "When you create a Chamapay account, a secure CDP wallet is automatically generated for you.\n\nThis wallet is used to facilitate transactions within Chamapay while keeping the blockchain experience simple for everyday users."
+                    },
+                    {
+                        title: "📊 Analytics",
+                        body: "We collect anonymous analytics to understand how Chamapay is used and improve reliability and performance."
+                    },
+                    {
+                        title: "🤝 Sharing your information",
+                        body: "We never sell your personal information.\n\nInformation may only be shared when necessary to:",
+                        bullets: [
+                            "Process payments",
+                            "Provide blockchain infrastructure",
+                            "Comply with legal obligations"
+                        ]
+                    },
+                    {
+                        title: "📞 Contact",
+                        body: "support@chamapay.xyz"
+                    }
+                ]
+            };
             break;
         case "terms":
-            title = "Terms of Service";
-            content = `Welcome to ChamaPay! By using our app, you agree to these terms.\n\n1. Acceptance of Terms\nBy creating an account or using ChamaPay, you agree to be bound by these Terms of Service.\n\n2. User Responsibilities\nYou are responsible for maintaining the confidentiality of your account credentials, including your PIN and seed phrase. You agree to notify us immediately of any unauthorized use of your account.\n\n3. Financial Transactions\nChamaPay facilitates onchain transactions. You acknowledge that blockchain transactions are irreversible and that ChamaPay is not responsible for lost funds due to user error or compromised credentials.\n\n4. Termination\nWe reserve the right to suspend or terminate your account at any time for violations of these terms.\n\n5. Modifications\nWe may update these terms from time to time. Continued use of the app constitutes acceptance of any changes.`;
+            pageData = {
+                title: "Terms of Service",
+                lastUpdated: "August 2026",
+                sections: [
+                    {
+                        title: "📜 Using Chamapay",
+                        body: "Chamapay allows trusted groups to manage savings circles, contribute using M-Pesa, receive automated payouts and access additional savings features available within the app."
+                    },
+                    {
+                        title: "👤 Your responsibilities",
+                        body: "You agree to:",
+                        bullets: [
+                            "Provide accurate account information.",
+                            "Keep your account secure.",
+                            "Use Chamapay only for lawful purposes.",
+                            "Join and create chamas with people you trust."
+                        ]
+                    },
+                    {
+                        title: "💸 Chama payouts",
+                        body: "Every chama follows the contribution schedule agreed upon when it is created.\n\nIf one or more members fail to contribute before the scheduled payout:",
+                        bullets: [
+                            "The payout will not happen.",
+                            "Contributions for that round are refunded.",
+                            "The round is repeated."
+                        ],
+                        footer: "Chamapay does not guarantee that members will make their contributions and is not responsible for losses resulting from members failing to contribute."
+                    },
+                    {
+                        title: "📈 Save & Earn",
+                        body: "Save & Earn allows users to supply funds to supported third-party DeFi protocols.\n\nImportant:",
+                        bullets: [
+                            "Yield is variable.",
+                            "Yield is not guaranteed.",
+                            "Funds can be deposited or withdrawn at any time, subject to network conditions and protocol availability."
+                        ]
+                    },
+                    {
+                        title: "⚙️ Availability",
+                        body: "We strive to keep Chamapay available at all times.\n\nOccasionally maintenance, upgrades or third-party services may temporarily affect availability."
+                    },
+                    {
+                        title: "🔄 Changes",
+                        body: "These Terms may change over time.\n\nContinued use of Chamapay means you accept the latest version."
+                    },
+                    {
+                        title: "📞 Contact",
+                        body: "support@chamapay.xyz"
+                    }
+                ]
+            };
             break;
-        case "about":
-            title = "About ChamaPay";
-            content = `ChamaPay is a revolutionary decentralized application (dApp) designed to bring the traditional African concept of "Chamas" (savings groups) to the blockchain.\n\nOur Mission\nWe aim to empower communities by providing a secure, transparent, and easy-to-use platform for group savings and investments using stablecoins and blockchain technology.\n\nWhy ChamaPay?\nTraditional savings groups often suffer from a lack of transparency and security. By leveraging smart contracts on the blockchain, ChamaPay ensures that all contributions are securely locked and automatically distributed according to the group's predefined rules, eliminating the need for trust in a single central authority.\n\nBuilt for the Future\nWe are constantly innovating to bring you the best features in decentralized finance, making group savings accessible to everyone, everywhere.`;
-            break;
-        default:
-            title = "Information";
-            content = "No information available.";
     }
 
     return (
@@ -40,16 +191,29 @@ export default function InfoScreen() {
                 >
                     <ArrowLeft size={20} color="#374151" />
                 </TouchableOpacity>
-                <Text className="text-xl font-bold text-gray-900">{title}</Text>
+                <Text className="text-2xl font-bold text-gray-900">{pageData.title}</Text>
             </View>
 
             {/* Content */}
-            <ScrollView className="flex-1 px-6 pt-6" showsVerticalScrollIndicator={false}>
-                <View className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-12">
-                    <Text className="text-gray-700 text-base leading-relaxed">
-                        {content}
+            <ScrollView className="flex-1 px-6 pt-6" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 80 }}>
+                <View className="mb-6">
+                    <Text className="text-sm font-medium text-gray-400 uppercase tracking-wider">
+                        Last updated
+                    </Text>
+                    <Text className="text-sm font-bold text-gray-600 mt-1">
+                        {pageData.lastUpdated}
                     </Text>
                 </View>
+
+                {pageData.sections.map((section, idx) => (
+                    <InfoCard
+                        key={idx}
+                        title={section.title}
+                        body={section.body}
+                        bullets={section.bullets}
+                        footer={section.footer}
+                    />
+                ))}
             </ScrollView>
         </SafeAreaView>
     );

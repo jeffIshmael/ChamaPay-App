@@ -52,8 +52,10 @@ export default function MoonwellDetailsScreen() {
   const [realBalance, setRealBalance] = useState<number | null>(null);
   const [statements, setStatements] = useState<any[]>([]);
   const [yieldHistory, setYieldHistory] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const fetchMoonwellData = () => {
+    setIsLoading(true);
     // Fetch Moonwell APY
     getMoonwellRates().then((result) => {
       if (result && result.success && result.data && result.data.length > 0) {
@@ -93,7 +95,12 @@ export default function MoonwellDetailsScreen() {
       Promise.all([txPromise, yieldPromise]).then(([txs, yields]) => {
         setStatements(txs);
         setYieldHistory(yields);
+        setIsLoading(false);
+      }).catch(() => {
+        setIsLoading(false);
       });
+    } else {
+      setIsLoading(false);
     }
   };
 
@@ -296,7 +303,13 @@ export default function MoonwellDetailsScreen() {
         {/* Tab Content */}
         {activeTab === 'history' ? (
           <View className="px-5 pb-6">
-            {groupedHistory.length > 0 ? (
+            {isLoading ? (
+              <View className="bg-white rounded-2xl p-8 items-center justify-center shadow-sm border border-gray-100 mb-6">
+                <View className="animate-pulse flex-row items-center justify-center">
+                   <Text className="text-gray-400 font-medium">Loading history...</Text>
+                </View>
+              </View>
+            ) : groupedHistory.length > 0 ? (
               groupedHistory.map((group, groupIdx) => (
                 <View key={groupIdx} className="mb-6">
                   <Text className="text-gray-800 font-bold text-lg mb-3">{group.dateStr}</Text>

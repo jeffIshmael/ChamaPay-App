@@ -467,7 +467,7 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
                   thumbColor="#ffffff"
                 />
               </View>
-              <View className="flex-row items-center justify-between p-4 bg-gray-50 rounded-xl">
+              {/* <View className="flex-row items-center justify-between p-4 bg-gray-50 rounded-xl">
                 <View className="flex-1 pr-4">
                   <Text className="text-gray-900 font-semibold text-base">
                     Email Notifications
@@ -486,7 +486,7 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
                   trackColor={{ false: "#e5e7eb", true: "#10b981" }}
                   thumbColor="#ffffff"
                 />
-              </View>
+              </View> */}
               {/* <View className="flex-row items-center justify-between p-4 bg-gray-50 rounded-xl">
                 <View className="flex-1 pr-4">
                   <Text className="text-gray-900 font-semibold text-base">
@@ -635,7 +635,7 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
               </TouchableOpacity>
 
               <TouchableOpacity 
-                onPress={() => Linking.openURL('https://x.com/chamapay').catch(() => Alert.alert("Error", "Could not open link"))}
+                onPress={() => Linking.openURL('https://x.com/Chama_pay').catch(() => Alert.alert("Error", "Could not open link"))}
                 className="w-full p-4 bg-gray-50 rounded-xl active:bg-gray-100 flex-row items-center justify-between"
               >
                 <View className="flex-row items-center gap-3">
@@ -664,7 +664,7 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
                   </View>
                   <View>
                     <Text className="text-gray-900 font-semibold text-base">
-                      About ChamaPay
+                      About Chamapay
                     </Text>
                     <Text className="text-sm text-gray-600 mt-1">
                       Learn more about what we do

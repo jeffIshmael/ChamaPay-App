@@ -1,19 +1,22 @@
 import BottomNavigation from "@/components/BottomNavigation";
 import { Tabs } from "expo-router";
+import GlobalOutcomeProvider from "@/components/GlobalOutcomeProvider";
 
 export default function TabLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-      }}
-      tabBar={(props) => <BottomNavigation {...props} />}
-    >
-      <Tabs.Screen name="index" options={{ title: "Dashboard" }} />
-      <Tabs.Screen name="save-earn" options={{ title: "Save & Earn" }} />
-      <Tabs.Screen name="create-chama" options={{ title: "Create" }} />
-      <Tabs.Screen name="notifications" options={{ title: "Notifications" }} />
-      <Tabs.Screen name="wallet/index" options={{ title: "Wallet" }} />
-    </Tabs>
+    <GlobalOutcomeProvider>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+        }}
+        tabBar={(props) => <BottomNavigation {...props} />}
+      >
+        <Tabs.Screen name="index" options={{ title: "Dashboard" }} />
+        <Tabs.Screen name="save-earn" options={{ title: "Save & Earn" }} />
+        <Tabs.Screen name="create-chama" options={{ title: "Create" }} />
+        <Tabs.Screen name="notifications" options={{ title: "Notifications" }} />
+        <Tabs.Screen name="wallet/index" options={{ title: "Wallet" }} />
+      </Tabs>
+    </GlobalOutcomeProvider>
   );
 }
