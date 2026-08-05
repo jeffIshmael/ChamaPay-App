@@ -15,6 +15,9 @@ import { getMoonwellRates, getMoonwellPositions } from '../../lib/moonwellServic
 import { getTheUserTx } from '../../lib/walletServices';
 import { useEffect } from 'react';
 import axios from 'axios';
+import { useCurrencyStore } from '@/store/useCurrencyStore';
+import { useExchangeRateStore } from '@/store/useExchangeRateStore';
+import { formatCurrency } from '@/Utils/pretiumUtils';
 
 const monoFont = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
 // Remove static constants since we fetch them dynamically
@@ -23,6 +26,23 @@ export default function MoonwellDetailsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, token } = useAuth();
+  
+  const { currency } = useCurrencyStore();
+  const { fetchRate, rates } = useExchangeRateStore();
+  
+  useEffect(() => {
+    fetchRate('KES');
+  }, []);
+  
+  const currentExchangeRate = rates['KES']?.data?.exchangeRate?.buying_rate || 132;
+  const isKES = currency === 'KES';
+  
+  const displayAmount = (usdcAmount: number) => {
+    if (isKES) {
+      return formatCurrency(usdcAmount * currentExchangeRate);
+    }
+    return usdcAmount.toFixed(2);
+  };
   
   // Tab state
   const [activeTab, setActiveTab] = useState<'statements' | 'simulator'>('statements');
@@ -41,9 +61,9 @@ export default function MoonwellDetailsScreen() {
 
   useEffect(() => {
     // Fetch Moonwell APY
-    getMoonwellRates().then((data) => {
-      if (data && data.supplyAPY) {
-        setRealApy(data.supplyAPY * 100);
+    getMoonwellRates().then((result) => {
+      if (result && result.success && result.data && result.data.length > 0) {
+        setRealApy(result.data[0].baseSupplyApy);
       }
     });
 
@@ -67,12 +87,11 @@ export default function MoonwellDetailsScreen() {
     }
   }, [user?.smartAddress, token]);
 
-  const APY = realApy || 6.4; // Fallback to 6.4 if not loaded yet
+  const APY = realApy || 4.3; 
   const MOCK_USER_BALANCE = realBalance;
 
   const history = buildDailyHistory(MOCK_USER_BALANCE, APY, 7);
   
-  // Calculate projected yield: Principal * ( (1 + APY/100)^(months/12) - 1 )
   const amountNum = parseFloat(simAmount) || 0;
   const projectedYield = amountNum * (Math.pow(1 + APY / 100, simPeriod / 12) - 1);
   const totalProjected = amountNum + projectedYield;
@@ -137,7 +156,7 @@ export default function MoonwellDetailsScreen() {
               </View>
               <View className="items-end">
                 <Text className="text-blue-800/70 text-xs font-semibold mb-0.5 uppercase tracking-wider">Current APY</Text>
-                <Text style={{ fontFamily: monoFont }} className="text-emerald-700 font-bold text-lg">{APY}%</Text>
+                <Text style={{ fontFamily: monoFont }} className="text-emerald-700 font-bold text-lg">{APY.toFixed(2)}%</Text>
               </View>
             </View>
 
@@ -145,8 +164,8 @@ export default function MoonwellDetailsScreen() {
             <View className="items-center mb-6">
               <Text className="text-blue-800/70 text-sm font-medium mb-2">Your Investment</Text>
               <Text style={{ fontFamily: monoFont }} className="text-blue-900 text-5xl font-extrabold tracking-tight">
-                {MOCK_USER_BALANCE.toFixed(2)}
-                <Text className="text-2xl text-blue-900/50 font-bold"> USDC</Text>
+                {displayAmount(MOCK_USER_BALANCE)}
+                <Text className="text-2xl text-blue-900/50 font-bold"> {isKES ? 'KES' : 'USDC'}</Text>
               </Text>
               <View className=" px-3 py-1 rounded-full mt-3 ">
                 <Text className="text-emerald-600 font-bold text-xs">+ $ 0.00 Total Yield</Text>
@@ -179,11 +198,11 @@ export default function MoonwellDetailsScreen() {
           <View className=" ml-2 ">
             <View className="flex-row items-center mb-3">
               <View className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-3" />
-              <Text className="text-gray-700 font-medium text-sm flex-1">Deposit USDC directly from your wallet</Text>
+              <Text className="text-gray-700 font-medium text-sm flex-1">Deposit directly from your account {isKES && "or M-pesa"}.</Text>
             </View>
             <View className="flex-row items-center mb-3">
               <View className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-3" />
-              <Text className="text-gray-700 font-medium text-sm flex-1">Earn variable interest every block</Text>
+              <Text className="text-gray-700 font-medium text-sm flex-1">Earn variable interest.</Text>
             </View>
             <View className="flex-row items-center">
               <View className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-3" />
@@ -222,7 +241,7 @@ export default function MoonwellDetailsScreen() {
                   <Text className="text-gray-500 text-xs">{new Date(tx.createdAt).toLocaleDateString()}</Text>
                 </View>
                 <View className="items-end">
-                  <Text style={{ fontFamily: monoFont }} className="text-emerald-600 font-bold text-base">+{Number(tx.amount).toFixed(4)} USDC</Text>
+                  <Text style={{ fontFamily: monoFont }} className="text-emerald-600 font-bold text-base">+{displayAmount(Number(tx.amount))} {isKES ? 'KES' : 'USDC'}</Text>
                 </View>
               </View>
             )) : (
@@ -243,15 +262,15 @@ export default function MoonwellDetailsScreen() {
                   </Text>
                 </View>
                 <View className="bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">
-                  <Text className="text-emerald-700 font-bold text-xs">{APY}% APY</Text>
+                  <Text className="text-emerald-700 font-bold text-xs">{APY.toFixed(2)}% APY</Text>
                 </View>
               </View>
 
               {/* Amount Input */}
               <View className="mb-4">
-                <Text className="text-xs font-semibold text-gray-500 mb-2">I want to save (USDC)</Text>
+                <Text className="text-xs font-semibold text-gray-500 mb-2">I want to save ({isKES ? 'KES' : 'USDC'})</Text>
                 <View className="bg-gray-50 border border-gray-200 rounded-xl flex-row items-center px-4">
-                  <Text className="text-gray-500 font-bold text-lg">$</Text>
+                  <Text className="text-gray-500 font-bold text-lg">{isKES ? 'KSh' : '$'}</Text>
                   <TextInput
                     value={simAmount}
                     onChangeText={setSimAmount}
@@ -282,13 +301,13 @@ export default function MoonwellDetailsScreen() {
                 <View className="flex-row justify-between items-end mb-3">
                   <Text className="text-sm font-medium text-downy-900">Projected Interest</Text>
                   <Text style={{ fontFamily: monoFont }} className="text-lg font-extrabold text-emerald-600">
-                    +${projectedYield.toFixed(2)}
+                    +{isKES ? 'KSh ' : '$'}{isKES ? formatCurrency(projectedYield) : projectedYield.toFixed(2)}
                   </Text>
                 </View>
                 <View className="flex-row justify-between items-end pt-3 border-t border-downy-200">
                   <Text className="text-sm font-bold text-downy-900">Total Balance</Text>
                   <Text style={{ fontFamily: monoFont }} className="text-lg font-extrabold text-downy-900">
-                    ${totalProjected.toFixed(2)}
+                    {isKES ? 'KSh ' : '$'}{isKES ? formatCurrency(totalProjected) : totalProjected.toFixed(2)}
                   </Text>
                 </View>
               </View>
@@ -296,7 +315,7 @@ export default function MoonwellDetailsScreen() {
               <View className="flex-row items-center mt-4">
                 <Info size={12} color="#9ca3af" />
                 <Text className="text-[10px] text-gray-400 ml-1.5 flex-1">
-                  Projections are estimates based on the current variable rate of {APY}% APY and are not guaranteed.
+                  Projections are estimates based on the current variable rate of {APY.toFixed(2)}% APY and are not guaranteed.
                 </Text>
               </View>
             </View>

@@ -54,6 +54,7 @@ model Chama {
   adminId       Int
   canJoin       Boolean        @default(true)
   payOutOrder   String?
+  txHash        String?
   createdAt     DateTime       @default(now())
   admin         User           @relation("AdminChamas", fields: [adminId], references: [id])
   members       ChamaMember[]
@@ -75,6 +76,7 @@ model ChamaMember {
   chamaId      Int
   payDate      DateTime
   lastReadTime DateTime @default(now())
+  txHash       String?
   chama        Chama    @relation(fields: [chamaId], references: [id])
   user         User     @relation(fields: [userId], references: [id])
 

@@ -747,20 +747,23 @@ export default function AuthScreen() {
                 )}
               </View>
 
-              {/* Terms */}
-              <Text className="text-xs text-gray-500 text-center px-8 leading-relaxed">
-                By continuing, you agree to our{" "}
-                <Text className="font-semibold" style={{ color: "#26a6a2" }}>
-                  Terms of Service
-                </Text>{" "}
-                and{" "}
-                <Text className="font-semibold" style={{ color: "#26a6a2" }}>
-                  Privacy Policy
-                </Text>
-              </Text>
             </View>
           </View>
         </ScrollView>
+
+        {/* Terms - Fixed at bottom */}
+        <View className="px-8 pb-4 bg-white">
+          <Text className="text-xs text-gray-500 text-center leading-relaxed">
+            By continuing, you agree to our{" "}
+            <Text className="font-semibold" style={{ color: "#26a6a2" }}>
+              Terms of Service
+            </Text>{" "}
+            and{" "}
+            <Text className="font-semibold" style={{ color: "#26a6a2" }}>
+              Privacy Policy
+            </Text>
+          </Text>
+        </View>
       </SafeAreaView>
 
       {/* Loading Overlay - Using Video-based AuthLoadingView */}

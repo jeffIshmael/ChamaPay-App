@@ -343,13 +343,11 @@ setTransactionError("Failed to load transactions");
                   {selectedTransaction.type}
                 </Text>
                 <Text className={`text-3xl font-extrabold`} style={{ color: headerColor }}>
-                  {selectedTransaction.type === "sent" ||
-                    selectedTransaction.type === "withdrew"
-                    ? "-"
-                    : "+"}
-                  {currency === "KES" && selectedTransaction.fiatAmount
-                    ? ` ${selectedTransaction.fiatAmount.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES`
-                    : formatBalance(selectedTransaction.amount)}
+                  {`${selectedTransaction.type === "sent" || selectedTransaction.type === "withdrew" ? "-" : "+"}${
+                    currency === "KES" && selectedTransaction.fiatAmount
+                      ? ` ${selectedTransaction.fiatAmount.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES`
+                      : ` ${formatBalance(selectedTransaction.amount)}`
+                  }`}
                 </Text>
                 {currency === "KES" && (
                   <Text className="text-white/70 text-sm font-medium mt-1">

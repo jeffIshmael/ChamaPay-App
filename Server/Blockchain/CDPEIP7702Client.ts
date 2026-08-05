@@ -170,10 +170,13 @@ const buildSmartAccountClient = (
     sendTransaction: async ({ calls, dataSuffix }: SendTransactionParams) => {
         const encodedCalls = calls.map((call) => ({
             to: call.to,
-            value: call.value ?? 0n,
+            value: call.value ?? BigInt(0),
             data: call.data ?? ("0x" as Hex),
         }));
         return sendDelegatedUserOperation(delegated, encodedCalls, dataSuffix);
+    },
+    writeContracts: async ({ calls, dataSuffix }: { calls: ContractCall[]; dataSuffix?: Hex }) => {
+        return sendDelegatedUserOperation(delegated, calls, dataSuffix);
     },
 });
 

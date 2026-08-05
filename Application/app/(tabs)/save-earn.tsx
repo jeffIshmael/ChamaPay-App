@@ -2,8 +2,14 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCurrencyStore } from '@/store/useCurrencyStore';
+import { useExchangeRateStore } from '@/store/useExchangeRateStore';
+import { useEffect, useState } from 'react';
+import { formatCurrency } from '@/Utils/pretiumUtils';
 import { ArrowUpRight, ShieldCheck, HandCoins, Activity, Clock, LogIn, LogOut } from 'lucide-react-native';
 import { StatusBar } from "expo-status-bar";
+import { getMoonwellRates, getMoonwellPositions } from '@/lib/moonwellService';
+import { useAuth } from '@/Contexts/AuthContext';
 
 const monoFont = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
 
@@ -22,6 +28,41 @@ const POOLS = [
 export default function SaveAndEarnScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  const { currency } = useCurrencyStore();
+  const { fetchRate, rates } = useExchangeRateStore();
+  const [moonwellApy, setMoonwellApy] = useState<number | null>(null);
+  const [moonwellBalance, setMoonwellBalance] = useState(0);
+  const { user } = useAuth();
+  
+  useEffect(() => {
+    fetchRate('KES');
+    getMoonwellRates().then((result) => {
+      if (result && result.success && result.data && result.data.length > 0) {
+        setMoonwellApy(result.data[0].baseSupplyApy);
+      }
+    });
+    
+    if (user?.smartAddress) {
+      getMoonwellPositions(user.smartAddress).then((data) => {
+        if (data && data.suppliedAmountDecimal) {
+          setMoonwellBalance(parseFloat(data.suppliedAmountDecimal));
+        }
+      });
+    }
+  }, [user?.smartAddress]);
+  
+  const currentExchangeRate = rates['KES']?.data?.exchangeRate?.buying_rate || 132;
+  const isKES = currency === 'KES';
+  
+  // Helper to format based on preferred currency
+  const displayAmount = (usdcAmount: number, isPositive = false) => {
+    const prefix = isPositive && usdcAmount > 0 ? '+' : '';
+    if (isKES) {
+      return `${prefix}KES ${formatCurrency(usdcAmount * currentExchangeRate)}`;
+    }
+    return `${prefix}${usdcAmount.toFixed(2)} USDC`;
+  };
 
   return (
     <View className="flex-1 bg-gray-50">
@@ -73,7 +114,7 @@ export default function SaveAndEarnScreen() {
                 </View>
                 <View className="items-end bg-downy-50 px-3 py-2 rounded-xl">
                   <Text style={{ fontFamily: monoFont }} className="text-lg font-bold text-downy-700">
-                    {pool.apy}
+                    {pool.id === 'moonwell' && moonwellApy ? `${moonwellApy.toFixed(2)}%` : pool.apy}
                   </Text>
                   <Text className="text-[10px] font-bold text-downy-600 tracking-wide">APY</Text>
                 </View>
@@ -87,7 +128,7 @@ export default function SaveAndEarnScreen() {
                 </View>
                 <View className="flex-1 items-center justify-center bg-gray-50 py-2.5 rounded-2xl border border-gray-100">
                   <Activity size={18} color="#3b82f6" className="mb-1.5" />
-                  <Text className="text-[11px] font-bold text-gray-700 text-center leading-tight">Earn{'\n'}USDC</Text>
+                  <Text className="text-[11px] font-bold text-gray-700 text-center leading-tight">Earn{'\n'}{isKES ? 'KES' : 'USDC'}</Text>
                 </View>
                 <View className="flex-1 items-center justify-center bg-gray-50 py-2.5 rounded-2xl border border-gray-100">
                   <LogOut size={18} color="#f59e0b" className="mb-1.5" />
@@ -99,12 +140,12 @@ export default function SaveAndEarnScreen() {
               <View className="bg-[#f8fafc] rounded-2xl p-4 border border-gray-100 flex-row justify-between items-center">
                 <View>
                   <Text className="text-xs text-gray-500 mb-1 font-medium">Invested</Text>
-                  <Text style={{ fontFamily: monoFont }} className="text-[15px] font-bold text-gray-900">0.00 USDC</Text>
+                  <Text style={{ fontFamily: monoFont }} className="text-[15px] font-bold text-gray-900">{displayAmount(pool.id === 'moonwell' ? moonwellBalance : 0)}</Text>
                 </View>
                 <View className="w-[1px] h-full bg-gray-200" />
                 <View className="items-end">
                   <Text className="text-xs text-gray-500 mb-1 font-medium">Earned</Text>
-                  <Text style={{ fontFamily: monoFont }} className="text-[15px] font-bold text-emerald-600">+0.00 USDC</Text>
+                  <Text style={{ fontFamily: monoFont }} className="text-[15px] font-bold text-emerald-600">{displayAmount(0, true)}</Text>
                 </View>
               </View>
             </TouchableOpacity>
