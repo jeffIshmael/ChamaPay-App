@@ -251,7 +251,7 @@ class EmailService {
 
   async sendMpesaDepositEmail(email: string, amountUSDC: string, amountKES: string | null, receiptNumber: string, phoneNumber: string, time: string) {
     try {
-      const amountDisplay = amountKES ? `${amountUSDC} USDC (approx. ${amountKES} KES)` : `${amountUSDC} USDC`;
+      const amountDisplay = amountKES ? `${amountKES} KES (${amountUSDC} USDC)` : `${amountUSDC} USDC`;
       const trimmedPhone = phoneNumber.length > 4 ? `...${phoneNumber.slice(-4)}` : phoneNumber;
       const body = `
         ${heading("M-Pesa Deposit Confirmed")}
@@ -278,7 +278,7 @@ class EmailService {
         from: "Chamapay <deposits@chamapay.xyz>",
         to: email,
         subject: "M-Pesa deposit received",
-        html: wrapEmail(body, { preheader: `${amountUSDC} USDC deposited to your wallet via M-Pesa` }),
+        html: wrapEmail(body, { preheader: `${amountKES ? `${amountKES} KES` : `${amountUSDC} USDC`} deposited to your wallet via M-Pesa` }),
       });
       if (error) console.error("Resend error:", error);
       return { success: !error };
@@ -351,7 +351,7 @@ class EmailService {
         from: "Chamapay <withdrawals@chamapay.xyz>",
         to: email,
         subject: "M-Pesa withdrawal processed",
-        html: wrapEmail(body, { preheader: `${amountUSDC} USDC withdrawn to your M-Pesa` }),
+        html: wrapEmail(body, { preheader: `${amountKES ? `${amountKES} KES` : `${amountUSDC} USDC`} successfully withdrawn via M-Pesa` }),
       });
       if (error) console.error("Resend error:", error);
       return { success: !error };

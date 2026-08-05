@@ -206,7 +206,7 @@ setError("Failed to process payment. Please try again.");
               </View>
 
               {/* Remaining Amount Alert */}
-              {remainingAmount > 0 && !loading && (
+              {!recipient && remainingAmount > 0 && !loading && (
                 currency === "KES" 
                   ? Number(amount) < remainingAmount * platformRate 
                   : Number(amount) < remainingAmount

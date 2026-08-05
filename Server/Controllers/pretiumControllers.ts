@@ -462,7 +462,7 @@ export async function pretiumCallback(req: Request, res: Response) {
       );
 
       // Send M-Pesa Deposit Email (We can send it now or wait for final. Let's send it now since M-Pesa is deducted)
-      if (transaction.user.emailNotify && transaction.type === "payment") {
+      if (transaction.user.emailNotify && transaction.type === "deposit") {
         const timeStr = new Date().toLocaleString("en-US", {
           timeZone: "Africa/Nairobi",
           dateStyle: "medium",
@@ -475,7 +475,7 @@ export async function pretiumCallback(req: Request, res: Response) {
           displayAmountUSDC,
           displayAmountKES,
           body.receipt_number,
-          transaction.account_number || "M-Pesa",
+          transaction.shortcode || "M-Pesa",
           timeStr
         );
       }
