@@ -183,30 +183,71 @@ export const bcMoonwellDeposit = async (cdpWalletId: string, amount: string) => 
         const amountInWei = parseUnits(amount, 6);
         const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
         
-        // Batch Approve and Mint in a single UserOperation
-        const hash = await smartAccountClient.writeContracts({
-            calls: [
-                {
-                    to: USDCAddress as `0x${string}`,
-                    abi: ERC20_APPROVE_ABI,
-                    functionName: 'approve',
-                    args: [moonwellUSDCAddress as `0x${string}`, amountInWei]
-                },
-                {
-                    to: moonwellUSDCAddress as `0x${string}`,
-                    abi: MOONWELL_MINT_ABI,
-                    functionName: 'mint',
-                    args: [amountInWei]
-                }
-            ],
+        // 1. Approve USDC for Moonwell Market
+        const currentAllowance = await publicClient.readContract({
+            address: USDCAddress as `0x${string}`,
+            abi: ERC20_APPROVE_ABI.map(abi => abi.name === 'approve' ? {
+                inputs: [
+                    { internalType: "address", name: "owner", type: "address" },
+                    { internalType: "address", name: "spender", type: "address" }
+                ],
+                name: "allowance",
+                outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+                stateMutability: "view",
+                type: "function"
+            } : abi), // Mock the ABI since we only have approve in the const, we should just define allowance ABI inline
+            functionName: 'allowance',
+            args: [cdpWalletId as `0x${string}`, moonwellUSDCAddress as `0x${string}`],
+        }).catch(() => BigInt(0)) as bigint; // Ignore error and assume 0 if it fails
+
+        // Only approve if current allowance is less than the amount we want to deposit
+        if (currentAllowance < amountInWei) {
+            const approveHash = await smartAccountClient.writeContract({
+                address: USDCAddress as `0x${string}`,
+                abi: ERC20_APPROVE_ABI,
+                functionName: 'approve',
+                args: [moonwellUSDCAddress as `0x${string}`, amountInWei],
+                dataSuffix: builderCodeDataSuffix,
+            });
+            const approveTx = await publicClient.waitForTransactionReceipt({ hash: approveHash });
+            if (!approveTx || approveTx.status !== 'success') throw new Error("Unable to approve USDC for Moonwell.");
+            
+            // Poll for allowance to update to avoid RPC sync issues during gas estimation of mint
+            let newAllowance = currentAllowance;
+            let attempts = 0;
+            while (newAllowance < amountInWei && attempts < 10) {
+                await new Promise(r => setTimeout(r, 1000));
+                newAllowance = await publicClient.readContract({
+                    address: USDCAddress as `0x${string}`,
+                    abi: [{
+                        inputs: [
+                            { internalType: "address", name: "owner", type: "address" },
+                            { internalType: "address", name: "spender", type: "address" }
+                        ],
+                        name: "allowance",
+                        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+                        stateMutability: "view",
+                        type: "function"
+                    }],
+                    functionName: 'allowance',
+                    args: [cdpWalletId as `0x${string}`, moonwellUSDCAddress as `0x${string}`],
+                }) as bigint;
+                attempts++;
+            }
+        }
+
+        // 2. Mint mUSDC (Supply to Moonwell)
+        const mintHash = await smartAccountClient.writeContract({
+            address: moonwellUSDCAddress as `0x${string}`,
+            abi: MOONWELL_MINT_ABI,
+            functionName: 'mint',
+            args: [amountInWei],
             dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}), // Note: writeContracts doesn't directly take authorization but wait, CDPEIP7702Client ignores it anyway for writeContracts since it handles it internally in createEIP7702SmartAccount
         });
+        const mintTx = await publicClient.waitForTransactionReceipt({ hash: mintHash });
+        if (!mintTx || mintTx.status !== 'success') throw new Error("Unable to mint mUSDC on Moonwell.");
 
-        const tx = await publicClient.waitForTransactionReceipt({ hash });
-        if (!tx || tx.status !== 'success') throw new Error("Unable to deposit to Moonwell.");
-
-        return tx.transactionHash;
+        return mintTx.transactionHash;
     } catch (error) {
         console.error("Error depositing to Moonwell:", error);
         throw error;
