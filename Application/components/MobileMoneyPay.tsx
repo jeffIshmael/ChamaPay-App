@@ -30,6 +30,7 @@ interface MobileMoneyPayProps {
   contributionAmount?: number;
   currency?: string;
   recipient?: { userId: number; userName: string } | null;
+  isMoonwellDeposit?: boolean;
 }
 
 const MobileMoneyPay = ({
@@ -42,6 +43,7 @@ const MobileMoneyPay = ({
   contributionAmount = 0,
   currency = "USDC",
   recipient = null,
+  isMoonwellDeposit = false,
 }: MobileMoneyPayProps) => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [usdcAmount, setUsdcAmount] = useState("");
@@ -245,7 +247,8 @@ const MobileMoneyPay = ({
         false,
         token,
         chamaId,
-        recipient?.userId
+        recipient?.userId,
+        isMoonwellDeposit
       );
 
       if (!result.success) {

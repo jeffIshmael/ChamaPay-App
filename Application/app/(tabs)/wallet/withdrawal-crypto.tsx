@@ -310,6 +310,8 @@ switch (status) {
                 break;
               case "completed":
               case "complete":
+              case "success":
+              case "successful":
                 setWithdrawalProgressStep(3);
                 setProcessingStep("completed");
                 break;

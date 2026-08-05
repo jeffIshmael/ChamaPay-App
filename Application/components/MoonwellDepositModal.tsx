@@ -289,6 +289,7 @@ const MoonwellDepositModal = ({
               }}
               onBack={() => setPaymentMethod("")}
               contributionAmount={Number(amount) || 0}
+              isMoonwellDeposit={true}
             />
           )}
         </View>

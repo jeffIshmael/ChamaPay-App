@@ -49,7 +49,7 @@ export default function MoonwellDetailsScreen() {
 
   // Real-time State
   const [realApy, setRealApy] = useState<number | null>(null);
-  const [realBalance, setRealBalance] = useState(0);
+  const [realBalance, setRealBalance] = useState<number | null>(null);
   const [statements, setStatements] = useState<any[]>([]);
 
   const fetchMoonwellData = () => {
@@ -65,8 +65,12 @@ export default function MoonwellDetailsScreen() {
       getMoonwellPositions(user.smartAddress).then((data) => {
         if (data && data.suppliedAmountDecimal) {
           setRealBalance(parseFloat(data.suppliedAmountDecimal));
+        } else {
+          setRealBalance(0);
         }
-      });
+      }).catch(() => setRealBalance(0));
+    } else {
+      setRealBalance(0);
     }
 
     // Fetch Statements from Backend Payments
@@ -87,7 +91,7 @@ export default function MoonwellDetailsScreen() {
   const APY = realApy || 0; 
   const MOCK_USER_BALANCE = realBalance;
 
-  const history = buildDailyHistory(MOCK_USER_BALANCE, APY, 7);
+  const history = buildDailyHistory(MOCK_USER_BALANCE || 0, APY, 7);
 
   const groupedHistory = React.useMemo(() => {
     const groups: { [dateStr: string]: any[] } = {};
@@ -198,12 +202,20 @@ export default function MoonwellDetailsScreen() {
             {/* Middle: Invested Balance */}
             <View className="items-center mb-6">
               <Text className="text-blue-800/70 text-sm font-medium mb-2">Your Investment</Text>
-              <Text style={{ fontFamily: monoFont }} className="text-blue-900 text-5xl font-extrabold tracking-tight">
-                {displayAmount(MOCK_USER_BALANCE)}
-                <Text className="text-2xl text-blue-900/50 font-bold"> {isKES ? 'KES' : 'USDC'}</Text>
-              </Text>
+              {realBalance === null ? (
+                <View className="h-12 w-48 bg-blue-100/50 rounded-lg mt-1 mb-2" />
+              ) : (
+                <Text style={{ fontFamily: monoFont }} className="text-blue-900 text-5xl font-extrabold tracking-tight">
+                  {displayAmount(MOCK_USER_BALANCE || 0)}
+                  <Text className="text-2xl text-blue-900/50 font-bold"> {isKES ? 'KES' : 'USDC'}</Text>
+                </Text>
+              )}
               <View className=" px-3 py-1 rounded-full mt-3 ">
-                <Text className="text-emerald-600 font-bold text-xs">+ $ 0.00 Total Yield</Text>
+                {realBalance === null ? (
+                  <View className="h-4 w-32 bg-blue-100/50 rounded" />
+                ) : (
+                  <Text className="text-emerald-600 font-bold text-xs">+ $ 0.00 Total Yield</Text>
+                )}
               </View>
             </View>
 
@@ -438,7 +450,7 @@ export default function MoonwellDetailsScreen() {
       <MoonwellWithdrawModal
         visible={showWithdrawModal}
         onClose={() => setShowWithdrawModal(false)}
-        availableBalance={MOCK_USER_BALANCE}
+        availableBalance={MOCK_USER_BALANCE || 0}
         onSuccess={(data) => {
           setShowWithdrawModal(false);
           fetchMoonwellData();

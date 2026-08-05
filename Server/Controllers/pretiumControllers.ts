@@ -4,6 +4,7 @@ import { Request, Response } from "express";
 
 import { parseUnits } from "viem";
 import { transferTx } from "../Blockchain/erc20Functions";
+import { bcMoonwellDeposit, bcDepositFundsToChama, bcDepositFundsForMember } from "../Blockchain/WriteFunction";
 import emailService from "../Lib/EmailService";
 import {
   getQuote,
@@ -59,6 +60,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
     phoneNo,
     exchangeRate,
     isDeposit,
+    isMoonwellDeposit,
     chamaId,
     memberForId,
   } = req.body;
@@ -120,7 +122,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
         isOnramp: true,
         shortcode: phoneNo.toString(),
         amount: amount,
-        type: isDeposit ? "deposit" : "payment",
+        type: isMoonwellDeposit ? "moonwell" : (isDeposit ? "deposit" : "payment"),
         status: result.status,
         isRealesed: false,
         cusdAmount: exactUsdcAmount, // Store the exact amount we owe the user based on platform rate
@@ -330,8 +332,6 @@ export async function pretiumCallback(req: Request, res: Response) {
         try {
           if (transaction.type === "payment") {
             const bigintBlockchainId = transaction.chamaId ? Number(transaction.chamaId) : 0;
-            // Note: pimlicoDepositForUser expects the actual blockchain ID of the chama if it's a chama deposit
-            // But since chamaId is what we have, we might need the actual chama's blockchainId.
             let actualBlockchainId = bigintBlockchainId;
             let chamaName = "Chama";
             if (transaction.chamaId) {
@@ -341,7 +341,30 @@ export async function pretiumCallback(req: Request, res: Response) {
                 chamaName = chama.name;
               }
             }
-            txResult = await pimlicoDepositForUser(actualBlockchainId, targetAddress as `0x${string}`, bigintAmount);
+            // First transfer to the user who initiated the payment
+            await pimlicoTransferToUser(transaction.user.smartAddress as `0x${string}`, bigintAmount);
+
+            // Execute deposit from user's wallet
+            if (transaction.user.cdpWalletId) {
+              if (memberForId && targetAddress) {
+                txResult = await bcDepositFundsForMember(transaction.user.cdpWalletId, BigInt(actualBlockchainId), targetAddress, usdcAmountToCredit.toString());
+              } else {
+                txResult = await bcDepositFundsToChama(transaction.user.cdpWalletId, BigInt(actualBlockchainId), usdcAmountToCredit.toString());
+              }
+            } else {
+              throw new Error("No CDP Wallet found for user to deposit to Chama");
+            }
+          } else if (transaction.type === "moonwell") {
+            // First transfer to user from Agent
+            await pimlicoTransferToUser(targetAddress as `0x${string}`, bigintAmount);
+            
+            // Then automatically deposit to Moonwell using user's CDP Wallet
+            if (transaction.user.cdpWalletId) {
+              txResult = await bcMoonwellDeposit(transaction.user.cdpWalletId, usdcAmountToCredit.toString());
+              description = "Moonwell Deposit via M-Pesa";
+            } else {
+              throw new Error("No CDP Wallet found for user to deposit to Moonwell");
+            }
           } else {
             txResult = await pimlicoTransferToUser(targetAddress as `0x${string}`, bigintAmount);
           }
@@ -355,6 +378,7 @@ export async function pretiumCallback(req: Request, res: Response) {
                 chamaId: transaction.chamaId || null,
                 txHash: txResult,
                 userId: targetUserId,
+                receiver: transaction.type === "moonwell" ? "Moonwell" : undefined,
               },
             });
 
@@ -522,7 +546,12 @@ export async function pretiumOfframpCallback(
     }
 
     // Handle successful offramp
-    if (body.status === "COMPLETE") {
+    if (
+      body.status === "COMPLETE" ||
+      body.status === "SUCCESS" ||
+      body.status === "SUCCESSFUL" ||
+      body.status === "COMPLETED"
+    ) {
       await prisma.pretiumTransaction.update({
         where: {
           transactionCode: body.transaction_code,

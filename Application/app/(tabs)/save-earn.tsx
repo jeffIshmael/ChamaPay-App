@@ -33,7 +33,7 @@ export default function SaveAndEarnScreen() {
   const { currency, platformRate } = useCurrencyStore();
   const { fetchRate } = useExchangeRateStore();
   const [moonwellApy, setMoonwellApy] = useState<number | null>(null);
-  const [moonwellBalance, setMoonwellBalance] = useState(0);
+  const [moonwellBalance, setMoonwellBalance] = useState<number | null>(null);
   const { user } = useAuth();
   
   useFocusEffect(
@@ -49,8 +49,12 @@ export default function SaveAndEarnScreen() {
         getMoonwellPositions(user.smartAddress).then((data) => {
           if (data && data.suppliedAmountDecimal) {
             setMoonwellBalance(parseFloat(data.suppliedAmountDecimal));
+          } else {
+            setMoonwellBalance(0);
           }
-        });
+        }).catch(() => setMoonwellBalance(0));
+      } else {
+        setMoonwellBalance(0);
       }
     }, [user?.smartAddress])
   );
@@ -115,9 +119,13 @@ export default function SaveAndEarnScreen() {
                   </View>
                 </View>
                 <View className="items-end bg-downy-50 px-3 py-2 rounded-xl">
-                  <Text style={{ fontFamily: monoFont }} className="text-lg font-bold text-downy-700">
-                    {pool.id === 'moonwell' && moonwellApy ? `${moonwellApy.toFixed(2)}%` : pool.apy}
-                  </Text>
+                  {pool.id === 'moonwell' && moonwellApy === null ? (
+                    <View className="h-6 w-14 bg-downy-200/50 rounded-md mb-1 mt-0.5" />
+                  ) : (
+                    <Text style={{ fontFamily: monoFont }} className="text-lg font-bold text-downy-700">
+                      {pool.id === 'moonwell' && moonwellApy ? `${moonwellApy.toFixed(2)}%` : pool.apy}
+                    </Text>
+                  )}
                   <Text className="text-[10px] font-bold text-downy-600 tracking-wide">APY</Text>
                 </View>
               </View>
@@ -142,12 +150,20 @@ export default function SaveAndEarnScreen() {
               <View className="bg-[#f8fafc] rounded-2xl p-4 border border-gray-100 flex-row justify-between items-center">
                 <View>
                   <Text className="text-xs text-gray-500 mb-1 font-medium">Invested</Text>
-                  <Text style={{ fontFamily: monoFont }} className="text-[15px] font-bold text-gray-900">{displayAmount(pool.id === 'moonwell' ? moonwellBalance : 0)}</Text>
+                  {pool.id === 'moonwell' && moonwellBalance === null ? (
+                    <View className="h-5 w-20 bg-gray-200 rounded-md" />
+                  ) : (
+                    <Text style={{ fontFamily: monoFont }} className="text-[15px] font-bold text-gray-900">{displayAmount(pool.id === 'moonwell' ? (moonwellBalance || 0) : 0)}</Text>
+                  )}
                 </View>
                 <View className="w-[1px] h-full bg-gray-200" />
                 <View className="items-end">
                   <Text className="text-xs text-gray-500 mb-1 font-medium">Earned</Text>
-                  <Text style={{ fontFamily: monoFont }} className="text-[15px] font-bold text-emerald-600">{displayAmount(0, true)}</Text>
+                  {pool.id === 'moonwell' && moonwellBalance === null ? (
+                    <View className="h-5 w-16 bg-gray-200 rounded-md" />
+                  ) : (
+                    <Text style={{ fontFamily: monoFont }} className="text-[15px] font-bold text-emerald-600">{displayAmount(0, true)}</Text>
+                  )}
                 </View>
               </View>
             </TouchableOpacity>
