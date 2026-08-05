@@ -1,4 +1,5 @@
 import axios from "axios";
+import { serverUrl } from "../constants/serverUrl";
 
 const MOONWELL_API_BASE = "https://api.moonwell.fi/v1";
 
@@ -45,7 +46,7 @@ export const getMoonwellPositions = async (address: string, chain = "base") => {
 export const getMoonwellYieldsHistory = async (token: string) => {
   if (!token) return null;
   try {
-    const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/moonwell/yields`, {
+    const response = await axios.get(`${serverUrl}/moonwell/yields`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
