@@ -290,20 +290,54 @@ class EmailService {
 
   async sendMpesaWithdrawEmail(email: string, amountUSDC: string, amountKES: string | null, receiptNumber: string, phoneNumber: string, time: string) {
     try {
-      const amountDisplay = amountKES ? `${amountUSDC} USDC (received ${amountKES} KES)` : `${amountUSDC} USDC`;
+      let fee = 0;
+      let amountKESNumber = 0;
+      if (amountKES) {
+        amountKESNumber = parseFloat(amountKES);
+        if (amountKESNumber < 100) fee = 5;
+        else if (amountKESNumber <= 500) fee = 5;
+        else if (amountKESNumber <= 1000) fee = 10;
+        else if (amountKESNumber <= 2500) fee = 15;
+        else if (amountKESNumber <= 5000) fee = 25;
+        else if (amountKESNumber <= 10000) fee = 40;
+        else if (amountKESNumber <= 20000) fee = 60;
+        else if (amountKESNumber <= 35000) fee = 100;
+        else if (amountKESNumber <= 50000) fee = 150;
+        else if (amountKESNumber <= 70000) fee = 220;
+        else fee = 300;
+      }
+      
+      const amountDisplay = amountKES 
+        ? `${amountKESNumber.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} KES (${parseFloat(amountUSDC).toFixed(4)} USDC)` 
+        : `${parseFloat(amountUSDC).toFixed(4)} USDC`;
+        
       const trimmedPhone = phoneNumber.length > 4 ? `...${phoneNumber.slice(-4)}` : phoneNumber;
+
       const body = `
         ${heading("M-Pesa Withdrawal Confirmed")}
         ${paragraph(`You have successfully withdrawn <strong style="color:${SUCCESS};">${amountDisplay}</strong> to your M-Pesa.`)}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
-              <td style="font-size:13px; color:${MUTED};">Receipt Number</td>
-              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${receiptNumber}</td>
+              <td style="font-size:13px; color:${MUTED};">Amount Withdrawn</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${amountKES ? `${amountKESNumber.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} KES` : `${parseFloat(amountUSDC).toFixed(4)} USDC`}</td>
             </tr>
+            ${amountKES ? `
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Processing Fee</td>
+              <td style="font-size:13px; color:#d97706; text-align:right; font-weight:600; padding-top:8px;">- ${fee.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} KES</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Amount Received</td>
+              <td style="font-size:13px; color:${SUCCESS}; text-align:right; font-weight:600; padding-top:8px;">${(amountKESNumber - fee).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} KES</td>
+            </tr>` : ''}
             <tr>
               <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Phone Number</td>
               <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${trimmedPhone}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Receipt Number</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${receiptNumber}</td>
             </tr>
             <tr>
               <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Time</td>

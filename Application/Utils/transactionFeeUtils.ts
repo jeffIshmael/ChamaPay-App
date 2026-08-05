@@ -45,9 +45,9 @@ const WITHDRAWAL_FEE_BRACKETS = [
 const MAX_WITHDRAWAL_FEE = 300;
 
 export const withdrawalToMpesaFee = (amount: number): number => {
-    // Validate amount
-    if (amount < 100) throw new Error("Minimum withdrawal is 100 Kshs");
-    if (amount > 100000) throw new Error("Maximum withdrawal is 100,000 Kshs");
+    // Validate amount (return defaults if out of bounds to avoid render crashes)
+    if (amount < 100) return 5;
+    if (amount > 100000) return MAX_WITHDRAWAL_FEE;
     
     const bracket = WITHDRAWAL_FEE_BRACKETS.find(
         b => amount >= b.min && amount <= b.max
