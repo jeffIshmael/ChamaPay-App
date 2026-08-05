@@ -183,6 +183,17 @@ async function processDisbursePayout(
     },
   });
 
+  await prisma.roundOutcome.create({
+    data: {
+      chamaId: chama.id,
+      chamaCycle: chama.cycle,
+      chamaRound: chama.round,
+      disburse: true,
+      amountPaid: displayableAmount,
+      shownMembers: "",
+    },
+  });
+
   const payoutOrder: PayoutOrder[] = chama.payOutOrder
     ? JSON.parse(chama.payOutOrder)
     : [];
@@ -254,6 +265,17 @@ async function processRefundPayout(chama: ChamaWithMembers) {
       payDate: new Date(
         chama.payDate.getTime() + chama.cycleTime * 24 * 60 * 60 * 1000
       ),
+    },
+  });
+
+  await prisma.roundOutcome.create({
+    data: {
+      chamaId: chama.id,
+      chamaCycle: chama.cycle,
+      chamaRound: chama.round,
+      disburse: false,
+      amountPaid: "0",
+      shownMembers: "",
     },
   });
 

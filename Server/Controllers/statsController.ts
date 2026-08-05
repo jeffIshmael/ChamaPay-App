@@ -162,3 +162,119 @@ export const getOnchainStats = async (req: Request, res: Response): Promise<void
     res.status(500).json({ error: "Failed to get onchain stats" });
   }
 };
+
+export const getUnseenOutcomes = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const userMemberships = await prisma.chamaMember.findMany({
+      where: { userId },
+      select: { chamaId: true },
+    });
+    
+    const chamaIds = userMemberships.map((m: any) => m.chamaId);
+
+    if (chamaIds.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    const searchStr = `|${userId}|`;
+
+    const outcomes = await prisma.roundOutcome.findMany({
+      where: {
+        chamaId: { in: chamaIds },
+        NOT: {
+          shownMembers: { contains: searchStr }
+        }
+      },
+      include: {
+        chama: true
+      },
+      orderBy: {
+        createdAt: 'asc'
+      }
+    });
+
+    // We also need to get the memberName of the recipient. For disburse=true, the recipient is the person who received the payout.
+    // The recipient is usually found in the chama.payOutOrder for that specific cycle/round, or we can just fetch the PayOut record for that chama and round/cycle?
+    // Actually, getting the receiver name can be done here.
+    const enrichedOutcomes = await Promise.all(outcomes.map(async (outcome: any) => {
+      let memberName = "Member";
+      if (outcome.disburse) {
+        // Find the user who received it
+        const payOuts = await prisma.payOut.findMany({
+          where: { chamaId: outcome.chamaId },
+          orderBy: { doneAt: 'desc' },
+          take: 1
+        });
+        if (payOuts.length > 0) {
+          const user = await prisma.user.findUnique({ where: { id: payOuts[0].userId } });
+          if (user) memberName = user.userName;
+        }
+      } else {
+        // Refund case: who was supposed to receive it? 
+        // It's the one currently marked as paid=false in the current round
+        if (outcome.chama.payOutOrder) {
+          const payoutOrder = JSON.parse(outcome.chama.payOutOrder);
+          const currentReceiver = payoutOrder.find((p: any) => !p.paid);
+          if (currentReceiver) {
+            const user = await prisma.user.findUnique({ where: { smartAddress: currentReceiver.userAddress } });
+            if (user) memberName = user.userName;
+          }
+        }
+      }
+      
+      return {
+        id: outcome.id,
+        disburse: outcome.disburse,
+        chamaName: outcome.chama.name,
+        cycle: outcome.chamaCycle,
+        round: outcome.chamaRound,
+        amountPaid: outcome.amountPaid,
+        memberName: memberName
+      };
+    }));
+
+    return res.status(200).json(enrichedOutcomes);
+  } catch (error) {
+    console.error("Failed to fetch unseen outcomes:", error);
+    return res.status(500).json({ error: "Failed to fetch unseen outcomes" });
+  }
+};
+
+export const markOutcomeSeen = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { id } = req.params;
+    
+    const outcome = await prisma.roundOutcome.findUnique({
+      where: { id: Number(id) }
+    });
+
+    if (!outcome) {
+      return res.status(404).json({ error: "Outcome not found" });
+    }
+
+    const searchStr = `|${userId}|`;
+    if (!outcome.shownMembers?.includes(searchStr)) {
+      await prisma.roundOutcome.update({
+        where: { id: Number(id) },
+        data: {
+          shownMembers: (outcome.shownMembers || "") + searchStr
+        }
+      });
+    }
+
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("Failed to mark outcome as seen:", error);
+    return res.status(500).json({ error: "Failed to mark outcome as seen" });
+  }
+};
