@@ -16,6 +16,9 @@ export interface Transaction {
   isPretiumTx?: boolean;
   receiptNumber?: string;
   fiatAmount?: number;
+  description?: string;
+  rawReceiver?: string;
+  rawSender?: string;
 }
 
 interface ApiTransaction {
@@ -55,6 +58,9 @@ const transformApiTransaction = (tx: ApiTransaction): Transaction => {
       date: tx.doneAt,
       status: "completed",
       isPretiumTx: false,
+      description: tx.description,
+      rawReceiver: tx.receiver,
+      rawSender: tx.sender,
     };
   }
 
@@ -72,6 +78,9 @@ const transformApiTransaction = (tx: ApiTransaction): Transaction => {
       isPretiumTx: true,
       receiptNumber: tx.receiptNumber || undefined,
       fiatAmount: tx.fiatAmount,
+      description: tx.description,
+      rawReceiver: tx.receiver,
+      rawSender: tx.sender,
     };
   }
 
@@ -91,6 +100,9 @@ const transformApiTransaction = (tx: ApiTransaction): Transaction => {
     date: tx.doneAt,
     status: "completed",
     isPretiumTx: false,
+    description: tx.description,
+    rawReceiver: tx.receiver,
+    rawSender: tx.sender,
   };
 };
 

@@ -8,7 +8,7 @@ import {
 } from "@/lib/pretiumService";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ArrowLeft, Check } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
@@ -119,6 +119,18 @@ export default function WithdrawCryptoScreen() {
   // Get current exchange rate
   const currentExchangeRate = theExhangeQuote?.exchangeRate?.buying_rate || 0;
 
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        // Clear state when user leaves the screen
+        setAmountUSDC("");
+        setAmountKES("");
+        setPhoneNumber("");
+        setIsPhoneTouched(false);
+      };
+    }, [])
+  );
+
   // Calculate available balance in USDC
   const balanceInUSDC = parseFloat(USDCBalance as string) || 0;
 
@@ -128,7 +140,7 @@ export default function WithdrawCryptoScreen() {
       if (decimalCount <= 1) {
         setAmountKES(text);
         if (text && currentExchangeRate > 0) {
-          setAmountUSDC((parseFloat(text) / currentExchangeRate).toFixed(3));
+          setAmountUSDC((parseFloat(text) / currentExchangeRate).toFixed(6));
         } else {
           setAmountUSDC("");
         }
@@ -225,18 +237,18 @@ setVerificationError("An error occurred during verification");
       return ToastAndroid.show( "Amount must be greater than 0", ToastAndroid.SHORT);
     }
 
-    if (usdcAmountNum < 20 / currentExchangeRate) {
+    if (usdcAmountNum < 105 / currentExchangeRate) {
       return ToastAndroid.show(
-        `Minimum withdrawal is ${formatCurrency(20 / currentExchangeRate)} USDC.`,
+        `Minimum withdrawal is ${formatCurrency(105 / currentExchangeRate)} USDC.`,
         ToastAndroid.SHORT,
       );
     }
 
     // Validate against min/max limits in KES
-    if (payoutKES < 20) {
-      const minUSDC = 20 / currentExchangeRate;
+    if (payoutKES < 105) {
+      const minUSDC = 105 / currentExchangeRate;
       return ToastAndroid.show(
-        `Minimum withdrawal is ${minUSDC.toFixed(2)} USDC (approx. KES 20)`,
+        `Minimum withdrawal is ${minUSDC.toFixed(2)} USDC (approx. KES 105)`,
         ToastAndroid.SHORT,
       );
     }
@@ -563,11 +575,11 @@ setProcessingStep("failed");
                     <Text className="text-sm text-gray-600">
                       Available:{" "}
                       <Text className="font-semibold">
-                        {balanceInUSDC.toFixed(3)} USDC
+                        {isKESMode ? `KES ${formatCurrency((balanceInUSDC * currentExchangeRate).toFixed(2))}` : `${balanceInUSDC.toFixed(3)} USDC`}
                       </Text>
                     </Text>
                     <Text className="text-xs text-gray-500 mt-0.5">
-                      Min: {isKESMode ? "KES 20" : `${(20 / currentExchangeRate).toFixed(2)} USDC`}
+                      Min: {isKESMode ? "KES 105" : `${(105 / currentExchangeRate).toFixed(2)} USDC`}
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -588,7 +600,7 @@ setProcessingStep("failed");
                 </View>
 
                 {/* Fee & Total */}
-                {parseFloat(amountUSDC) >= 20 / currentExchangeRate ? (
+                {parseFloat(amountUSDC) >= 105 / currentExchangeRate ? (
                   <View className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-2 space-y-2">
                     <View className="flex-row justify-between">
                       <Text className="text-sm text-gray-600">
@@ -618,12 +630,12 @@ setProcessingStep("failed");
                       </Text>
                     </View>
                   </View>
-                ) : parseFloat(amountUSDC) < 20 / currentExchangeRate &&
-                  parseFloat(amountUSDC) > 0 ? (
+                ) : parseFloat(amountUSDC) < 105 / currentExchangeRate &&
+                  amountUSDC !== "" ? (
                   <View className=" p-2 rounded-xl border border-yellow-200 mb-2 space-y-2">
-                    <Text className="text-sm text-yellow-600">
-                      Minimum withdrawal is{" "}
-                      {formatCurrency(20 / currentExchangeRate)} USDC (20 KES)
+                    <Text className="text-xs text-yellow-600 text-center font-semibold">
+                      Withdrawal amount must be at least{" "}
+                      {formatCurrency(105 / currentExchangeRate)} USDC (105 KES)
                     </Text>
                   </View>
                 ) : null}

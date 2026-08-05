@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Calculator, Info, ChevronDown, FileText } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { buildDailyHistory, DailyEarningsStatement } from '../../components/DailyEarningsStatement';
+import { buildDailyHistory, DailyEarningsStatement, useLiveDailyEarnings } from '../../components/DailyEarningsStatement';
 import { TabButton } from '../../components/ui/TabButton';
 import { StatusBar } from 'expo-status-bar';
 import MoonwellDepositModal from '../../components/MoonwellDepositModal';
@@ -77,7 +77,7 @@ export default function MoonwellDetailsScreen() {
     if (token) {
       getTheUserTx(token).then((res) => {
         if (res && res.transactions) {
-          const mwTxs = res.transactions.filter((tx: any) => tx.receiver === 'Moonwell' || tx.description?.includes('Moonwell'));
+          const mwTxs = res.transactions.filter((tx: any) => tx.rawReceiver === 'Moonwell' || tx.rawSender === 'Moonwell' || tx.description?.includes('Moonwell'));
           setStatements(mwTxs);
         }
       });
@@ -89,13 +89,16 @@ export default function MoonwellDetailsScreen() {
   }, [user?.smartAddress, token]);
 
   const APY = realApy || 0; 
-  const MOCK_USER_BALANCE = realBalance;
+  const MOCK_USER_BALANCE = realBalance || 0;
 
-  const history = buildDailyHistory(MOCK_USER_BALANCE || 0, APY, 7);
+  const history = buildDailyHistory(MOCK_USER_BALANCE, APY, 7);
+  const baseYield = React.useMemo(() => history.reduce((sum, h) => sum + h.earned, 0), [history]);
+  const liveYield = useLiveDailyEarnings(MOCK_USER_BALANCE, APY);
+  const totalEarned = baseYield + liveYield;
 
   const groupedHistory = React.useMemo(() => {
     const groups: { [dateStr: string]: any[] } = {};
-    
+
     // Add yields
     history.forEach((h) => {
       const dateStr = h.date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -214,7 +217,7 @@ export default function MoonwellDetailsScreen() {
                 {realBalance === null ? (
                   <View className="h-4 w-32 bg-blue-100/50 rounded" />
                 ) : (
-                  <Text className="text-emerald-600 font-bold text-xs">+ $ 0.00 Total Yield</Text>
+                  <Text className="text-emerald-600 font-bold text-xs">+{displayAmount(totalEarned)} Total Yield</Text>
                 )}
               </View>
             </View>
