@@ -344,6 +344,9 @@ export async function pretiumCallback(req: Request, res: Response) {
             // First transfer to the user who initiated the payment
             await pimlicoTransferToUser(transaction.user.smartAddress as `0x${string}`, bigintAmount);
 
+            // Wait a few seconds for public RPCs and CDP nodes to sync the new balance
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+
             // Execute deposit from user's wallet
             if (transaction.user.cdpWalletId) {
               if (memberForId && targetAddress) {
@@ -358,6 +361,9 @@ export async function pretiumCallback(req: Request, res: Response) {
             // First transfer to user from Agent
             await pimlicoTransferToUser(targetAddress as `0x${string}`, bigintAmount);
             
+            // Wait a few seconds for public RPCs and CDP nodes to sync the new balance
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+
             // Then automatically deposit to Moonwell using user's CDP Wallet
             if (transaction.user.cdpWalletId) {
               txResult = await bcMoonwellDeposit(transaction.user.cdpWalletId, usdcAmountToCredit.toString());
