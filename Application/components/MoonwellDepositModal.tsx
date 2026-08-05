@@ -13,6 +13,7 @@ import { useAuth } from "@/Contexts/AuthContext";
 import { getAllBalances } from "@/constants/viem";
 import MobileMoneyPay from "./MobileMoneyPay";
 import { serverUrl } from "@/constants/serverUrl";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
 
 interface MoonwellDepositModalProps {
   visible: boolean;
@@ -35,6 +36,17 @@ const MoonwellDepositModal = ({
   const [error, setError] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
   const [successData, setSuccessData] = useState<any>(null);
+  const { currency, platformRate } = useCurrencyStore();
+
+  const displayBalance = currency === "KES"
+    ? `KSh ${Math.floor(Number(USDCBalance || 0) * platformRate).toLocaleString()}`
+    : `${Number(USDCBalance || 0).toFixed(3)} USDC`;
+
+  const inputAmount = Number(amount) || 0;
+  const actualUSDCAmount = currency === "KES" ? inputAmount / platformRate : inputAmount;
+  const isAmountTooHigh = actualUSDCAmount > Number(USDCBalance);
+  const displayError = error || (isAmountTooHigh ? `Insufficient balance. You have ${displayBalance} available` : "");
+  const isButtonDisabled = loading || !amount || isAmountTooHigh || inputAmount <= 0;
 
   useEffect(() => {
     const fetchUSDCBalance = async () => {
@@ -46,6 +58,16 @@ const MoonwellDepositModal = ({
     fetchUSDCBalance();
   }, [user?.smartAddress]);
 
+  useEffect(() => {
+    if (!visible) {
+      setPaymentMethod("");
+      setAmount("");
+      setError("");
+      setIsSuccess(false);
+      setSuccessData(null);
+    }
+  }, [visible]);
+
   const handlePaymentMethod = (method: "USDC" | "mobileMoney") => {
     setPaymentMethod(method);
   };
@@ -55,16 +77,16 @@ const MoonwellDepositModal = ({
     setError("");
 
     try {
-      const paymentAmount = Number(amount);
-      if (!paymentAmount || paymentAmount <= 0 || isNaN(paymentAmount)) {
+      const inputAmount = Number(amount);
+      if (!inputAmount || inputAmount <= 0 || isNaN(inputAmount)) {
         setError("Please enter a valid amount");
         return;
       }
 
-      if (paymentAmount > Number(USDCBalance)) {
-        setError(
-          `Insufficient balance. You have ${Number(USDCBalance).toFixed(3)} USDC available`
-        );
+      // Convert input to USDC if needed
+      const actualUSDCAmount = currency === "KES" ? inputAmount / platformRate : inputAmount;
+
+      if (isAmountTooHigh) {
         return;
       }
 
@@ -80,7 +102,7 @@ const MoonwellDepositModal = ({
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ amount: amount.toString() }),
+        body: JSON.stringify({ amount: actualUSDCAmount.toString() }),
       });
 
       const json = await response.json();
@@ -91,8 +113,8 @@ const MoonwellDepositModal = ({
 
       const data = {
         txHash: json.txHash,
-        message: `Successfully supplied ${amount} USDC to Moonwell`,
-        amount: amount.toString(),
+        message: `Successfully supplied ${amount} ${currency === "KES" ? "KES" : "USDC"} to Moonwell`,
+        amount: actualUSDCAmount.toString(),
       };
 
       setSuccessData(data);
@@ -139,7 +161,7 @@ const MoonwellDepositModal = ({
                   <ArrowLeft size={24} color="#374151" />
                 </TouchableOpacity>
                 <View className="flex-1 items-center">
-                  <Text className="text-xl font-semibold">Deposit with:</Text>
+                  <Text className="text-xl font-semibold">Deposit:</Text>
                 </View>
               </View>
               <View className="w-full items-center">
@@ -149,13 +171,13 @@ const MoonwellDepositModal = ({
                 >
                   <View className="flex-row items-center">
                     <Image
-                      source={require("../assets/images/usdclogo.png")}
-                      className="w-10 h-10 mr-4"
+                      source={require("../assets/images/icon.png")}
+                      className="w-10 h-10 mr-4 rounded-full"
                     />
                     <View>
-                      <Text className="text-lg font-medium">USDC</Text>
+                      <Text className="text-lg font-medium">From account</Text>
                       <Text className="text-xs text-gray-500">
-                        {Number(USDCBalance) > 0 ? Number(USDCBalance).toFixed(3) : 0} USDC
+                        {displayBalance} available
                       </Text>
                     </View>
                   </View>
@@ -169,10 +191,10 @@ const MoonwellDepositModal = ({
                   <View className="flex-row items-center">
                     <Image
                       source={require("../assets/images/mpesa.png")}
-                      className="w-10 h-10 mr-2"
+                      className="w-10 h-10 mr-4"
                       resizeMode="contain"
                     />
-                    <Text className="text-lg font-medium">M-Pesa</Text>
+                    <Text className="text-lg font-medium">From M-Pesa</Text>
                   </View>
                   <Text className="text-2xl text-gray-500">➔</Text>
                 </TouchableOpacity>
@@ -206,16 +228,20 @@ const MoonwellDepositModal = ({
                       <ArrowLeft size={24} color="#374151" />
                     </TouchableOpacity>
                     <View className="flex-1 items-center">
-                      <Text className="text-xl font-semibold">Deposit USDC</Text>
+                      <Text className="text-xl font-semibold">Deposit from account</Text>
                     </View>
                   </View>
 
                   <View className="items-center mb-8">
                     <View className="flex-row items-center bg-gray-50 rounded-2xl px-6 py-4 w-full justify-center">
-                      <Image
-                        source={require("../assets/images/usdclogo.png")}
-                        className="w-8 h-8 mr-3"
-                      />
+                      {currency === "KES" ? (
+                        <Text className="text-xl font-bold text-gray-900 mr-2">KSh</Text>
+                      ) : (
+                        <Image
+                          source={require("../assets/images/usdclogo.png")}
+                          className="w-8 h-8 mr-3"
+                        />
+                      )}
                       <TextInput
                         className="text-4xl font-bold text-gray-900 min-w-[100px]"
                         placeholder="0.00"
@@ -229,24 +255,24 @@ const MoonwellDepositModal = ({
                       />
                     </View>
                     <Text className="text-gray-500 mt-3 text-sm">
-                      Balance: {Number(USDCBalance).toFixed(3)} USDC
+                      Balance: {displayBalance}
                     </Text>
-                    {error ? (
-                      <Text className="text-red-500 mt-3 text-sm">{error}</Text>
+                    {displayError ? (
+                      <Text className="text-red-500 mt-3 text-sm">{displayError}</Text>
                     ) : null}
                   </View>
 
                   <TouchableOpacity
                     onPress={handleUSDCDeposit}
-                    disabled={loading || !amount}
+                    disabled={isButtonDisabled}
                     className={`w-full py-4 rounded-xl items-center ${
-                      loading || !amount ? "bg-gray-300" : "bg-[#10b981]"
+                      isButtonDisabled ? "bg-gray-300" : "bg-downy-600"
                     }`}
                   >
                     {loading ? (
                       <ActivityIndicator color="white" />
                     ) : (
-                      <Text className="text-white text-lg font-bold">Supply USDC</Text>
+                      <Text className="text-white text-lg font-bold">Deposit</Text>
                     )}
                   </TouchableOpacity>
                 </>

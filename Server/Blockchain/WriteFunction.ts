@@ -183,31 +183,30 @@ export const bcMoonwellDeposit = async (cdpWalletId: string, amount: string) => 
         const amountInWei = parseUnits(amount, 6);
         const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
         
-        // 1. Approve USDC for Moonwell Market
-        const approveHash = await smartAccountClient.writeContract({
-            address: USDCAddress,
-            abi: ERC20_APPROVE_ABI,
-            functionName: 'approve',
-            args: [moonwellUSDCAddress as `0x${string}`, amountInWei],
+        // Batch Approve and Mint in a single UserOperation
+        const hash = await smartAccountClient.writeContracts({
+            calls: [
+                {
+                    to: USDCAddress as `0x${string}`,
+                    abi: ERC20_APPROVE_ABI,
+                    functionName: 'approve',
+                    args: [moonwellUSDCAddress as `0x${string}`, amountInWei]
+                },
+                {
+                    to: moonwellUSDCAddress as `0x${string}`,
+                    abi: MOONWELL_MINT_ABI,
+                    functionName: 'mint',
+                    args: [amountInWei]
+                }
+            ],
             dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
+            ...(authorization ? { authorization } : {}), // Note: writeContracts doesn't directly take authorization but wait, CDPEIP7702Client ignores it anyway for writeContracts since it handles it internally in createEIP7702SmartAccount
         });
-        const approveTx = await publicClient.waitForTransactionReceipt({ hash: approveHash });
-        if (!approveTx) throw new Error("Unable to approve USDC for Moonwell.");
 
-        // 2. Mint mUSDC (Supply to Moonwell)
-        const mintHash = await smartAccountClient.writeContract({
-            address: moonwellUSDCAddress as `0x${string}`,
-            abi: MOONWELL_MINT_ABI,
-            functionName: 'mint',
-            args: [amountInWei],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
-        const mintTx = await publicClient.waitForTransactionReceipt({ hash: mintHash });
-        if (!mintTx) throw new Error("Unable to mint mUSDC on Moonwell.");
+        const tx = await publicClient.waitForTransactionReceipt({ hash });
+        if (!tx || tx.status !== 'success') throw new Error("Unable to deposit to Moonwell.");
 
-        return mintTx.transactionHash;
+        return tx.transactionHash;
     } catch (error) {
         console.error("Error depositing to Moonwell:", error);
         throw error;

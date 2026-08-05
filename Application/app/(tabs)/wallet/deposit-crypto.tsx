@@ -50,7 +50,8 @@ export default function DepositCryptoScreen() {
 
   const onrampRate = platformRate || 132;
 
-  const MINIMUM_DEPOSIT = 100;
+  const MINIMUM_DEPOSIT_KES = 100;
+  const MAXIMUM_DEPOSIT_KES = 250000;
   const KENYA_PHONE_CODE = "254";
   const CURRENCY = "KES";
 
@@ -118,9 +119,14 @@ export default function DepositCryptoScreen() {
       return;
     }
 
-    if (depositAmount < MINIMUM_DEPOSIT) {
-      const minUSDC = MINIMUM_DEPOSIT / onrampRate;
-      ToastAndroid.show(`Minimum deposit is ${minUSDC.toFixed(2)} USDC (approx. KES ${MINIMUM_DEPOSIT})`, ToastAndroid.SHORT);
+    if (depositAmount < MINIMUM_DEPOSIT_KES) {
+      const minUSDC = MINIMUM_DEPOSIT_KES / onrampRate;
+      ToastAndroid.show(`Minimum deposit is ${minUSDC.toFixed(2)} USDC (approx. KES ${MINIMUM_DEPOSIT_KES})`, ToastAndroid.SHORT);
+      return;
+    }
+
+    if (depositAmount > MAXIMUM_DEPOSIT_KES) {
+      ToastAndroid.show(`Maximum deposit is KES ${MAXIMUM_DEPOSIT_KES.toLocaleString()}`, ToastAndroid.SHORT);
       return;
     }
 
@@ -211,7 +217,8 @@ export default function DepositCryptoScreen() {
   const isFormValid = () => {
     return (
       amount.trim() &&
-      depositAmount >= MINIMUM_DEPOSIT &&
+      depositAmount >= MINIMUM_DEPOSIT_KES &&
+      depositAmount <= MAXIMUM_DEPOSIT_KES &&
       isValidPhoneNumber(phoneNumber)
     );
   };
@@ -374,19 +381,19 @@ export default function DepositCryptoScreen() {
                 <Text className="text-sm text-gray-600">
                   Min:{" "}
                   <Text className="font-semibold">
-                    {(MINIMUM_DEPOSIT / onrampRate).toFixed(2)} USDC
+                    {isKESMode ? `KES ${MINIMUM_DEPOSIT_KES}` : `${(MINIMUM_DEPOSIT_KES / onrampRate).toFixed(2)} USDC`}
                   </Text>
                 </Text>
                 <View className="flex-row gap-2">
-                  {[10, 50, 100].map((preset) => (
+                  {(isKESMode ? [1000, 5000, 10000] : [10, 50, 100]).map((preset) => (
                     <TouchableOpacity
                       key={preset}
-                      onPress={() => handlePresetSelect(preset)}
+                      onPress={() => isKESMode ? handleKESChange(preset.toString()) : handlePresetSelect(preset)}
                       className="px-3 py-1.5 bg-emerald-100 rounded-full"
                       activeOpacity={0.7}
                     >
                       <Text className="text-emerald-700 text-xs font-bold">
-                        {preset} USDC
+                        {isKESMode ? `KES ${preset}` : `${preset} USDC`}
                       </Text>
                     </TouchableOpacity>
                   ))}

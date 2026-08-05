@@ -93,6 +93,7 @@ export const createChama = async (
         round: 1,
         cycle: 1,
         admin: { connect: { id: userId } },
+        txHash: creationTxHash,
       },
     });
     if (!chama) {
@@ -111,6 +112,7 @@ export const createChama = async (
           connect: { id: chama.id },
         },
         payDate: new Date(),
+        txHash: creationTxHash,
       },
     });
 
@@ -303,26 +305,57 @@ export const getChamaPayments = async (req: Request, res: Response) => {
     const { chamaId } = req.params;
     const { cursor } = req.query;
 
-    const payments = await prisma.payment.findMany({
-      where: { chamaId: Number(chamaId) },
-      take: 20,
-      skip: cursor ? 1 : 0,
-      cursor: cursor ? { id: Number(cursor) } : undefined,
-      orderBy: { doneAt: "desc" },
-      include: {
-        user: {
-          select: {
-            id: true,
-            smartAddress: true,
-            userName: true,
-            profileImageUrl: true,
-          },
-        },
-      },
-    });
+    const offset = cursor ? Number(cursor) : 0;
+    const limit = 20;
 
-    const nextCursor = payments.length === 20 ? payments[19].id : null;
-    return res.status(200).json({ success: true, payments, nextCursor });
+    const transactions = await prisma.$queryRaw`
+      SELECT 
+        'payment' AS type, p.id, p.amount, p.description, p."doneAt", p."txHash", p."userId", NULL::int as cycle, NULL::int as round,
+        u."smartAddress" as "userSmartAddress", u."userName" as "userUserName", u."profileImageUrl" as "userProfileImageUrl"
+      FROM "Payment" p
+      LEFT JOIN "User" u ON p."userId" = u.id
+      WHERE p."chamaId" = ${Number(chamaId)}
+
+      UNION ALL
+
+      SELECT 
+        'payout' AS type, po.id, po.amount, NULL as description, po."doneAt", po."txHash", po."userId", NULL::int as cycle, NULL::int as round,
+        u."smartAddress" as "userSmartAddress", u."userName" as "userUserName", u."profileImageUrl" as "userProfileImageUrl"
+      FROM "PayOut" po
+      LEFT JOIN "User" u ON po."userId" = u.id
+      WHERE po."chamaId" = ${Number(chamaId)}
+
+      UNION ALL
+
+      SELECT 
+        'refund' AS type, r.id, NULL as amount, NULL as description, r."createdAt" as "doneAt", NULL as "txHash", NULL::int as "userId", r.cycle, r.round,
+        NULL as "userSmartAddress", NULL as "userUserName", NULL as "userProfileImageUrl"
+      FROM "Refund" r
+      WHERE r."chamaId" = ${Number(chamaId)}
+
+      ORDER BY "doneAt" DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    const formattedPayments = (transactions as any[]).map((t) => ({
+      type: t.type,
+      id: t.id,
+      amount: t.amount,
+      description: t.description,
+      doneAt: t.doneAt,
+      txHash: t.txHash,
+      cycle: t.cycle,
+      round: t.round,
+      user: t.userId ? {
+        id: t.userId,
+        smartAddress: t.userSmartAddress,
+        userName: t.userUserName,
+        profileImageUrl: t.userProfileImageUrl,
+      } : null,
+    }));
+
+    const nextCursor = formattedPayments.length === limit ? offset + limit : null;
+    return res.status(200).json({ success: true, payments: formattedPayments, nextCursor });
   } catch (error) {
     console.error("Failed to get payments:", error);
     return res.status(500).json({ success: false, error: "Failed to get payments" });
@@ -615,6 +648,7 @@ export const addMemberToChama = async (req: Request, res: Response) => {
         userId: memberId,
         chamaId: parseInt(chamaId),
         payDate: new Date(),
+        txHash: addingTxHash,
       },
     });
 

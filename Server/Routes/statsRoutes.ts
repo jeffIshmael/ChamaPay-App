@@ -1,8 +1,9 @@
-import express, { Router } from "express";
-import { getStats } from "../Controllers/statsController";
+import { Router } from "express";
+import { getStats, getOnchainStats } from "../Controllers/statsController";
 
-const router: Router = express.Router();
+const router = Router();
 
 router.get("/", getStats);
+router.get("/onchain", getOnchainStats);
 
 export default router;
