@@ -4,7 +4,7 @@ import * as SecureStore from "expo-secure-store";
 export const getUnseenOutcomes = async () => {
     try {
         const token = await SecureStore.getItemAsync("userToken");
-        if (!token) throw new Error("No token found");
+        if (!token) return [];
 
         const response = await fetch(`${serverUrl}/stats/unseen-outcomes`, {
             method: "GET",

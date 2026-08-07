@@ -224,7 +224,7 @@ export default function MoonwellDetailsScreen() {
 
             {/* Middle: Invested Balance */}
             <View className="items-center mb-6">
-              <Text className="text-blue-800/70 text-sm font-medium mb-2">Your Investment</Text>
+              <Text className="text-blue-800/70 text-sm font-medium mb-2">Total Balance (Inc. Yield)</Text>
               {realBalance === null ? (
                 <View className="h-12 w-48 bg-blue-100/50 rounded-lg mt-1 mb-2" />
               ) : (

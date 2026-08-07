@@ -1,6 +1,6 @@
 export default {
   "expo": {
-    "name": "chamapay-app",
+    "name": "Chamapay",
     "slug": "chamapay-app",
     "version": "1.0.0",
     "orientation": "portrait",

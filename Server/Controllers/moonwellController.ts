@@ -70,7 +70,7 @@ export const depositToMoonwell = async (req: Request, res: Response): Promise<an
 // Withdraw funds from Moonwell
 export const withdrawFromMoonwell = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { amount } = req.body;
+    const { amount, isMax } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -93,10 +93,10 @@ export const withdrawFromMoonwell = async (req: Request, res: Response): Promise
       return res.status(401).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
-    console.log(`Executing Moonwell withdrawal for user ${userId}, amount ${amount}`);
+    console.log(`Executing Moonwell withdrawal for user ${userId}, amount ${amount}, isMax: ${isMax}`);
 
     // Execute the Moonwell withdrawal on-chain
-    const withdrawTxHash = await bcMoonwellWithdraw(user.cdpWalletId, amount.toString());
+    const withdrawTxHash = await bcMoonwellWithdraw(user.cdpWalletId, amount.toString(), isMax);
     
     if (!withdrawTxHash) {
       return res.status(401).json({ success: false, error: "Failed to withdraw from Moonwell." });

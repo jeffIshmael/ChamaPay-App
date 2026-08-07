@@ -88,10 +88,10 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
                 const memberBalance = getMemberBalance(member.smartAddress || "");
 
                 return (
-                  <Card key={member.id} className={`p-4 border ${isCurrentUser ? "border-2 border-downy-400 bg-downy-100" : "border-gray-200"}`}>
+                  <Card key={member.id} className={`p-4 border ${isCurrentUser ? "border-2 border-downy-600 bg-downy-100" : "border-gray-200"}`}>
                     <View className="flex-row items-center justify-between">
                       <View className="flex-row items-center gap-4 flex-1">
-                        {/* Avatar */}
+                        {/* Avatar */} 
                         <View>
                           <Image
                             source={{ uri: member.profilePicture }}
