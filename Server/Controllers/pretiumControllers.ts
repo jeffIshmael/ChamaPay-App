@@ -99,7 +99,8 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
     const exactUsdcAmount = parseFloat(amount) / platformRate;
 
     // For both deposits and payments, route through the treasury (FX Reserve) to absorb rate differences
-    const treasuryAddress = "0x1C059486B99d6A2D9372827b70084fbfD014E978";
+    const treasuryAddress = process.env.TREASURY_WALLET;
+    if (!treasuryAddress) throw new Error("TREASURY_WALLET is not set in environment.");
     const receivingAddress = treasuryAddress;
 
     const result = await pretiumOnramp(
