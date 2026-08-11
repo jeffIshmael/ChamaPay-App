@@ -254,27 +254,65 @@ export const bcMoonwellDeposit = async (cdpWalletId: string, amount: string) => 
     }
 };
 
-export const bcMoonwellWithdraw = async (cdpWalletId: string, amount: string) => {
+export const bcMoonwellWithdraw = async (cdpWalletId: string, amount: string, isMax: boolean = false) => {
     try {
         const amountInWei = parseUnits(amount, 6);
         const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
         
-        const MOONWELL_REDEEM_UNDERLYING_ABI = [{
-            inputs: [{ internalType: "uint256", name: "redeemAmount", type: "uint256" }],
-            name: "redeemUnderlying",
-            outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-            stateMutability: "nonpayable",
-            type: "function"
-        }] as const;
+        let withdrawHash;
 
-        const withdrawHash = await smartAccountClient.writeContract({
-            address: moonwellUSDCAddress as `0x${string}`,
-            abi: MOONWELL_REDEEM_UNDERLYING_ABI,
-            functionName: 'redeemUnderlying',
-            args: [amountInWei],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
+        if (isMax) {
+            // Read mUSDC balance
+            const mUSDC_BALANCE_ABI = [{
+                inputs: [{ internalType: "address", name: "owner", type: "address" }],
+                name: "balanceOf",
+                outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+                stateMutability: "view",
+                type: "function"
+            }] as const;
+
+            const mUsdcBalance = await publicClient.readContract({
+                address: moonwellUSDCAddress as `0x${string}`,
+                abi: mUSDC_BALANCE_ABI,
+                functionName: 'balanceOf',
+                args: [cdpWalletId as `0x${string}`],
+            }) as bigint;
+
+            const MOONWELL_REDEEM_ABI = [{
+                inputs: [{ internalType: "uint256", name: "redeemTokens", type: "uint256" }],
+                name: "redeem",
+                outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+                stateMutability: "nonpayable",
+                type: "function"
+            }] as const;
+
+            withdrawHash = await smartAccountClient.writeContract({
+                address: moonwellUSDCAddress as `0x${string}`,
+                abi: MOONWELL_REDEEM_ABI,
+                functionName: 'redeem',
+                args: [mUsdcBalance],
+                dataSuffix: builderCodeDataSuffix,
+                ...(authorization ? { authorization } : {}),
+            });
+        } else {
+            const MOONWELL_REDEEM_UNDERLYING_ABI = [{
+                inputs: [{ internalType: "uint256", name: "redeemAmount", type: "uint256" }],
+                name: "redeemUnderlying",
+                outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+                stateMutability: "nonpayable",
+                type: "function"
+            }] as const;
+
+            withdrawHash = await smartAccountClient.writeContract({
+                address: moonwellUSDCAddress as `0x${string}`,
+                abi: MOONWELL_REDEEM_UNDERLYING_ABI,
+                functionName: 'redeemUnderlying',
+                args: [amountInWei],
+                dataSuffix: builderCodeDataSuffix,
+                ...(authorization ? { authorization } : {}),
+            });
+        }
+
         const withdrawTx = await publicClient.waitForTransactionReceipt({ hash: withdrawHash });
         if (!withdrawTx || withdrawTx.status !== 'success') throw new Error("Unable to withdraw from Moonwell.");
 

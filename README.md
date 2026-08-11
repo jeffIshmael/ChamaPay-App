@@ -11,6 +11,19 @@ This architecture completely eliminates the need for users to manage seed phrase
 - **Server (Node/Express/Prisma)**: Auth, CDP Wallet management (`cdpWalletId`), user/chama APIs powered by `viem` and `@coinbase/cdp-sdk`
 - **Smart Contracts (Hardhat/Solidity)**: On-chain funds, rotation, and payouts on Base Mainnet.
 
+### Project Goals
+
+1. **Digitize African ROSCAs**: Bring traditional informal savings groups (Chamas) into the digital age to prevent fraud and mismanagement.
+2. **Seamless Onboarding**: Eliminate the crypto friction (seed phrases, gas fees) for everyday users through CDP Server-Signers, EIP-7702 Smart Accounts, and Paymasters.
+3. **Passive Yield**: Integrate with ecosystem protocols like Moonwell to ensure idle community capital earns yield.
+4. **Financial Inclusion**: Build a completely decentralized, transparent, and trustless financial ledger for unbanked and underbanked populations.
+
+### Live Links & Demo
+
+- **Website / Stats**: [chamapay.xyz](https://chamapay.xyz)
+- **GitHub Repository**: [jeffIshmael/ChamaPay-App](https://github.com/jeffIshmael/ChamaPay-App)
+- **Working Demo**: [Watch on YouTube](https://youtu.be/B-GarMJuizY)
+
 ### Key Links
 
 - Mobile app: `Application/`

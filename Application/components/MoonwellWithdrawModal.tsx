@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   View,
@@ -33,7 +33,33 @@ const MoonwellWithdrawModal = ({
   const [error, setError] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
   const [successData, setSuccessData] = useState<any>(null);
+  const [totalYield, setTotalYield] = useState<number>(0);
+  const [isYieldLoading, setIsYieldLoading] = useState(false);
+  const [isMax, setIsMax] = useState(false);
   const { currency, platformRate } = useCurrencyStore();
+
+  useEffect(() => {
+    if (visible && token) {
+      const fetchYields = async () => {
+        setIsYieldLoading(true);
+        try {
+          const response = await fetch(`${serverUrl}/moonwell/yields`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await response.json();
+          if (data.success && data.yields) {
+            const sum = data.yields.reduce((acc: number, y: any) => acc + (parseFloat(y.earned) || 0), 0);
+            setTotalYield(sum);
+          }
+        } catch (error) {
+          console.error("Failed to fetch yields", error);
+        } finally {
+          setIsYieldLoading(false);
+        }
+      };
+      fetchYields();
+    }
+  }, [visible, token]);
 
   const inputAmount = Number(amount) || 0;
   const actualUSDCAmount = currency === "KES" ? inputAmount / platformRate : inputAmount;
@@ -67,7 +93,7 @@ const MoonwellWithdrawModal = ({
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ amount: actualUSDCAmount }),
+        body: JSON.stringify({ amount: actualUSDCAmount, isMax }),
       });
 
       const data = await response.json();
@@ -93,11 +119,13 @@ const MoonwellWithdrawModal = ({
   const handleFinalSuccess = () => {
     setIsSuccess(false);
     setAmount("");
+    setIsMax(false);
     onSuccess(successData);
   };
 
   const resetState = () => {
     setAmount("");
+    setIsMax(false);
     setError("");
     setIsSuccess(false);
     setSuccessData(null);
@@ -145,13 +173,28 @@ const MoonwellWithdrawModal = ({
                   <ArrowLeft size={24} color="#374151" />
                 </TouchableOpacity>
                 <View className="flex-1 items-center">
-                  <Text className="text-xl font-semibold">Withdraw USDC</Text>
+                  <Text className="text-xl font-semibold">Withdraw from Moonwell</Text>
                 </View>
               </View>
 
-              <View className="flex-row items-center justify-between mb-4 mt-2">
+              <View className="flex-row items-center justify-between mb-2 mt-2">
             <Text className="text-gray-500 font-medium">Available Balance</Text>
             <Text className="text-gray-900 font-bold">{displayBalance}</Text>
+          </View>
+
+          <View className="flex-row items-center justify-between mb-4 bg-green-50 p-3 rounded-lg border border-green-200">
+            <Text className="text-green-700 font-medium flex-row items-center">
+              Total Yield Earned
+            </Text>
+            {isYieldLoading ? (
+              <ActivityIndicator size="small" color="#15803d" />
+            ) : (
+              <Text className="text-green-700 font-bold">
+                {currency === "KES" 
+                  ? `KSh ${Math.floor(totalYield * platformRate).toLocaleString()}` 
+                  : `${totalYield.toFixed(6)} USDC`}
+              </Text>
+            )}
           </View>
 
           <View className="mb-6">
@@ -160,17 +203,23 @@ const MoonwellWithdrawModal = ({
               <Text className="text-gray-500 font-bold mr-2 text-lg">{currency === "KES" ? 'KSh' : '$'}</Text>
               <TextInput
                 value={amount}
-                onChangeText={setAmount}
+                onChangeText={(val) => {
+                  setAmount(val);
+                  setIsMax(false);
+                }}
                 keyboardType="numeric"
                 className="flex-1 py-4 text-gray-900 text-lg font-bold"
                 placeholder={`0.00`}
                 placeholderTextColor="#9ca3af"
               />
               <TouchableOpacity
-                onPress={() => setAmount(currency === "KES" ? Math.floor(availableBalance * platformRate).toString() : availableBalance.toFixed(3))}
-                className="bg-blue-100 px-3 py-1.5 rounded-lg"
+                onPress={() => {
+                  setAmount(currency === "KES" ? Math.floor(availableBalance * platformRate).toString() : availableBalance.toFixed(3));
+                  setIsMax(true);
+                }}
+                className={`px-3 py-1.5 rounded-lg ${isMax ? 'bg-blue-600' : 'bg-blue-100'}`}
               >
-                <Text className="text-blue-700 font-bold text-xs">MAX</Text>
+                <Text className={`font-bold text-xs ${isMax ? 'text-white' : 'text-blue-700'}`}>MAX</Text>
               </TouchableOpacity>
             </View>
             {displayError ? (
