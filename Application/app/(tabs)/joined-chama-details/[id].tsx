@@ -741,6 +741,7 @@ Alert.alert("Error", "An unexpected error occurred");
       members={chama.members}
       eachMemberBalances={memberBalances}
       isPublic={chama.isPublic}
+      contributionAmount={chama.contribution}
     />
   );
 

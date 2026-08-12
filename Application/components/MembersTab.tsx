@@ -11,6 +11,7 @@ type Props = {
   members: Member[];
   eachMemberBalances: readonly [readonly string[], readonly (readonly bigint[])[]] | null;
   isPublic: boolean;
+  contributionAmount?: number;
 };
 
 const getInitials = (name: string) => {
@@ -22,7 +23,7 @@ const getInitials = (name: string) => {
     .toUpperCase();
 };
 
-const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
+const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic, contributionAmount }) => {
   const { user } = useAuth();
   const { formatBalance } = useFormattedBalance();
   const totalMembers = members?.length || 0;
@@ -86,9 +87,21 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
                 if (!member) return null;
                 const isCurrentUser = member.id === user?.id;
                 const memberBalance = getMemberBalance(member.smartAddress || "");
+                const hasPaid = memberBalance.balance >= (contributionAmount || 0);
+
+                let cardStyle = "border-gray-200";
+                let bgStyle = "bg-white";
+
+                if (hasPaid && (contributionAmount || 0) > 0) {
+                  cardStyle = "border-2 border-emerald-500";
+                  bgStyle = isCurrentUser ? "bg-emerald-50" : "bg-emerald-50/30";
+                } else if (isCurrentUser) {
+                  cardStyle = "border-2 border-downy-600";
+                  bgStyle = "bg-downy-100";
+                }
 
                 return (
-                  <Card key={member.id} className={`p-4 border ${isCurrentUser ? "border-2 border-downy-600 bg-downy-100" : "border-gray-200"}`}>
+                  <Card key={member.id} className={`p-4 border ${cardStyle} ${bgStyle}`}>
                     <View className="flex-row items-center justify-between">
                       <View className="flex-row items-center gap-4 flex-1">
                         {/* Avatar */} 
