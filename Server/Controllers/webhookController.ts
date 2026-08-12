@@ -17,8 +17,8 @@ if(!pretium_address){
     process.exit(1);
 }
 
-const agentPrivateKey = process.env.AGENT_PRIVATE_KEY;
-const agentAddress = agentPrivateKey ? privateKeyToAccount(agentPrivateKey as `0x${string}`).address : null;
+const agentAddress = process.env.AGENT_WALLET;
+const treasuryAddress = process.env.TREASURY_WALLET;
 
 // Alchemy webhook signature validation
 const validateAlchemySignature = (
@@ -150,10 +150,11 @@ export const handleAlchemyWebhook = async (
             const title = "💰 USDC Received";
             const body = `You've received ${amount} USDC from ${senderDisplayName}`;
 
-            // ensure its not a chama payment or a deposit from our agent
+            // ensure its not a chama payment, a deposit from our agent, or from the treasury
             if (fromAddress !== contractAddress.toLowerCase() && 
                 fromAddress !== pretium_address.toLowerCase() &&
-                (!agentAddress || fromAddress !== agentAddress.toLowerCase())) {
+                (!agentAddress || fromAddress !== agentAddress.toLowerCase()) &&
+                (!treasuryAddress || fromAddress !== treasuryAddress.toLowerCase())) {
                 try {
                     // 5. Commit to Database FIRST
                     // If this fails (e.g. unique constraint), it will throw and the code below won't run
