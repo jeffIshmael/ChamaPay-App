@@ -77,7 +77,7 @@ const MobileMoneyPay = ({
 
   // Calculate remaining amount in KES
   const remainingInKES = sellingRate
-    ? Math.round(remainingAmount * sellingRate).toLocaleString()
+    ? Math.ceil(remainingAmount * sellingRate).toLocaleString()
     : "0";
 
   const minimumKES = PRETIUM_TRANSACTION_LIMIT.KE.min; // Minimum KES amount
@@ -162,7 +162,7 @@ const MobileMoneyPay = ({
     if (remainingAmount > 0) {
       setUsdcAmount(remainingAmount.toString());
       if (sellingRate) {
-        setKesAmount(Math.round(remainingAmount * sellingRate).toString());
+        setKesAmount(Math.ceil(remainingAmount * sellingRate).toString());
       }
     }
   };
