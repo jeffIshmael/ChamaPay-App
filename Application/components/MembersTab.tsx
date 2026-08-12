@@ -101,7 +101,7 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic, contribu
                 }
 
                 return (
-                  <Card key={member.id} className={`p-4 border ${cardStyle} ${bgStyle}`}>
+                  <View key={member.id} className={`p-4 rounded-lg border ${cardStyle} ${bgStyle}`}>
                     <View className="flex-row items-center justify-between">
                       <View className="flex-row items-center gap-4 flex-1">
                         {/* Avatar */} 
@@ -159,7 +159,7 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic, contribu
                         </View>
                       </View>
                     </View>
-                  </Card>
+                  </View>
                 );
               })
             ) : (
