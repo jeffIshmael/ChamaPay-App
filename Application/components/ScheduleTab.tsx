@@ -357,11 +357,7 @@ Alert.alert("Error", "An unexpected error occurred.");
               key={`${payout.userAddress}-${index}`}
               className={`p-4 rounded-lg border ${
                 isMe
-                  ? "border-downy-600 bg-white"
-                  : isUserTurn
-                  ? "border-downy-300 bg-downy-50"
-                  : payout.paid
-                  ? "bg-downy-200/10 border-downy-500"
+                  ? "border-downy-400 bg-white"
                   : "border-gray-200 bg-white"
               }`}
             >
