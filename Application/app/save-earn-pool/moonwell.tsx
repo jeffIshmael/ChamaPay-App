@@ -13,7 +13,8 @@ import MoonwellWithdrawModal from '../../components/MoonwellWithdrawModal';
 import { useAuth } from '@/Contexts/AuthContext';
 import { getMoonwellRates, getMoonwellPositions, getMoonwellYieldsHistory } from '../../lib/moonwellService';
 import { getTheUserTx } from '../../lib/walletServices';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
+import { useFocusEffect } from 'expo-router';
 import axios from 'axios';
 import { useCurrencyStore } from '@/store/useCurrencyStore';
 import { useExchangeRateStore } from '@/store/useExchangeRateStore';
@@ -104,9 +105,11 @@ export default function MoonwellDetailsScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchMoonwellData();
-  }, [user?.smartAddress, token]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchMoonwellData();
+    }, [user?.smartAddress, token])
+  );
 
   const APY = realApy || 0; 
   const MOCK_USER_BALANCE = realBalance || 0;
@@ -472,7 +475,8 @@ export default function MoonwellDetailsScreen() {
         onClose={() => setShowDepositModal(false)}
         onSuccess={(data) => {
           setShowDepositModal(false);
-          fetchMoonwellData();
+          // Wait briefly for blockchain state to settle
+          setTimeout(() => fetchMoonwellData(), 2000);
         }}
       />
 
@@ -482,7 +486,8 @@ export default function MoonwellDetailsScreen() {
         availableBalance={MOCK_USER_BALANCE || 0}
         onSuccess={(data) => {
           setShowWithdrawModal(false);
-          fetchMoonwellData();
+          // Wait briefly for blockchain state to settle
+          setTimeout(() => fetchMoonwellData(), 2000);
         }}
       />
     </View>
