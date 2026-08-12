@@ -81,7 +81,7 @@ export default function AllTransactions() {
           setTheTransaction([]);
         }
       } else {
-        setTheTransaction((prev) =>
+        setTheTransaction((prev: Transaction[]) =>
           isLoadMore ? [...prev, ...result.transactions] : result.transactions
         );
         setNextCursor(result.nextCursor);
@@ -553,7 +553,7 @@ if (!isLoadMore) {
           theTransaction.length > 0 && (
             <FlatList
               data={theTransaction}
-              renderItem={({ item }) => <TransactionCard tx={item} />}
+              renderItem={({ item }: { item: Transaction }) => <TransactionCard tx={item} />}
               keyExtractor={(item) => `${item.id}-${item.date}`}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}

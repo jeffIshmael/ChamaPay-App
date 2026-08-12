@@ -218,7 +218,7 @@ setTransactionError("Failed to load transactions");
     </TouchableOpacity>
   );
 
-  const TransactionCard = ({ tx }: { tx: Transaction }) => (
+  const TransactionCard: React.FC<{ tx: Transaction }> = ({ tx }) => (
     <TouchableOpacity
       onPress={() => openTransactionDetails(tx)}
       className="bg-white p-4 rounded-xl shadow-sm mb-3 border border-gray-100"
@@ -331,7 +331,7 @@ setTransactionError("Failed to load transactions");
         >
           <TouchableOpacity
             activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
+            onPress={(e: any) => e.stopPropagation()}
             className="bg-white rounded-3xl w-full max-w-md overflow-hidden"
             style={styles.modalCard}
           >
@@ -903,7 +903,7 @@ setTransactionError("Failed to load transactions");
               !transactionError &&
               theTransaction.length > 0 && (
                 <View>
-                  {theTransaction.map((item) => (
+                  {theTransaction.map((item: Transaction) => (
                     <TransactionCard key={`${item.id}-${item.date}`} tx={item} />
                   ))}
                 </View>

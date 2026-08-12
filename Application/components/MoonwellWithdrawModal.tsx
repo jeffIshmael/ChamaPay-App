@@ -219,7 +219,7 @@ const MoonwellWithdrawModal = ({
               <Text className="text-gray-500 font-bold mr-2 text-lg">{currency === "KES" ? 'KSh' : '$'}</Text>
               <TextInput
                 value={amount}
-                onChangeText={(val) => {
+                onChangeText={(val: string) => {
                   setAmount(val);
                   setIsMax(false);
                 }}
