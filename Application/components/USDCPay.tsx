@@ -128,7 +128,7 @@ setError("Failed to process payment. Please try again.");
   const fillRemainingAmount = () => {
     if (remainingAmount > 0) {
       if (currency === "KES") {
-        const kesAmount = Math.round(remainingAmount * platformRate).toString();
+        const kesAmount = (remainingAmount * platformRate).toFixed(2);
         setAmount(kesAmount);
         handleAmountChange(kesAmount);
       } else {
