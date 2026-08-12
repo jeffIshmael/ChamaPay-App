@@ -1047,14 +1047,14 @@ export const transferUSDC = async (
     if (Number(fee) > 0) {
       transferTxHash = await transferWithFeeTx(
         user.cdpWalletId,
-        amount,
+        Number(amount).toFixed(6),
         receiver as `0x${string}`,
-        fee,
+        Number(fee).toFixed(6),
       );
     } else {
       transferTxHash = await transferTx(
         user.cdpWalletId,
-        amount,
+        Number(amount).toFixed(6),
         receiver as `0x${string}`,
       );
     }
@@ -1069,7 +1069,7 @@ export const transferUSDC = async (
     const payment = await registerUserPayment(
       userId,
       receiver,
-      amount,
+      Number(amount).toFixed(6),
       "Transfer",
       transferTxHash,
     );

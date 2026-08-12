@@ -98,7 +98,7 @@ export default function CreateChama() {
       const decimalCount = (text.match(/\./g) || []).length;
       if (decimalCount <= 1) {
         setFormData((prev) => {
-          const usdcValue = text && kesRate > 0 ? (parseFloat(text) / kesRate).toFixed(3) : "";
+          const usdcValue = text && kesRate > 0 ? (parseFloat(text) / kesRate).toFixed(6) : "";
           return { ...prev, contributionKES: text, contribution: usdcValue };
         });
       }

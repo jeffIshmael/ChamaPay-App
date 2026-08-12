@@ -18,7 +18,7 @@ const { width } = Dimensions.get("window");
 const PIN_LENGTH = 4;
 
 export default function LockScreen() {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const router = useRouter();
     const [pin, setPin] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
@@ -104,6 +104,39 @@ Alert.alert("Error", "Could not verify PIN");
         ]).start();
     };
 
+    const handleForgotPin = () => {
+        Alert.alert(
+            "Reset PIN",
+            "To reset your PIN, you must log out and sign in again to verify your identity. Are you sure you want to log out?",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Log Out",
+                    style: "destructive",
+                    onPress: async () => {
+                        setLoading(true);
+                        try {
+                            // Clear local security flags
+                            await SecureStore.deleteItemAsync("user_pin");
+                            await SecureStore.deleteItemAsync("biometric_enabled");
+                            
+                            // Trigger full session logout
+                            if (logout) {
+                                await logout();
+                                // Let the _layout.tsx routing handle redirecting to the auth screen
+                                // because isAuthenticated will become false.
+                            }
+                        } catch (error) {
+                            Alert.alert("Error", "Failed to clear session.");
+                        } finally {
+                            setLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const NumberPad = () => {
         const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "biometric-slot", "0", "backspace"];
 
@@ -183,7 +216,7 @@ Alert.alert("Error", "Could not verify PIN");
                 <TouchableOpacity 
                     className="mt-16 mb-4" 
                     activeOpacity={0.7}
-                    onPress={() => Alert.alert("Reset PIN", "To reset your PIN, you will need to sign in again.")}
+                    onPress={handleForgotPin}
                 >
                     <Text className="text-downy-700 font-medium text-base">Forgot PIN?</Text>
                 </TouchableOpacity>

@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/Card";
 import { Member } from "@/constants/mockData";
 import { useAuth } from "@/Contexts/AuthContext";
 import { useFormattedBalance } from "@/hooks/useFormattedBalance";
-import { Crown, DollarSign, Lock, User } from "lucide-react-native";
+import { Crown, DollarSign, Lock, User, CheckCircle2 } from "lucide-react-native";
 import React, { FC } from "react";
 import { ScrollView, Text, View, Image } from "react-native";
 import { formatUnits } from "viem";
@@ -11,6 +11,7 @@ type Props = {
   members: Member[];
   eachMemberBalances: readonly [readonly string[], readonly (readonly bigint[])[]] | null;
   isPublic: boolean;
+  contributionAmount?: number;
 };
 
 const getInitials = (name: string) => {
@@ -22,7 +23,7 @@ const getInitials = (name: string) => {
     .toUpperCase();
 };
 
-const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
+const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic, contributionAmount }) => {
   const { user } = useAuth();
   const { formatBalance } = useFormattedBalance();
   const totalMembers = members?.length || 0;
@@ -86,9 +87,22 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
                 if (!member) return null;
                 const isCurrentUser = member.id === user?.id;
                 const memberBalance = getMemberBalance(member.smartAddress || "");
+                const hasPaid = memberBalance.balance >= (contributionAmount || 0);
+
+                let cardStyle = "border-gray-200";
+                let bgStyle = "bg-white";
+
+                if (isCurrentUser) {
+                  cardStyle = "border-downy-600";
+                }
 
                 return (
-                  <Card key={member.id} className={`p-4 border ${isCurrentUser ? "border-2 border-downy-600 bg-downy-100" : "border-gray-200"}`}>
+                  <View key={member.id} className={`p-4 rounded-lg border ${cardStyle} ${bgStyle} relative`}>
+                    {hasPaid && (contributionAmount || 0) > 0 && (
+                      <View className="absolute top-3 right-3 bg-emerald-100 rounded-full p-1 z-10">
+                        <CheckCircle2 size={16} color="#059669" />
+                      </View>
+                    )}
                     <View className="flex-row items-center justify-between">
                       <View className="flex-row items-center gap-4 flex-1">
                         {/* Avatar */} 
@@ -146,7 +160,7 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic }) => {
                         </View>
                       </View>
                     </View>
-                  </Card>
+                  </View>
                 );
               })
             ) : (

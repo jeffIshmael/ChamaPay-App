@@ -353,16 +353,12 @@ Alert.alert("Error", "An unexpected error occurred.");
           const isMe = member?.name === user?.userName;
 
           return (
-            <Card
+            <View
               key={`${payout.userAddress}-${index}`}
-              className={`p-4 border ${
+              className={`p-4 rounded-lg border ${
                 isMe
-                  ? "border-2 border-downy-400 bg-downy-100"
-                  : isUserTurn
-                  ? "border-2 border-downy-300 bg-downy-50"
-                  : payout.paid
-                  ? "bg-downy-200/10 border-downy-500"
-                  : "border-gray-200"
+                  ? "border-downy-400 bg-white"
+                  : "border-gray-200 bg-white"
               }`}
             >
               <View className="flex-row items-center justify-between">
@@ -411,7 +407,7 @@ Alert.alert("Error", "An unexpected error occurred.");
                   </Text>
                 </View>
               )}
-            </Card>
+            </View>
           );
         })}
       </View>

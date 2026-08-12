@@ -376,10 +376,37 @@ export default function JoinedChamaDetails() {
     }
   };
 
-  const proceedToPayment = (recipient: { userId: number; userName: string } | null = null) => {
+  const [recipientRemainingAmount, setRecipientRemainingAmount] = useState<number>(0);
+
+  const getMemberRemainingAmount = (address: string) => {
+    let recBalance = 0;
+    if (memberBalances && memberBalances[0] && memberBalances[1]) {
+       const index = memberBalances[0].findIndex(a => a.toLowerCase() === address.toLowerCase());
+       if (index !== -1) {
+          const rawBalances = memberBalances[1][index];
+          recBalance = Number(formatUnits(rawBalances[0] || BigInt(0), 6));
+       }
+    }
+    const currentRemaining = Number(chama?.contribution) - recBalance;
+    return currentRemaining > 0 ? currentRemaining : 0;
+  };
+
+  const proceedToPayment = (recipient: { userId: number; userName: string; address?: string } | null = null) => {
     setSelectedRecipient(recipient);
     setShowRecipientModal(false);
-    setShowPaymentModal(true);
+
+    if (recipient && recipient.address) {
+       setRecipientRemainingAmount(getMemberRemainingAmount(recipient.address));
+    } else {
+       setRecipientRemainingAmount(0);
+    }
+    
+    // If the user's location is KE (Kenya) and it's not a direct USDC flow, default to PaymentModal
+    if (user?.location === "KE") {
+      setShowPaymentModal(true);
+    } else {
+      setShowUSDCPaymentModal(true);
+    }
   };
 
   const handlePaymentSuccess = () => {
@@ -714,6 +741,7 @@ Alert.alert("Error", "An unexpected error occurred");
       members={chama.members}
       eachMemberBalances={memberBalances}
       isPublic={chama.isPublic}
+      contributionAmount={chama.contribution}
     />
   );
 
@@ -876,7 +904,7 @@ Alert.alert("Error", "An unexpected error occurred");
           chamaId={Number(chama.id)}
           chamaBlockchainId={Number(chama.blockchainId)} // Default blockchain ID since it's not in the interface
           chamaName={chama.name}
-          remainingAmount={remainingAmount}
+          remainingAmount={selectedRecipient ? recipientRemainingAmount : remainingAmount}
           paymentAmount={Number(paymentAmount)}
           recipient={selectedRecipient}
           onBack={() => {
@@ -898,7 +926,7 @@ Alert.alert("Error", "An unexpected error occurred");
           chamaBlockchainId={Number(chama.blockchainId)}
           USDCBalance={myWalletBalance?.USDC?.displayValue}
           chamaName={chama.name}
-          remainingAmount={remainingAmount}
+          remainingAmount={selectedRecipient ? recipientRemainingAmount : remainingAmount}
           contributionAmount={Number(paymentAmount)}
           recipient={selectedRecipient}
         />
@@ -938,7 +966,7 @@ Alert.alert("Error", "An unexpected error occurred");
                   .map((member) => (
                     <TouchableOpacity
                       key={member.id}
-                      onPress={() => proceedToPayment({ userId: member.id, userName: member.name })}
+                      onPress={() => proceedToPayment({ userId: member.id, userName: member.name, address: member.smartAddress })}
                       className="flex-row items-center py-3 px-3 bg-white border-b border-gray-100"
                     >
                       {member.profilePicture ? (
