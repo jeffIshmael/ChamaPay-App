@@ -514,7 +514,7 @@ showToast("Failed to send transaction");
                     </Text>
                     <TextInput
                       value={recipient}
-                      onChangeText={(text) => {
+                      onChangeText={(text: string) => {
                         setRecipient(text);
                         setSelectedUser(null);
                       }}
@@ -703,7 +703,7 @@ showToast("Failed to send transaction");
               {currency === "KES" && (
                 <TouchableOpacity
                   onPress={() => {
-                    setInputCurrency(prev => prev === "USDC" ? "KES" : "USDC");
+                    setInputCurrency((prev: string) => prev === "USDC" ? "KES" : "USDC");
                     setAmount("");
                   }}
                   className="px-2 py-1.5 flex-row items-center bg-gray-200 rounded-lg mr-2"

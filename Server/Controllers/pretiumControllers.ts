@@ -325,7 +325,11 @@ export async function pretiumCallback(req: Request, res: Response) {
         }
       }
 
-      const usdcAmountToCredit = transaction.cusdAmount;
+      // Calculate EXACT USDC required to fulfill the KES amount using our Platform Rate, 
+      // absorbing any rounding difference in the Treasury to ensure a perfect 1,000 KES UI balance
+      const platformRate = parseFloat(process.env.CHAMAPAY_RATE || "132");
+      const exactUsdcRequired = (Number(transaction.amount) / platformRate).toFixed(6);
+      const usdcAmountToCredit = exactUsdcRequired;
       if (usdcAmountToCredit && targetAddress) {
         const bigintAmount = parseUnits(usdcAmountToCredit.toString(), 6);
         let txResult;
