@@ -78,8 +78,22 @@ export default function CryptoWallet() {
   const [modalVisible, setModalVisible] = useState(false);
   const [receiveModalVisible, setReceiveModalVisible] = useState(false);
   const { user, token } = useAuth();
-  const { currency } = useCurrencyStore();
+  const { currency, platformRate } = useCurrencyStore();
   const { formatBalance, formatBalanceParts } = useFormattedBalance();
+
+  const getUSDCBalanceParts = (balance: string | number | undefined | null) => {
+    if (balance === undefined || balance === null) {
+      return { whole: "0", decimal: "000", symbol: "USDC" };
+    }
+    const num = typeof balance === 'string' ? parseFloat(balance) : balance;
+    if (isNaN(num)) return { whole: "0", decimal: "000", symbol: "USDC" };
+    const parts = num.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 }).split('.');
+    return {
+      whole: parts[0],
+      decimal: parts[1] || "000",
+      symbol: "USDC"
+    };
+  };
 
   const [refreshing, setRefreshing] = useState(false);
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
@@ -674,16 +688,16 @@ setTransactionError("Failed to load transactions");
                         <View className="flex-row items-baseline">
                           <Text className="text-5xl text-white font-bold tracking-tight">
                             {balanceVisible && userBalance
-                              ? formatBalanceParts(userBalance).whole
+                              ? getUSDCBalanceParts(userBalance).whole
                               : "---"}
                           </Text>
                           <Text className="text-5xl text-white font-medium">
                             .{balanceVisible && userBalance
-                              ? formatBalanceParts(userBalance).decimal
-                              : "00"}
+                              ? getUSDCBalanceParts(userBalance).decimal
+                              : "000"}
                           </Text>
                           <Text className="text-lg text-white/90 ml-1 font-medium">
-                            {formatBalanceParts(userBalance).symbol}
+                            USDC
                           </Text>
                         </View>
                       )}
@@ -703,12 +717,12 @@ setTransactionError("Failed to load transactions");
                     </View>
                   </View>
 
-                  {balanceVisible && currency === "KES" && (
+                  {balanceVisible && (
                     isRefreshingBalance && !refreshing ? (
                       <View className="bg-white/20 h-4 w-24 rounded-lg mt-2 animate-pulse" />
                     ) : (
-                      <Text className="text-white/60 text-sm mt-2">
-                        ≈ {balanceVisible && userBalance ? usdcBalance : "----"} USDC
+                      <Text className="text-white/60 text-sm mt-2 font-medium">
+                        ≈ {balanceVisible && userBalance ? (parseFloat(userBalance.toString()) * platformRate).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "----"} KES
                       </Text>
                     )
                   )}

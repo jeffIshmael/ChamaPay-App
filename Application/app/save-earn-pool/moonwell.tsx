@@ -32,9 +32,9 @@ export default function MoonwellDetailsScreen() {
   
   const displayAmount = (usdcAmount: number) => {
     if (isKES) {
-      return formatCurrency(usdcAmount * platformRate, 0);
+      return formatCurrency(usdcAmount * platformRate, 2);
     }
-    return usdcAmount.toFixed(2);
+    return usdcAmount.toFixed(3);
   };
   
   // Tab state
@@ -407,13 +407,13 @@ export default function MoonwellDetailsScreen() {
                 <View className="flex-row justify-between items-end mb-3">
                   <Text className="text-sm font-medium text-downy-900">Projected Interest</Text>
                   <Text style={{ fontFamily: monoFont }} className="text-lg font-extrabold text-emerald-600">
-                    +{isKES ? 'KSh ' : '$'}{isKES ? formatCurrency(projectedYield, 0) : projectedYield.toFixed(2)}
+                    +{isKES ? 'KSh ' : '$'}{isKES ? formatCurrency(projectedYield, 2) : projectedYield.toFixed(3)}
                   </Text>
                 </View>
                 <View className="flex-row justify-between items-end pt-3 border-t border-downy-200">
                   <Text className="text-sm font-bold text-downy-900">Total Balance</Text>
                   <Text style={{ fontFamily: monoFont }} className="text-lg font-extrabold text-downy-900">
-                    {isKES ? 'KSh ' : '$'}{isKES ? formatCurrency(totalProjected, 0) : totalProjected.toFixed(2)}
+                    {isKES ? 'KSh ' : '$'}{isKES ? formatCurrency(totalProjected, 2) : totalProjected.toFixed(3)}
                   </Text>
                 </View>
               </View>

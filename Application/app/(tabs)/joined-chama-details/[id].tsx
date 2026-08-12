@@ -318,10 +318,10 @@ export default function JoinedChamaDetails() {
       const firstBalance = Array.isArray(balanceToUse)
         ? balanceToUse[0]
         : balanceToUse;
-      const myChamaBalance = (firstBalance || BigInt(0)) || 0;
+      const myChamaBalance = Number(formatUnits(firstBalance || BigInt(0), 6));
       // Set payment amount for the payment modal
       const remainingAmount =
-        Number(transformedChama?.contribution) - Number(myChamaBalance);
+        Number(transformedChama?.contribution) - myChamaBalance;
       setPaymentAmount(remainingAmount.toString());
     } else {
       setChama(null);

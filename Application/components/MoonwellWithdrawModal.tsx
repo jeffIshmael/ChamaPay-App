@@ -66,7 +66,7 @@ const MoonwellWithdrawModal = ({
   const isAmountTooHigh = actualUSDCAmount > availableBalance;
   
   const displayBalance = currency === "KES"
-    ? `KSh ${Math.floor(availableBalance * platformRate).toLocaleString()}`
+    ? `KSh ${(availableBalance * platformRate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
     : `${availableBalance.toFixed(3)} USDC`;
     
   const displayError = error || (isAmountTooHigh ? `Insufficient balance. You have ${displayBalance} available` : "");
@@ -191,7 +191,7 @@ const MoonwellWithdrawModal = ({
             ) : (
               <Text className="text-green-700 font-bold">
                 {currency === "KES" 
-                  ? `KSh ${Math.floor(totalYield * platformRate).toLocaleString()}` 
+                  ? `KSh ${(totalYield * platformRate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` 
                   : `${totalYield.toFixed(6)} USDC`}
               </Text>
             )}
@@ -199,7 +199,8 @@ const MoonwellWithdrawModal = ({
 
           <View className="mb-6">
             <Text className="text-gray-500 font-medium mb-2">Amount to Withdraw</Text>
-            <View className={`flex-row items-center border ${isAmountTooHigh ? 'border-red-300 bg-red-50' : 'border-gray-200'} rounded-xl px-4 bg-gray-50`}>
+            
+            <View className={`flex-row items-center border ${isAmountTooHigh ? 'border-red-300 bg-red-50' : 'border-gray-200'} rounded-xl px-4 bg-gray-50 mb-3`}>
               <Text className="text-gray-500 font-bold mr-2 text-lg">{currency === "KES" ? 'KSh' : '$'}</Text>
               <TextInput
                 value={amount}
@@ -212,18 +213,43 @@ const MoonwellWithdrawModal = ({
                 placeholder={`0.00`}
                 placeholderTextColor="#9ca3af"
               />
+            </View>
+
+            <View className="flex-row justify-between mb-2">
               <TouchableOpacity
                 onPress={() => {
-                  setAmount(currency === "KES" ? Math.floor(availableBalance * platformRate).toString() : availableBalance.toFixed(3));
+                  const principle = Math.max(0, availableBalance - totalYield);
+                  setAmount(currency === "KES" ? (principle * platformRate).toFixed(2) : principle.toFixed(3));
+                  setIsMax(false);
+                }}
+                className="flex-1 bg-gray-100 rounded-lg py-2 mr-2 items-center border border-gray-200"
+              >
+                <Text className="text-xs font-semibold text-gray-700">Principle</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setAmount(currency === "KES" ? (totalYield * platformRate).toFixed(2) : totalYield.toFixed(3));
+                  setIsMax(false);
+                }}
+                className="flex-1 bg-gray-100 rounded-lg py-2 mr-2 items-center border border-gray-200"
+              >
+                <Text className="text-xs font-semibold text-gray-700">Interest</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setAmount(currency === "KES" ? (availableBalance * platformRate).toFixed(2) : availableBalance.toFixed(3));
                   setIsMax(true);
                 }}
-                className={`px-3 py-1.5 rounded-lg ${isMax ? 'bg-blue-600' : 'bg-blue-100'}`}
+                className={`flex-1 rounded-lg py-2 items-center border ${isMax ? 'bg-blue-600 border-blue-600' : 'bg-gray-100 border-gray-200'}`}
               >
-                <Text className={`font-bold text-xs ${isMax ? 'text-white' : 'text-blue-700'}`}>MAX</Text>
+                <Text className={`text-xs font-semibold ${isMax ? 'text-white' : 'text-gray-700'}`}>All</Text>
               </TouchableOpacity>
             </View>
+
             {displayError ? (
-              <Text className="text-red-500 text-xs mt-2 ml-1">{displayError}</Text>
+              <Text className="text-red-500 text-xs mt-1 ml-1">{displayError}</Text>
             ) : null}
           </View>
 

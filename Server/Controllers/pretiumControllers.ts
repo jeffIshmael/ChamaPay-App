@@ -17,7 +17,7 @@ import {
   verifyPhoneNo
 } from "../Lib/PretiumFunctions";
 import { getCached, setCache } from "../Lib/cache";
-import { pimlicoDepositForUser, pimlicoTransferToUser } from "../Lib/pimlicoAgent";
+import { pimlicoDepositForUser, pimlicoTransferToUser, treasuryTransferToUser } from "../Lib/pimlicoAgent";
 
 const prisma = new PrismaClient();
 
@@ -342,8 +342,8 @@ export async function pretiumCallback(req: Request, res: Response) {
                 chamaName = chama.name;
               }
             }
-            // First transfer to the user who initiated the payment
-            await pimlicoTransferToUser(transaction.user.smartAddress as `0x${string}`, bigintAmount);
+            // First transfer to the user who initiated the payment from Treasury
+            await treasuryTransferToUser(transaction.user.smartAddress as `0x${string}`, bigintAmount);
 
             // Wait a few seconds for public RPCs and CDP nodes to sync the new balance
             await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -359,8 +359,8 @@ export async function pretiumCallback(req: Request, res: Response) {
               throw new Error("No CDP Wallet found for user to deposit to Chama");
             }
           } else if (transaction.type === "moonwell") {
-            // First transfer to user from Agent
-            await pimlicoTransferToUser(targetAddress as `0x${string}`, bigintAmount);
+            // First transfer to user from Treasury
+            await treasuryTransferToUser(targetAddress as `0x${string}`, bigintAmount);
             
             // Wait a few seconds for public RPCs and CDP nodes to sync the new balance
             await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -373,7 +373,7 @@ export async function pretiumCallback(req: Request, res: Response) {
               throw new Error("No CDP Wallet found for user to deposit to Moonwell");
             }
           } else {
-            txResult = await pimlicoTransferToUser(targetAddress as `0x${string}`, bigintAmount);
+            txResult = await treasuryTransferToUser(targetAddress as `0x${string}`, bigintAmount);
           }
 
           if (txResult) {
