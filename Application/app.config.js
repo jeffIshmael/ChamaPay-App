@@ -142,7 +142,8 @@ export default {
       "expo-notifications",
       "@react-native-community/datetimepicker",
       "expo-font",
-      "@react-native-firebase/app"
+      "@react-native-firebase/app",
+      ['./withProguardRules.js', '-dontwarn java.awt.**\n-keep class com.sun.jna.** { *; }\n-dontwarn com.sun.jna.**']
     ],
     "experiments": {
       "typedRoutes": true
