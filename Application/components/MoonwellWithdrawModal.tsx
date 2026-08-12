@@ -62,8 +62,23 @@ const MoonwellWithdrawModal = ({
   }, [visible, token]);
 
   const inputAmount = Number(amount) || 0;
-  const actualUSDCAmount = currency === "KES" ? inputAmount / platformRate : inputAmount;
-  const isAmountTooHigh = actualUSDCAmount > availableBalance;
+  let actualUSDCAmount = isMax ? availableBalance : (currency === "KES" ? inputAmount / platformRate : inputAmount);
+  
+  // Add a small epsilon tolerance for KES rounding issues
+  const epsilon = currency === "KES" ? 0.05 / platformRate : 0.0001;
+  let isAmountTooHigh = false;
+  let finalIsMax = isMax;
+
+  if (!isMax) {
+    if (actualUSDCAmount > availableBalance + epsilon) {
+      isAmountTooHigh = true;
+    } else if (actualUSDCAmount >= availableBalance - epsilon) {
+      // If it's extremely close to the max balance, treat it as a MAX withdrawal
+      // to avoid backend InsufficientFunds errors due to floating math
+      actualUSDCAmount = availableBalance;
+      finalIsMax = true;
+    }
+  }
   
   const displayBalance = currency === "KES"
     ? `KSh ${(availableBalance * platformRate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
@@ -93,7 +108,7 @@ const MoonwellWithdrawModal = ({
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ amount: actualUSDCAmount, isMax }),
+        body: JSON.stringify({ amount: actualUSDCAmount, isMax: finalIsMax }),
       });
 
       const data = await response.json();
@@ -178,7 +193,7 @@ const MoonwellWithdrawModal = ({
               </View>
 
               <View className="flex-row items-center justify-between mb-2 mt-2">
-            <Text className="text-gray-500 font-medium">Available Balance</Text>
+            <Text className="text-gray-500 font-medium">Total Balance (Inc. Yield)</Text>
             <Text className="text-gray-900 font-bold">{displayBalance}</Text>
           </View>
 
