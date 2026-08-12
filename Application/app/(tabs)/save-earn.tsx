@@ -84,9 +84,9 @@ export default function SaveAndEarnScreen() {
   const displayAmount = (usdcAmount: number, isPositive = false) => {
     const prefix = isPositive && usdcAmount > 0 ? '+' : '';
     if (isKES) {
-      return `${prefix}KES ${formatCurrency(usdcAmount * platformRate, 0)}`;
+      return `${prefix}KES ${formatCurrency(usdcAmount * platformRate, 2)}`;
     }
-    return `${prefix}${usdcAmount.toFixed(2)} USDC`;
+    return `${prefix}${usdcAmount.toFixed(3)} USDC`;
   };
 
   return (

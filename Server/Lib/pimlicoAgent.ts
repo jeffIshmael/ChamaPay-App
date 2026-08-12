@@ -1,6 +1,6 @@
 // the blockchain functions of interest are :- setting payout order, triggering payout function
 import { erc20Abi, createPublicClient, http, TransactionReceipt, parseEventLogs } from "viem";
-import { getAgentSmartWallet } from "../Blockchain/AgentWallet";
+import { getAgentSmartWallet, getTreasurySmartWallet } from "../Blockchain/AgentWallet";
 import { contractABI, contractAddress, USDCAddress, builderCodeDataSuffix } from "../Blockchain/Constants";
 import { base } from "viem/chains";
 
@@ -195,6 +195,37 @@ export const pimlicoTransferToUser = async (
     return transferTransaction.transactionHash;
   } catch (error) {
     console.error("Error processing agent transfer to user tx:", error);
+    throw error;
+  }
+};
+
+export const treasuryTransferToUser = async (
+  memberAddress: `0x${string}`,
+  amount: bigint
+) => {
+  try {
+    const { smartAccountClient, authorization } = await getTreasurySmartWallet();
+
+    const transferHash = await smartAccountClient.writeContract({
+      address: USDCAddress,
+      abi: erc20Abi,
+      functionName: "transfer",
+      args: [memberAddress, amount],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+
+    const transferTransaction = await publicClient.waitForTransactionReceipt({
+      hash: transferHash
+    });
+
+    if (!transferTransaction) {
+      throw new Error("unable to get the treasury transfer transaction");
+    }
+
+    return transferTransaction.transactionHash;
+  } catch (error) {
+    console.error("Error processing treasury transfer to user tx:", error);
     throw error;
   }
 };
