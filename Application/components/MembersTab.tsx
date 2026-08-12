@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/Card";
 import { Member } from "@/constants/mockData";
 import { useAuth } from "@/Contexts/AuthContext";
 import { useFormattedBalance } from "@/hooks/useFormattedBalance";
-import { Crown, DollarSign, Lock, User } from "lucide-react-native";
+import { Crown, DollarSign, Lock, User, CheckCircle2 } from "lucide-react-native";
 import React, { FC } from "react";
 import { ScrollView, Text, View, Image } from "react-native";
 import { formatUnits } from "viem";
@@ -92,16 +92,17 @@ const MembersTab: FC<Props> = ({ members, eachMemberBalances, isPublic, contribu
                 let cardStyle = "border-gray-200";
                 let bgStyle = "bg-white";
 
-                if (hasPaid && (contributionAmount || 0) > 0) {
-                  cardStyle = "border-2 border-emerald-500";
-                  bgStyle = isCurrentUser ? "bg-emerald-50" : "bg-emerald-50/30";
-                } else if (isCurrentUser) {
-                  cardStyle = "border-2 border-downy-600";
-                  bgStyle = "bg-downy-100";
+                if (isCurrentUser) {
+                  cardStyle = "border-downy-600";
                 }
 
                 return (
-                  <View key={member.id} className={`p-4 rounded-lg border ${cardStyle} ${bgStyle}`}>
+                  <View key={member.id} className={`p-4 rounded-lg border ${cardStyle} ${bgStyle} relative`}>
+                    {hasPaid && (contributionAmount || 0) > 0 && (
+                      <View className="absolute top-3 right-3 bg-emerald-100 rounded-full p-1 z-10">
+                        <CheckCircle2 size={16} color="#059669" />
+                      </View>
+                    )}
                     <View className="flex-row items-center justify-between">
                       <View className="flex-row items-center gap-4 flex-1">
                         {/* Avatar */} 
