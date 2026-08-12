@@ -206,7 +206,7 @@ setError("Failed to process payment. Please try again.");
               </View>
 
               {/* Remaining Amount Alert */}
-              {!recipient && remainingAmount > 0 && !loading && (
+              {remainingAmount > 0 && !loading && (
                 currency === "KES" 
                   ? Number(amount) < remainingAmount * platformRate 
                   : Number(amount) < remainingAmount
@@ -218,10 +218,10 @@ setError("Failed to process payment. Please try again.");
                         Contribution Due
                       </Text>
                       <Text className="text-sm font-bold text-amber-900">
-                        {currency === "KES" ? `KSh ${Math.round(remainingAmount * platformRate).toLocaleString()}` : `${remainingAmount.toFixed(3)} USDC`} remaining
+                        {currency === "KES" ? `KSh ${(remainingAmount * platformRate).toFixed(2)}` : `${remainingAmount.toFixed(3)} USDC`} remaining
                       </Text>
                       <Text className="text-xs text-amber-700 mt-0.5">
-                        Required: {currency === "KES" ? `KSh ${Math.round(contributionAmount * platformRate).toLocaleString()}` : `${contributionAmount.toFixed(3)} USDC`}
+                        Required: {currency === "KES" ? `KSh ${(contributionAmount * platformRate).toFixed(2)}` : `${contributionAmount.toFixed(3)} USDC`}
                       </Text>
                     </View>
                     <TouchableOpacity

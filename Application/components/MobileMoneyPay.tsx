@@ -77,7 +77,7 @@ const MobileMoneyPay = ({
 
   // Calculate remaining amount in KES
   const remainingInKES = sellingRate
-    ? (remainingAmount * sellingRate).toFixed(2)
+    ? Math.round(remainingAmount * sellingRate).toLocaleString()
     : "0";
 
   const minimumKES = PRETIUM_TRANSACTION_LIMIT.KE.min; // Minimum KES amount
@@ -86,15 +86,12 @@ const MobileMoneyPay = ({
   
 
   const handleKESChange = (text: string) => {
-    if (text === "" || /^\d*\.?\d*$/.test(text)) {
-      const decimalCount = (text.match(/\./g) || []).length;
-      if (decimalCount <= 1) {
-        setKesAmount(text);
-        if (text && sellingRate > 0) {
-          setUsdcAmount((parseFloat(text) / sellingRate).toFixed(3));
-        } else {
-          setUsdcAmount("");
-        }
+    if (text === "" || /^\d*$/.test(text)) {
+      setKesAmount(text);
+      if (text && sellingRate > 0) {
+        setUsdcAmount((parseFloat(text) / sellingRate).toFixed(3));
+      } else {
+        setUsdcAmount("");
       }
     }
   };
@@ -165,7 +162,7 @@ const MobileMoneyPay = ({
     if (remainingAmount > 0) {
       setUsdcAmount(remainingAmount.toString());
       if (sellingRate) {
-        setKesAmount((remainingAmount * sellingRate).toFixed(2));
+        setKesAmount(Math.round(remainingAmount * sellingRate).toString());
       }
     }
   };
@@ -504,7 +501,7 @@ const MobileMoneyPay = ({
           </View>
 
           {/* Remaining Amount Alert */}
-          {!recipient && remainingAmount > 0 && !loading && currentStep === "input" && Number(usdcAmount || 0) < remainingAmount && (
+          {remainingAmount > 0 && !loading && currentStep === "input" && Number(usdcAmount || 0) < remainingAmount && (
             <View className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-2">
               <View className="flex-row items-center justify-between">
                 <View className="flex-1">
