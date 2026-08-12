@@ -731,12 +731,12 @@ showToast("Failed to send transaction");
                   Balance:
                 </Text>
                 <Text className="text-gray-700 font-semibold text-xs">
-                  {inputCurrency === "KES" ? (parseFloat(tokenBalance) * platformRate).toFixed(2) + " KES" : parseFloat(tokenBalance).toFixed(2) + " USDC"}
+                  {inputCurrency === "KES" ? (parseFloat(tokenBalance) * platformRate).toFixed(2) + " KES" : parseFloat(tokenBalance).toFixed(3) + " USDC"}
                 </Text>
               </View>
               {currency === "KES" && amount !== "" && (
                 <Text className="text-gray-500 text-xs font-medium">
-                  ≈ {inputCurrency === "KES" ? getUsdcAmount(amount).toFixed(2) + " USDC" : getKesAmount(amount).toFixed(2) + " KES"}
+                  ≈ {inputCurrency === "KES" ? getUsdcAmount(amount).toFixed(3) + " USDC" : getKesAmount(amount).toFixed(2) + " KES"}
                 </Text>
               )}
             </View>
@@ -769,7 +769,7 @@ showToast("Failed to send transaction");
                   ) : (
                     <Text className="text-emerald-700 font-semibold text-xs">
                       {isValidAmount(amount)
-                        ? (inputCurrency === "KES" ? (getFeeAmount() * platformRate).toFixed(2) + " KES" : getFeeAmount().toFixed(2) + " USDC")
+                        ? (inputCurrency === "KES" ? (getFeeAmount() * platformRate).toFixed(2) + " KES" : getFeeAmount().toFixed(3) + " USDC")
                         : `--- ${inputCurrency}`}
                     </Text>
                   )}
@@ -784,7 +784,7 @@ showToast("Failed to send transaction");
                         Amount to Send
                       </Text>
                       <Text className="text-gray-800 font-semibold text-xs">
-                        {inputCurrency === "KES" ? parseFloat(amount).toFixed(2) + " KES" : getUsdcAmount(amount).toFixed(2) + " USDC"}
+                        {inputCurrency === "KES" ? parseFloat(amount).toFixed(2) + " KES" : getUsdcAmount(amount).toFixed(3) + " USDC"}
                       </Text>
                     </View>
 
@@ -793,7 +793,7 @@ showToast("Failed to send transaction");
                         Total Deducted
                       </Text>
                       <Text className="text-downy-700 font-extrabold text-sm">
-                        {inputCurrency === "KES" ? (getTotalAmount() * platformRate).toFixed(2) + " KES" : getTotalAmount().toFixed(2) + " USDC"}
+                        {inputCurrency === "KES" ? (getTotalAmount() * platformRate).toFixed(2) + " KES" : getTotalAmount().toFixed(3) + " USDC"}
                       </Text>
                     </View>
                   </>
