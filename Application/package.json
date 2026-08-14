@@ -23,8 +23,6 @@
     "@react-navigation/elements": "^2.3.8",
     "@react-navigation/native": "^7.1.6",
     "@tanstack/react-query": "^5.90.16",
-    "@thirdweb-dev/react-native-adapter": "^1.5.5",
-    "@thirdweb-dev/wallets": "^2.5.39",
     "@walletconnect/react-native-compat": "^2.21.9",
     "amazon-cognito-identity-js": "^6.3.15",
     "axios": "^1.11.0",
@@ -46,6 +44,7 @@
     "expo-haptics": "~15.0.8",
     "expo-image": "~3.0.11",
     "expo-image-picker": "~17.0.10",
+    "expo-keep-awake": "~15.0.8",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.11",
     "expo-local-authentication": "~17.0.8",
@@ -71,24 +70,23 @@
     "react-native-passkey": "^3.1.0",
     "react-native-qrcode-svg": "^6.3.15",
     "react-native-quick-crypto": "^0.7.17",
-    "react-native-reanimated": "4.0.0",
+    "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
     "react-native-web": "^0.21.0",
     "react-native-webview": "13.15.0",
-    "react-native-worklets": "^0.4.0",
+    "react-native-worklets": "^0.8.3",
     "readable-stream": "^4.7.0",
     "socket.io-client": "^4.8.1",
     "tailwindcss": "^3.4.17",
-    "thirdweb": "^5.112.3",
+    "viem": "^2.55.13",
     "zustand": "^5.0.10"
   },
   "overrides": {
     "@coinbase/wallet-mobile-sdk": {
       "react-native-mmkv": "$react-native-mmkv"
-    },
-    "react-native-reanimated": "4.0.0"
+    }
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

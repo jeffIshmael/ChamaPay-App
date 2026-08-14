@@ -322,7 +322,7 @@ export default function DepositCryptoScreen() {
                 </Text>
                 <TextInput
                   value={phoneNumber}
-                  onChangeText={(text) =>
+                  onChangeText={(text: string) =>
                     setPhoneNumber(text.replace(/[^0-9]/g, "").slice(0, 12))
                   }
                   placeholder="712345678"

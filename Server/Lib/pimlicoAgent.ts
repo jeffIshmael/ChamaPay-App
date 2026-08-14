@@ -83,10 +83,13 @@ export const pimlicoAddMemberToPayoutOrder = async (
 // function to process payout
 export const pimlicoProcessPayout = async (chamaBlockchainIds: number[]) => {
   try {
+    console.log(`Starting payout process for chama blockchain IDs: ${chamaBlockchainIds.join(", ")}`);
     const { smartAccountClient, authorization } = await getAgentSmartWallet();
+    console.log(`Agent smart wallet initialized. Client address: ${smartAccountClient.account?.address}`);
 
     // map the numbers to change them to bigint
     const blockchainIds = chamaBlockchainIds.map((num) => BigInt(num));
+    console.log(`Mapped blockchain IDs to BigInt:`, blockchainIds);
 
     const checkPayDateHash = await smartAccountClient.writeContract({
       address: contractAddress,
@@ -97,9 +100,14 @@ export const pimlicoProcessPayout = async (chamaBlockchainIds: number[]) => {
       ...(authorization ? { authorization } : {}),
     });
 
+    console.log(`Transaction submitted successfully. Hash: ${checkPayDateHash}`);
+    console.log(`Waiting for transaction receipt...`);
+
     const checkPayDateTransaction = await publicClient.waitForTransactionReceipt({
       hash: checkPayDateHash
     })
+
+    console.log(`Transaction receipt received. Status: ${checkPayDateTransaction.status}`);
 
     if (!checkPayDateTransaction) {
       throw new Error("unable to get the check paydate transaction");
@@ -236,10 +244,14 @@ export const checkPayoutResult = async (
   receipt: TransactionReceipt
 ) => {
   try {
+    console.log(`Checking payout result for chamaBlockchainId: ${chamaBlockchainId}, TxHash: ${receipt.transactionHash}`);
+    
     const logs = parseEventLogs({
       abi: contractABI,
       logs: receipt.logs,
     }) as any[];
+    
+    console.log(`Parsed ${logs.length} events from transaction logs.`);
 
     const chamaIdBigInt = BigInt(chamaBlockchainId);
     const timestamp = Date.now();
@@ -251,6 +263,7 @@ export const checkPayoutResult = async (
     );
 
     if (disbursedEvent) {
+      console.log(`Found FundsDisbursed event for chamaId ${chamaBlockchainId}`);
       const args = disbursedEvent.args as any;
       return {
         type: "disburse" as const,
@@ -275,6 +288,7 @@ export const checkPayoutResult = async (
     );
 
     if (refundIssuedEvent || refundUpdatedEvent) {
+      console.log(`Found refund event for chamaId ${chamaBlockchainId}`);
       const refundArgs = refundIssuedEvent?.args as any;
       return {
         type: "refund" as const,
@@ -285,12 +299,30 @@ export const checkPayoutResult = async (
       };
     }
 
+    const payDateCheckedEvent = logs.find(
+      (log) =>
+        log.eventName === "PayDateChecked" &&
+        ((log.args as any)._chamaId === chamaIdBigInt ||
+          (log.args as any).chamaId === chamaIdBigInt)
+    );
+
+    if (payDateCheckedEvent) {
+      console.log(`Found PayDateChecked event for chamaId ${chamaBlockchainId} (Not ready for payout)`);
+      return {
+        type: "not_ready" as const,
+        timestamp: timestamp,
+        transactionHash: receipt.transactionHash,
+      };
+    }
+
+    console.log(`No matched payout event found for chamaId ${chamaBlockchainId}, returning unknown type.`);
     return {
       type: "unknown" as const,
       timestamp: timestamp,
       transactionHash: receipt.transactionHash,
     };
   } catch (error) {
+    console.error(`Error checking payout result for chamaId ${chamaBlockchainId}:`, error);
     console.error("Error checking payout result:", error);
     throw error;
   }

@@ -75,9 +75,7 @@ export default function JoinedChamaDetails() {
   const router = useRouter();
   const { user, token } = useAuth();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState(
-    tab ? tab : "overview"
-  );
+  const [activeTab, setActiveTab] = useState("overview");
   const insets = useSafeAreaInsets();
   const [paymentAmount, setPaymentAmount] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
@@ -350,6 +348,7 @@ export default function JoinedChamaDetails() {
   // Refetch data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
+      setActiveTab("overview");
       if (id && token) {
         fetchChama();
         fetchMyWalletBalance();

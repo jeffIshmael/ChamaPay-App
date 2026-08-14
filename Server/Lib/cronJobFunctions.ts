@@ -297,16 +297,21 @@ async function processChamaPaydate(chama: ChamaWithMembers): Promise<void> {
     throw new Error("Payout order length mismatch");
   }
 
+  console.log(`\n=== Processing payout for chama: ${chama.id} (Blockchain ID: ${chama.blockchainId}) ===`);
   const receipt = await pimlicoProcessPayout([Number(chama.blockchainId)]);
+  console.log(`Received receipt for chama ${chama.id} payout transaction: ${receipt?.transactionHash}`);
 
   if (!receipt) {
+    console.error(`Failed to trigger payout for chama ${chama.id}`);
     throw new Error("Failed to trigger payout");
   }
 
+  console.log(`Checking payout result for chama ${chama.id}...`);
   const payoutResult = await checkPayoutResult(
     Number(chama.blockchainId),
     receipt
   );
+  console.log(`Payout result type for chama ${chama.id}: ${payoutResult.type}`);
 
   if (payoutResult.type === "disburse") {
     await processDisbursePayout(
@@ -316,6 +321,8 @@ async function processChamaPaydate(chama: ChamaWithMembers): Promise<void> {
     );
   } else if (payoutResult.type === "refund") {
     await processRefundPayout(chama);
+  } else if (payoutResult.type === "not_ready") {
+    console.log(`Chama ${chama.id} pay date not ready (timeReached or allMembersDeposited is false on-chain).`);
   } else {
     throw new Error("Unknown payout result");
   }

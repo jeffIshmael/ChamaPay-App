@@ -641,6 +641,13 @@ setProcessingStep("failed");
                 ) : null}
               </View>
 
+              {/* Disclaimer */}
+              <View className="mb-2 px-1">
+                <Text className="text-xs text-gray-500 text-center">
+                  * Market withdrawal rates apply. Current provider rate: {currentExchangeRate.toFixed(2)} KES
+                </Text>
+              </View>
+
               {/* Submit Button */}
               <TouchableOpacity
                 onPress={handleInitialWithdraw}
@@ -666,7 +673,7 @@ setProcessingStep("failed");
         animationType="fade"
         onRequestClose={() => setShowVerificationModal(false)}
       >
-        <View className="flex-1 bg-downy-950/80 items-center justify-center px-6">
+        <View className="flex-1 bg-gray-900/80 items-center justify-center px-6">
           <View
             className="bg-white rounded-[32px] w-full shadow-2xl overflow-hidden border border-downy-100"
             style={{ maxWidth: 400 }}
