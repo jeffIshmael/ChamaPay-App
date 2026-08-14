@@ -341,6 +341,7 @@ export default function JoinedChamaDetails() {
   };
 
   useEffect(() => {
+    setActiveTab("overview");
     fetchChama();
     fetchMyWalletBalance();
   }, [id, token]);

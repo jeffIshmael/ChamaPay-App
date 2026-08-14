@@ -212,7 +212,7 @@ async function processDisbursePayout(
     }));
   } else {
     finalPayoutOrder = payoutOrder.map((order: PayoutOrder) => {
-      if (order.userAddress === payoutResult.recipient) {
+      if (order.userAddress.toLowerCase() === payoutResult.recipient.toLowerCase()) {
         return { ...order, paid: true, amount: displayableAmount };
       }
       return order;
@@ -231,12 +231,21 @@ async function processDisbursePayout(
     },
   });
 
+
+  const otherMembersIds = chama.members.filter((m: any) => m.userId !== user.id).map((m: any) => m.userId);
+  const otherUsers = await prisma.user.findMany({
+    where: { id: { in: otherMembersIds } },
+    select: { email: true }
+  });
+  const otherEmails = otherUsers.map((u: any) => u.email).filter((e: string | null) => e) as string[];
+
   await Promise.allSettled([
     notifyUser(user.id, userMessage, "payout_received"),
     sendExpoNotificationToAUser(user.id, userTitle, userMessage),
     notifyAllChamaMembers(chama.id, othersMessage, "payout_received", user.id),
     sendExpoNotificationToAllChamaMembers(othersTitle, othersMessage, chama.id, user.id),
     emailService.sendPayoutEmail(user.email, displayableAmount, user.location === "KE" ? (parseFloat(displayableAmount) * parseFloat(process.env.CHAMAPAY_RATE || "132")).toFixed(2) : null, chama.name, chama.round),
+    emailService.sendBulkPayoutCompletedEmails(otherEmails, chama.name, chama.cycle, chama.round, user.userName, displayableAmount, user.location === "KE" ? (parseFloat(displayableAmount) * parseFloat(process.env.CHAMAPAY_RATE || "132")).toFixed(2) : null),
   ]);
 }
 

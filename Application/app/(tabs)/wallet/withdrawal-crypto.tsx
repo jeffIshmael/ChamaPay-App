@@ -642,9 +642,10 @@ setProcessingStep("failed");
               </View>
 
               {/* Disclaimer */}
-              <View className="mb-2 px-1">
-                <Text className="text-xs text-gray-500 text-center">
-                  * Market withdrawal rates apply. Current provider rate: {currentExchangeRate.toFixed(2)} KES
+              <View className="mb-2 px-1 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
+                <Text className="text-xs text-gray-600 text-center">
+                  * Note: Withdrawal exchange rates are determined by the live market offramp provider and differ from the fixed platform deposit rate.
+                  {"\n\n"}Current provider withdrawal rate: {currentExchangeRate.toFixed(2)} KES/USDC
                 </Text>
               </View>
 
