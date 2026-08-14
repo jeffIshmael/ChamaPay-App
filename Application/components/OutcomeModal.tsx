@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { X, CheckCircle2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { useFormattedBalance } from '@/hooks/useFormattedBalance';
 
 const { width, height } = Dimensions.get('window');
 
@@ -56,6 +57,7 @@ const ConfettiParticle = ({ delay, emoji }: { delay: number, emoji: string }) =>
 };
 
 export default function OutcomeModal({ visible, type, data, onClose }: OutcomeModalProps) {
+    const { formatBalance } = useFormattedBalance();
     const scale = useSharedValue(0.8);
     const opacity = useSharedValue(0);
 
@@ -135,7 +137,7 @@ export default function OutcomeModal({ visible, type, data, onClose }: OutcomeMo
                         {/* Amount Hero (Payout only) */}
                         {type === 'payout' && (
                             <View className="bg-emerald-100 px-6 py-3 rounded-full mb-6 shadow-sm border border-emerald-200">
-                                <Text className="text-3xl font-black text-emerald-700 tracking-tight">{data.amount}</Text>
+                                <Text className="text-3xl font-black text-emerald-700 tracking-tight">{formatBalance(data.amount)}</Text>
                             </View>
                         )}
 

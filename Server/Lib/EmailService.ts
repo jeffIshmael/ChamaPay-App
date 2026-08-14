@@ -187,6 +187,61 @@ class EmailService {
     }
   }
 
+
+  async sendBulkPayoutCompletedEmails(
+    emails: string[],
+    chamaName: string,
+    cycle: number,
+    round: number,
+    recipientName: string,
+    amountUSDC: string,
+    amountKES: string | null
+  ) {
+    if (emails.length === 0) return { success: true };
+    try {
+      const amountDisplay = amountKES ? `${amountUSDC} USDC (approx. ${amountKES} KES)` : `${amountUSDC} USDC`;
+      const body = `
+        ${heading("Payout completed")}
+        ${paragraph(`Cycle ${cycle}, Round ${round} of <strong style="color:${INK};">${chamaName}</strong> is complete.`)}
+        <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="font-size:13px; color:${MUTED};">Chama</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${chamaName}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Recipient</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${recipientName}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Amount</td>
+              <td style="font-size:13px; color:${SUCCESS}; text-align:right; font-weight:700; padding-top:8px;">${amountDisplay}</td>
+            </tr>
+          </table>
+        </div>
+        ${paragraph("Open the Chamapay app to view the outcome and your updated balance.")}
+      `;
+
+      const payload = emails.map((email) => ({
+        from: "Chamapay <updates@chamapay.xyz>",
+        to: email,
+        subject: `Payout completed — ${chamaName}`,
+        html: wrapEmail(body, { preheader: `${recipientName} received ${amountUSDC} USDC from ${chamaName}` }),
+      }));
+
+      const batches = [];
+      for (let i = 0; i < payload.length; i += 100) {
+        batches.push(resend.batch.send(payload.slice(i, i + 100)));
+      }
+
+      await Promise.all(batches);
+      return { success: true };
+    } catch (error) {
+      console.error("Error sending bulk payout completed emails:", error);
+      return { success: false };
+    }
+  }
+
   async sendBulkReminderEmails(emails: string[], chamaName: string, daysLeft: number) {
     if (emails.length === 0) return { success: true };
     try {
