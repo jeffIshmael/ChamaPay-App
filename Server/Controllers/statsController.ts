@@ -28,18 +28,63 @@ export const getOnchainStats = async (req: Request, res: Response): Promise<void
     const contributionCount = Number(contribStats[0].count);
     const contributionVolume = Number(contribStats[0].volume);
 
-    // Peer Transfers: Payment where chamaId is null
+    // Transfer Ins (External deposits)
+    const transferInStats = await prisma.$queryRaw<any[]>`
+      SELECT COUNT(id) as count, COALESCE(SUM(CAST(amount AS NUMERIC)), 0) as volume
+      FROM "Payment"
+      WHERE "chamaId" IS NULL 
+        AND description IN ('Received', 'Wallet deposit')
+        AND (sender IS NULL OR LOWER(sender) NOT IN (SELECT LOWER("smartAddress") FROM "User" WHERE "smartAddress" IS NOT NULL))
+    `;
+    const transferInCount = Number(transferInStats[0].count);
+    const transferInVolume = Number(transferInStats[0].volume);
+
+    // Transfer Outs (External withdrawals)
+    const transferOutStats = await prisma.$queryRaw<any[]>`
+      SELECT COUNT(id) as count, COALESCE(SUM(CAST(amount AS NUMERIC)), 0) as volume
+      FROM "Payment"
+      WHERE "chamaId" IS NULL 
+        AND description = 'Transfer'
+        AND (receiver IS NULL OR LOWER(receiver) NOT IN (SELECT LOWER("smartAddress") FROM "User" WHERE "smartAddress" IS NOT NULL))
+    `;
+    const transferOutCount = Number(transferOutStats[0].count);
+    const transferOutVolume = Number(transferOutStats[0].volume);
+
+    // Peer Transfers (Internal transfers)
     const peerStats = await prisma.$queryRaw<any[]>`
       WITH UniquePeerTransfers AS (
         SELECT DISTINCT ON ("txHash") id, amount
         FROM "Payment"
-        WHERE "chamaId" IS NULL
+        WHERE "chamaId" IS NULL 
+          AND (
+            (description IN ('Received', 'Wallet deposit') AND LOWER(sender) IN (SELECT LOWER("smartAddress") FROM "User" WHERE "smartAddress" IS NOT NULL))
+            OR 
+            (description = 'Transfer' AND LOWER(receiver) IN (SELECT LOWER("smartAddress") FROM "User" WHERE "smartAddress" IS NOT NULL))
+          )
       )
       SELECT COUNT(id) as count, COALESCE(SUM(CAST(amount AS NUMERIC)), 0) as volume
       FROM UniquePeerTransfers
     `;
     const peerCount = Number(peerStats[0].count);
     const peerVolume = Number(peerStats[0].volume);
+
+    // Moonwell Deposits
+    const moonwellDepositStats = await prisma.$queryRaw<any[]>`
+      SELECT COUNT(id) as count, COALESCE(SUM(CAST(amount AS NUMERIC)), 0) as volume
+      FROM "Payment"
+      WHERE receiver = 'Moonwell' AND description = 'Moonwell Deposit'
+    `;
+    const moonwellDepositCount = Number(moonwellDepositStats[0].count);
+    const moonwellDepositVolume = Number(moonwellDepositStats[0].volume);
+
+    // Moonwell Withdrawals
+    const moonwellWithdrawalStats = await prisma.$queryRaw<any[]>`
+      SELECT COUNT(id) as count, COALESCE(SUM(CAST(amount AS NUMERIC)), 0) as volume
+      FROM "Payment"
+      WHERE sender = 'Moonwell' AND description = 'Moonwell Withdrawal'
+    `;
+    const moonwellWithdrawalCount = Number(moonwellWithdrawalStats[0].count);
+    const moonwellWithdrawalVolume = Number(moonwellWithdrawalStats[0].volume);
 
     // Payouts: PayOut model
     const payoutStats = await prisma.$queryRaw<any[]>`
@@ -58,7 +103,11 @@ export const getOnchainStats = async (req: Request, res: Response): Promise<void
     const actionBreakdown = [
       { actionType: "contribution", transactionCountAllTime: contributionCount, usdcVolumeAllTime: contributionVolume },
       { actionType: "payout", transactionCountAllTime: payoutCount, usdcVolumeAllTime: payoutVolume },
+      { actionType: "transfer_in", transactionCountAllTime: transferInCount, usdcVolumeAllTime: transferInVolume },
+      { actionType: "transfer_out", transactionCountAllTime: transferOutCount, usdcVolumeAllTime: transferOutVolume },
       { actionType: "peer_transfer", transactionCountAllTime: peerCount, usdcVolumeAllTime: peerVolume },
+      { actionType: "moonwell_deposit", transactionCountAllTime: moonwellDepositCount, usdcVolumeAllTime: moonwellDepositVolume },
+      { actionType: "moonwell_withdrawal", transactionCountAllTime: moonwellWithdrawalCount, usdcVolumeAllTime: moonwellWithdrawalVolume },
       { actionType: "chama_creation", transactionCountAllTime: chamaCount, usdcVolumeAllTime: 0 },
       { actionType: "member_addition", transactionCountAllTime: memberCount, usdcVolumeAllTime: 0 },
     ];
@@ -67,14 +116,26 @@ export const getOnchainStats = async (req: Request, res: Response): Promise<void
     // Unifying 5 tables to get the top 20 globally
     const recentTransactionsRaw = await prisma.$queryRaw<any[]>`
       WITH UniquePayments AS (
-        SELECT DISTINCT ON ("txHash") id, "doneAt", "chamaId", amount, "txHash"
+        SELECT DISTINCT ON ("txHash") id, "doneAt", "chamaId", amount, "txHash", description, sender, receiver
         FROM "Payment"
+      ),
+      CategorizedPayments AS (
+        SELECT 
+          'payment-' || id AS id, "doneAt" as "timestamp", 
+          CASE 
+            WHEN "chamaId" IS NOT NULL THEN 'contribution'
+            WHEN description = 'Moonwell Deposit' THEN 'moonwell_deposit'
+            WHEN description = 'Moonwell Withdrawal' THEN 'moonwell_withdrawal'
+            WHEN description IN ('Received', 'Wallet deposit') THEN 
+              CASE WHEN LOWER(sender) IN (SELECT LOWER("smartAddress") FROM "User" WHERE "smartAddress" IS NOT NULL) THEN 'peer_transfer' ELSE 'transfer_in' END
+            WHEN description = 'Transfer' THEN 
+              CASE WHEN LOWER(receiver) IN (SELECT LOWER("smartAddress") FROM "User" WHERE "smartAddress" IS NOT NULL) THEN 'peer_transfer' ELSE 'transfer_out' END
+            ELSE 'other'
+          END as "actionType",
+          CAST(amount AS NUMERIC) as "amountUsdc", "txHash"
+        FROM UniquePayments
       )
-      SELECT 
-        'payment-' || id AS id, "doneAt" as "timestamp", 
-        CASE WHEN "chamaId" IS NULL THEN 'peer_transfer' ELSE 'contribution' END as "actionType",
-        CAST(amount AS NUMERIC) as "amountUsdc", "txHash"
-      FROM UniquePayments
+      SELECT * FROM CategorizedPayments WHERE "actionType" != 'other'
 
       UNION ALL
 
