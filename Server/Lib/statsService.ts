@@ -153,7 +153,13 @@ export const getPlatformStats = async (): Promise<ChamapayStats> => {
 
     const uniquePaymentsLast30Days = uniquePayments.filter(p => new Date(p.doneAt) >= since30Days).length;
     const payoutsLast30DaysCount = payouts.filter(p => new Date(p.doneAt) >= since30Days).length;
-    const mpesaWithdrawalsLast30Days = mpesaWithdrawals.filter(tx => new Date(tx.createdAt) >= since30Days).length;
+
+    // Fetch Chama creations and Member additions counts
+    const chamaCount = await prisma.chama.count();
+    const chamaCountLast30Days = await prisma.chama.count({ where: { createdAt: { gte: since30Days } } });
+    
+    const chamaMemberCount = await prisma.chamaMember.count();
+    const chamaMemberCountLast30Days = await prisma.chamaMember.count({ where: { payDate: { gte: since30Days } } });
 
     const iosDownloads = Number(process.env.STATS_IOS_DOWNLOADS ?? 0);
     const androidDownloads = Number(process.env.STATS_ANDROID_DOWNLOADS ?? 0);
@@ -178,8 +184,8 @@ export const getPlatformStats = async (): Promise<ChamapayStats> => {
             allocatedFunds: Math.round(allocatedFunds),
         },
         transactions: {
-            total: uniquePayments.length + payouts.length + mpesaWithdrawals.length,
-            last30Days: uniquePaymentsLast30Days + payoutsLast30DaysCount + mpesaWithdrawalsLast30Days,
+            total: uniquePayments.length + payouts.length + chamaCount + chamaMemberCount,
+            last30Days: uniquePaymentsLast30Days + payoutsLast30DaysCount + chamaCountLast30Days + chamaMemberCountLast30Days,
         },
         mpesa: {
             deposits: mpesaDeposits.length,
