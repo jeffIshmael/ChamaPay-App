@@ -111,12 +111,8 @@ export const getPlatformStats = async (): Promise<ChamapayStats> => {
 
     const payoutVolume = sumPaymentAmounts(payouts);
 
-    const mpesaDeposits = pretiumTransactions.filter(
-        (tx) => tx.isOnramp || ["deposit", "payment", "moonwell"].includes(tx.type)
-    );
-    const mpesaWithdrawals = pretiumTransactions.filter(
-        (tx) => !tx.isOnramp && !["deposit", "payment", "moonwell"].includes(tx.type)
-    );
+    const mpesaDeposits = pretiumTransactions.filter((tx) => tx.isOnramp);
+    const mpesaWithdrawals = pretiumTransactions.filter((tx) => !tx.isOnramp);
 
     const depositVolumeKes = mpesaDeposits.reduce(
         (total, tx) => total + Number(tx.amount),
