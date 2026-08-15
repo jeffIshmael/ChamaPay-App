@@ -95,6 +95,10 @@ export default {
       ],
       "googleServicesFile": process.env.GOOGLE_SERVICES_JSON || "./google-services.json"
     },
+    "notification": {
+      "icon": "./assets/images/logo-black-white.png",
+      "color": "#0d9488"
+    },
     "web": {
       "bundler": "metro",
       "output": "static",
