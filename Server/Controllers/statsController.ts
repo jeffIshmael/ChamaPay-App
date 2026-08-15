@@ -159,7 +159,6 @@ export const getOnchainStats = async (req: Request, res: Response): Promise<void
       FROM "ChamaMember"
 
       ORDER BY "timestamp" DESC
-      LIMIT 20
     `;
 
     const recentTransactions = recentTransactionsRaw.map((tx) => ({
