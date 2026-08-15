@@ -30,9 +30,13 @@ export const getOnchainStats = async (req: Request, res: Response): Promise<void
 
     // Peer Transfers: Payment where chamaId is null
     const peerStats = await prisma.$queryRaw<any[]>`
+      WITH UniquePeerTransfers AS (
+        SELECT DISTINCT ON ("txHash") id, amount
+        FROM "Payment"
+        WHERE "chamaId" IS NULL
+      )
       SELECT COUNT(id) as count, COALESCE(SUM(CAST(amount AS NUMERIC)), 0) as volume
-      FROM "Payment"
-      WHERE "chamaId" IS NULL
+      FROM UniquePeerTransfers
     `;
     const peerCount = Number(peerStats[0].count);
     const peerVolume = Number(peerStats[0].volume);
@@ -62,11 +66,15 @@ export const getOnchainStats = async (req: Request, res: Response): Promise<void
     // 2. RECENT TRANSACTIONS
     // Unifying 5 tables to get the top 20 globally
     const recentTransactionsRaw = await prisma.$queryRaw<any[]>`
+      WITH UniquePayments AS (
+        SELECT DISTINCT ON ("txHash") id, "doneAt", "chamaId", amount, "txHash"
+        FROM "Payment"
+      )
       SELECT 
         'payment-' || id AS id, "doneAt" as "timestamp", 
         CASE WHEN "chamaId" IS NULL THEN 'peer_transfer' ELSE 'contribution' END as "actionType",
         CAST(amount AS NUMERIC) as "amountUsdc", "txHash"
-      FROM "Payment"
+      FROM UniquePayments
 
       UNION ALL
 
@@ -105,7 +113,7 @@ export const getOnchainStats = async (req: Request, res: Response): Promise<void
     // We group by date across the 4 queries
     const trendRaw = await prisma.$queryRaw<any[]>`
       WITH daily_counts AS (
-        SELECT DATE_TRUNC('day', "doneAt") as day, COUNT(*) as cnt
+        SELECT DATE_TRUNC('day', "doneAt") as day, COUNT(DISTINCT COALESCE("txHash", CAST(id AS TEXT))) as cnt
         FROM "Payment"
         WHERE "doneAt" >= CURRENT_DATE - INTERVAL '30 days'
         GROUP BY day

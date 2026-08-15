@@ -50,13 +50,10 @@ export const getPlatformStats = async (): Promise<ChamapayStats> => {
         pretiumTransactions,
         activeChamaIds,
         activeUserIds,
-        paymentsLast30Days,
-        payoutsLast30Days,
-        pretiumLast30Days,
     ] = await Promise.all([
         prisma.user.count(),
         prisma.payment.findMany({
-            select: { amount: true, chamaId: true, doneAt: true, receiver: true },
+            select: { amount: true, chamaId: true, doneAt: true, receiver: true, sender: true, txHash: true, description: true },
         }),
         prisma.payOut.findMany({
             select: { amount: true, doneAt: true },
@@ -65,6 +62,7 @@ export const getPlatformStats = async (): Promise<ChamapayStats> => {
             where: { status: "COMPLETE" },
             select: {
                 amount: true,
+                cusdAmount: true,
                 isOnramp: true,
                 type: true,
                 createdAt: true,
@@ -84,29 +82,40 @@ export const getPlatformStats = async (): Promise<ChamapayStats> => {
                 SELECT "userId" FROM "PretiumTransaction" WHERE "createdAt" >= ${since30Days}
             ) AS active_users
         `,
-        prisma.payment.count({ where: { doneAt: { gte: since30Days } } }),
-        prisma.payOut.count({ where: { doneAt: { gte: since30Days } } }),
-        prisma.pretiumTransaction.count({
-            where: { status: "COMPLETE", createdAt: { gte: since30Days } },
-        }),
     ]);
 
     const contributions = sumPaymentAmounts(
         payments.filter((payment) => payment.chamaId !== null)
     );
-    const allocatedFunds = sumPaymentAmounts(
+    
+    // Moonwell TVL = Deposits - Withdrawals
+    const allocatedFundsDeposits = sumPaymentAmounts(
         payments.filter((payment) => payment.receiver === "Moonwell")
     );
-    const transfers = sumPaymentAmounts(
-        payments.filter((payment) => payment.chamaId === null && payment.receiver !== "Moonwell")
+    const allocatedFundsWithdrawals = sumPaymentAmounts(
+        payments.filter((payment) => payment.sender === "Moonwell")
     );
+    const allocatedFunds = Math.max(0, allocatedFundsDeposits - allocatedFundsWithdrawals);
+
+    // Deduplicate Transfers (Peer-to-Peer sends generate 2 records, Webhook and internal transfer)
+    const rawTransfers = payments.filter((payment) => payment.chamaId === null && payment.receiver !== "Moonwell" && payment.sender !== "Moonwell");
+    const uniqueTransfers = [];
+    const seenTxHashes = new Set();
+    for (const payment of rawTransfers) {
+        if (!payment.txHash || !seenTxHashes.has(payment.txHash)) {
+            uniqueTransfers.push(payment);
+            if (payment.txHash) seenTxHashes.add(payment.txHash);
+        }
+    }
+    const transfers = sumPaymentAmounts(uniqueTransfers);
+
     const payoutVolume = sumPaymentAmounts(payouts);
 
     const mpesaDeposits = pretiumTransactions.filter(
-        (tx) => tx.isOnramp || tx.type === "deposit"
+        (tx) => tx.isOnramp || ["deposit", "payment", "moonwell"].includes(tx.type)
     );
     const mpesaWithdrawals = pretiumTransactions.filter(
-        (tx) => !tx.isOnramp && tx.type !== "deposit"
+        (tx) => !tx.isOnramp && !["deposit", "payment", "moonwell"].includes(tx.type)
     );
 
     const depositVolumeKes = mpesaDeposits.reduce(
@@ -117,6 +126,38 @@ export const getPlatformStats = async (): Promise<ChamapayStats> => {
         (total, tx) => total + Number(tx.amount),
         0
     );
+
+    // Calculate TRUE EXTERNAL INFLOW (Total USDC Handled)
+    // 1. M-Pesa Inflow (Sum of cusdAmount from all M-Pesa deposits)
+    const mpesaUsdcInflow = mpesaDeposits.reduce(
+        (total, tx) => total + (tx.cusdAmount ? Number(tx.cusdAmount) : Number(tx.amount) / 132), // fallback to rough estimate if cusdAmount is null
+        0
+    );
+
+    // 2. External Crypto Inflow (Webhook receipts from external addresses)
+    const transferPayments = payments.filter((p) => p.description === "Transfer");
+    const receivedPayments = payments.filter((p) => p.description === "Received");
+    const transferTxHashes = new Set(transferPayments.map(p => p.txHash));
+    
+    // An external inflow is a "Received" payment where the txHash is NOT in our internal transfers
+    const externalCryptoInflows = receivedPayments.filter(p => !p.txHash || !transferTxHashes.has(p.txHash));
+    const externalCryptoUsdcInflow = sumPaymentAmounts(externalCryptoInflows);
+
+    const totalExternalUsdcInflow = mpesaUsdcInflow + externalCryptoUsdcInflow;
+
+    // Deduplicate all payments to prevent double-counting of P2P and M-Pesa deposits
+    const uniquePayments = [];
+    const seenAllTxHashes = new Set();
+    for (const payment of payments) {
+        if (!payment.txHash || !seenAllTxHashes.has(payment.txHash)) {
+            uniquePayments.push(payment);
+            if (payment.txHash) seenAllTxHashes.add(payment.txHash);
+        }
+    }
+
+    const uniquePaymentsLast30Days = uniquePayments.filter(p => new Date(p.doneAt) >= since30Days).length;
+    const payoutsLast30DaysCount = payouts.filter(p => new Date(p.doneAt) >= since30Days).length;
+    const mpesaWithdrawalsLast30Days = mpesaWithdrawals.filter(tx => new Date(tx.createdAt) >= since30Days).length;
 
     const iosDownloads = Number(process.env.STATS_IOS_DOWNLOADS ?? 0);
     const androidDownloads = Number(process.env.STATS_ANDROID_DOWNLOADS ?? 0);
@@ -134,15 +175,15 @@ export const getPlatformStats = async (): Promise<ChamapayStats> => {
         activeChamas: activeChamaIds.length,
         activeUsers: Number(activeUserIds[0]?.count ?? 0),
         usdcVolume: {
-            total: Math.round(contributions + payoutVolume + transfers + allocatedFunds),
+            total: Math.round(totalExternalUsdcInflow),
             contributions: Math.round(contributions),
             payouts: Math.round(payoutVolume),
             transfers: Math.round(transfers),
             allocatedFunds: Math.round(allocatedFunds),
         },
         transactions: {
-            total: payments.length + payouts.length + pretiumTransactions.length,
-            last30Days: paymentsLast30Days + payoutsLast30Days + pretiumLast30Days,
+            total: uniquePayments.length + payouts.length + mpesaWithdrawals.length,
+            last30Days: uniquePaymentsLast30Days + payoutsLast30DaysCount + mpesaWithdrawalsLast30Days,
         },
         mpesa: {
             deposits: mpesaDeposits.length,
