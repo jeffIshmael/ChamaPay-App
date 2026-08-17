@@ -50,3 +50,4 @@ Server/backups
 # Agent folder
 .agents
 .vscode
+another.json
