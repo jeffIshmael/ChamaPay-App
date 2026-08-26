@@ -3,7 +3,6 @@ require("@openzeppelin/hardhat-upgrades");
 require("dotenv").config();
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const celoscanApiKey = process.env.CELOSCAN_API_KEY;
 const etherscanApiKey = process.env.ETHERSCAN_API_KEY;
 
 const config = {
@@ -17,50 +16,36 @@ const config = {
     },
   },
   networks: {
-    // Celo Sepolia Testnet
-    sepolia: {
-      url: "https://forno.celo-sepolia.celo-testnet.org",
-      chainId: 11142220,
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-    },
-    celo: {
-      url: "https://forno.celo.org",
-      chainId: 42220,
-      accounts: [PRIVATE_KEY],
-    },
-    base:{
-      url:"https://mainnet.base.org",
+    base: {
+      url: "https://mainnet.base.org",
       chainId: 8453,
       accounts: [PRIVATE_KEY],
-    }
+    },
+    baseSepolia: {
+      url: "https://sepolia.base.org",
+      chainId: 84532,
+      accounts: [PRIVATE_KEY],
+    },
   },
   etherscan: {
     apiKey: etherscanApiKey,
     customChains: [
       {
-        network: "sepolia",
-        chainId: 11142220,
-        urls: {
-          apiURL: "https://api-celo-sepolia.blockscout.com/v2/api",
-          browserURL: "https://celo-sepolia.blockscout.com",
-        },
-      },
-      {
-        network: "celo",
-        chainId: 42220,
-        urls: {
-          apiURL: "https://api.celoscan.io/v2/api",
-          browserURL: "https://celoscan.io",
-        },
-      },
-       {
         network: "base",
         chainId: 8453,
         urls: {
           apiURL: "https://base.blockscout.com/api",
-          browserURL: "https://base.blockscout.com"
-        }
-      }
+          browserURL: "https://base.blockscout.com",
+        },
+      },
+      {
+        network: "baseSepolia",
+        chainId: 84532,
+        urls: {
+          apiURL: "https://base-sepolia.blockscout.com/api",
+          browserURL: "https://base-sepolia.blockscout.com",
+        },
+      },
     ],
   },
 };

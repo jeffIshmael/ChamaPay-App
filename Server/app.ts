@@ -58,6 +58,18 @@ app.use("/paymaster", paymasterRoutes); // CDP paymaster proxy for client wallet
 app.use("/stats", statsRoutes); // Public platform metrics for landing page
 app.use("/moonwell", moonwellRoutes); // Moonwell real-time data and transactions
 
+// FX test harness (M-Pesa sandbox + Base Sepolia escrow). Only load when enabled
+// so missing M-Pesa env vars do not crash production boots.
+if (process.env.FX_TEST_ENABLED === "true") {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const mpesaRoutes = require("./Routes/mpesaRoutes").default;
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const fxTestRoutes = require("./Routes/fxTestRoutes").default;
+  app.use("/mpesa", mpesaRoutes);
+  app.use("/fx-test", fxTestRoutes);
+  console.log("[FX test] Mounted /mpesa and /fx-test routes");
+}
+
 // Platform configuration endpoints
 app.get("/api/rates", (req, res) => {
   const rate = process.env.CHAMAPAY_RATE || "132"; // Fallback to 132 if not set

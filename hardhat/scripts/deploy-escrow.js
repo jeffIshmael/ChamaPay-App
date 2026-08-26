@@ -1,18 +1,29 @@
 const { ethers, upgrades } = require("hardhat");
-require("dotenv").config({ path: '../Server/.env' });
+require("dotenv").config();
+
+function cleanAddress(value, label) {
+  if (!value) throw new Error(`Missing ${label}`);
+  const address = value.trim().split(/\s+/)[0];
+  if (!ethers.isAddress(address)) {
+    throw new Error(`Invalid ${label}: ${value}`);
+  }
+  return ethers.getAddress(address);
+}
 
 async function main() {
   const [deployer] = await ethers.getSigners();
   const balance = await ethers.provider.getBalance(deployer.address);
+  const network = await ethers.provider.getNetwork();
   
   console.log("Deploying ChamaPayEscrow with account:", deployer.address);
+  console.log("Network:", network.name, "chainId:", network.chainId.toString());
   console.log("Deployer balance:", ethers.formatEther(balance), "ETH");
 
-  // Hardcoded as requested
-  const agentWallet = process.env.AGENT_WALLET;
-  
-  // Pulled from Server/.env or hardcoded fallback
-  const treasuryWallet = process.env.CHAMAPAY_TREASURY_WALLET; 
+  const agentWallet = cleanAddress(process.env.AGENT_WALLET, "AGENT_WALLET");
+  const treasuryWallet = cleanAddress(
+    process.env.CHAMAPAY_TREASURY_WALLET,
+    "CHAMAPAY_TREASURY_WALLET"
+  );
   
   // The deployer starts as the owner to allow future upgrades/pausing
   const initialOwner = deployer.address; 
@@ -32,10 +43,12 @@ async function main() {
 
   await escrow.waitForDeployment();
   const proxyAddress = await escrow.getAddress();
+  const implementationAddress = await upgrades.erc1967.getImplementationAddress(proxyAddress);
   
   console.log("🚀 ChamaPayEscrow Proxy deployed to:", proxyAddress);
-  console.log("Run this command to verify:");
-  console.log(`npx hardhat verify --network base ${proxyAddress}`);
+  console.log("Implementation:", implementationAddress);
+  console.log("Verify with:");
+  console.log(`npx hardhat verify --network baseSepolia ${implementationAddress}`);
 }
 
 main()
