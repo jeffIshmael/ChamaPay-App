@@ -8,6 +8,8 @@ import {
   http,
   parseUnits,
   formatUnits,
+  maxUint256,
+  zeroAddress,
   type Address,
   type Hash,
   type Hex,
@@ -167,6 +169,12 @@ const ESCROW_ABI = [
     inputs: [],
     outputs: [{ name: "", type: "address" }],
   },
+  // OpenZeppelin SafeERC20 — surfaces as 0x5274afe7 when transferFrom fails
+  {
+    type: "error",
+    name: "SafeERC20FailedOperation",
+    inputs: [{ name: "token", type: "address" }],
+  },
 ] as const;
 
 export type EscrowOrder = {
@@ -238,8 +246,67 @@ export function getTestUserWallet() {
 
 async function waitForTx(hash: Hash): Promise<Hash> {
   console.log(`[Escrow] waiting for tx ${hash}`);
-  await getPublicClient().waitForTransactionReceipt({ hash });
+  const receipt = await getPublicClient().waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") {
+    throw new Error(
+      `[Escrow] Transaction reverted: ${hash} (status=${receipt.status})`
+    );
+  }
   return hash;
+}
+
+/**
+ * Public RPCs (and Render load-balanced nodes) can return a mined receipt
+ * before the next eth_call/eth_sendRawTransaction sees that state.
+ * Empty escrow orders look PENDING with token=address(0), so escrowFunds
+ * then reverts SafeERC20FailedOperation(address(0)).
+ */
+async function waitForOrderPending(
+  orderId: Hex,
+  expectedUser: Address,
+  expectedAmount: bigint,
+  maxAttempts = 20
+): Promise<EscrowOrder> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const order = await getOrder(orderId);
+    if (
+      order.user.toLowerCase() === expectedUser.toLowerCase() &&
+      order.amount === expectedAmount &&
+      order.status === OrderStatus.PENDING &&
+      order.token.toLowerCase() !== zeroAddress.toLowerCase()
+    ) {
+      if (i > 0) {
+        console.log(`[Escrow] order ${orderId} visible after ${i + 1} reads`);
+      }
+      return order;
+    }
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  const last = await getOrder(orderId);
+  throw new Error(
+    `[Escrow] Order ${orderId} not readable as PENDING after createOrder. ` +
+      `Got user=${last.user} token=${last.token} amount=${last.amount} status=${last.status}`
+  );
+}
+
+async function assertOrderPendingForEscrow(orderId: Hex): Promise<EscrowOrder> {
+  const order = await getOrder(orderId);
+  if (
+    order.user.toLowerCase() === zeroAddress.toLowerCase() ||
+    order.token.toLowerCase() === zeroAddress.toLowerCase()
+  ) {
+    throw new Error(
+      `[Escrow] Refusing escrowFunds — order ${orderId} not created yet ` +
+        `(user/token still zero). Likely RPC lag after createOrder.`
+    );
+  }
+  if (order.status !== OrderStatus.PENDING) {
+    throw new Error(
+      `[Escrow] Refusing escrowFunds — order ${orderId} status is ` +
+        `${ORDER_STATUS_LABELS[order.status] ?? order.status}, expected PENDING`
+    );
+  }
+  return order;
 }
 
 export async function getTokenDecimals(
@@ -296,6 +363,24 @@ export async function approveToken(params: {
 }): Promise<Hash> {
   const token = params.token ?? getUsdcAddress();
   const { account, client } = walletFromKey(params.privateKeyEnv);
+  const current = await getErc20Allowance(account.address, params.spender, token);
+
+  // Circle USDC: changing a non-zero allowance requires approve(0) first.
+  if (current > 0n && current < params.amount) {
+    console.log(
+      `[Escrow] resetting allowance ${formatUsdc(current)} → 0 before new approve`
+    );
+    const resetHash = await client.writeContract({
+      address: token,
+      abi: ERC20_ABI,
+      functionName: "approve",
+      args: [params.spender, 0n],
+      account,
+      chain: baseSepolia,
+    });
+    await waitForTx(resetHash);
+  }
+
   console.log(
     `[Escrow] approve ${formatUsdc(params.amount)} from ${account.address} → ${params.spender}`
   );
@@ -307,7 +392,19 @@ export async function approveToken(params: {
     account,
     chain: baseSepolia,
   });
-  return waitForTx(hash);
+  await waitForTx(hash);
+
+  // Confirm allowance is actually set (guards against RPC lag / silent failures)
+  for (let i = 0; i < 15; i++) {
+    const next = await getErc20Allowance(account.address, params.spender, token);
+    if (next >= params.amount) {
+      return hash;
+    }
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  throw new Error(
+    `[Escrow] approve mined but allowance still below ${formatUsdc(params.amount)}`
+  );
 }
 
 export async function ensureAllowance(params: {
@@ -325,10 +422,11 @@ export async function ensureAllowance(params: {
     );
     return null;
   }
+  // Approve max once so tiny FX amounts do not need a fresh approve every order.
   return approveToken({
     privateKeyEnv: params.privateKeyEnv,
     spender: params.spender,
-    amount: params.amount,
+    amount: maxUint256,
     token,
   });
 }
@@ -366,7 +464,9 @@ export async function createOrder(params: {
     account,
     chain: baseSepolia,
   });
-  return waitForTx(hash);
+  await waitForTx(hash);
+  await waitForOrderPending(params.orderId, params.user, params.amount);
+  return hash;
 }
 
 export async function escrowFunds(params: {
@@ -376,10 +476,16 @@ export async function escrowFunds(params: {
 }): Promise<Hash> {
   const escrow = getEscrowAddress();
   const { account, client } = walletFromKey(params.callerPrivateKeyEnv);
+
+  // Guard against empty-order footgun (status defaults to PENDING, token=0).
+  const order = await assertOrderPendingForEscrow(params.orderId);
   console.log("[Escrow] escrowFunds", {
     orderId: params.orderId,
     caller: account.address,
+    token: order.token,
+    amount: formatUsdc(order.amount),
   });
+
   const hash = await client.writeContract({
     address: escrow,
     abi: ESCROW_ABI,

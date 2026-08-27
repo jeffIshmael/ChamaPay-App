@@ -134,6 +134,7 @@ contract ChamapayEscrow is Initializable, OwnableUpgradeable, UUPSUpgradeable, P
      */
     function escrowFunds(bytes32 _orderId) external whenNotPaused {
         Order storage order = orders[_orderId];
+        require(order.user != address(0), "Order does not exist");
         require(order.status == OrderStatus.PENDING, "Order not pending");
 
         // Determine who is funding the escrow based on the order type
