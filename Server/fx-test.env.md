@@ -97,6 +97,14 @@ FX_TEST_USDC=0.1
 FX_TEST_USER=0x...   # optional; must match TEST_USER_PRIVATE_KEY for offramp
 ```
 
+## Known RPC race (fixed in EscrowFunctions)
+
+Empty escrow orders default to `status=PENDING` with `token=address(0)`. If `escrowFunds` is simulated before `createOrder` is visible on the RPC node, Daraja-side never runs and you get:
+
+`SafeERC20FailedOperation(address(0))` / `0x5274afe7` with zero address in the error data.
+
+`EscrowFunctions` now: checks tx receipt status, polls until the order is readable after `createOrder`, refuses `escrowFunds` on empty orders, and uses max USDC allowance after a proper approve(0) reset when needed.
+
 ## Preconditions
 
 1. Agent, treasury, and test user have Base Sepolia ETH for gas.
