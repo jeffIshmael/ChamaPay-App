@@ -12,6 +12,7 @@ import paymasterRoutes from "./Routes/paymasterRoutes";
 import statsRoutes from "./Routes/statsRoutes";
 import webhookRoutes from "./Routes/webhookRoutes";
 import moonwellRoutes from "./Routes/moonwellRoutes";
+import kycRoutes from "./Routes/kycRoutes";
 
 
 import axios from "axios";
@@ -57,6 +58,8 @@ app.use("/miniapp", miniappRoutes); // Miniapp-specific endpoints
 app.use("/paymaster", paymasterRoutes); // CDP paymaster proxy for client wallet_sendCalls
 app.use("/stats", statsRoutes); // Public platform metrics for landing page
 app.use("/moonwell", moonwellRoutes); // Moonwell real-time data and transactions
+app.use("/kyc", kycRoutes); // Tier-2 Smile ID KYC
+
 
 // FX test harness (M-Pesa sandbox + Base Sepolia escrow). Only load when enabled
 // so missing M-Pesa env vars do not crash production boots.

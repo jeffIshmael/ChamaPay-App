@@ -9,6 +9,10 @@ import emailService from "../Lib/EmailService";
 import Encryption from "../Lib/Encryption";
 import { sendWhatsAppOTP } from "../Lib/WhatsAppService";
 import { cdp } from "../Lib/HelperFunctions";
+import {
+  normalizePhoneE164,
+  phonePlaceholderEmail,
+} from "../Lib/phoneAuth";
 
 const prisma = new PrismaClient();
 
@@ -96,6 +100,10 @@ const verificationCodes = new Map<
   string,
   { code: string; expiresAt: number }
 >();
+
+/** Rate-limit WhatsApp OTP sends: key → last send timestamp */
+const whatsappSendCooldown = new Map<string, number>();
+const WHATSAPP_SEND_COOLDOWN_MS = 60_000;
 
 // Helper to exclude sensitive fields from user object
 const excludeSensitiveData = (user: any) => {
@@ -247,13 +255,13 @@ export const verifyEmailCode = async (
   }
 };
 
-// Public endpoint: Send OTP via WhatsApp for phone verification flows
+// Public endpoint: Send OTP via WhatsApp for phone login / signup
 export const sendWhatsAppCode = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const { phone }: { phone?: string } = req.body;
+    const { phone, dialCode }: { phone?: string; dialCode?: string } = req.body;
     if (!phone) {
       res
         .status(400)
@@ -261,12 +269,35 @@ export const sendWhatsAppCode = async (
       return;
     }
 
-    // Generate a 6-digit OTP
-    const otp = emailService.generateOTP();
+    const phoneE164 = normalizePhoneE164(phone, dialCode || "254");
+    if (!phoneE164) {
+      res.status(400).json({
+        success: false,
+        error: "Enter a valid phone number for the selected country",
+      });
+      return;
+    }
 
-    // Send via WhatsApp Cloud API
-    const result = await sendWhatsAppOTP(phone, otp);
+    const lastSent = whatsappSendCooldown.get(phoneE164) || 0;
+    if (Date.now() - lastSent < WHATSAPP_SEND_COOLDOWN_MS) {
+      const waitSec = Math.ceil(
+        (WHATSAPP_SEND_COOLDOWN_MS - (Date.now() - lastSent)) / 1000
+      );
+      res.status(429).json({
+        success: false,
+        error: `Please wait ${waitSec}s before requesting another code`,
+      });
+      return;
+    }
+
+    const otp = emailService.generateOTP();
+    const expiresAt = Date.now() + 10 * 60 * 1000;
+    const storeKey = `wa:${phoneE164}`;
+    verificationCodes.set(storeKey, { code: otp, expiresAt });
+
+    const result = await sendWhatsAppOTP(phoneE164, otp);
     if (!result.success) {
+      verificationCodes.delete(storeKey);
       res.status(500).json({
         success: false,
         error: result.error || "Failed to send WhatsApp message",
@@ -274,15 +305,142 @@ export const sendWhatsAppCode = async (
       return;
     }
 
-    // For now, return otp for client-side test; in production, remove this
-    res
-      .status(200)
-      .json({ success: true, message: "OTP sent via WhatsApp", otp });
+    whatsappSendCooldown.set(phoneE164, Date.now());
+
+    const payload: Record<string, unknown> = {
+      success: true,
+      message: "OTP sent via WhatsApp",
+      phoneE164,
+    };
+    if (process.env.WHATSAPP_OTP_DEBUG === "true") {
+      payload.otp = otp;
+    }
+
+    res.status(200).json(payload);
   } catch (error: unknown) {
     console.error("Send WhatsApp code error:", error);
     res
       .status(500)
       .json({ success: false, error: "Failed to send OTP via WhatsApp" });
+  }
+};
+
+/**
+ * Verify WhatsApp OTP. Existing phone user → JWT.
+ * New user → isNewUser + phoneE164 for wallet-setup / register.
+ */
+export const verifyWhatsAppCode = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { phone, code } = req.body as { phone?: string; code?: string };
+
+    if (!phone || !code) {
+      res.status(400).json({
+        success: false,
+        message: "Phone and code are required",
+      });
+      return;
+    }
+
+    const phoneE164 = normalizePhoneE164(phone, req.body?.dialCode || "254");
+    if (!phoneE164) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid phone number",
+      });
+      return;
+    }
+
+    const storeKey = `wa:${phoneE164}`;
+    const storedData = verificationCodes.get(storeKey);
+
+    if (!storedData) {
+      res.status(400).json({
+        success: false,
+        message: "No verification code found. Please request a new one.",
+      });
+      return;
+    }
+
+    if (Date.now() > storedData.expiresAt) {
+      verificationCodes.delete(storeKey);
+      res.status(400).json({
+        success: false,
+        message: "Verification code expired. Please request a new one.",
+      });
+      return;
+    }
+
+    if (storedData.code !== String(code).trim()) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid verification code",
+      });
+      return;
+    }
+
+    verificationCodes.delete(storeKey);
+
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phoneE164 },
+          { email: phonePlaceholderEmail(phoneE164) },
+        ],
+      },
+    });
+
+    if (existingUser) {
+      if (!process.env.JWT_SECRET) {
+        throw new Error("JWT_SECRET not configured");
+      }
+
+      if (!existingUser.phoneE164) {
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: { phoneE164 },
+        });
+      }
+
+      const token = jwt.sign(
+        { userId: existingUser.id, email: existingUser.email },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      const refreshToken = jwt.sign(
+        { userId: existingUser.id, email: existingUser.email },
+        process.env.JWT_SECRET,
+        { expiresIn: "30d" }
+      );
+
+      res.status(200).json({
+        success: true,
+        message: "Phone verified successfully",
+        token,
+        refreshToken,
+        user: excludeSensitiveData({ ...existingUser, phoneE164 }),
+        isNewUser: false,
+        phoneE164,
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Phone verified successfully",
+      isNewUser: true,
+      phoneE164,
+      email: phonePlaceholderEmail(phoneE164),
+    });
+  } catch (error) {
+    console.error("Verify WhatsApp code error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to verify code",
+    });
   }
 };
 
@@ -359,7 +517,7 @@ export const registerUser = async (
 ): Promise<void> => {
   try {
 
-    const { email, userName, profileImageUrl } = req.body;
+    const { email, userName, profileImageUrl, phoneE164: rawPhone } = req.body;
 
     // getting user's location
     let country: string = "";
@@ -381,11 +539,16 @@ export const registerUser = async (
     }
 
     const formattedEmail = email.toLowerCase().trim();
+    const phoneE164 = rawPhone ? normalizePhoneE164(String(rawPhone)) : null;
 
     // Check if user already exists
     const existingUser = await prisma.user.findFirst({
       where: {
-        OR: [{ email: formattedEmail }, { userName }],
+        OR: [
+          { email: formattedEmail },
+          { userName },
+          ...(phoneE164 ? [{ phoneE164 }] : []),
+        ],
       },
     });
 
@@ -394,6 +557,11 @@ export const registerUser = async (
         res.status(409).json({
           success: false,
           message: "Email already registered",
+        });
+      } else if (phoneE164 && existingUser.phoneE164 === phoneE164) {
+        res.status(409).json({
+          success: false,
+          message: "Phone number already registered",
         });
       } else if (existingUser.userName === userName) {
         res.status(409).json({
@@ -412,6 +580,14 @@ export const registerUser = async (
     // create the wallet using CDP Server-Signer
     const cdpAccount = await cdp.evm.createAccount();
 
+    let phoneNo: number | null = null;
+    if (phoneE164?.startsWith("254") && phoneE164.length === 12) {
+      const national = Number(phoneE164.slice(3));
+      if (Number.isSafeInteger(national) && national <= 2147483647) {
+        phoneNo = national;
+      }
+    }
+
     // Create new user
     const newUser = await prisma.user.create({
       data: {
@@ -423,7 +599,9 @@ export const registerUser = async (
         profileImageUrl: profileImageUrl || null,
         hashedPrivkey: "", // Deprecated
         hashedPassphrase: "", // Deprecated
-        location: country,
+        location: country || (phoneE164?.startsWith("254") ? "KE" : country) || null,
+        phoneE164: phoneE164 || undefined,
+        phoneNo,
       },
     });
 

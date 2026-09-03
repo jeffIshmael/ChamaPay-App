@@ -40,6 +40,17 @@ export async function pretiumOnramp(
       }),
     });
     const data = await response.json();
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data?.error || "Failed to initiate onramp",
+        code: data?.code,
+        mtdKes: data?.mtdKes,
+        limitKes: data?.limitKes,
+        remainingKes: data?.remainingKes,
+        kycTier: data?.kycTier,
+      };
+    }
     return data;
   } catch (error) {
 return { success: false, error: "Failed to initiate onramp" };

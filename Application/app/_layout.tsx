@@ -126,6 +126,7 @@ return (
         <Stack.Screen name="wallet-setup" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="edit-profile" />
+        <Stack.Screen name="verify-identity" />
         <Stack.Screen name="verify-email" />
         <Stack.Screen name="pin-setup" />
         <Stack.Screen name="lock-screen" />

@@ -18,6 +18,7 @@ import {
 } from "../Lib/PretiumFunctions";
 import { getCached, setCache } from "../Lib/cache";
 import { pimlicoDepositForUser, pimlicoTransferToUser, treasuryTransferToUser } from "../Lib/pimlicoAgent";
+import { checkOnrampKesAllowed, KYC_REQUIRED_CODE } from "../Lib/kycService";
 
 const prisma = new PrismaClient();
 
@@ -91,6 +92,22 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
       return res.status(400).json({
         success: false,
         error: "Amount and phone number are required",
+      });
+    }
+
+    const requestedKes = Number(amount);
+    const limitCheck = await checkOnrampKesAllowed(userId, requestedKes);
+    if (!limitCheck.ok) {
+      const status = limitCheck.code === KYC_REQUIRED_CODE ? 403 : 400;
+      return res.status(status).json({
+        success: false,
+        error: limitCheck.message,
+        code: limitCheck.code,
+        mtdKes: limitCheck.mtdKes,
+        limitKes: limitCheck.limitKes,
+        remainingKes: limitCheck.remainingKes,
+        kycTier: limitCheck.kycTier,
+        requestedKes: limitCheck.requestedKes,
       });
     }
 

@@ -8,13 +8,15 @@ import {
     registerUser,
     sendVerificationCode,
     sendWhatsAppCode,
-    verifyEmailCode
+    verifyEmailCode,
+    verifyWhatsAppCode
 } from "../Controllers/authController";
 
 const router: Router = express.Router();
 
-// Registration endpoints
+// Phone + WhatsApp OTP
 router.post("/send-whatsapp-otp", sendWhatsAppCode);
+router.post("/verify-whatsapp-otp", verifyWhatsAppCode);
 
 // Email verification flow
 router.post("/send-code", sendVerificationCode);
@@ -37,4 +39,4 @@ router.post("/miniapp/register", miniappRegister);
 
 
 
-export default router; 
+export default router;

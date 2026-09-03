@@ -9,7 +9,7 @@ import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
-import { Mail, Shield, ChevronLeft, KeyRound, ChevronDown, ChevronUp, Check } from "lucide-react-native";
+import { Mail, Shield, ChevronLeft, KeyRound, ChevronDown, ChevronUp, Check, Phone, MessageCircle } from "lucide-react-native";
 import { useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
@@ -30,6 +30,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
 import AuthLoadingView from "@/components/AuthLoadingView";
+import CountrySelector from "@/components/CountrySelector";
+import { DEFAULT_PHONE_COUNTRY } from "@/Utils/phoneCountries";
 
 const GoogleIcon = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24">
@@ -60,14 +62,27 @@ WebBrowser.maybeCompleteAuthSession();
 export default function AuthScreen() {
   const [errorText, setErrorText] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [phoneCountry, setPhoneCountry] = useState(
+    () => DEFAULT_PHONE_COUNTRY
+  );
+  const [showPhoneCountryPicker, setShowPhoneCountryPicker] = useState(false);
   const [showEmailInput, setShowEmailInput] = useState(false);
+  /** Dedicated phone WhatsApp modal (not the email expander) */
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [phoneStep, setPhoneStep] = useState<"enter" | "sent" | "code">("enter");
+  const [phoneModalError, setPhoneModalError] = useState("");
+  /** Which channel owns the open verification modal (email only now for code modal reuse) */
+  const [authChannel, setAuthChannel] = useState<"email" | "phone">("email");
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isSendingPhone, setIsSendingPhone] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const router = useRouter();
   const inputRef = useRef<TextInput>(null);
+  const phoneInputRef = useRef<TextInput>(null);
 
   // --- Verification modal UX state ---
   // Kept separate from the global `isLoading`/AuthLoadingView so the modal
@@ -80,13 +95,20 @@ export default function AuthScreen() {
   const successAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (showVerificationModal) {
+    if (showVerificationModal || (showPhoneModal && phoneStep === "code")) {
       const timer = setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [showVerificationModal]);
+  }, [showVerificationModal, showPhoneModal, phoneStep]);
+
+  useEffect(() => {
+    if (showPhoneModal && phoneStep === "enter") {
+      const timer = setTimeout(() => phoneInputRef.current?.focus(), 250);
+      return () => clearTimeout(timer);
+    }
+  }, [showPhoneModal, phoneStep]);
 
   const { setAuth, isAuthenticated } = useAuth();
   const insets = useSafeAreaInsets();
@@ -430,6 +452,7 @@ export default function AuthScreen() {
 
       if (resp.ok) {
         // Reset any leftover state from a previous attempt, then show the modal
+        setAuthChannel("email");
         setVerificationCode("");
         setVerifySuccess(false);
         setErrorText("");
@@ -443,6 +466,66 @@ export default function AuthScreen() {
       setErrorText("Failed to send verification code. Please try again.");
     } finally {
       setIsSendingEmail(false);
+    }
+  };
+
+  const openPhoneModal = () => {
+    setShowEmailInput(false);
+    setPhoneModalError("");
+    setPhoneStep("enter");
+    setVerificationCode("");
+    setVerifySuccess(false);
+    setAuthChannel("phone");
+    setShowPhoneModal(true);
+  };
+
+  const closePhoneModal = () => {
+    if (verifying || verifySuccess || isSendingPhone) return;
+    setShowPhoneModal(false);
+    setShowPhoneCountryPicker(false);
+    setPhoneStep("enter");
+    setPhoneModalError("");
+    setVerificationCode("");
+    setErrorText("");
+  };
+
+  const handlePhoneSubmit = async () => {
+    if (!phone.trim()) {
+      setPhoneModalError("Please enter your phone number");
+      return;
+    }
+
+    setIsSendingPhone(true);
+    setPhoneModalError("");
+    setErrorText("");
+
+    try {
+      const resp = await fetch(`${serverUrl}/auth/send-whatsapp-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: phone.trim(),
+          dialCode: phoneCountry.phoneCode,
+        }),
+      });
+      const data = await resp.json();
+
+      if (resp.ok && data.success) {
+        setAuthChannel("phone");
+        setVerificationCode("");
+        setVerifySuccess(false);
+        successAnim.setValue(0);
+        shakeAnim.setValue(0);
+        setPhoneStep("sent");
+      } else {
+        setPhoneModalError(
+          data?.error || data?.message || "Failed to send WhatsApp code"
+        );
+      }
+    } catch {
+      setPhoneModalError("Failed to send WhatsApp code. Please try again.");
+    } finally {
+      setIsSendingPhone(false);
     }
   };
 
@@ -471,11 +554,25 @@ export default function AuthScreen() {
     setVerifying(true);
     setErrorText("");
     try {
-      const res = await fetch(`${serverUrl}/auth/verify-code`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.toLowerCase().trim(), code }),
-      });
+      const isPhone = authChannel === "phone";
+      const res = await fetch(
+        isPhone
+          ? `${serverUrl}/auth/verify-whatsapp-otp`
+          : `${serverUrl}/auth/verify-code`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            isPhone
+              ? {
+                  phone: phone.trim(),
+                  code,
+                  dialCode: phoneCountry.phoneCode,
+                }
+              : { email: email.toLowerCase().trim(), code }
+          ),
+        }
+      );
       const data = await res.json();
 
       if (res.ok && data.success) {
@@ -492,13 +589,28 @@ export default function AuthScreen() {
         setTimeout(async () => {
           if (data.isNewUser) {
             setShowVerificationModal(false);
+            setShowPhoneModal(false);
             router.replace({
               pathname: "/wallet-setup",
-              params: { mode: "email", email: email.toLowerCase().trim(), name: "", picture: "" },
+              params: isPhone
+                ? {
+                    mode: "phone",
+                    email: data.email,
+                    phoneE164: data.phoneE164,
+                    name: "",
+                    picture: "",
+                  }
+                : {
+                    mode: "email",
+                    email: email.toLowerCase().trim(),
+                    name: "",
+                    picture: "",
+                  },
             } as any);
           } else {
             await setAuth(data.token, data.user, data.refreshToken);
             setShowVerificationModal(false);
+            setShowPhoneModal(false);
             router.replace("/pin-setup");
           }
         }, 600);
@@ -614,6 +726,34 @@ export default function AuthScreen() {
             <View>
               {/* Auth Buttons in Column */}
               <View className="mb-6">
+                {/* Phone — opens dedicated WhatsApp modal */}
+                <View className="mb-3">
+                  <Pressable
+                    onPress={openPhoneModal}
+                    className="w-full p-3 rounded-2xl flex-row items-center h-16"
+                    style={[
+                      styles.authButton,
+                      {
+                        borderWidth: 1,
+                        borderColor: "#e5e7eb",
+                        backgroundColor: "white",
+                      },
+                    ]}
+                  >
+                    <View className="w-10 h-10 bg-emerald-50 rounded-lg items-center justify-center ml-1">
+                      <Phone size={20} color="#059669" />
+                    </View>
+                    <View className="flex-1 ml-3 items-start justify-center">
+                      <Text className="text-gray-800 font-medium text-base">
+                        Continue with phone
+                      </Text>
+                      <Text className="text-gray-500 text-xs mt-0.5">
+                        Get a code on WhatsApp
+                      </Text>
+                    </View>
+                  </Pressable>
+                </View>
+
                 {/* Email Button / Input Section */}
                 <View className="mb-3">
                   <Pressable
@@ -671,7 +811,7 @@ export default function AuthScreen() {
                         disabled={!email || isSendingEmail}
                         className="px-4 h-full justify-center items-center"
                       >
-                        {isSendingEmail ? (
+                        {isSendingEmail && showEmailInput ? (
                           <ActivityIndicator size="small" color="#26a6a2" />
                         ) : (
                           <Text className={`font-semibold text-base ${email ? "text-gray-800" : "text-gray-300"}`}>
@@ -773,6 +913,329 @@ export default function AuthScreen() {
         />
       )}
 
+      {/* Phone WhatsApp Modal — enter → sent → code */}
+      <Modal
+        visible={showPhoneModal}
+        animationType="fade"
+        transparent
+        statusBarTranslucent
+        onRequestClose={closePhoneModal}
+      >
+        <View style={{ flex: 1 }}>
+          {/* Explicit dark-gray backdrop (nativewind opacity can fail inside Modal) */}
+          <View
+            pointerEvents="none"
+            style={{
+              ...StyleSheet.absoluteFillObject,
+              backgroundColor: "rgba(55, 65, 81, 0.88)",
+            }}
+          />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 20 }}
+          >
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={closePhoneModal}
+            />
+            <View
+              className="bg-white w-full rounded-[24px] px-5 pt-4 pb-6"
+              style={{ maxWidth: 380, zIndex: 2 }}
+            >
+              <View className="flex-row items-center justify-between mb-5">
+                <Pressable
+                  onPress={() => {
+                    if (phoneStep === "code") {
+                      setPhoneStep("sent");
+                      setVerificationCode("");
+                      setErrorText("");
+                      return;
+                    }
+                    if (phoneStep === "sent") {
+                      setPhoneStep("enter");
+                      return;
+                    }
+                    closePhoneModal();
+                  }}
+                  disabled={verifying || verifySuccess || isSendingPhone}
+                  className="w-12 h-12 bg-gray-100 rounded-full items-center justify-center"
+                  hitSlop={8}
+                >
+                  <ChevronLeft size={28} color="#4b5563" strokeWidth={2.5} />
+                </Pressable>
+                <Pressable
+                  onPress={closePhoneModal}
+                  disabled={verifying || verifySuccess || isSendingPhone}
+                  className="w-12 h-12 bg-gray-100 rounded-full items-center justify-center"
+                  hitSlop={8}
+                >
+                  <Text className="text-gray-600 text-3xl leading-none" style={{ marginTop: -2 }}>
+                    ×
+                  </Text>
+                </Pressable>
+              </View>
+
+              {phoneStep === "enter" && (
+                <View>
+                  <View className="items-center mb-6">
+                    <View className="w-14 h-14 rounded-full bg-emerald-50 items-center justify-center mb-4">
+                      <Phone size={26} color="#059669" />
+                    </View>
+                    <Text className="text-gray-900 font-bold text-xl text-center mb-2">
+                      Sign in with phone number
+                    </Text>
+                    <Text className="text-gray-500 text-sm text-center leading-5 px-1">
+                      We'll send a 6-digit code to this number on WhatsApp.
+                    </Text>
+                  </View>
+
+                  <Text className="text-gray-600 text-sm font-medium mb-2">
+                    Phone number
+                  </Text>
+                  <View className="flex-row items-center border border-gray-200 rounded-2xl bg-gray-50 overflow-hidden mb-2">
+                    <Pressable
+                      onPress={() => setShowPhoneCountryPicker(true)}
+                      className="flex-row items-center px-3 h-14 border-r border-gray-200"
+                    >
+                      <Text className="text-xl mr-1.5">{phoneCountry.flag}</Text>
+                      <Text className="text-gray-800 font-semibold mr-1">
+                        +{phoneCountry.phoneCode}
+                      </Text>
+                      <ChevronDown size={16} color="#6b7280" />
+                    </Pressable>
+                    <TextInput
+                      ref={phoneInputRef}
+                      value={phone}
+                      onChangeText={(v) => {
+                        setPhone(v);
+                        setPhoneModalError("");
+                      }}
+                      placeholder="7XX XXX XXX"
+                      placeholderTextColor="#9ca3af"
+                      className="flex-1 text-gray-900 text-base font-semibold px-3 h-14"
+                      keyboardType="phone-pad"
+                      returnKeyType="send"
+                      onSubmitEditing={handlePhoneSubmit}
+                      editable={!isSendingPhone}
+                    />
+                  </View>
+
+                  {phoneModalError ? (
+                    <Text className="text-red-500 text-sm mb-4">{phoneModalError}</Text>
+                  ) : (
+                    <Text className="text-gray-400 text-xs mb-4 leading-4">
+                      Local number only — country code is selected on the left.
+                    </Text>
+                  )}
+
+                  <Pressable
+                    onPress={handlePhoneSubmit}
+                    disabled={!phone.trim() || isSendingPhone}
+                    className={`w-full py-4 rounded-2xl items-center ${
+                      !phone.trim() || isSendingPhone ? "bg-emerald-300" : "bg-emerald-600"
+                    }`}
+                  >
+                    {isSendingPhone ? (
+                      <ActivityIndicator color="white" />
+                    ) : (
+                      <Text className="text-white font-bold text-[16px]">Get code</Text>
+                    )}
+                  </Pressable>
+                </View>
+              )}
+
+              {phoneStep === "sent" && (
+                <View className="items-center pt-1 pb-2">
+                  <View className="w-20 h-20 rounded-full bg-[#dcf8c6] items-center justify-center mb-5">
+                    <MessageCircle size={36} color="#128C7E" fill="#128C7E" />
+                  </View>
+                  <Text className="text-gray-900 font-bold text-2xl text-center mb-3">
+                    Code sent
+                  </Text>
+                  <Text className="text-gray-500 text-[15px] text-center leading-6 mb-2 px-2">
+                    Open WhatsApp on
+                  </Text>
+                  <Text className="text-gray-900 font-bold text-lg text-center mb-3">
+                    +{phoneCountry.phoneCode}{" "}
+                    {phone.replace(/^0/, "").replace(new RegExp(`^${phoneCountry.phoneCode}`), "")}
+                  </Text>
+                  <Text className="text-gray-500 text-sm text-center leading-5 px-3 mb-8">
+                    You should see a Chamapay message with your 6-digit code.
+                    It expires in 10 minutes.
+                  </Text>
+
+                  <Pressable
+                    onPress={() => {
+                      setPhoneStep("code");
+                      setErrorText("");
+                      setVerificationCode("");
+                    }}
+                    className="w-full bg-[#128C7E] py-4 rounded-2xl items-center mb-3"
+                  >
+                    <Text className="text-white font-bold text-[16px]">
+                      I have the code
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={handlePhoneSubmit}
+                    disabled={isSendingPhone}
+                    className="py-3"
+                  >
+                    {isSendingPhone ? (
+                      <ActivityIndicator color="#128C7E" />
+                    ) : (
+                      <Text className="text-[#128C7E] font-semibold text-[15px]">
+                        Resend on WhatsApp
+                      </Text>
+                    )}
+                  </Pressable>
+                </View>
+              )}
+
+              {phoneStep === "code" && (
+                <View>
+                  <View className="items-center mb-5">
+                    <View
+                      className="w-16 h-16 rounded-full items-center justify-center mb-3"
+                      style={{ backgroundColor: verifySuccess ? "#dcfce7" : "#e0f2f1" }}
+                    >
+                      {verifySuccess ? (
+                        <Check size={28} color="#16a34a" />
+                      ) : (
+                        <KeyRound size={28} color="#26a6a2" />
+                      )}
+                    </View>
+                    <Text className="text-xl font-bold text-gray-900 mb-2 text-center">
+                      {verifySuccess ? "Verified!" : "Enter confirmation code"}
+                    </Text>
+                    {!verifySuccess && (
+                      <Text className="text-gray-500 text-center text-sm leading-relaxed px-2">
+                        Type the 6 digits from WhatsApp
+                      </Text>
+                    )}
+                  </View>
+
+                  <Animated.View
+                    style={{
+                      transform: [
+                        {
+                          translateX: shakeAnim.interpolate({
+                            inputRange: [-1, 0, 1],
+                            outputRange: [-10, 0, 10],
+                          }),
+                        },
+                      ],
+                    }}
+                  >
+                    <Pressable
+                      onPress={() => !verifying && !verifySuccess && inputRef.current?.focus()}
+                      className="flex-row justify-center mb-2 gap-x-2 relative"
+                    >
+                      <TextInput
+                        ref={inputRef}
+                        value={verificationCode}
+                        onChangeText={(val) => {
+                          setVerificationCode(val);
+                          if (val.length === 6) handleVerifyCode(val);
+                        }}
+                        maxLength={6}
+                        keyboardType="number-pad"
+                        className="absolute w-full h-full z-10"
+                        style={{ opacity: 0.01 }}
+                        editable={!verifying && !verifySuccess}
+                        caretHidden
+                      />
+                      {[0, 1, 2, 3, 4, 5].map((index) => {
+                        const filled = index < verificationCode.length;
+                        const isActive =
+                          verificationCode.length === index &&
+                          !verifying &&
+                          !verifySuccess;
+                        return (
+                          <View
+                            key={index}
+                            className="w-11 h-14 rounded-xl items-center justify-center bg-white"
+                            style={{
+                              borderWidth: isActive ? 2 : 1,
+                              borderColor: verifySuccess
+                                ? "#16a34a"
+                                : errorText
+                                  ? "#ef4444"
+                                  : isActive || filled
+                                    ? "#26a6a2"
+                                    : "#d1d5db",
+                              backgroundColor: verifySuccess ? "#f0fdf4" : "white",
+                              opacity: verifying ? 0.5 : 1,
+                            }}
+                          >
+                            {verifySuccess ? (
+                              index === 5 && (
+                                <Animated.View
+                                  style={{
+                                    opacity: successAnim,
+                                    transform: [{ scale: successAnim }],
+                                  }}
+                                >
+                                  <Check size={18} color="#16a34a" />
+                                </Animated.View>
+                              )
+                            ) : (
+                              <Text className="text-2xl font-bold text-gray-900">
+                                {verificationCode[index] || ""}
+                              </Text>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </Pressable>
+                  </Animated.View>
+
+                  {verifying && (
+                    <View className="flex-row items-center justify-center mb-3 mt-2">
+                      <ActivityIndicator size="small" color="#26a6a2" />
+                      <Text className="text-gray-500 text-xs font-medium ml-2">
+                        Verifying...
+                      </Text>
+                    </View>
+                  )}
+
+                  {errorText && !verifySuccess ? (
+                    <Text className="text-red-500 text-center mb-2 mt-2 font-medium text-sm">
+                      {errorText}
+                    </Text>
+                  ) : null}
+
+                  {!verifySuccess && (
+                    <Pressable
+                      onPress={isSendingPhone || verifying ? undefined : handlePhoneSubmit}
+                      className="items-center pt-3"
+                    >
+                      <Text
+                        className="font-semibold text-sm"
+                        style={{
+                          color: isSendingPhone || verifying ? "#9ca3af" : "#128C7E",
+                        }}
+                      >
+                        {isSendingPhone ? "Sending..." : "Resend WhatsApp code"}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+              )}
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      <CountrySelector
+        visible={showPhoneCountryPicker}
+        selectedCountry={phoneCountry}
+        variant="phone"
+        onSelect={setPhoneCountry}
+        onClose={() => setShowPhoneCountryPicker(false)}
+      />
+
       {/* Verification Modal */}
       <Modal
         visible={showVerificationModal}
@@ -821,7 +1284,9 @@ export default function AuthScreen() {
               </Text>
               {!verifySuccess && (
                 <Text className="text-gray-500 text-center text-sm leading-relaxed px-2">
-                  Please check <Text className="font-bold text-gray-800">{email}</Text> for an email and enter your code below.
+                  Please check{" "}
+                  <Text className="font-bold text-gray-800">{email}</Text> for an
+                  email and enter your code below.
                 </Text>
               )}
             </View>
@@ -926,9 +1391,13 @@ export default function AuthScreen() {
                 <Text className="text-gray-500 text-sm">
                   Didn't get an email?{" "}
                   <Text
-                    onPress={isSendingEmail || verifying ? undefined : handleEmailSubmit}
+                    onPress={
+                      isSendingEmail || verifying ? undefined : handleEmailSubmit
+                    }
                     className="font-medium"
-                    style={{ color: isSendingEmail || verifying ? "#9ca3af" : "#26a6a2" }}
+                    style={{
+                      color: isSendingEmail || verifying ? "#9ca3af" : "#26a6a2",
+                    }}
                   >
                     {isSendingEmail ? "Sending..." : "Resend code"}
                   </Text>

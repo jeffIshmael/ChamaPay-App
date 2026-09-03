@@ -43,6 +43,8 @@ export default function WalletSetup() {
     email?: string;
     name?: string;
     picture?: string;
+    mode?: string;
+    phoneE164?: string;
   }>();
   const { registerUser } = useAuth();
 
@@ -141,6 +143,7 @@ export default function WalletSetup() {
         email: params.email,
         userName: username.trim(),
         profileImageUrl: finalPicture,
+        phoneE164: params.phoneE164,
       });
 
       if (res.success && res.user) {

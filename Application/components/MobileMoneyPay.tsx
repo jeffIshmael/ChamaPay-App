@@ -10,6 +10,7 @@ import { ArrowLeft } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Image,
   ScrollView,
@@ -19,6 +20,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { useRouter } from "expo-router";
 
 interface MobileMoneyPayProps {
   chamaName: string;
@@ -58,6 +60,7 @@ const MobileMoneyPay = ({
   const [txHash, setTxHash] = useState("");
 
   const { token, user } = useAuth();
+  const router = useRouter();
   const { platformRate: sellingRate, currency: preferredCurrency } = useCurrencyStore();
   const [isKESMode, setIsKESMode] = useState(preferredCurrency === "KES");
   const loadingRate = false;
@@ -251,6 +254,26 @@ const MobileMoneyPay = ({
       );
 
       if (!result.success) {
+        if (result.code === "KYC_REQUIRED") {
+          setLoading(false);
+          setCurrentStep("input");
+          Alert.alert(
+            "Verify identity",
+            result.error ||
+              "You have reached your monthly deposit limit. Verify your identity to increase it.",
+            [
+              { text: "Not now", style: "cancel" },
+              {
+                text: "Verify",
+                onPress: () => {
+                  onClose?.();
+                  router.push("/verify-identity");
+                },
+              },
+            ]
+          );
+          return;
+        }
         throw new Error(result.error || "Failed to initiate payment.");
       }
 
