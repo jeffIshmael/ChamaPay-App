@@ -19,6 +19,7 @@ import {
   HelpCircle,
   Info,
   LogOut,
+  ShieldCheck,
   Twitter
 } from "lucide-react-native";
 import React, { useState } from "react";
@@ -313,6 +314,30 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
                 >
                   <ChevronRight size={20} color="#10b981" />
                 </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          {/* Identity verification / deposit limit */}
+          <TouchableOpacity onPress={() => router.push("/verify-identity")}>
+            <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center gap-4 flex-1 pr-2">
+                  <View className="w-12 h-12 bg-blue-100 rounded-xl items-center justify-center">
+                    <ShieldCheck size={20} color="#2563eb" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-lg font-bold text-gray-900">
+                      Verify identity
+                    </Text>
+                    <Text className="text-gray-600 text-sm">
+                      Raise your monthly M-Pesa deposit limit
+                    </Text>
+                  </View>
+                </View>
+                <View className="w-10 h-10 bg-blue-50 rounded-xl items-center justify-center">
+                  <ChevronRight size={20} color="#2563eb" />
+                </View>
               </View>
             </View>
           </TouchableOpacity>

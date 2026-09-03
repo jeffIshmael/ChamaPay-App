@@ -2,6 +2,7 @@
 import React from "react";
 import { Modal, View, Text, TouchableOpacity, FlatList } from "react-native";
 import { Check } from "lucide-react-native";
+import { PHONE_DIAL_COUNTRIES } from "@/Utils/phoneCountries";
 import { PRETIUM_COUNTRIES, type Country } from "@/Utils/pretiumUtils";
 
 interface CountrySelectorProps {
@@ -9,6 +10,8 @@ interface CountrySelectorProps {
   selectedCountry: Country;
   onSelect: (country: Country) => void;
   onClose: () => void;
+  /** Show dial code (+254) instead of currency — for phone login */
+  variant?: "default" | "phone";
 }
 
 export default function CountrySelector({
@@ -16,20 +19,28 @@ export default function CountrySelector({
   selectedCountry,
   onSelect,
   onClose,
+  variant = "default",
 }: CountrySelectorProps) {
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-black/50 justify-end">
-        <View className="bg-white rounded-t-3xl" style={{ maxHeight: "80%" }}>
-          {/* Header */}
-          <View className="p-6 border-b border-gray-200 flex-row items-center justify-between">
-            <Text className="text-xl font-bold text-gray-900">
-              Select Country
+      <View
+        className="flex-1 justify-center px-5"
+        style={{ backgroundColor: "rgba(55, 65, 81, 0.85)" }}
+      >
+        <TouchableOpacity
+          className="absolute inset-0"
+          activeOpacity={1}
+          onPress={onClose}
+        />
+        <View className="bg-white rounded-3xl overflow-hidden" style={{ maxHeight: "70%" }}>
+          <View className="p-5 border-b border-gray-100 flex-row items-center justify-between">
+            <Text className="text-lg font-bold text-gray-900">
+              {variant === "phone" ? "Country code" : "Select Country"}
             </Text>
             <TouchableOpacity
               onPress={onClose}
@@ -40,23 +51,33 @@ export default function CountrySelector({
             </TouchableOpacity>
           </View>
 
-          {/* Country List */}
           <FlatList
-            data={PRETIUM_COUNTRIES}
-            keyExtractor={(item) => item.code}
+            data={
+              variant === "phone"
+                ? PHONE_DIAL_COUNTRIES
+                : PRETIUM_COUNTRIES.filter((c) => c.code !== "ROW")
+            }
+            keyExtractor={(item) => `${item.code}-${item.phoneCode}`}
             renderItem={({ item }) => (
               <TouchableOpacity
-                onPress={() => onSelect(item)}
-                className="flex-row items-center justify-between p-5 border-b border-gray-100"
+                onPress={() => {
+                  onSelect(item);
+                  onClose();
+                }}
+                className="flex-row items-center justify-between px-5 py-4 border-b border-gray-50"
                 activeOpacity={0.7}
               >
                 <View className="flex-row items-center flex-1">
-                  <Text className="text-3xl mr-3">{item.flag}</Text>
-                  <View>
+                  <Text className="text-2xl mr-3">{item.flag}</Text>
+                  <View className="flex-1">
                     <Text className="text-base font-semibold text-gray-900">
                       {item.name}
                     </Text>
-                    <Text className="text-sm text-gray-500">{item.currency}</Text>
+                    <Text className="text-sm text-gray-500 mt-0.5">
+                      {variant === "phone"
+                        ? `+${item.phoneCode}`
+                        : item.currency}
+                    </Text>
                   </View>
                 </View>
                 {selectedCountry.code === item.code && (

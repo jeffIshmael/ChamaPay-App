@@ -5,23 +5,34 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Calculator, Info, ChevronDown, FileText } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { DailyEarningsStatement, useLiveDailyEarnings } from '../../components/DailyEarningsStatement';
 import { TabButton } from '../../components/ui/TabButton';
 import { StatusBar } from 'expo-status-bar';
 import MoonwellDepositModal from '../../components/MoonwellDepositModal';
 import MoonwellWithdrawModal from '../../components/MoonwellWithdrawModal';
 import { useAuth } from '@/Contexts/AuthContext';
-import { getMoonwellRates, getMoonwellPositions, getMoonwellYieldsHistory } from '../../lib/moonwellService';
+import {
+  getMoonwellUsdcSnapshot,
+  getMoonwellYieldsHistory,
+  computeMoonwellPrincipalUsdc,
+  type MoonwellUsdcSnapshot,
+} from '../../lib/moonwellService';
 import { getTheUserTx } from '../../lib/walletServices';
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
-import axios from 'axios';
 import { useCurrencyStore } from '@/store/useCurrencyStore';
 import { useExchangeRateStore } from '@/store/useExchangeRateStore';
 import { formatCurrency } from '@/Utils/pretiumUtils';
+import { useFormattedBalance } from '@/hooks/useFormattedBalance';
+import MoonwellInfoButton from '@/components/MoonwellInfoButton';
 
 const monoFont = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
-// Remove static constants since we fetch them dynamically
+
+const formatMarketTvl = (usd: number | null): string => {
+  if (usd == null) return '—';
+  if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(1)}M`;
+  if (usd >= 1_000) return `$${(usd / 1_000).toFixed(1)}K`;
+  return `$${usd.toFixed(0)}`;
+};
 
 export default function MoonwellDetailsScreen() {
   const router = useRouter();
@@ -29,13 +40,14 @@ export default function MoonwellDetailsScreen() {
   const { user, token } = useAuth();
   
   const { currency, platformRate } = useCurrencyStore();
+  const { getKesValue } = useFormattedBalance();
   const isKES = currency === 'KES';
   
   const displayAmount = (usdcAmount: number) => {
     if (isKES) {
-      return formatCurrency(usdcAmount * platformRate, 2);
+      return formatCurrency(getKesValue(usdcAmount), 2);
     }
-    return usdcAmount.toFixed(3);
+    return (Math.ceil(usdcAmount * 1000) / 1000).toFixed(3);
   };
   
   // Tab state
@@ -49,58 +61,47 @@ export default function MoonwellDetailsScreen() {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
 
   // Real-time State
-  const [realApy, setRealApy] = useState<number | null>(null);
-  const [realBalance, setRealBalance] = useState<number | null>(null);
+  const [snapshot, setSnapshot] = useState<MoonwellUsdcSnapshot | null>(null);
   const [statements, setStatements] = useState<any[]>([]);
   const [yieldHistory, setYieldHistory] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchMoonwellData = () => {
+  const fetchMoonwellData = async () => {
     setIsLoading(true);
-    // Fetch Moonwell APY
-    getMoonwellRates().then((result) => {
-      if (result && result.success && result.data && result.data.length > 0) {
-        setRealApy(result.data[0].baseSupplyApy);
+
+    try {
+      let principal = 0;
+      let txs: any[] = [];
+      let yields: any[] = [];
+
+      if (token) {
+        const [txRes, yieldRes] = await Promise.all([
+          getTheUserTx(token, { limit: 100 }),
+          getMoonwellYieldsHistory(token),
+        ]);
+
+        txs =
+          txRes?.transactions.filter(
+            (tx: any) =>
+              tx.rawReceiver === 'Moonwell' ||
+              tx.rawSender === 'Moonwell' ||
+              tx.description?.includes('Moonwell')
+          ) ?? [];
+
+        principal = computeMoonwellPrincipalUsdc(txs);
+        yields = yieldRes?.yields ?? [];
       }
-    });
 
-    // Fetch user Balance
-    if (user?.smartAddress) {
-      getMoonwellPositions(user.smartAddress).then((data) => {
-        if (data && data.suppliedAmountDecimal) {
-          setRealBalance(parseFloat(data.suppliedAmountDecimal));
-        } else {
-          setRealBalance(0);
-        }
-      }).catch(() => setRealBalance(0));
-    } else {
-      setRealBalance(0);
-    }
+      const liveSnapshot = user?.smartAddress
+        ? await getMoonwellUsdcSnapshot(user.smartAddress, principal, "base", platformRate)
+        : null;
 
-    // Fetch Statements from Backend Payments
-    if (token) {
-      const txPromise = getTheUserTx(token).then((res) => {
-        if (res && res.transactions) {
-          return res.transactions.filter((tx: any) => tx.rawReceiver === 'Moonwell' || tx.rawSender === 'Moonwell' || tx.description?.includes('Moonwell'));
-        }
-        return [];
-      });
-
-      const yieldPromise = getMoonwellYieldsHistory(token).then((res) => {
-        if (res && res.yields) {
-          return res.yields;
-        }
-        return [];
-      });
-
-      Promise.all([txPromise, yieldPromise]).then(([txs, yields]) => {
-        setStatements(txs);
-        setYieldHistory(yields);
-        setIsLoading(false);
-      }).catch(() => {
-        setIsLoading(false);
-      });
-    } else {
+      setSnapshot(liveSnapshot);
+      setStatements(txs);
+      setYieldHistory(yields);
+    } catch {
+      setSnapshot(null);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -108,15 +109,14 @@ export default function MoonwellDetailsScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchMoonwellData();
-    }, [user?.smartAddress, token])
+    }, [user?.smartAddress, token, platformRate])
   );
 
-  const APY = realApy || 0; 
-  const MOCK_USER_BALANCE = realBalance || 0;
-
-  const baseYield = React.useMemo(() => yieldHistory.reduce((sum, h) => sum + parseFloat(h.earned), 0), [yieldHistory]);
-  const liveYield = useLiveDailyEarnings(MOCK_USER_BALANCE, APY);
-  const totalEarned = baseYield + liveYield;
+  const APY = snapshot?.supplyApy ?? 0;
+  const totalBalance = snapshot?.totalBalanceUsdc ?? 0;
+  const totalEarned = snapshot?.earnedUsdc ?? 0;
+  const principalBalance = snapshot?.principalUsdc ?? 0;
+  const snapshotLoading = isLoading && snapshot === null;
 
   const groupedHistory = React.useMemo(() => {
     const groups: { [dateStr: string]: any[] } = {};
@@ -207,17 +207,30 @@ export default function MoonwellDetailsScreen() {
                 resizeMode="contain" 
               />
               <Text className="text-blue-900 text-lg font-bold tracking-tight">Moonwell Pool</Text>
+              <View className="ml-1.5">
+                <MoonwellInfoButton
+                  size={18}
+                  color="#1e40af"
+                  currentApy={snapshot?.supplyApy}
+                />
+              </View>
             </View>
 
             {/* Top: APY and Total Supplied */}
             <View className="flex-row justify-between items-center mb-8">
               <View>
                 <Text className="text-blue-800/70 text-xs font-semibold mb-0.5 uppercase tracking-wider">Total Supplied</Text>
-                <Text style={{ fontFamily: monoFont }} className="text-blue-900 font-bold text-lg">$15.3M</Text>
+                {snapshotLoading ? (
+                  <View className="h-7 w-20 bg-blue-900/10 rounded-md mt-1" />
+                ) : (
+                  <Text style={{ fontFamily: monoFont }} className="text-blue-900 font-bold text-lg">
+                    {formatMarketTvl(snapshot?.marketTotalSupplyUsd ?? null)}
+                  </Text>
+                )}
               </View>
               <View className="items-end">
                 <Text className="text-blue-800/70 text-xs font-semibold mb-0.5 uppercase tracking-wider">Current APY</Text>
-                {realApy === null ? (
+                {snapshotLoading ? (
                   <View className="h-7 w-20 bg-emerald-700/20 rounded-md mt-1" />
                 ) : (
                   <Text style={{ fontFamily: monoFont }} className="text-emerald-700 font-bold text-lg">{APY.toFixed(2)}%</Text>
@@ -228,16 +241,16 @@ export default function MoonwellDetailsScreen() {
             {/* Middle: Invested Balance */}
             <View className="items-center mb-6">
               <Text className="text-blue-800/70 text-sm font-medium mb-2">Total Balance (Inc. Yield)</Text>
-              {realBalance === null ? (
+              {snapshotLoading ? (
                 <View className="h-12 w-48 bg-blue-100/50 rounded-lg mt-1 mb-2" />
               ) : (
                 <Text style={{ fontFamily: monoFont }} className="text-blue-900 text-5xl font-extrabold tracking-tight">
-                  {displayAmount(MOCK_USER_BALANCE || 0)}
+                  {displayAmount(totalBalance)}
                   <Text className="text-2xl text-blue-900/50 font-bold"> {isKES ? 'KES' : 'USDC'}</Text>
                 </Text>
               )}
               <View className=" px-3 py-1 rounded-full mt-3 ">
-                {realBalance === null ? (
+                {snapshotLoading ? (
                   <View className="h-4 w-32 bg-blue-100/50 rounded" />
                 ) : (
                   <Text className="text-emerald-600 font-bold text-xs">+{displayAmount(totalEarned)} Total Yield</Text>
@@ -256,9 +269,9 @@ export default function MoonwellDetailsScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleWithdraw}
-                disabled={MOCK_USER_BALANCE === 0}
+                disabled={totalBalance === 0}
                 activeOpacity={0.8}
-                className={`flex-1 py-3.5 rounded-2xl items-center border border-blue-200 shadow-sm ${MOCK_USER_BALANCE === 0 ? 'bg-gray-50 opacity-50' : 'bg-white'}`}
+                className={`flex-1 py-3.5 rounded-2xl items-center border border-blue-200 shadow-sm ${totalBalance === 0 ? 'bg-gray-50 opacity-50' : 'bg-white'}`}
               >
                 <Text className="text-blue-700 font-bold text-[15px]">Withdraw</Text>
               </TouchableOpacity>
@@ -366,7 +379,7 @@ export default function MoonwellDetailsScreen() {
                     Yield Simulator
                   </Text>
                 </View>
-                {realApy === null ? (
+                {snapshotLoading ? (
                   <View className="h-6 w-16 bg-emerald-50 rounded-full border border-emerald-100" />
                 ) : (
                   <View className="bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">
@@ -483,8 +496,10 @@ export default function MoonwellDetailsScreen() {
       <MoonwellWithdrawModal
         visible={showWithdrawModal}
         onClose={() => setShowWithdrawModal(false)}
-        availableBalance={MOCK_USER_BALANCE || 0}
-        onSuccess={(data) => {
+        availableBalance={totalBalance}
+        earnedUsdc={totalEarned}
+        principalUsdc={principalBalance}
+        onSuccess={() => {
           setShowWithdrawModal(false);
           // Wait briefly for blockchain state to settle
           setTimeout(() => fetchMoonwellData(), 2000);

@@ -41,6 +41,7 @@ interface AuthContextType {
     email: string;
     userName: string;
     profileImageUrl?: string;
+    phoneE164?: string;
   }) => Promise<{ success: boolean; user?: User; error?: string }>;
   loginWithRefreshToken: () => Promise<{ success: boolean; error?: string }>;
   setAuth: (
@@ -185,6 +186,7 @@ throw error;
     email: string;
     userName: string;
     profileImageUrl?: string;
+    phoneE164?: string;
   }): Promise<{ success: boolean; user?: User; error?: string }> => {
     try {
       const response = await fetch(`${serverUrl}/auth/register`, {

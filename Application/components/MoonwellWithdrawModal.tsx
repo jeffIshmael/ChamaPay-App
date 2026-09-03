@@ -4,7 +4,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Image,
   TextInput,
   ActivityIndicator,
 } from "react-native";
@@ -13,12 +12,20 @@ import { ArrowLeft } from "lucide-react-native";
 import { useAuth } from "@/Contexts/AuthContext";
 import { serverUrl } from "@/constants/serverUrl";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
+import { useFormattedBalance } from "@/hooks/useFormattedBalance";
+import {
+  computeMoonwellPrincipalUsdc,
+  getMoonwellUsdcSnapshot,
+} from "@/lib/moonwellService";
+import { getTheUserTx } from "@/lib/walletServices";
 
 interface MoonwellWithdrawModalProps {
   visible: boolean;
   onClose: () => void;
   onSuccess: (data: any) => void;
   availableBalance: number;
+  earnedUsdc?: number;
+  principalUsdc?: number;
 }
 
 const MoonwellWithdrawModal = ({
@@ -26,66 +33,128 @@ const MoonwellWithdrawModal = ({
   onClose,
   onSuccess,
   availableBalance,
+  earnedUsdc: earnedUsdcProp,
+  principalUsdc: principalUsdcProp,
 }: MoonwellWithdrawModalProps) => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
   const [successData, setSuccessData] = useState<any>(null);
-  const [totalYield, setTotalYield] = useState<number>(0);
-  const [isYieldLoading, setIsYieldLoading] = useState(false);
+  const [liveTotal, setLiveTotal] = useState(availableBalance);
+  const [liveEarned, setLiveEarned] = useState(earnedUsdcProp ?? 0);
+  const [livePrincipal, setLivePrincipal] = useState(principalUsdcProp ?? 0);
+  const [isLiveLoading, setIsLiveLoading] = useState(false);
+  const [activePreset, setActivePreset] = useState<
+    "principal" | "interest" | "all" | null
+  >(null);
   const [isMax, setIsMax] = useState(false);
   const { currency, platformRate } = useCurrencyStore();
+  const { getKesValue } = useFormattedBalance();
 
   useEffect(() => {
-    if (visible && token) {
-      const fetchYields = async () => {
-        setIsYieldLoading(true);
-        try {
-          const response = await fetch(`${serverUrl}/moonwell/yields`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          const data = await response.json();
-          if (data.success && data.yields) {
-            const sum = data.yields.reduce((acc: number, y: any) => acc + (parseFloat(y.earned) || 0), 0);
-            setTotalYield(sum);
-          }
-        } catch (error) {
-          console.error("Failed to fetch yields", error);
-        } finally {
-          setIsYieldLoading(false);
+    if (!visible) return;
+
+    setLiveTotal(availableBalance);
+    setLiveEarned(earnedUsdcProp ?? 0);
+    setLivePrincipal(principalUsdcProp ?? 0);
+
+    if (!user?.smartAddress) return;
+
+    const fetchLive = async () => {
+      setIsLiveLoading(true);
+      try {
+        let principal = principalUsdcProp ?? 0;
+        if (token && principal === 0) {
+          const txRes = await getTheUserTx(token, { limit: 100 });
+          const moonwellTxs =
+            txRes?.transactions.filter(
+              (tx) =>
+                tx.rawReceiver === "Moonwell" ||
+                tx.rawSender === "Moonwell" ||
+                tx.description?.includes("Moonwell")
+            ) ?? [];
+          principal = computeMoonwellPrincipalUsdc(moonwellTxs);
         }
-      };
-      fetchYields();
+
+        const snapshot = await getMoonwellUsdcSnapshot(
+          user.smartAddress,
+          principal,
+          "base",
+          platformRate
+        );
+        setLiveTotal(snapshot.totalBalanceUsdc);
+        setLiveEarned(snapshot.earnedUsdc);
+        setLivePrincipal(snapshot.principalUsdc);
+      } catch (err) {
+        console.error("Failed to fetch live Moonwell yield", err);
+      } finally {
+        setIsLiveLoading(false);
+      }
+    };
+
+    fetchLive();
+  }, [
+    visible,
+    user?.smartAddress,
+    token,
+    platformRate,
+    availableBalance,
+    earnedUsdcProp,
+    principalUsdcProp,
+  ]);
+
+  const formatUsdcForInput = (usdc: number) => {
+    if (currency === "KES") {
+      return getKesValue(usdc).toFixed(2);
     }
-  }, [visible, token]);
+    return (Math.ceil(usdc * 1000) / 1000).toFixed(3);
+  };
 
   const inputAmount = Number(amount) || 0;
-  let actualUSDCAmount = isMax ? availableBalance : (currency === "KES" ? inputAmount / platformRate : inputAmount);
-  
-  // Add a small epsilon tolerance for KES rounding issues
+  let actualUSDCAmount = isMax
+    ? liveTotal
+    : currency === "KES"
+      ? inputAmount / platformRate
+      : inputAmount;
+
   const epsilon = currency === "KES" ? 0.05 / platformRate : 0.0001;
   let isAmountTooHigh = false;
   let finalIsMax = isMax;
 
   if (!isMax) {
-    if (actualUSDCAmount > availableBalance + epsilon) {
+    if (actualUSDCAmount > liveTotal + epsilon) {
       isAmountTooHigh = true;
-    } else if (actualUSDCAmount >= availableBalance - epsilon) {
-      // If it's extremely close to the max balance, treat it as a MAX withdrawal
-      // to avoid backend InsufficientFunds errors due to floating math
-      actualUSDCAmount = availableBalance;
+    } else if (actualUSDCAmount >= liveTotal - epsilon) {
+      actualUSDCAmount = liveTotal;
       finalIsMax = true;
     }
   }
-  
-  const displayBalance = currency === "KES"
-    ? `KSh ${(availableBalance * platformRate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
-    : `${availableBalance.toFixed(3)} USDC`;
-    
-  const displayError = error || (isAmountTooHigh ? `Insufficient balance. You have ${displayBalance} available` : "");
-  const isButtonDisabled = loading || !amount || isAmountTooHigh || inputAmount <= 0;
+
+  const displayBalance =
+    currency === "KES"
+      ? `KSh ${getKesValue(liveTotal).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`
+      : `${(Math.ceil(liveTotal * 1000) / 1000).toFixed(3)} USDC`;
+
+  const displayEarned =
+    currency === "KES"
+      ? `KSh ${getKesValue(liveEarned).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`
+      : `${liveEarned.toFixed(6)} USDC`;
+
+  const displayError =
+    error ||
+    (isAmountTooHigh
+      ? `Insufficient balance. You have ${displayBalance} available`
+      : "");
+  const isButtonDisabled =
+    loading || !amount || isAmountTooHigh || inputAmount <= 0;
 
   const handleWithdraw = async () => {
     setLoading(true);
@@ -95,13 +164,12 @@ const MoonwellWithdrawModal = ({
       if (isAmountTooHigh) {
         return;
       }
-      
+
       if (!token) {
         setError("Authentication required");
         return;
       }
 
-      // Real backend Moonwell withdraw call
       const response = await fetch(`${serverUrl}/moonwell/withdraw`, {
         method: "POST",
         headers: {
@@ -116,7 +184,7 @@ const MoonwellWithdrawModal = ({
       if (data.success) {
         setSuccessData({
           txHash: data.txHash,
-          message: `Successfully withdrew ${currency === "KES" ? 'KSh ' : ''}${inputAmount.toLocaleString()} ${currency === "KES" ? '' : 'USDC'} from Moonwell.`,
+          message: `Successfully withdrew ${currency === "KES" ? "KSh " : ""}${inputAmount.toLocaleString()} ${currency === "KES" ? "" : "USDC"} from Moonwell.`,
           amount: amount.toString(),
         });
         setIsSuccess(true);
@@ -135,16 +203,26 @@ const MoonwellWithdrawModal = ({
     setIsSuccess(false);
     setAmount("");
     setIsMax(false);
+    setActivePreset(null);
     onSuccess(successData);
   };
 
   const resetState = () => {
     setAmount("");
     setIsMax(false);
+    setActivePreset(null);
     setError("");
     setIsSuccess(false);
     setSuccessData(null);
   };
+
+  const presetTabClass = (preset: "principal" | "interest" | "all") =>
+    activePreset === preset
+      ? "bg-blue-600/15 border-blue-400"
+      : "bg-gray-100 border-gray-200";
+
+  const presetTextClass = (preset: "principal" | "interest" | "all") =>
+    activePreset === preset ? "text-blue-700" : "text-gray-700";
 
   return (
     <Modal
@@ -164,7 +242,9 @@ const MoonwellWithdrawModal = ({
               <View className="w-20 h-20 bg-green-100 rounded-full items-center justify-center mb-6">
                 <Text className="text-green-500 text-4xl">✓</Text>
               </View>
-              <Text className="text-2xl font-bold text-gray-900 mb-2">Withdrawal Successful</Text>
+              <Text className="text-2xl font-bold text-gray-900 mb-2">
+                Withdrawal Successful
+              </Text>
               <Text className="text-gray-500 text-center mb-8 px-4">
                 {successData?.message}
               </Text>
@@ -172,7 +252,9 @@ const MoonwellWithdrawModal = ({
                 onPress={handleFinalSuccess}
                 className="w-full bg-[#10b981] py-4 rounded-xl"
               >
-                <Text className="text-white text-center font-bold text-lg">Continue</Text>
+                <Text className="text-white text-center font-bold text-lg">
+                  Continue
+                </Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -188,95 +270,129 @@ const MoonwellWithdrawModal = ({
                   <ArrowLeft size={24} color="#374151" />
                 </TouchableOpacity>
                 <View className="flex-1 items-center">
-                  <Text className="text-xl font-semibold">Withdraw from Moonwell</Text>
+                  <Text className="text-xl font-semibold">
+                    Withdraw from Moonwell
+                  </Text>
                 </View>
               </View>
 
               <View className="flex-row items-center justify-between mb-2 mt-2">
-            <Text className="text-gray-500 font-medium">Total Balance (Inc. Yield)</Text>
-            <Text className="text-gray-900 font-bold">{displayBalance}</Text>
-          </View>
+                <Text className="text-gray-500 font-medium">
+                  Total Balance (Inc. Yield)
+                </Text>
+                {isLiveLoading ? (
+                  <ActivityIndicator size="small" color="#374151" />
+                ) : (
+                  <Text className="text-gray-900 font-bold">
+                    {displayBalance}
+                  </Text>
+                )}
+              </View>
 
-          <View className="flex-row items-center justify-between mb-4 bg-green-50 p-3 rounded-lg border border-green-200">
-            <Text className="text-green-700 font-medium flex-row items-center">
-              Total Yield Earned
-            </Text>
-            {isYieldLoading ? (
-              <ActivityIndicator size="small" color="#15803d" />
-            ) : (
-              <Text className="text-green-700 font-bold">
-                {currency === "KES" 
-                  ? `KSh ${(totalYield * platformRate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` 
-                  : `${totalYield.toFixed(6)} USDC`}
-              </Text>
-            )}
-          </View>
+              <View className="flex-row items-center justify-between mb-4 p-3 rounded-lg border border-green-200">
+                <Text className="text-green-700 font-medium">
+                  Total Yield Earned
+                </Text>
+                {isLiveLoading ? (
+                  <ActivityIndicator size="small" color="#15803d" />
+                ) : (
+                  <Text className="text-green-700 font-bold">
+                    {displayEarned}
+                  </Text>
+                )}
+              </View>
 
-          <View className="mb-6">
-            <Text className="text-gray-500 font-medium mb-2">Amount to Withdraw</Text>
-            
-            <View className={`flex-row items-center border ${isAmountTooHigh ? 'border-red-300 bg-red-50' : 'border-gray-200'} rounded-xl px-4 bg-gray-50 mb-3`}>
-              <Text className="text-gray-500 font-bold mr-2 text-lg">{currency === "KES" ? 'KSh' : '$'}</Text>
-              <TextInput
-                value={amount}
-                onChangeText={(val: string) => {
-                  setAmount(val);
-                  setIsMax(false);
-                }}
-                keyboardType="numeric"
-                className="flex-1 py-4 text-gray-900 text-lg font-bold"
-                placeholder={`0.00`}
-                placeholderTextColor="#9ca3af"
-              />
-            </View>
+              <View className="mb-6">
+                <Text className="text-gray-500 font-medium mb-2">
+                  Amount to Withdraw
+                </Text>
 
-            <View className="flex-row justify-between mb-2">
+                <View
+                  className={`flex-row items-center border ${isAmountTooHigh ? "border-red-300 bg-red-50" : "border-gray-200"} rounded-xl px-4 bg-gray-50 mb-3`}
+                >
+                  <Text className="text-gray-500 font-bold mr-2 text-lg">
+                    {currency === "KES" ? "KSh" : "$"}
+                  </Text>
+                  <TextInput
+                    value={amount}
+                    onChangeText={(val: string) => {
+                      setAmount(val);
+                      setIsMax(false);
+                      setActivePreset(null);
+                    }}
+                    keyboardType="numeric"
+                    className="flex-1 py-4 text-gray-900 text-lg font-bold"
+                    placeholder="0.00"
+                    placeholderTextColor="#9ca3af"
+                  />
+                </View>
+
+                <View className="flex-row justify-between mb-2">
+                  <TouchableOpacity
+                    onPress={() => {
+                      setAmount(formatUsdcForInput(livePrincipal));
+                      setIsMax(false);
+                      setActivePreset("principal");
+                    }}
+                    className={`flex-1 rounded-lg py-2 mr-2 items-center border ${presetTabClass("principal")}`}
+                  >
+                    <Text
+                      className={`text-xs font-semibold ${presetTextClass("principal")}`}
+                    >
+                      Principal
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      setAmount(formatUsdcForInput(liveEarned));
+                      setIsMax(false);
+                      setActivePreset("interest");
+                    }}
+                    disabled={liveEarned <= 0}
+                    className={`flex-1 rounded-lg py-2 mr-2 items-center border ${liveEarned <= 0 ? "bg-gray-50 opacity-50 border-gray-200" : presetTabClass("interest")}`}
+                  >
+                    <Text
+                      className={`text-xs font-semibold ${liveEarned <= 0 ? "text-gray-400" : presetTextClass("interest")}`}
+                    >
+                      Interest
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      setAmount(formatUsdcForInput(liveTotal));
+                      setIsMax(true);
+                      setActivePreset("all");
+                    }}
+                    className={`flex-1 rounded-lg py-2 items-center border ${presetTabClass("all")}`}
+                  >
+                    <Text
+                      className={`text-xs font-semibold ${presetTextClass("all")}`}
+                    >
+                      All
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {displayError ? (
+                  <Text className="text-red-500 text-xs mt-1 ml-1">
+                    {displayError}
+                  </Text>
+                ) : null}
+              </View>
+
               <TouchableOpacity
-                onPress={() => {
-                  const principle = Math.max(0, availableBalance - totalYield);
-                  setAmount(currency === "KES" ? (principle * platformRate).toFixed(2) : principle.toFixed(3));
-                  setIsMax(false);
-                }}
-                className="flex-1 bg-gray-100 rounded-lg py-2 mr-2 items-center border border-gray-200"
+                onPress={handleWithdraw}
+                disabled={isButtonDisabled}
+                className={`w-full py-4 rounded-xl flex-row justify-center items-center ${isButtonDisabled ? "bg-blue-300" : "bg-blue-600"}`}
               >
-                <Text className="text-xs font-semibold text-gray-700">Principle</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => {
-                  setAmount(currency === "KES" ? (totalYield * platformRate).toFixed(2) : totalYield.toFixed(3));
-                  setIsMax(false);
-                }}
-                className="flex-1 bg-gray-100 rounded-lg py-2 mr-2 items-center border border-gray-200"
-              >
-                <Text className="text-xs font-semibold text-gray-700">Interest</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => {
-                  setAmount(currency === "KES" ? (availableBalance * platformRate).toFixed(2) : availableBalance.toFixed(3));
-                  setIsMax(true);
-                }}
-                className={`flex-1 rounded-lg py-2 items-center border ${isMax ? 'bg-blue-600 border-blue-600' : 'bg-gray-100 border-gray-200'}`}
-              >
-                <Text className={`text-xs font-semibold ${isMax ? 'text-white' : 'text-gray-700'}`}>All</Text>
-              </TouchableOpacity>
-            </View>
-
-            {displayError ? (
-              <Text className="text-red-500 text-xs mt-1 ml-1">{displayError}</Text>
-            ) : null}
-          </View>
-
-          <TouchableOpacity
-            onPress={handleWithdraw}
-            disabled={isButtonDisabled}
-            className={`w-full py-4 rounded-xl flex-row justify-center items-center ${isButtonDisabled ? 'bg-blue-300' : 'bg-blue-600'}`}
-          >
                 {loading ? (
                   <ActivityIndicator color="white" />
                 ) : (
-                  <Text className="text-white text-lg font-bold">Confirm Withdraw</Text>
+                  <Text className="text-white text-lg font-bold">
+                    Confirm Withdraw
+                  </Text>
                 )}
               </TouchableOpacity>
             </>

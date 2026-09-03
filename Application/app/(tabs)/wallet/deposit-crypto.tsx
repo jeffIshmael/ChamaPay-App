@@ -1,11 +1,12 @@
 import { useAuth } from "@/Contexts/AuthContext";
 import { pollPretiumPaymentStatus, pretiumOnramp } from "@/lib/pretiumService";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Check, Smartphone } from "lucide-react-native";
-import React, { useState } from "react";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
+import { ArrowLeft, Check, Smartphone, ShieldCheck } from "lucide-react-native";
+import React, { useState, useCallback } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -25,6 +26,7 @@ import {
   isValidPhoneNumber
 } from "@/Utils/pretiumUtils";
 import SupportedWalletLogos from "@/components/SupportedWalletLogos";
+import { getKycStatus, type KycStatusResponse } from "@/lib/kycService";
 
 export default function DepositCryptoScreen() {
   const router = useRouter();
@@ -43,6 +45,7 @@ export default function DepositCryptoScreen() {
     | "completed"
     | "failed"
   >("idle");
+  const [kycStatus, setKycStatus] = useState<KycStatusResponse | null>(null);
 
   const { user, token } = useAuth();
   const { USDCBalance } = useLocalSearchParams();
@@ -54,6 +57,15 @@ export default function DepositCryptoScreen() {
   const MAXIMUM_DEPOSIT_KES = 250000;
   const KENYA_PHONE_CODE = "254";
   const CURRENCY = "KES";
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!token) return;
+      getKycStatus(token).then((res) => {
+        if (res?.success) setKycStatus(res);
+      });
+    }, [token])
+  );
 
   // Calculate amounts
   const calculateAmounts = () => {
@@ -158,6 +170,23 @@ export default function DepositCryptoScreen() {
       );
 
       if (!result.success) {
+        if (result.code === "KYC_REQUIRED") {
+          setIsProcessing(false);
+          setProcessingStep("idle");
+          Alert.alert(
+            "Verify identity",
+            result.error ||
+              "You have reached your monthly deposit limit. Verify your identity to increase it.",
+            [
+              { text: "Not now", style: "cancel" },
+              {
+                text: "Verify",
+                onPress: () => router.push("/verify-identity"),
+              },
+            ]
+          );
+          return;
+        }
         throw new Error(result.error || "Failed to initiate M-Pesa payment");
       }
 
@@ -282,6 +311,37 @@ export default function DepositCryptoScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View className="px-6 py-8 gap-5">
+
+            {kycStatus?.success ? (
+              <TouchableOpacity
+                onPress={() => {
+                  if ((kycStatus.kycTier ?? 1) < 2) {
+                    router.push("/verify-identity");
+                  }
+                }}
+                activeOpacity={(kycStatus.kycTier ?? 1) < 2 ? 0.85 : 1}
+                className="bg-white rounded-2xl border border-blue-100 p-4 flex-row items-center"
+              >
+                <View className="w-10 h-10 rounded-xl bg-blue-50 items-center justify-center mr-3">
+                  <ShieldCheck size={20} color="#2563eb" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-gray-900 font-bold text-sm">
+                    {(kycStatus.kycTier ?? 1) >= 2
+                      ? "Identity verified"
+                      : "Monthly deposit limit"}
+                  </Text>
+                  <Text className="text-gray-500 text-xs mt-0.5">
+                    KES {Math.floor(kycStatus.remainingKes).toLocaleString()} remaining
+                    {" · "}
+                    limit KES {kycStatus.limitKes.toLocaleString()}
+                    {(kycStatus.kycTier ?? 1) < 2
+                      ? " · Tap to verify & raise"
+                      : ""}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ) : null}
 
             {/* M-Pesa Info Card */}
             <View className="bg-downy-50 rounded-3xl p-5 shadow-lg border border-downy-100">

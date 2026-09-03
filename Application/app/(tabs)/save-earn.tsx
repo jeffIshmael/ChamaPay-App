@@ -9,9 +9,11 @@ import { useFocusEffect } from 'expo-router';
 import { formatCurrency } from '@/Utils/pretiumUtils';
 import { ArrowUpRight, ShieldCheck, HandCoins, Activity, Clock, LogIn, LogOut } from 'lucide-react-native';
 import { StatusBar } from "expo-status-bar";
-import { getMoonwellRates, getMoonwellPositions } from '@/lib/moonwellService';
+import { getMoonwellUsdcSnapshot, type MoonwellUsdcSnapshot, computeMoonwellPrincipalUsdc } from '@/lib/moonwellService';
+import { getTheUserTx } from '@/lib/walletServices';
 import { useAuth } from '@/Contexts/AuthContext';
-import { useLiveDailyEarnings } from '@/components/DailyEarningsStatement';
+import { useFormattedBalance } from '@/hooks/useFormattedBalance';
+import MoonwellInfoButton from '@/components/MoonwellInfoButton';
 
 const monoFont = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
 
@@ -32,59 +34,65 @@ export default function SaveAndEarnScreen() {
   const insets = useSafeAreaInsets();
 
   const { currency, platformRate } = useCurrencyStore();
+  const { getKesValue } = useFormattedBalance();
   const { fetchRate } = useExchangeRateStore();
-  const [moonwellApy, setMoonwellApy] = useState<number | null>(null);
-  const [moonwellBalance, setMoonwellBalance] = useState<number | null>(null);
-  const [yieldHistory, setYieldHistory] = useState<any[]>([]);
+  const [moonwellSnapshot, setMoonwellSnapshot] = useState<MoonwellUsdcSnapshot | null>(null);
+  const [moonwellLoading, setMoonwellLoading] = useState(true);
   const { user, token } = useAuth();
   
   useFocusEffect(
     useCallback(() => {
       fetchRate('KES');
-      getMoonwellRates().then((result) => {
-        if (result && result.success && result.data && result.data.length > 0) {
-          setMoonwellApy(result.data[0].baseSupplyApy);
-        }
-      });
-      
-      if (user?.smartAddress) {
-        getMoonwellPositions(user.smartAddress).then((data) => {
-          if (data && data.suppliedAmountDecimal) {
-            setMoonwellBalance(parseFloat(data.suppliedAmountDecimal));
-          } else {
-            setMoonwellBalance(0);
-          }
-        }).catch(() => setMoonwellBalance(0));
-      } else {
-        setMoonwellBalance(0);
-      }
 
-      if (token) {
-        import('@/lib/moonwellService').then(({ getMoonwellYieldsHistory }) => {
-          getMoonwellYieldsHistory(token).then((res) => {
-            if (res && res.yields) {
-              setYieldHistory(res.yields);
-            }
-          });
-        });
-      }
-    }, [user?.smartAddress, token])
+      const loadMoonwell = async () => {
+        if (!user?.smartAddress) {
+          setMoonwellSnapshot(null);
+          setMoonwellLoading(false);
+          return;
+        }
+
+        setMoonwellLoading(true);
+        try {
+          let principal = 0;
+          if (token) {
+            const txRes = await getTheUserTx(token, { limit: 100 });
+            const moonwellTxs =
+              txRes?.transactions.filter(
+                (tx) =>
+                  tx.rawReceiver === 'Moonwell' ||
+                  tx.rawSender === 'Moonwell' ||
+                  tx.description?.includes('Moonwell')
+              ) ?? [];
+            principal = computeMoonwellPrincipalUsdc(moonwellTxs);
+          }
+
+          const snapshot = await getMoonwellUsdcSnapshot(
+            user.smartAddress,
+            principal,
+            "base",
+            platformRate
+          );
+          setMoonwellSnapshot(snapshot);
+        } catch {
+          setMoonwellSnapshot(null);
+        } finally {
+          setMoonwellLoading(false);
+        }
+      };
+
+      loadMoonwell();
+    }, [user?.smartAddress, token, platformRate])
   );
   
   const isKES = currency === 'KES';
   
-  const apyNum = moonwellApy || 0;
-  const balanceNum = moonwellBalance || 0;
-  
-  const baseYield = yieldHistory.reduce((sum, h) => sum + parseFloat(h.earned), 0);
-  const liveYield = useLiveDailyEarnings(balanceNum, apyNum);
-  const totalEarned = baseYield + liveYield;
+  const apyNum = moonwellSnapshot?.supplyApy ?? 0;
   
   // Helper to format based on preferred currency
   const displayAmount = (usdcAmount: number, isPositive = false) => {
     const prefix = isPositive && usdcAmount > 0 ? '+' : '';
     if (isKES) {
-      return `${prefix}KES ${formatCurrency(usdcAmount * platformRate, 2)}`;
+      return `${prefix}KES ${formatCurrency(getKesValue(usdcAmount), 2)}`;
     }
     return `${prefix}${usdcAmount.toFixed(3)} USDC`;
   };
@@ -133,16 +141,29 @@ export default function SaveAndEarnScreen() {
                     resizeMode="cover" 
                   />
                   <View className="flex-1 pr-2">
-                    <Text className="text-xl font-bold text-gray-900">{pool.name}</Text>
+                    <View className="flex-row items-center">
+                      <Text className="text-xl font-bold text-gray-900">{pool.name}</Text>
+                      {pool.id === 'moonwell' ? (
+                        <View className="ml-1.5">
+                          <MoonwellInfoButton
+                            size={17}
+                            color="#6b7280"
+                            currentApy={moonwellSnapshot?.supplyApy}
+                          />
+                        </View>
+                      ) : null}
+                    </View>
                     <Text className="text-sm text-gray-500 font-medium mt-0.5">{pool.subtitle}</Text>
                   </View>
                 </View>
                 <View className="items-end bg-downy-50 px-3 py-2 rounded-xl">
-                  {pool.id === 'moonwell' && moonwellApy === null ? (
+                  {pool.id === 'moonwell' && moonwellLoading ? (
                     <View className="h-6 w-14 bg-downy-200/50 rounded-md mb-1 mt-0.5" />
                   ) : (
                     <Text style={{ fontFamily: monoFont }} className="text-lg font-bold text-downy-700">
-                      {pool.id === 'moonwell' && moonwellApy ? `${moonwellApy.toFixed(2)}%` : pool.apy}
+                      {pool.id === 'moonwell' && moonwellSnapshot?.supplyApy != null
+                        ? `${moonwellSnapshot.supplyApy.toFixed(2)}%`
+                        : pool.apy}
                     </Text>
                   )}
                   <Text className="text-[10px] font-bold text-downy-600 tracking-wide">APY</Text>
@@ -169,19 +190,32 @@ export default function SaveAndEarnScreen() {
               <View className="bg-[#f8fafc] rounded-2xl p-4 border border-gray-100 flex-row justify-between items-center">
                 <View>
                   <Text className="text-xs text-gray-500 mb-1 font-medium">Invested</Text>
-                  {pool.id === 'moonwell' && moonwellBalance === null ? (
+                  {pool.id === 'moonwell' && moonwellLoading ? (
                     <View className="h-5 w-20 bg-gray-200 rounded-md" />
                   ) : (
-                    <Text style={{ fontFamily: monoFont }} className="text-[15px] font-bold text-gray-900">{displayAmount(pool.id === 'moonwell' ? (moonwellBalance || 0) : 0)}</Text>
+                    <Text style={{ fontFamily: monoFont }} className="text-[15px] font-bold text-gray-900">
+                      {displayAmount(
+                        pool.id === 'moonwell'
+                          ? (moonwellSnapshot?.principalUsdc ?? 0)
+                          : 0
+                      )}
+                    </Text>
                   )}
                 </View>
                 <View className="w-[1px] h-full bg-gray-200" />
                 <View className="items-end">
                   <Text className="text-xs text-gray-500 mb-1 font-medium">Earned</Text>
-                  {pool.id === 'moonwell' && moonwellBalance === null ? (
+                  {pool.id === 'moonwell' && moonwellLoading ? (
                     <View className="h-5 w-16 bg-gray-200 rounded-md" />
                   ) : (
-                    <Text style={{ fontFamily: monoFont }} className="text-[15px] font-bold text-emerald-600">{displayAmount(pool.id === 'moonwell' ? totalEarned : 0, true)}</Text>
+                    <Text style={{ fontFamily: monoFont }} className="text-[15px] font-bold text-emerald-600">
+                      {displayAmount(
+                        pool.id === 'moonwell'
+                          ? (moonwellSnapshot?.earnedUsdc ?? 0)
+                          : 0,
+                        true
+                      )}
+                    </Text>
                   )}
                 </View>
               </View>

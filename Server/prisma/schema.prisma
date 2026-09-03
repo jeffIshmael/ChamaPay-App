@@ -12,6 +12,8 @@ model User {
   id                  Int                  @id @default(autoincrement())
   email               String               @unique
   userName            String               @unique
+  /** E.164 digits only, e.g. 254712345678 — used for phone login */
+  phoneE164           String?              @unique
   phoneNo             Int?
   address             String?
   fid                 Int?
@@ -24,6 +26,11 @@ model User {
   emailNotify         Boolean              @default(true)
   expoPushToken       String?
   pushNotify          Boolean              @default(false)
+  /** 1 = default (20k KES/mo), 2 = Smile-verified (100k KES/mo) */
+  kycTier             Int                  @default(1)
+  /** none | pending | approved | rejected */
+  kycStatus           String               @default("none")
+  kycVerifiedAt       DateTime?
   createdChamas       Chama[]              @relation("AdminChamas")
   chamas              ChamaMember[]
   joinRequests        ChamaRequest[]
@@ -33,6 +40,24 @@ model User {
   payments            Payment[]
   pretiumTransactions PretiumTransaction[]
   moonwellYields      MoonwellYield[]
+  kycJobs             KycJob[]
+}
+
+model KycJob {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  provider     String   @default("smile")
+  jobId        String   @unique
+  documentType String
+  /** pending | processing | approved | rejected | error */
+  status       String   @default("pending")
+  rawResultRef String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
 }
 
 model MoonwellYield {

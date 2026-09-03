@@ -81,6 +81,26 @@ export default function CryptoWallet() {
   const { currency, platformRate } = useCurrencyStore();
   const { formatBalance, formatBalanceParts } = useFormattedBalance();
 
+  const getKESBalanceParts = (balance: string | number | undefined | null) => {
+    if (balance === undefined || balance === null) {
+      return { whole: "0", decimal: "00", symbol: "KES" };
+    }
+    const num = typeof balance === "string" ? parseFloat(balance) : balance;
+    if (isNaN(num)) return { whole: "0", decimal: "00", symbol: "KES" };
+    const kes = Math.ceil(num * platformRate * 100) / 100;
+    const parts = kes
+      .toLocaleString("en-KE", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+      .split(".");
+    return {
+      whole: parts[0],
+      decimal: parts[1] || "00",
+      symbol: "KES",
+    };
+  };
+
   const getUSDCBalanceParts = (balance: string | number | undefined | null) => {
     if (balance === undefined || balance === null) {
       return { whole: "0", decimal: "000", symbol: "USDC" };
@@ -688,16 +708,16 @@ setTransactionError("Failed to load transactions");
                         <View className="flex-row items-baseline">
                           <Text className="text-5xl text-white font-bold tracking-tight">
                             {balanceVisible && userBalance
-                              ? getUSDCBalanceParts(userBalance).whole
+                              ? getKESBalanceParts(userBalance).whole
                               : "---"}
                           </Text>
                           <Text className="text-5xl text-white font-medium">
                             .{balanceVisible && userBalance
-                              ? getUSDCBalanceParts(userBalance).decimal
-                              : "000"}
+                              ? getKESBalanceParts(userBalance).decimal
+                              : "--"}
                           </Text>
                           <Text className="text-lg text-white/90 ml-1 font-medium">
-                            USDC
+                            KES
                           </Text>
                         </View>
                       )}
@@ -722,7 +742,11 @@ setTransactionError("Failed to load transactions");
                       <View className="bg-white/20 h-4 w-24 rounded-lg mt-2 animate-pulse" />
                     ) : (
                       <Text className="text-white/60 text-sm mt-2 font-medium">
-                        ≈ {balanceVisible && userBalance ? (parseFloat(userBalance.toString()) * platformRate).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "----"} KES
+                        ≈{" "}
+                        {balanceVisible && userBalance
+                          ? `${getUSDCBalanceParts(userBalance).whole}.${getUSDCBalanceParts(userBalance).decimal}`
+                          : "----"}{" "}
+                        USDC
                       </Text>
                     )
                   )}

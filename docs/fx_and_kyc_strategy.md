@@ -30,6 +30,13 @@ To balance frictionless onboarding with regulatory compliance (AML), ChamaPay im
 *   **Requirements:** Phone number verification (OTP) + the M-Pesa registered name (First Name, Last Name) provided via the Daraja API upon their first deposit.
 *   **Rationale:** Keeps onboarding instant and frictionless. 20,000 KES is a great buffer that is sufficient for casual users testing the app or participating in smaller Chamas.
 
-### Tier 2: High Limits (Above 20,000 KES / month)
-*   **Requirements:** National ID upload (front & back) + Selfie verification (via providers like Smile Identity or Dojah).
+### Tier 2: High Limits (Up to 100,000 KES / month)
+*   **Requirements:** National ID, passport, or driver’s license scan + selfie / liveness (Smile ID).
+*   **Monthly ceiling:** **100,000 KES** on-ramp after approved Tier-2 KYC (conservative start; raise with volume).
 *   **Rationale:** Ensures full regulatory compliance for high-volume transactors. By the time a user hits this threshold, they have experienced the product's value and are willing to complete full KYC.
+
+### Tier caps (enforced in code)
+| Tier | Monthly on-ramp cap (KES) | Gate |
+|------|---------------------------|------|
+| 1 | 20,000 | Phone / account signals |
+| 2 | 100,000 | Smile ID document + face approved |
