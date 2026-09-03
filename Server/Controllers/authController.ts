@@ -262,6 +262,11 @@ export const sendWhatsAppCode = async (
 ): Promise<void> => {
   try {
     const { phone, dialCode }: { phone?: string; dialCode?: string } = req.body;
+    console.log("[auth/send-whatsapp-otp] request", {
+      phone,
+      dialCode: dialCode || "(default 254)",
+    });
+
     if (!phone) {
       res
         .status(400)
@@ -270,6 +275,11 @@ export const sendWhatsAppCode = async (
     }
 
     const phoneE164 = normalizePhoneE164(phone, dialCode || "254");
+    console.log("[auth/send-whatsapp-otp] normalized", {
+      phoneE164,
+      ok: Boolean(phoneE164),
+    });
+
     if (!phoneE164) {
       res.status(400).json({
         success: false,
@@ -283,6 +293,7 @@ export const sendWhatsAppCode = async (
       const waitSec = Math.ceil(
         (WHATSAPP_SEND_COOLDOWN_MS - (Date.now() - lastSent)) / 1000
       );
+      console.log("[auth/send-whatsapp-otp] cooldown", { phoneE164, waitSec });
       res.status(429).json({
         success: false,
         error: `Please wait ${waitSec}s before requesting another code`,
@@ -298,6 +309,10 @@ export const sendWhatsAppCode = async (
     const result = await sendWhatsAppOTP(phoneE164, otp);
     if (!result.success) {
       verificationCodes.delete(storeKey);
+      console.error("[auth/send-whatsapp-otp] send failed", {
+        phoneE164,
+        error: result.error,
+      });
       res.status(500).json({
         success: false,
         error: result.error || "Failed to send WhatsApp message",
@@ -306,6 +321,7 @@ export const sendWhatsAppCode = async (
     }
 
     whatsappSendCooldown.set(phoneE164, Date.now());
+    console.log("[auth/send-whatsapp-otp] success", { phoneE164 });
 
     const payload: Record<string, unknown> = {
       success: true,
@@ -318,7 +334,7 @@ export const sendWhatsAppCode = async (
 
     res.status(200).json(payload);
   } catch (error: unknown) {
-    console.error("Send WhatsApp code error:", error);
+    console.error("[auth/send-whatsapp-otp] unexpected error:", error);
     res
       .status(500)
       .json({ success: false, error: "Failed to send OTP via WhatsApp" });

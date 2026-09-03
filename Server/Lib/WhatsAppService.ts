@@ -5,6 +5,12 @@ export type WhatsAppSendResult = {
   error?: string;
 };
 
+function maskSecret(value: string | undefined): string {
+  if (!value) return "(missing)";
+  if (value.length <= 8) return `len=${value.length}`;
+  return `len=${value.length} prefix=${value.slice(0, 4)}… suffix=…${value.slice(-4)}`;
+}
+
 /**
  * Send OTP via WhatsApp.
  * Prefer an approved authentication template when WHATSAPP_OTP_TEMPLATE is set;
@@ -15,12 +21,25 @@ export async function sendWhatsAppOTP(
   otpCode: string
 ): Promise<WhatsAppSendResult> {
   try {
-    const accessToken = process.env.WHATSAPP_TOKEN;
-    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-    const templateName = process.env.WHATSAPP_OTP_TEMPLATE; // e.g. chamapay_otp
+    const accessToken = process.env.WHATSAPP_TOKEN?.trim();
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
+    const templateName = process.env.WHATSAPP_OTP_TEMPLATE?.trim(); // e.g. chamapay_otp
     const templateLang = process.env.WHATSAPP_OTP_TEMPLATE_LANG || "en";
 
+    console.log("[WhatsApp OTP] send start", {
+      toPhoneE164,
+      phoneNumberId: phoneNumberId || "(missing)",
+      token: maskSecret(accessToken),
+      mode: templateName ? `template:${templateName}` : "text",
+      templateLang: templateName ? templateLang : undefined,
+      graphVersion: "v20.0",
+    });
+
     if (!accessToken || !phoneNumberId) {
+      console.error("[WhatsApp OTP] missing credentials", {
+        hasToken: Boolean(accessToken),
+        hasPhoneNumberId: Boolean(phoneNumberId),
+      });
       return { success: false, error: "WhatsApp credentials not configured" };
     }
 
@@ -59,6 +78,12 @@ export async function sendWhatsAppOTP(
           },
         };
 
+    console.log("[WhatsApp OTP] Graph request", {
+      url,
+      to,
+      type: body.type,
+    });
+
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -68,10 +93,19 @@ export async function sendWhatsAppOTP(
       body: JSON.stringify(body),
     });
 
+    const resText = await res.text();
+    console.log("[WhatsApp OTP] Graph response", {
+      status: res.status,
+      ok: res.ok,
+      bodyPreview: resText.slice(0, 500),
+    });
+
     if (!res.ok) {
-      const errText = await res.text();
       // If template send fails (e.g. button component mismatch), retry as text once
       if (templateName) {
+        console.warn(
+          "[WhatsApp OTP] template send failed; retrying as plain text"
+        );
         const fallback = await fetch(url, {
           method: "POST",
           headers: {
@@ -88,18 +122,28 @@ export async function sendWhatsAppOTP(
             },
           }),
         });
-        if (fallback.ok) return { success: true };
         const fbErr = await fallback.text();
+        console.log("[WhatsApp OTP] text fallback response", {
+          status: fallback.status,
+          ok: fallback.ok,
+          bodyPreview: fbErr.slice(0, 500),
+        });
+        if (fallback.ok) return { success: true };
         return {
           success: false,
-          error: `WhatsApp API error: ${res.status} ${errText}; fallback: ${fbErr}`,
+          error: `WhatsApp API error: ${res.status} ${resText}; fallback: ${fbErr}`,
         };
       }
-      return { success: false, error: `WhatsApp API error: ${res.status} ${errText}` };
+      return {
+        success: false,
+        error: `WhatsApp API error: ${res.status} ${resText}`,
+      };
     }
 
+    console.log("[WhatsApp OTP] send success", { to });
     return { success: true };
   } catch (error: unknown) {
+    console.error("[WhatsApp OTP] unexpected error", error);
     return { success: false, error: (error as Error).message };
   }
 }
