@@ -18,6 +18,8 @@ export interface MoonwellUsdcSnapshot {
   earnedUsdc: number;
   supplyApy: number | null;
   marketTotalSupplyUsd: number | null;
+  /** Free USDC in the market; <= 0 means withdraws will fail until liquidity returns. */
+  liquidityUsd?: number | null;
 }
 
 const parseUsd = (value: unknown): number => {
@@ -31,13 +33,15 @@ const emptySnapshot = (principalUsdc = 0): MoonwellUsdcSnapshot => ({
   earnedUsdc: 0,
   supplyApy: null,
   marketTotalSupplyUsd: null,
+  liquidityUsd: null,
 });
 
 const splitPrincipalYield = (
   totalBalanceUsdc: number,
   principalUsdc: number,
   supplyApy: number | null,
-  marketTotalSupplyUsd: number | null
+  marketTotalSupplyUsd: number | null,
+  liquidityUsd: number | null = null
 ): MoonwellUsdcSnapshot => {
   const tracked = Math.max(0, principalUsdc);
   if (tracked > 0) {
@@ -47,6 +51,7 @@ const splitPrincipalYield = (
       earnedUsdc: Math.max(0, totalBalanceUsdc - tracked),
       supplyApy,
       marketTotalSupplyUsd,
+      liquidityUsd,
     };
   }
   return {
@@ -55,6 +60,7 @@ const splitPrincipalYield = (
     earnedUsdc: 0,
     supplyApy,
     marketTotalSupplyUsd,
+    liquidityUsd,
   };
 };
 
@@ -150,12 +156,15 @@ const fetchSnapshotFromMoonwellApi = async (
       typeof market?.totalSupplyUsd === "number"
         ? market.totalSupplyUsd
         : null;
+    const liquidityUsd =
+      typeof market?.liquidityUsd === "number" ? market.liquidityUsd : null;
 
     return splitPrincipalYield(
       totalBalanceUsdc,
       principalUsdc,
       supplyApy,
-      marketTotalSupplyUsd
+      marketTotalSupplyUsd,
+      liquidityUsd
     );
   } catch (error) {
     console.warn(
@@ -189,6 +198,10 @@ const fetchSnapshotFromServer = async (
       marketTotalSupplyUsd:
         typeof snapshot.marketTotalSupplyUsd === "number"
           ? snapshot.marketTotalSupplyUsd
+          : null,
+      liquidityUsd:
+        typeof snapshot.liquidityUsd === "number"
+          ? snapshot.liquidityUsd
           : null,
     };
   } catch (error: any) {

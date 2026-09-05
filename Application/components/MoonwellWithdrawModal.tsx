@@ -50,6 +50,9 @@ const MoonwellWithdrawModal = ({
   const [liveTotal, setLiveTotal] = useState(availableBalance);
   const [liveEarned, setLiveEarned] = useState(earnedUsdcProp ?? 0);
   const [livePrincipal, setLivePrincipal] = useState(principalUsdcProp ?? 0);
+  const [marketLiquidityUsd, setMarketLiquidityUsd] = useState<number | null>(
+    null
+  );
   const [isLiveLoading, setIsLiveLoading] = useState(false);
   const [activePreset, setActivePreset] = useState<
     "principal" | "interest" | "all" | null
@@ -95,6 +98,11 @@ const MoonwellWithdrawModal = ({
         setLiveTotal(snapshot.totalBalanceUsdc);
         setLiveEarned(snapshot.earnedUsdc);
         setLivePrincipal(snapshot.principalUsdc);
+        setMarketLiquidityUsd(
+          typeof snapshot.liquidityUsd === "number"
+            ? snapshot.liquidityUsd
+            : null
+        );
       } catch (err) {
         console.error("Failed to fetch live Moonwell yield", err);
       } finally {
@@ -369,6 +377,16 @@ const MoonwellWithdrawModal = ({
                   </Text>
                 )}
               </View>
+
+              {marketLiquidityUsd != null && marketLiquidityUsd <= 0 ? (
+                <View className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                  <Text className="text-amber-800 text-xs leading-5">
+                    Moonwell USDC has no free liquidity right now (borrowers are
+                    using the cash). Your deposit is safe — withdraws will work
+                    again when liquidity returns.
+                  </Text>
+                </View>
+              ) : null}
 
               <View className="mb-6">
                 <Text className="text-gray-500 font-medium mb-2">

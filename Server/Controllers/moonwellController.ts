@@ -145,9 +145,11 @@ export const withdrawFromMoonwell = async (req: Request, res: Response): Promise
     const message =
       lower.includes("over rate limit") || lower.includes("rate limit")
         ? "Network is busy (RPC rate limit). Please wait a few seconds and try again."
-        : raw.length > 180
-          ? "Failed to withdraw from Moonwell. Please try again."
-          : raw;
+        : lower.includes("liquidity") || lower.includes("insufficient_cash")
+          ? raw
+          : raw.length > 220
+            ? "Failed to withdraw from Moonwell. Please try again."
+            : raw;
     return res.status(500).json({
       success: false,
       error: message,
@@ -242,6 +244,7 @@ export const getMoonwellLiveSnapshotHandler = async (
         earnedUsdc,
         supplyApy: live.supplyApy,
         marketTotalSupplyUsd: live.marketTotalSupplyUsd,
+        liquidityUsd: live.liquidityUsd,
       },
     });
   } catch (error) {

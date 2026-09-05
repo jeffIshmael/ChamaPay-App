@@ -20,12 +20,21 @@ const MTOKEN_VIEW_ABI = [
     stateMutability: "view",
     type: "function",
   },
+  {
+    inputs: [],
+    name: "getCash",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
 ] as const;
 
 export type MoonwellLiveSnapshot = {
   totalBalanceUsdc: number;
   supplyApy: number | null;
   marketTotalSupplyUsd: number | null;
+  /** Available USDC in the market. <= 0 means withdraws will fail (TOKEN_INSUFFICIENT_CASH). */
+  liquidityUsd: number | null;
   source: "moonwell-api" | "on-chain" | "none";
 };
 
@@ -75,14 +84,27 @@ export async function readMoonwellUsdcBalanceOnChain(
   ]);
 
   // Compound-style: underlying = balance * exchangeRate / 1e18
-  // USDC has 6 decimals; result is in underlying wei.
   const underlyingWei = (mBal * rate) / 10n ** 18n;
   return Number(formatUnits(underlyingWei, 6));
+}
+
+/** On-chain free USDC sitting in the mUSDC market (getCash). */
+export async function readMoonwellMarketCashUsdc(): Promise<number> {
+  const client = getBasePublicClient();
+  const cash = await withRpcRetry("mUSDC.getCash", () =>
+    client.readContract({
+      address: moonwellUSDCAddress as `0x${string}`,
+      abi: MTOKEN_VIEW_ABI,
+      functionName: "getCash",
+    })
+  );
+  return Number(formatUnits(cash, 6));
 }
 
 export async function getMoonwellMarketUsdc(): Promise<{
   supplyApy: number | null;
   marketTotalSupplyUsd: number | null;
+  liquidityUsd: number | null;
 } | null> {
   const body = await fetchJson(`${MOONWELL_API_BASE}/markets/USDC?chain=base`);
   const market = body?.data;
@@ -92,6 +114,8 @@ export async function getMoonwellMarketUsdc(): Promise<{
       typeof market.baseSupplyApy === "number" ? market.baseSupplyApy : null,
     marketTotalSupplyUsd:
       typeof market.totalSupplyUsd === "number" ? market.totalSupplyUsd : null,
+    liquidityUsd:
+      typeof market.liquidityUsd === "number" ? market.liquidityUsd : null,
   };
 }
 
@@ -99,7 +123,7 @@ export async function getMoonwellPositionUsdcFromApi(
   address: string
 ): Promise<number | null> {
   const body = await fetchJson(
-    `${MOONWELL_API_BASE}/positions/${address}?chain=base`
+    `${MOONWELL_API_BASE}/positions/${address}?chain=base&active=true`
   );
   const rows = body?.data;
   if (!Array.isArray(rows)) return null;
@@ -121,25 +145,40 @@ export async function getMoonwellPositionUsdcFromApi(
 export async function getMoonwellLiveSnapshot(
   address: string
 ): Promise<MoonwellLiveSnapshot> {
-  if (!address) {
-    return {
-      totalBalanceUsdc: 0,
-      supplyApy: null,
-      marketTotalSupplyUsd: null,
-      source: "none",
-    };
-  }
+  const empty = (
+    source: MoonwellLiveSnapshot["source"],
+    market?: Awaited<ReturnType<typeof getMoonwellMarketUsdc>>
+  ): MoonwellLiveSnapshot => ({
+    totalBalanceUsdc: 0,
+    supplyApy: market?.supplyApy ?? null,
+    marketTotalSupplyUsd: market?.marketTotalSupplyUsd ?? null,
+    liquidityUsd: market?.liquidityUsd ?? null,
+    source,
+  });
+
+  if (!address) return empty("none");
 
   const [apiBalance, market] = await Promise.all([
     getMoonwellPositionUsdcFromApi(address),
     getMoonwellMarketUsdc(),
   ]);
 
+  // Prefer on-chain getCash when API liquidity is missing/negative
+  let liquidityUsd = market?.liquidityUsd ?? null;
+  if (liquidityUsd == null || liquidityUsd <= 0) {
+    try {
+      liquidityUsd = await readMoonwellMarketCashUsdc();
+    } catch {
+      /* keep API value */
+    }
+  }
+
   if (apiBalance != null) {
     return {
       totalBalanceUsdc: apiBalance,
       supplyApy: market?.supplyApy ?? null,
       marketTotalSupplyUsd: market?.marketTotalSupplyUsd ?? null,
+      liquidityUsd,
       source: "moonwell-api",
     };
   }
@@ -150,15 +189,11 @@ export async function getMoonwellLiveSnapshot(
       totalBalanceUsdc: onChain,
       supplyApy: market?.supplyApy ?? null,
       marketTotalSupplyUsd: market?.marketTotalSupplyUsd ?? null,
+      liquidityUsd,
       source: "on-chain",
     };
   } catch (error) {
     console.error("[Moonwell] on-chain balance failed", error);
-    return {
-      totalBalanceUsdc: 0,
-      supplyApy: market?.supplyApy ?? null,
-      marketTotalSupplyUsd: market?.marketTotalSupplyUsd ?? null,
-      source: "none",
-    };
+    return empty("none", market);
   }
 }
