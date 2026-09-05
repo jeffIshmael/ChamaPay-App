@@ -1,12 +1,13 @@
-import { parseUnits, createPublicClient, http, encodeFunctionData, erc20Abi } from "viem";
+import { parseUnits, encodeFunctionData, erc20Abi } from "viem";
 import { contractABI, contractAddress, builderCodeDataSuffix, USDCAddress, moonwellUSDCAddress, ERC20_APPROVE_ABI, MOONWELL_MINT_ABI } from "./Constants";
 import { createEIP7702SmartAccount } from "./EIP7702Client";
-import { base } from "viem/chains";
+import {
+    getBasePublicClient,
+    withRpcRetry,
+    isRpcRateLimitError,
+} from "./baseRpc";
 
-const publicClient = createPublicClient({
-    chain: base,
-    transport: http(undefined, { timeout: 10_000 }),
-});
+const publicClient = getBasePublicClient();
 
 export const bcCreateChama = async (cdpWalletId: string, chamaAmount: string, duration: bigint, startDate: bigint, maxMembers: bigint, isPublic: boolean) => {
     try {
@@ -291,12 +292,14 @@ export const parseUsdcAmount = (amount: string | number): bigint => {
 };
 
 const readTokenBalance = async (token: `0x${string}`, owner: `0x${string}`) => {
-    return publicClient.readContract({
-        address: token,
-        abi: ERC20_BALANCE_ABI,
-        functionName: "balanceOf",
-        args: [owner],
-    }) as Promise<bigint>;
+    return withRpcRetry(`balanceOf ${token.slice(0, 10)}…`, () =>
+        publicClient.readContract({
+            address: token,
+            abi: ERC20_BALANCE_ABI,
+            functionName: "balanceOf",
+            args: [owner],
+        }) as Promise<bigint>
+    );
 };
 
 /**
@@ -350,7 +353,9 @@ export const bcMoonwellWithdraw = async (cdpWalletId: string, amount: string, is
             });
         }
 
-        const withdrawTx = await publicClient.waitForTransactionReceipt({ hash: withdrawHash });
+        const withdrawTx = await withRpcRetry("waitForTransactionReceipt", () =>
+            publicClient.waitForTransactionReceipt({ hash: withdrawHash })
+        );
         if (!withdrawTx || withdrawTx.status !== "success") {
             throw new Error("Unable to withdraw from Moonwell.");
         }
@@ -359,10 +364,26 @@ export const bcMoonwellWithdraw = async (cdpWalletId: string, amount: string, is
         // Confirm mUSDC left Moonwell AND underlying USDC landed in the wallet.
         let mUsdcAfter = mUsdcBefore;
         let usdcAfter = usdcBefore;
-        for (let attempt = 0; attempt < 10; attempt++) {
-            if (attempt > 0) await new Promise((r) => setTimeout(r, 750));
-            mUsdcAfter = await readTokenBalance(moonwellUSDCAddress as `0x${string}`, wallet);
-            usdcAfter = await readTokenBalance(USDCAddress as `0x${string}`, wallet);
+        for (let attempt = 0; attempt < 6; attempt++) {
+            if (attempt > 0) await new Promise((r) => setTimeout(r, 1200));
+            try {
+                mUsdcAfter = await readTokenBalance(
+                    moonwellUSDCAddress as `0x${string}`,
+                    wallet
+                );
+                usdcAfter = await readTokenBalance(
+                    USDCAddress as `0x${string}`,
+                    wallet
+                );
+            } catch (error) {
+                if (isRpcRateLimitError(error) && attempt < 5) {
+                    console.warn(
+                        "[Moonwell withdraw] post-check rate limited, backing off"
+                    );
+                    continue;
+                }
+                throw error;
+            }
             if (mUsdcAfter < mUsdcBefore && usdcAfter > usdcBefore) break;
         }
 

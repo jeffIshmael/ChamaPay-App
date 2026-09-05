@@ -138,8 +138,15 @@ export const withdrawFromMoonwell = async (req: Request, res: Response): Promise
     });
   } catch (error) {
     console.error("Moonwell withdrawal error:", error);
-    const message =
+    const raw =
       error instanceof Error ? error.message : "Failed to process Moonwell withdrawal";
+    const lower = raw.toLowerCase();
+    const message =
+      lower.includes("over rate limit") || lower.includes("rate limit")
+        ? "Network is busy (RPC rate limit). Please wait a few seconds and try again."
+        : raw.length > 180
+          ? "Failed to withdraw from Moonwell. Please try again."
+          : raw;
     return res.status(500).json({
       success: false,
       error: message,
