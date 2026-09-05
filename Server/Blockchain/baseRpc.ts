@@ -1,4 +1,4 @@
-import { createPublicClient, http, type PublicClient } from "viem";
+import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
 import dotenv from "dotenv";
 
@@ -25,21 +25,27 @@ export function getBaseMainnetRpcUrl(): string {
   return "https://mainnet.base.org";
 }
 
-let cachedClient: PublicClient | null = null;
+type BasePublicClient = ReturnType<typeof createBasePublicClient>;
 
-export function getBasePublicClient(): PublicClient {
+function createBasePublicClient() {
+  const url = getBaseMainnetRpcUrl();
+  const host = url.replace(/^https?:\/\//, "").split("/")[0];
+  console.log(`[RPC] Base public client using host: ${host}`);
+  return createPublicClient({
+    chain: base,
+    transport: http(url, {
+      timeout: 30_000,
+      retryCount: 3,
+      retryDelay: 750,
+    }),
+  });
+}
+
+let cachedClient: BasePublicClient | null = null;
+
+export function getBasePublicClient(): BasePublicClient {
   if (!cachedClient) {
-    const url = getBaseMainnetRpcUrl();
-    const host = url.replace(/^https?:\/\//, "").split("/")[0];
-    console.log(`[RPC] Base public client using host: ${host}`);
-    cachedClient = createPublicClient({
-      chain: base,
-      transport: http(url, {
-        timeout: 30_000,
-        retryCount: 3,
-        retryDelay: 750,
-      }),
-    });
+    cachedClient = createBasePublicClient();
   }
   return cachedClient;
 }
