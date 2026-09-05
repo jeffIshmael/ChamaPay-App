@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import { bcMoonwellDeposit, bcMoonwellWithdraw } from "../Blockchain/WriteFunction";
+import { getMoonwellLiveSnapshot } from "../Lib/moonwellLive";
 
 const prisma = new PrismaClient();
 
@@ -181,6 +182,73 @@ export const getMoonwellYields = async (req: Request, res: Response): Promise<an
     return res.status(500).json({
       success: false,
       error: "Failed to fetch Moonwell yields",
+    });
+  }
+};
+
+/**
+ * Live Moonwell USDC position + market meta for the authenticated user.
+ * Proxies Moonwell HTTP API (and falls back to on-chain) so the mobile app
+ * does not call api.moonwell.fi directly (often blocked / Network Error on device).
+ */
+export const getMoonwellLiveSnapshotHandler = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { smartAddress: true },
+    });
+    if (!user?.smartAddress) {
+      return res.status(400).json({
+        success: false,
+        error: "User wallet address not found",
+      });
+    }
+
+    const principalUsdc = Math.max(
+      0,
+      parseFloat(String(req.query.principal ?? "0")) || 0
+    );
+
+    const live = await getMoonwellLiveSnapshot(user.smartAddress);
+    const totalBalanceUsdc = live.totalBalanceUsdc;
+
+    let principalForDisplay: number;
+    let earnedUsdc: number;
+    if (principalUsdc > 0) {
+      earnedUsdc = Math.max(0, totalBalanceUsdc - principalUsdc);
+      principalForDisplay = Math.min(principalUsdc, totalBalanceUsdc);
+    } else {
+      principalForDisplay = totalBalanceUsdc;
+      earnedUsdc = 0;
+    }
+
+    return res.status(200).json({
+      success: true,
+      source: live.source,
+      snapshot: {
+        totalBalanceUsdc,
+        principalUsdc: principalForDisplay,
+        earnedUsdc,
+        supplyApy: live.supplyApy,
+        marketTotalSupplyUsd: live.marketTotalSupplyUsd,
+      },
+    });
+  } catch (error) {
+    console.error("Moonwell live snapshot error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to fetch Moonwell live snapshot",
     });
   }
 };

@@ -70,7 +70,8 @@ export default function SaveAndEarnScreen() {
             user.smartAddress,
             principal,
             "base",
-            platformRate
+            platformRate,
+            token
           );
           setMoonwellSnapshot(snapshot);
         } catch {

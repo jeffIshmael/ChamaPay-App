@@ -89,7 +89,8 @@ const MoonwellWithdrawModal = ({
           user.smartAddress,
           principal,
           "base",
-          platformRate
+          platformRate,
+          token
         );
         setLiveTotal(snapshot.totalBalanceUsdc);
         setLiveEarned(snapshot.earnedUsdc);

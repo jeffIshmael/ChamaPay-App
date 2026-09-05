@@ -2,9 +2,6 @@ import axios from "axios";
 import { serverUrl } from "../constants/serverUrl";
 import type { Transaction } from "./walletServices";
 
-/** Moonwell API — https://agents.moonwell.fi/skill.md */
-const MOONWELL_API_BASE = "https://api.moonwell.fi/v1";
-
 /** Native USDC market on Base (non-deprecated). */
 export const MOONWELL_USDC_MARKET_ADDRESS =
   "0xEdc817A28E8B93B03976FBd4a3dDBc9f7D176c22";
@@ -29,8 +26,6 @@ export interface MoonwellUsdcSnapshot {
   supplyApy: number | null;
   marketTotalSupplyUsd: number | null;
 }
-
-const normalizeAddress = (address: string) => address.toLowerCase();
 
 const parseUsd = (value: unknown): number => {
   const n = typeof value === "number" ? value : parseFloat(String(value ?? "0"));
@@ -76,86 +71,16 @@ export const computeMoonwellPrincipalUsdc = (
 };
 
 /**
- * Fetches the real-time APY and market data for USDC on Base from Moonwell.
- */
-export const getMoonwellRates = async (chain = "base", asset = "USDC") => {
-  try {
-    const response = await axios.get(
-      `${MOONWELL_API_BASE}/rates?chain=${chain}&asset=${asset}`
-    );
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching Moonwell rates:", error);
-    return null;
-  }
-};
-
-/**
- * Fetches per-market USDC metadata (TVL, APY).
- */
-export const getMoonwellUsdcMarket = async (chain = "base") => {
-  try {
-    const response = await axios.get(
-      `${MOONWELL_API_BASE}/markets/USDC?chain=${chain}`
-    );
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching Moonwell USDC market:", error);
-    return null;
-  }
-};
-
-/**
- * Fetches the user's Moonwell positions (all markets).
- * Pass activeOnly=true to drop empty markets (?active=true).
- */
-export const getMoonwellPositions = async (
-  address: string,
-  chain = "base",
-  activeOnly = false
-): Promise<MoonwellPositionRow | null> => {
-  if (!address) return null;
-
-  try {
-    const query = activeOnly
-      ? `?chain=${chain}&active=true`
-      : `?chain=${chain}`;
-    const response = await axios.get(
-      `${MOONWELL_API_BASE}/positions/${address}${query}`
-    );
-
-    const rows: MoonwellPositionRow[] = response.data?.data ?? [];
-    const target = normalizeAddress(MOONWELL_USDC_MARKET_ADDRESS);
-
-    const usdcMarket = rows.find(
-      (pos) => normalizeAddress(pos.marketAddress) === target
-    );
-
-    if (!usdcMarket) return null;
-
-    return {
-      ...usdcMarket,
-      suppliedUsd: parseUsd(usdcMarket.suppliedUsd),
-      borrowedUsd: parseUsd(usdcMarket.borrowedUsd),
-      collateralUsd: parseUsd(usdcMarket.collateralUsd),
-    };
-  } catch (error) {
-    console.error("Error fetching Moonwell positions:", error);
-    return null;
-  }
-};
-
-/**
  * Live Moonwell USDC snapshot for Save & Earn UI.
- * - totalBalanceUsdc: suppliedUsd from Moonwell (includes yield)
- * - principalUsdc: net ChamaPay deposits (optional)
- * - earnedUsdc: interest accrued on Moonwell
+ * Goes through Chamapay server (proxies Moonwell API + on-chain fallback)
+ * so Android/iOS do not call api.moonwell.fi directly.
  */
 export const getMoonwellUsdcSnapshot = async (
-  address: string,
+  _address: string,
   principalUsdc = 0,
-  chain = "base",
-  _platformRate = 132
+  _chain = "base",
+  _platformRate = 132,
+  token?: string | null
 ): Promise<MoonwellUsdcSnapshot> => {
   const empty: MoonwellUsdcSnapshot = {
     totalBalanceUsdc: 0,
@@ -165,54 +90,48 @@ export const getMoonwellUsdcSnapshot = async (
     marketTotalSupplyUsd: null,
   };
 
-  if (!address) return empty;
+  if (!token) {
+    console.warn(
+      "getMoonwellUsdcSnapshot: missing auth token — cannot load live Moonwell data"
+    );
+    return {
+      ...empty,
+      principalUsdc: Math.max(0, principalUsdc),
+    };
+  }
 
   try {
-    const [position, marketRes, ratesRes] = await Promise.all([
-      getMoonwellPositions(address, chain, false),
-      getMoonwellUsdcMarket(chain),
-      getMoonwellRates(chain, "USDC"),
-    ]);
+    const response = await axios.get(`${serverUrl}/moonwell/live-snapshot`, {
+      params: { principal: principalUsdc },
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 20000,
+    });
 
-    const totalBalanceUsdc = position?.suppliedUsd ?? 0;
-    const trackedPrincipal = Math.max(0, principalUsdc);
-
-    // Yield = Moonwell balance − ChamaPay net deposits.
-    // KES display rounding (ceil) is handled in the UI — do not zero out real yield here.
-    let principalForDisplay: number;
-    let earnedUsdc: number;
-
-    if (trackedPrincipal > 0) {
-      earnedUsdc = Math.max(0, totalBalanceUsdc - trackedPrincipal);
-      principalForDisplay = Math.min(trackedPrincipal, totalBalanceUsdc);
-    } else {
-      // No deposit history — treat full Moonwell balance as principal.
-      principalForDisplay = totalBalanceUsdc;
-      earnedUsdc = 0;
+    const snapshot = response.data?.snapshot;
+    if (!response.data?.success || !snapshot) {
+      return {
+        ...empty,
+        principalUsdc: Math.max(0, principalUsdc),
+      };
     }
 
-    const market = marketRes?.data;
-    const rateRow = ratesRes?.data?.[0];
-    const supplyApy =
-      typeof market?.baseSupplyApy === "number"
-        ? market.baseSupplyApy
-        : typeof rateRow?.baseSupplyApy === "number"
-          ? rateRow.baseSupplyApy
-          : null;
-
     return {
-      totalBalanceUsdc,
-      principalUsdc: principalForDisplay,
-      earnedUsdc,
-      supplyApy,
+      totalBalanceUsdc: parseUsd(snapshot.totalBalanceUsdc),
+      principalUsdc: parseUsd(snapshot.principalUsdc),
+      earnedUsdc: parseUsd(snapshot.earnedUsdc),
+      supplyApy:
+        typeof snapshot.supplyApy === "number" ? snapshot.supplyApy : null,
       marketTotalSupplyUsd:
-        typeof market?.totalSupplyUsd === "number"
-          ? market.totalSupplyUsd
+        typeof snapshot.marketTotalSupplyUsd === "number"
+          ? snapshot.marketTotalSupplyUsd
           : null,
     };
   } catch (error) {
-    console.error("Error building Moonwell snapshot:", error);
-    return empty;
+    console.error("Error fetching Moonwell live snapshot via server:", error);
+    return {
+      ...empty,
+      principalUsdc: Math.max(0, principalUsdc),
+    };
   }
 };
 
