@@ -93,7 +93,13 @@ export default function MoonwellDetailsScreen() {
       }
 
       const liveSnapshot = user?.smartAddress
-        ? await getMoonwellUsdcSnapshot(user.smartAddress, principal, "base", platformRate)
+        ? await getMoonwellUsdcSnapshot(
+            user.smartAddress,
+            principal,
+            "base",
+            platformRate,
+            token
+          )
         : null;
 
       setSnapshot(liveSnapshot);
