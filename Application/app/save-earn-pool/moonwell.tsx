@@ -24,6 +24,7 @@ import { useExchangeRateStore } from '@/store/useExchangeRateStore';
 import { formatCurrency } from '@/Utils/pretiumUtils';
 import { useFormattedBalance } from '@/hooks/useFormattedBalance';
 import MoonwellInfoButton from '@/components/MoonwellInfoButton';
+import MoonwellWithdrawStatus from '@/components/MoonwellWithdrawStatus';
 
 const monoFont = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
 
@@ -245,7 +246,7 @@ export default function MoonwellDetailsScreen() {
             </View>
 
             {/* Middle: Invested Balance */}
-            <View className="items-center mb-6">
+            <View className="items-center mb-5">
               <Text className="text-blue-800/70 text-sm font-medium mb-2">Total Balance (Inc. Yield)</Text>
               {snapshotLoading ? (
                 <View className="h-12 w-48 bg-blue-100/50 rounded-lg mt-1 mb-2" />
@@ -262,6 +263,14 @@ export default function MoonwellDetailsScreen() {
                   <Text className="text-emerald-600 font-bold text-xs">+{displayAmount(totalEarned)} Total Yield</Text>
                 )}
               </View>
+            </View>
+
+            <View className="mb-4">
+              <MoonwellWithdrawStatus
+                liquidityUsd={snapshot?.liquidityUsd}
+                loading={snapshotLoading}
+                variant="full"
+              />
             </View>
 
             {/* Bottom: Action Buttons */}
@@ -298,7 +307,9 @@ export default function MoonwellDetailsScreen() {
             </View>
             <View className="flex-row items-center">
               <View className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-3" />
-              <Text className="text-gray-700 font-medium text-sm flex-1">Withdraw your principal & yield anytime</Text>
+              <Text className="text-gray-700 font-medium text-sm flex-1">
+                Withdraw anytime when the pool has free money (liquidity). Your deposit stays yours either way.
+              </Text>
             </View>
           </View>
         </View>

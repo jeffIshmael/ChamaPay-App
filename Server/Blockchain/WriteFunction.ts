@@ -1,4 +1,4 @@
-import { parseUnits, encodeFunctionData, erc20Abi } from "viem";
+import { parseUnits, encodeFunctionData, erc20Abi, maxUint256 } from "viem";
 import { contractABI, contractAddress, builderCodeDataSuffix, USDCAddress, moonwellUSDCAddress, ERC20_APPROVE_ABI, MOONWELL_MINT_ABI } from "./Constants";
 import { createEIP7702SmartAccount } from "./EIP7702Client";
 import {
@@ -279,6 +279,47 @@ const MOONWELL_REDEEM_UNDERLYING_ABI = [{
     type: "function"
 }] as const;
 
+const MTOKEN_CASH_ABI = [{
+    inputs: [],
+    name: "getCash",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+}, {
+    inputs: [],
+    name: "exchangeRateStored",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+}] as const;
+
+/** Moonwell Failure(uint error, uint info, uint detail) — docs error table */
+const MOONWELL_FAILURE_TOPIC =
+    "0x45b96fe442630264581b197e84bbada861235052c5a1aadfff9ea4e40a969aa0" as const;
+
+const MOONWELL_ERROR_NAMES: Record<number, string> = {
+    14: "TOKEN_INSUFFICIENT_CASH",
+    3: "COMPTROLLER_REJECTION",
+    10: "MARKET_NOT_FRESH",
+    16: "TOKEN_TRANSFER_OUT_FAILED",
+};
+
+const LIQUIDITY_ERROR =
+    "Moonwell USDC market has no available liquidity right now (borrowers are using the cash). Your deposit is still safe in Moonwell — try again later when liquidity returns.";
+
+function parseMoonwellFailure(receipt: { logs?: readonly { topics?: readonly string[]; data?: string; address?: string }[] }) {
+    for (const log of receipt.logs || []) {
+        if ((log.topics?.[0] || "").toLowerCase() !== MOONWELL_FAILURE_TOPIC) continue;
+        const data = (log.data || "0x").slice(2);
+        if (data.length < 64 * 3) continue;
+        const errorCode = Number(BigInt(`0x${data.slice(0, 64)}`));
+        const info = Number(BigInt(`0x${data.slice(64, 128)}`));
+        const detail = Number(BigInt(`0x${data.slice(128, 192)}`));
+        return { errorCode, info, detail, name: MOONWELL_ERROR_NAMES[errorCode] };
+    }
+    return null;
+}
+
 /** Truncate to USDC's 6 decimals so parseUnits never rejects float noise. */
 export const parseUsdcAmount = (amount: string | number): bigint => {
     const raw = String(amount).trim();
@@ -309,11 +350,34 @@ const readTokenBalance = async (token: `0x${string}`, owner: `0x${string}`) => {
 export const bcMoonwellWithdraw = async (cdpWalletId: string, amount: string, isMax: boolean = false) => {
     try {
         const wallet = cdpWalletId as `0x${string}`;
+        const mToken = moonwellUSDCAddress as `0x${string}`;
         const amountInWei = parseUsdcAmount(amount);
         const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
 
-        const mUsdcBefore = await readTokenBalance(moonwellUSDCAddress as `0x${string}`, wallet);
+        const mUsdcBefore = await readTokenBalance(mToken, wallet);
         const usdcBefore = await readTokenBalance(USDCAddress as `0x${string}`, wallet);
+
+        const [marketCash, exchangeRate] = await Promise.all([
+            withRpcRetry("mUSDC.getCash", () =>
+                publicClient.readContract({
+                    address: mToken,
+                    abi: MTOKEN_CASH_ABI,
+                    functionName: "getCash",
+                }) as Promise<bigint>
+            ),
+            withRpcRetry("mUSDC.exchangeRateStored", () =>
+                publicClient.readContract({
+                    address: mToken,
+                    abi: MTOKEN_CASH_ABI,
+                    functionName: "exchangeRateStored",
+                }) as Promise<bigint>
+            ),
+        ]);
+
+        // underlying ≈ mTokenBalance * exchangeRate / 1e18
+        const underlyingFromMTokens =
+            mUsdcBefore > 0n ? (mUsdcBefore * exchangeRate) / 10n ** 18n : 0n;
+        const neededUnderlying = isMax ? underlyingFromMTokens : amountInWei;
 
         console.log("[Moonwell withdraw] balances before", {
             wallet,
@@ -322,20 +386,32 @@ export const bcMoonwellWithdraw = async (cdpWalletId: string, amount: string, is
             amountInWei: amountInWei.toString(),
             mUsdcBefore: mUsdcBefore.toString(),
             usdcBefore: usdcBefore.toString(),
+            marketCash: marketCash.toString(),
+            neededUnderlying: neededUnderlying.toString(),
         });
 
         if (mUsdcBefore === 0n) {
             throw new Error("No Moonwell mUSDC balance to withdraw");
         }
 
+        // Error 14 TOKEN_INSUFFICIENT_CASH — market has no free USDC (currently over-utilized)
+        if (marketCash === 0n || marketCash < neededUnderlying) {
+            console.warn("[Moonwell withdraw] blocked: insufficient market cash", {
+                marketCash: marketCash.toString(),
+                neededUnderlying: neededUnderlying.toString(),
+            });
+            throw new Error(LIQUIDITY_ERROR);
+        }
+
         let withdrawHash;
 
         if (isMax) {
+            // Docs: pass type(uint).max to redeem entire mToken balance
             withdrawHash = await smartAccountClient.writeContract({
-                address: moonwellUSDCAddress as `0x${string}`,
+                address: mToken,
                 abi: MOONWELL_REDEEM_ABI,
                 functionName: "redeem",
-                args: [mUsdcBefore],
+                args: [maxUint256],
                 dataSuffix: builderCodeDataSuffix,
                 ...(authorization ? { authorization } : {}),
             });
@@ -344,7 +420,7 @@ export const bcMoonwellWithdraw = async (cdpWalletId: string, amount: string, is
                 throw new Error("Withdraw amount must be greater than zero");
             }
             withdrawHash = await smartAccountClient.writeContract({
-                address: moonwellUSDCAddress as `0x${string}`,
+                address: mToken,
                 abi: MOONWELL_REDEEM_UNDERLYING_ABI,
                 functionName: "redeemUnderlying",
                 args: [amountInWei],
@@ -360,17 +436,24 @@ export const bcMoonwellWithdraw = async (cdpWalletId: string, amount: string, is
             throw new Error("Unable to withdraw from Moonwell.");
         }
 
-        // Moonwell redeem can "succeed" on-chain while returning a non-zero error code.
+        const failure = parseMoonwellFailure(withdrawTx);
+        if (failure) {
+            console.error("[Moonwell withdraw] Failure event", failure);
+            if (failure.errorCode === 14) {
+                throw new Error(LIQUIDITY_ERROR);
+            }
+            throw new Error(
+                `Moonwell redeem failed (${failure.name || `error ${failure.errorCode}`}). Funds were not withdrawn.`
+            );
+        }
+
         // Confirm mUSDC left Moonwell AND underlying USDC landed in the wallet.
         let mUsdcAfter = mUsdcBefore;
         let usdcAfter = usdcBefore;
         for (let attempt = 0; attempt < 6; attempt++) {
             if (attempt > 0) await new Promise((r) => setTimeout(r, 1200));
             try {
-                mUsdcAfter = await readTokenBalance(
-                    moonwellUSDCAddress as `0x${string}`,
-                    wallet
-                );
+                mUsdcAfter = await readTokenBalance(mToken, wallet);
                 usdcAfter = await readTokenBalance(
                     USDCAddress as `0x${string}`,
                     wallet
