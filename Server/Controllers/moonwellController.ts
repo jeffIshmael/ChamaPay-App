@@ -93,23 +93,38 @@ export const withdrawFromMoonwell = async (req: Request, res: Response): Promise
       return res.status(401).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
-    console.log(`Executing Moonwell withdrawal for user ${userId}, amount ${amount}, isMax: ${isMax}`);
+    // Persist at most 6 USDC decimals (matches on-chain parsing)
+    const amountStr = (() => {
+      const raw = String(amount).trim();
+      const [whole, frac = ""] = raw.split(".");
+      return frac ? `${whole}.${frac.slice(0, 6)}` : whole;
+    })();
 
-    // Execute the Moonwell withdrawal on-chain
-    const withdrawTxHash = await bcMoonwellWithdraw(user.cdpWalletId, amount.toString(), isMax);
-    
+    console.log(
+      `Executing Moonwell withdrawal for user ${userId}, amount ${amountStr}, isMax: ${isMax}`
+    );
+
+    // Execute the Moonwell withdrawal on-chain (throws if balances don't move)
+    const withdrawTxHash = await bcMoonwellWithdraw(
+      user.cdpWalletId,
+      amountStr,
+      Boolean(isMax)
+    );
+
     if (!withdrawTxHash) {
-      return res.status(401).json({ success: false, error: "Failed to withdraw from Moonwell." });
+      return res
+        .status(500)
+        .json({ success: false, error: "Failed to withdraw from Moonwell." });
     }
 
-    // Register the payment
+    // Register the payment only after on-chain balances confirm the redeem
     const payment = await prisma.payment.create({
       data: {
-        amount: amount.toString(),
+        amount: amountStr,
         description: "Moonwell Withdrawal",
         txHash: withdrawTxHash,
         userId: userId,
-        chamaId: null, // ChamaId is null since this isn't attached to a Chama
+        chamaId: null,
         sender: "Moonwell",
         receiver: "Wallet",
       },
@@ -123,9 +138,11 @@ export const withdrawFromMoonwell = async (req: Request, res: Response): Promise
     });
   } catch (error) {
     console.error("Moonwell withdrawal error:", error);
+    const message =
+      error instanceof Error ? error.message : "Failed to process Moonwell withdrawal";
     return res.status(500).json({
       success: false,
-      error: "Failed to process Moonwell withdrawal",
+      error: message,
     });
   }
 };
