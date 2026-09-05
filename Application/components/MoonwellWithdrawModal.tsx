@@ -381,9 +381,16 @@ const MoonwellWithdrawModal = ({
               {marketLiquidityUsd != null && marketLiquidityUsd <= 0 ? (
                 <View className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200">
                   <Text className="text-amber-800 text-xs leading-5">
-                    Moonwell USDC has no free liquidity right now (borrowers are
-                    using the cash). Your deposit is safe — withdraws will work
-                    again when liquidity returns.
+                    Withdrawals are paused because the Moonwell pool has no free
+                    cash right now. You can withdraw anytime when the pool has
+                    money again. Your deposit is still safe and earning.
+                  </Text>
+                </View>
+              ) : marketLiquidityUsd != null && marketLiquidityUsd > 0 ? (
+                <View className="mb-4 p-3 rounded-lg bg-emerald-50 border border-emerald-100">
+                  <Text className="text-emerald-800 text-xs leading-5">
+                    Withdraw available. You can take out your money anytime while
+                    the pool has free liquidity.
                   </Text>
                 </View>
               ) : null}

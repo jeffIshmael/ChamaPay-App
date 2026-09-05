@@ -14,6 +14,7 @@ import { getTheUserTx } from '@/lib/walletServices';
 import { useAuth } from '@/Contexts/AuthContext';
 import { useFormattedBalance } from '@/hooks/useFormattedBalance';
 import MoonwellInfoButton from '@/components/MoonwellInfoButton';
+import MoonwellWithdrawStatus from '@/components/MoonwellWithdrawStatus';
 
 const monoFont = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
 
@@ -172,7 +173,7 @@ export default function SaveAndEarnScreen() {
               </View>
 
               {/* Tags in 3 columns */}
-              <View className="flex-row justify-between gap-2 mb-6">
+              <View className="flex-row justify-between gap-2 mb-4">
                 <View className="flex-1 items-center justify-center bg-gray-50 py-2.5 rounded-2xl border border-gray-100">
                   <LogIn size={18} color="#10b981" className="mb-1.5" />
                   <Text className="text-[11px] font-bold text-gray-700 text-center leading-tight">Deposit{'\n'}anytime</Text>
@@ -183,9 +184,19 @@ export default function SaveAndEarnScreen() {
                 </View>
                 <View className="flex-1 items-center justify-center bg-gray-50 py-2.5 rounded-2xl border border-gray-100">
                   <LogOut size={18} color="#f59e0b" className="mb-1.5" />
-                  <Text className="text-[11px] font-bold text-gray-700 text-center leading-tight">Withdraw{'\n'}anytime</Text>
+                  <Text className="text-[11px] font-bold text-gray-700 text-center leading-tight">Withdraw{'\n'}when funded</Text>
                 </View>
               </View>
+
+              {pool.id === 'moonwell' ? (
+                <View className="mb-4">
+                  <MoonwellWithdrawStatus
+                    liquidityUsd={moonwellSnapshot?.liquidityUsd}
+                    loading={moonwellLoading}
+                    variant="full"
+                  />
+                </View>
+              ) : null}
 
               {/* Balances Block */}
               <View className="bg-[#f8fafc] rounded-2xl p-4 border border-gray-100 flex-row justify-between items-center">
@@ -226,7 +237,7 @@ export default function SaveAndEarnScreen() {
 
         <View className="px-6 mt-4">
           <Text className="text-xs text-gray-400 leading-5 text-center">
-            Interest is paid by borrowers on the underlying protocol and accrues every block. Rates move with market demand and aren't guaranteed.
+            Interest is paid by borrowers on the underlying protocol and accrues every block. Rates move with market demand and aren't guaranteed. You can withdraw anytime when the pool has free money (liquidity).
           </Text>
         </View>
       </ScrollView>

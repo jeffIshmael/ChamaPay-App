@@ -220,9 +220,11 @@ export default function MoonwellInfoButton({
                       Taking money out
                     </Text>
                     <Text className="text-gray-600 text-[14px] leading-5">
-                      You can withdraw anytime. You get back what you put in,
-                      plus whatever you have earned so far. There is no lock-up
-                      period.
+                      You can withdraw anytime when the pool has free money
+                      (liquidity). You get back what you put in, plus what you
+                      have earned. There is no lock-up. If the pool is fully
+                      borrowed, withdrawals pause until cash returns — your
+                      deposit stays safe and keeps earning.
                     </Text>
                   </View>
                 </View>
