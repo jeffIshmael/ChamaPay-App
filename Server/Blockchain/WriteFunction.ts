@@ -254,59 +254,96 @@ export const bcMoonwellDeposit = async (cdpWalletId: string, amount: string) => 
     }
 };
 
+const ERC20_BALANCE_ABI = [{
+    inputs: [{ internalType: "address", name: "owner", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+}] as const;
+
+const MOONWELL_REDEEM_ABI = [{
+    inputs: [{ internalType: "uint256", name: "redeemTokens", type: "uint256" }],
+    name: "redeem",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function"
+}] as const;
+
+const MOONWELL_REDEEM_UNDERLYING_ABI = [{
+    inputs: [{ internalType: "uint256", name: "redeemAmount", type: "uint256" }],
+    name: "redeemUnderlying",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function"
+}] as const;
+
+/** Truncate to USDC's 6 decimals so parseUnits never rejects float noise. */
+export const parseUsdcAmount = (amount: string | number): bigint => {
+    const raw = String(amount).trim();
+    if (!raw || raw === ".") throw new Error(`Invalid USDC amount: ${amount}`);
+    const negative = raw.startsWith("-");
+    const unsigned = negative ? raw.slice(1) : raw;
+    const [whole, frac = ""] = unsigned.split(".");
+    const truncated = `${whole || "0"}.${frac.slice(0, 6)}`;
+    const value = parseUnits(truncated, 6);
+    return negative ? -value : value;
+};
+
+const readTokenBalance = async (token: `0x${string}`, owner: `0x${string}`) => {
+    return publicClient.readContract({
+        address: token,
+        abi: ERC20_BALANCE_ABI,
+        functionName: "balanceOf",
+        args: [owner],
+    }) as Promise<bigint>;
+};
+
+/**
+ * Moonwell mTokens (Compound-style) often return a non-zero error code WITHOUT
+ * reverting. A mined tx with status=success is not enough — verify balances moved.
+ */
 export const bcMoonwellWithdraw = async (cdpWalletId: string, amount: string, isMax: boolean = false) => {
     try {
-        const amountInWei = parseUnits(amount, 6);
+        const wallet = cdpWalletId as `0x${string}`;
+        const amountInWei = parseUsdcAmount(amount);
         const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        
+
+        const mUsdcBefore = await readTokenBalance(moonwellUSDCAddress as `0x${string}`, wallet);
+        const usdcBefore = await readTokenBalance(USDCAddress as `0x${string}`, wallet);
+
+        console.log("[Moonwell withdraw] balances before", {
+            wallet,
+            isMax,
+            amount,
+            amountInWei: amountInWei.toString(),
+            mUsdcBefore: mUsdcBefore.toString(),
+            usdcBefore: usdcBefore.toString(),
+        });
+
+        if (mUsdcBefore === 0n) {
+            throw new Error("No Moonwell mUSDC balance to withdraw");
+        }
+
         let withdrawHash;
 
         if (isMax) {
-            // Read mUSDC balance
-            const mUSDC_BALANCE_ABI = [{
-                inputs: [{ internalType: "address", name: "owner", type: "address" }],
-                name: "balanceOf",
-                outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-                stateMutability: "view",
-                type: "function"
-            }] as const;
-
-            const mUsdcBalance = await publicClient.readContract({
-                address: moonwellUSDCAddress as `0x${string}`,
-                abi: mUSDC_BALANCE_ABI,
-                functionName: 'balanceOf',
-                args: [cdpWalletId as `0x${string}`],
-            }) as bigint;
-
-            const MOONWELL_REDEEM_ABI = [{
-                inputs: [{ internalType: "uint256", name: "redeemTokens", type: "uint256" }],
-                name: "redeem",
-                outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-                stateMutability: "nonpayable",
-                type: "function"
-            }] as const;
-
             withdrawHash = await smartAccountClient.writeContract({
                 address: moonwellUSDCAddress as `0x${string}`,
                 abi: MOONWELL_REDEEM_ABI,
-                functionName: 'redeem',
-                args: [mUsdcBalance],
+                functionName: "redeem",
+                args: [mUsdcBefore],
                 dataSuffix: builderCodeDataSuffix,
                 ...(authorization ? { authorization } : {}),
             });
         } else {
-            const MOONWELL_REDEEM_UNDERLYING_ABI = [{
-                inputs: [{ internalType: "uint256", name: "redeemAmount", type: "uint256" }],
-                name: "redeemUnderlying",
-                outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-                stateMutability: "nonpayable",
-                type: "function"
-            }] as const;
-
+            if (amountInWei <= 0n) {
+                throw new Error("Withdraw amount must be greater than zero");
+            }
             withdrawHash = await smartAccountClient.writeContract({
                 address: moonwellUSDCAddress as `0x${string}`,
                 abi: MOONWELL_REDEEM_UNDERLYING_ABI,
-                functionName: 'redeemUnderlying',
+                functionName: "redeemUnderlying",
                 args: [amountInWei],
                 dataSuffix: builderCodeDataSuffix,
                 ...(authorization ? { authorization } : {}),
@@ -314,7 +351,41 @@ export const bcMoonwellWithdraw = async (cdpWalletId: string, amount: string, is
         }
 
         const withdrawTx = await publicClient.waitForTransactionReceipt({ hash: withdrawHash });
-        if (!withdrawTx || withdrawTx.status !== 'success') throw new Error("Unable to withdraw from Moonwell.");
+        if (!withdrawTx || withdrawTx.status !== "success") {
+            throw new Error("Unable to withdraw from Moonwell.");
+        }
+
+        // Moonwell redeem can "succeed" on-chain while returning a non-zero error code.
+        // Confirm mUSDC left Moonwell AND underlying USDC landed in the wallet.
+        let mUsdcAfter = mUsdcBefore;
+        let usdcAfter = usdcBefore;
+        for (let attempt = 0; attempt < 10; attempt++) {
+            if (attempt > 0) await new Promise((r) => setTimeout(r, 750));
+            mUsdcAfter = await readTokenBalance(moonwellUSDCAddress as `0x${string}`, wallet);
+            usdcAfter = await readTokenBalance(USDCAddress as `0x${string}`, wallet);
+            if (mUsdcAfter < mUsdcBefore && usdcAfter > usdcBefore) break;
+        }
+
+        console.log("[Moonwell withdraw] balances after", {
+            wallet,
+            txHash: withdrawTx.transactionHash,
+            mUsdcAfter: mUsdcAfter.toString(),
+            usdcAfter: usdcAfter.toString(),
+            mUsdcDelta: (mUsdcBefore - mUsdcAfter).toString(),
+            usdcDelta: (usdcAfter - usdcBefore).toString(),
+        });
+
+        if (mUsdcAfter >= mUsdcBefore) {
+            throw new Error(
+                "Moonwell redeem did not move mUSDC (likely silent error code). Funds were not withdrawn."
+            );
+        }
+
+        if (usdcAfter <= usdcBefore) {
+            throw new Error(
+                "Moonwell redeem burned mUSDC but USDC did not arrive in the wallet. Check Basescan and try again."
+            );
+        }
 
         return withdrawTx.transactionHash;
     } catch (error) {

@@ -28,6 +28,11 @@ interface MoonwellWithdrawModalProps {
   principalUsdc?: number;
 }
 
+const DUST_USDC = 0.000001;
+
+const roundUsdc6 = (value: number) =>
+  Math.floor((Number.isFinite(value) ? value : 0) * 1e6) / 1e6;
+
 const MoonwellWithdrawModal = ({
   visible,
   onClose,
@@ -49,6 +54,8 @@ const MoonwellWithdrawModal = ({
   const [activePreset, setActivePreset] = useState<
     "principal" | "interest" | "all" | null
   >(null);
+  /** Exact USDC to withdraw when a preset tab is used (avoids KES round-trip drift). */
+  const [lockedUsdcAmount, setLockedUsdcAmount] = useState<number | null>(null);
   const [isMax, setIsMax] = useState(false);
   const { currency, platformRate } = useCurrencyStore();
   const { getKesValue } = useFormattedBalance();
@@ -109,27 +116,36 @@ const MoonwellWithdrawModal = ({
     if (currency === "KES") {
       return getKesValue(usdc).toFixed(2);
     }
-    return (Math.ceil(usdc * 1000) / 1000).toFixed(3);
+    return roundUsdc6(usdc).toFixed(6).replace(/\.?0+$/, "") || "0";
   };
 
   const inputAmount = Number(amount) || 0;
-  let actualUSDCAmount = isMax
-    ? liveTotal
-    : currency === "KES"
-      ? inputAmount / platformRate
-      : inputAmount;
 
-  const epsilon = currency === "KES" ? 0.05 / platformRate : 0.0001;
+  let actualUSDCAmount =
+    lockedUsdcAmount != null
+      ? roundUsdc6(lockedUsdcAmount)
+      : roundUsdc6(
+          isMax
+            ? liveTotal
+            : currency === "KES"
+              ? inputAmount / (platformRate || 1)
+              : inputAmount
+        );
+
+  const epsilon = currency === "KES" ? 0.05 / (platformRate || 1) : DUST_USDC;
   let isAmountTooHigh = false;
   let finalIsMax = isMax;
 
-  if (!isMax) {
+  if (!finalIsMax) {
     if (actualUSDCAmount > liveTotal + epsilon) {
       isAmountTooHigh = true;
     } else if (actualUSDCAmount >= liveTotal - epsilon) {
-      actualUSDCAmount = liveTotal;
+      // Avoid leaving sub-dust mUSDC behind — redeem full position.
+      actualUSDCAmount = roundUsdc6(liveTotal);
       finalIsMax = true;
     }
+  } else {
+    actualUSDCAmount = roundUsdc6(liveTotal);
   }
 
   const displayBalance =
@@ -138,7 +154,7 @@ const MoonwellWithdrawModal = ({
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}`
-      : `${(Math.ceil(liveTotal * 1000) / 1000).toFixed(3)} USDC`;
+      : `${roundUsdc6(liveTotal).toFixed(6)} USDC`;
 
   const displayEarned =
     currency === "KES"
@@ -146,22 +162,62 @@ const MoonwellWithdrawModal = ({
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}`
-      : `${liveEarned.toFixed(6)} USDC`;
+      : `${roundUsdc6(liveEarned).toFixed(6)} USDC`;
 
   const displayError =
     error ||
     (isAmountTooHigh
       ? `Insufficient balance. You have ${displayBalance} available`
       : "");
+
   const isButtonDisabled =
-    loading || !amount || isAmountTooHigh || inputAmount <= 0;
+    loading ||
+    isLiveLoading ||
+    isAmountTooHigh ||
+    actualUSDCAmount <= 0 ||
+    (!amount && lockedUsdcAmount == null);
+
+  const applyPreset = (preset: "principal" | "interest" | "all") => {
+    setError("");
+    setActivePreset(preset);
+
+    if (preset === "all") {
+      const usdc = roundUsdc6(liveTotal);
+      setIsMax(true);
+      setLockedUsdcAmount(usdc);
+      setAmount(formatUsdcForInput(usdc));
+      return;
+    }
+
+    const raw = preset === "principal" ? livePrincipal : liveEarned;
+    const capped = Math.min(Math.max(0, raw), liveTotal);
+    const usdc = roundUsdc6(capped);
+
+    if (usdc <= 0) {
+      setIsMax(false);
+      setLockedUsdcAmount(null);
+      setAmount("");
+      setError(
+        preset === "interest"
+          ? "No yield available to withdraw yet"
+          : "No principal available to withdraw"
+      );
+      return;
+    }
+
+    // If this tab covers (almost) the whole position, redeem max so wallet gets everything.
+    const nearAll = usdc >= liveTotal - DUST_USDC;
+    setIsMax(nearAll);
+    setLockedUsdcAmount(nearAll ? roundUsdc6(liveTotal) : usdc);
+    setAmount(formatUsdcForInput(nearAll ? liveTotal : usdc));
+  };
 
   const handleWithdraw = async () => {
     setLoading(true);
     setError("");
 
     try {
-      if (isAmountTooHigh) {
+      if (isAmountTooHigh || actualUSDCAmount <= 0) {
         return;
       }
 
@@ -176,16 +232,25 @@ const MoonwellWithdrawModal = ({
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ amount: actualUSDCAmount, isMax: finalIsMax }),
+        body: JSON.stringify({
+          amount: actualUSDCAmount,
+          isMax: finalIsMax,
+        }),
       });
 
       const data = await response.json();
 
       if (data.success) {
+        const shown =
+          currency === "KES"
+            ? `KSh ${getKesValue(actualUSDCAmount).toLocaleString(undefined, {
+                maximumFractionDigits: 2,
+              })}`
+            : `${actualUSDCAmount.toFixed(6)} USDC`;
         setSuccessData({
           txHash: data.txHash,
-          message: `Successfully withdrew ${currency === "KES" ? "KSh " : ""}${inputAmount.toLocaleString()} ${currency === "KES" ? "" : "USDC"} from Moonwell.`,
-          amount: amount.toString(),
+          message: `Successfully withdrew ${shown} from Moonwell to your wallet.`,
+          amount: String(actualUSDCAmount),
         });
         setIsSuccess(true);
       } else {
@@ -204,6 +269,7 @@ const MoonwellWithdrawModal = ({
     setAmount("");
     setIsMax(false);
     setActivePreset(null);
+    setLockedUsdcAmount(null);
     onSuccess(successData);
   };
 
@@ -211,6 +277,7 @@ const MoonwellWithdrawModal = ({
     setAmount("");
     setIsMax(false);
     setActivePreset(null);
+    setLockedUsdcAmount(null);
     setError("");
     setIsSuccess(false);
     setSuccessData(null);
@@ -319,6 +386,7 @@ const MoonwellWithdrawModal = ({
                       setAmount(val);
                       setIsMax(false);
                       setActivePreset(null);
+                      setLockedUsdcAmount(null);
                     }}
                     keyboardType="numeric"
                     className="flex-1 py-4 text-gray-900 text-lg font-bold"
@@ -329,46 +397,60 @@ const MoonwellWithdrawModal = ({
 
                 <View className="flex-row justify-between mb-2">
                   <TouchableOpacity
-                    onPress={() => {
-                      setAmount(formatUsdcForInput(livePrincipal));
-                      setIsMax(false);
-                      setActivePreset("principal");
-                    }}
-                    className={`flex-1 rounded-lg py-2 mr-2 items-center border ${presetTabClass("principal")}`}
+                    onPress={() => applyPreset("principal")}
+                    disabled={isLiveLoading || livePrincipal <= 0}
+                    className={`flex-1 rounded-lg py-2 mr-2 items-center border ${
+                      livePrincipal <= 0
+                        ? "bg-gray-50 opacity-50 border-gray-200"
+                        : presetTabClass("principal")
+                    }`}
                   >
                     <Text
-                      className={`text-xs font-semibold ${presetTextClass("principal")}`}
+                      className={`text-xs font-semibold ${
+                        livePrincipal <= 0
+                          ? "text-gray-400"
+                          : presetTextClass("principal")
+                      }`}
                     >
                       Principal
                     </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    onPress={() => {
-                      setAmount(formatUsdcForInput(liveEarned));
-                      setIsMax(false);
-                      setActivePreset("interest");
-                    }}
-                    disabled={liveEarned <= 0}
-                    className={`flex-1 rounded-lg py-2 mr-2 items-center border ${liveEarned <= 0 ? "bg-gray-50 opacity-50 border-gray-200" : presetTabClass("interest")}`}
+                    onPress={() => applyPreset("interest")}
+                    disabled={isLiveLoading || liveEarned <= DUST_USDC}
+                    className={`flex-1 rounded-lg py-2 mr-2 items-center border ${
+                      liveEarned <= DUST_USDC
+                        ? "bg-gray-50 opacity-50 border-gray-200"
+                        : presetTabClass("interest")
+                    }`}
                   >
                     <Text
-                      className={`text-xs font-semibold ${liveEarned <= 0 ? "text-gray-400" : presetTextClass("interest")}`}
+                      className={`text-xs font-semibold ${
+                        liveEarned <= DUST_USDC
+                          ? "text-gray-400"
+                          : presetTextClass("interest")
+                      }`}
                     >
                       Interest
                     </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    onPress={() => {
-                      setAmount(formatUsdcForInput(liveTotal));
-                      setIsMax(true);
-                      setActivePreset("all");
-                    }}
-                    className={`flex-1 rounded-lg py-2 items-center border ${presetTabClass("all")}`}
+                    onPress={() => applyPreset("all")}
+                    disabled={isLiveLoading || liveTotal <= 0}
+                    className={`flex-1 rounded-lg py-2 items-center border ${
+                      liveTotal <= 0
+                        ? "bg-gray-50 opacity-50 border-gray-200"
+                        : presetTabClass("all")
+                    }`}
                   >
                     <Text
-                      className={`text-xs font-semibold ${presetTextClass("all")}`}
+                      className={`text-xs font-semibold ${
+                        liveTotal <= 0
+                          ? "text-gray-400"
+                          : presetTextClass("all")
+                      }`}
                     >
                       All
                     </Text>
