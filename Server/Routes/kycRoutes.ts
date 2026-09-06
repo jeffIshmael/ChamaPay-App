@@ -2,17 +2,17 @@ import { Router } from "express";
 import authenticate from "../Middlewares/authMiddleware";
 import {
   createKycSession,
+  diditKycWebhook,
   getKycJob,
   getKycStatus,
   reportClientKycResult,
   sandboxApproveKyc,
-  smileKycWebhook,
 } from "../Controllers/kycController";
 
 const kycRoutes = Router();
 
-/** Smile provider callback — no user JWT */
-kycRoutes.post("/webhook", smileKycWebhook as any);
+/** Didit provider callback — no user JWT */
+kycRoutes.post("/webhook", diditKycWebhook as any);
 
 kycRoutes.get("/status", authenticate, getKycStatus as any);
 kycRoutes.post("/session", authenticate, createKycSession as any);

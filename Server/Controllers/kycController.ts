@@ -7,20 +7,37 @@ import {
   getTier2MonthlyKes,
   resolveMonthlyLimit,
 } from "../Lib/kycService";
+import {
+  verifySignatureRaw,
+  verifySignatureSimple,
+  verifySignatureV2,
+} from "../Lib/diditWebhook";
 
 const prisma = new PrismaClient();
 
-export const ALLOWED_DOCUMENT_TYPES = [
-  "NATIONAL_ID",
-  "PASSPORT",
-  "DRIVERS_LICENSE",
-] as const;
+const DIDIT_SESSION_URL = "https://verification.didit.me/v3/session/";
 
-export type SmileDocumentType = (typeof ALLOWED_DOCUMENT_TYPES)[number];
+/**
+ * Didit Console sandbox application (separate from live).
+ * Same API host; sandbox keys mock providers and accept `sandbox_scenario`.
+ */
+const isDiditSandbox = () => process.env.DIDIT_SANDBOX === "true";
 
-const isSandbox = () => process.env.SMILE_SANDBOX === "true";
+/**
+ * Skip Didit entirely (no sessionToken). Only for offline UI/tier testing.
+ * Prefer real Didit sandbox keys + DIDIT_SANDBOX=true instead.
+ */
+const isLocalMock = () => process.env.DIDIT_LOCAL_MOCK === "true";
 
-function makeJobId(userId: number): string {
+/** Default happy-path scenario for Didit sandbox session create. */
+function resolveSandboxScenario(reqBody?: { sandboxScenario?: string }): string | undefined {
+  if (!isDiditSandbox()) return undefined;
+  const fromBody = String(reqBody?.sandboxScenario || "").trim();
+  const fromEnv = String(process.env.DIDIT_SANDBOX_SCENARIO || "").trim();
+  return fromBody || fromEnv || "approve";
+}
+
+function makeLocalJobId(userId: number): string {
   return `cp_${userId}_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
 }
 
@@ -67,7 +84,9 @@ export async function getKycStatus(req: Request, res: Response) {
       remainingKes,
       tier1LimitKes: getTier1MonthlyKes(),
       tier2LimitKes: getTier2MonthlyKes(),
-      sandbox: isSandbox(),
+      sandbox: isDiditSandbox(),
+      localMock: isLocalMock(),
+      provider: "didit",
       latestJob: latestJob
         ? {
             jobId: latestJob.jobId,
@@ -84,22 +103,15 @@ export async function getKycStatus(req: Request, res: Response) {
 }
 
 /**
- * POST /kyc/session — start a Smile (or sandbox) verification job.
- * Body: { documentType: NATIONAL_ID | PASSPORT | DRIVERS_LICENSE }
+ * POST /kyc/session — create a Didit verification session.
+ * With DIDIT_SANDBOX=true + sandbox API keys, passes sandbox_scenario (default: approve).
+ * Returns sessionToken for the React Native SDK (no browser redirect).
  */
 export async function createKycSession(req: Request, res: Response) {
   try {
     const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ success: false, error: "Authentication required" });
-    }
-
-    const documentType = String(req.body?.documentType || "").toUpperCase();
-    if (!ALLOWED_DOCUMENT_TYPES.includes(documentType as SmileDocumentType)) {
-      return res.status(400).json({
-        success: false,
-        error: "documentType must be NATIONAL_ID, PASSPORT, or DRIVERS_LICENSE",
-      });
     }
 
     const user = await prisma.user.findUnique({
@@ -116,19 +128,109 @@ export async function createKycSession(req: Request, res: Response) {
       });
     }
 
-    const jobId = makeJobId(userId);
-    const partnerId = process.env.SMILE_PARTNER_ID || "";
-    const callbackUrl =
-      process.env.SMILE_CALLBACK_URL ||
-      `${process.env.APP_URL || ""}/kyc/webhook`;
+    const apiKey = process.env.DIDIT_API_KEY || "";
+    const workflowId = process.env.DIDIT_WORKFLOW_ID || "";
+
+    // Offline local mock only — not Didit Console sandbox.
+    if (isLocalMock() || req.body?.forceLocalSandbox) {
+      const jobId = makeLocalJobId(userId);
+      await prisma.kycJob.create({
+        data: {
+          userId,
+          provider: "didit",
+          jobId,
+          documentType: "DIDIT_WORKFLOW",
+          status: "pending",
+        },
+      });
+      await prisma.user.update({
+        where: { id: userId },
+        data: { kycStatus: "pending" },
+      });
+      return res.status(200).json({
+        success: true,
+        jobId,
+        sessionId: jobId,
+        sessionToken: null,
+        sandbox: isDiditSandbox(),
+        localMock: true,
+        provider: "didit",
+        message: "Local mock session — use /kyc/sandbox/approve after UI",
+      });
+    }
+
+    if (!apiKey || !workflowId) {
+      return res.status(503).json({
+        success: false,
+        error:
+          "Didit is not configured. Set DIDIT_API_KEY and DIDIT_WORKFLOW_ID from your sandbox (or live) application.",
+      });
+    }
+
+    const sandboxScenario = resolveSandboxScenario(req.body);
+    const sessionBody: Record<string, unknown> = {
+      workflow_id: workflowId,
+      vendor_data: String(userId),
+      metadata: {
+        source: "chamapay",
+        platform: "mobile",
+        environment: isDiditSandbox() ? "sandbox" : "live",
+      },
+    };
+    // Only valid on Didit sandbox applications (400 on live keys).
+    if (sandboxScenario) {
+      sessionBody.sandbox_scenario = sandboxScenario;
+    }
+
+    const diditRes = await fetch(DIDIT_SESSION_URL, {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(sessionBody),
+    });
+
+    const rawText = await diditRes.text();
+    let session: Record<string, unknown> = {};
+    try {
+      session = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      session = {};
+    }
+
+    if (!diditRes.ok) {
+      console.error("[KYC] Didit session create failed:", diditRes.status, rawText.slice(0, 500));
+      return res.status(502).json({
+        success: false,
+        error: "Failed to create Didit verification session",
+        details: (session as any)?.detail || (session as any)?.message || undefined,
+      });
+    }
+
+    const sessionId = String(session.session_id || "");
+    const sessionToken = String(session.session_token || "");
+    if (!sessionId || !sessionToken) {
+      console.error("[KYC] Didit response missing session fields:", rawText.slice(0, 500));
+      return res.status(502).json({
+        success: false,
+        error: "Didit session response incomplete",
+      });
+    }
 
     await prisma.kycJob.create({
       data: {
         userId,
-        provider: "smile",
-        jobId,
-        documentType,
+        provider: "didit",
+        jobId: sessionId,
+        documentType: "DIDIT_WORKFLOW",
         status: "pending",
+        rawResultRef: JSON.stringify({
+          status: session.status,
+          workflow_id: session.workflow_id,
+          sandbox_scenario: sandboxScenario || null,
+          environment: isDiditSandbox() ? "sandbox" : "live",
+        }).slice(0, 2000),
       },
     });
 
@@ -139,25 +241,14 @@ export async function createKycSession(req: Request, res: Response) {
 
     return res.status(200).json({
       success: true,
-      jobId,
-      documentType,
-      countryCode: "KE",
-      partnerId,
-      callbackUrl,
-      sandbox: isSandbox(),
-      /** Params for Smile Expo DocumentVerificationView */
-      smileParams: {
-        userId: String(userId),
-        jobId,
-        countryCode: "KE",
-        documentType,
-        captureBothSides: documentType === "NATIONAL_ID" || documentType === "DRIVERS_LICENSE",
-        allowNewEnroll: true,
-        showInstructions: true,
-        showAttribution: true,
-        allowGalleryUpload: false,
-        skipApiSubmission: false,
-      },
+      jobId: sessionId,
+      sessionId,
+      sessionToken,
+      sandbox: isDiditSandbox(),
+      localMock: false,
+      sandboxScenario: sandboxScenario || null,
+      provider: "didit",
+      status: session.status || "Not Started",
     });
   } catch (error) {
     console.error("createKycSession error:", error);
@@ -167,7 +258,7 @@ export async function createKycSession(req: Request, res: Response) {
 
 /**
  * POST /kyc/jobs/:jobId/client-result
- * Mobile reports SDK completion; limit upgrade still waits for webhook (or sandbox approve).
+ * Mobile reports SDK completion; tier upgrade still waits for webhook (or sandbox approve).
  */
 export async function reportClientKycResult(req: Request, res: Response) {
   try {
@@ -189,21 +280,26 @@ export async function reportClientKycResult(req: Request, res: Response) {
       return res.status(200).json({ success: true, status: job.status });
     }
 
+    const clientStatus = String(req.body?.status || "").trim();
+    const resultRef = req.body?.resultRef
+      ? String(req.body.resultRef).slice(0, 500)
+      : job.rawResultRef;
+
     await prisma.kycJob.update({
       where: { id: job.id },
       data: {
         status: "processing",
-        rawResultRef: req.body?.resultRef
-          ? String(req.body.resultRef).slice(0, 500)
-          : job.rawResultRef,
+        rawResultRef: resultRef,
       },
     });
 
     return res.status(200).json({
       success: true,
       status: "processing",
-      message: "Awaiting provider confirmation",
-      sandbox: isSandbox(),
+      clientStatus: clientStatus || undefined,
+      message: "Awaiting Didit webhook confirmation",
+      sandbox: isDiditSandbox(),
+      localMock: isLocalMock(),
     });
   } catch (error) {
     console.error("reportClientKycResult error:", error);
@@ -213,21 +309,20 @@ export async function reportClientKycResult(req: Request, res: Response) {
 
 async function applyJobDecision(
   jobId: string,
-  decision: "approved" | "rejected",
+  decision: "approved" | "rejected" | "in_review",
   rawResultRef?: string
 ) {
   const job = await prisma.kycJob.findUnique({ where: { jobId } });
   if (!job) return null;
 
-  await prisma.kycJob.update({
-    where: { id: job.id },
-    data: {
-      status: decision,
-      rawResultRef: rawResultRef ?? job.rawResultRef,
-    },
-  });
-
   if (decision === "approved") {
+    await prisma.kycJob.update({
+      where: { id: job.id },
+      data: {
+        status: "approved",
+        rawResultRef: rawResultRef ?? job.rawResultRef,
+      },
+    });
     await prisma.user.update({
       where: { id: job.userId },
       data: {
@@ -236,151 +331,207 @@ async function applyJobDecision(
         kycVerifiedAt: new Date(),
       },
     });
-  } else {
+  } else if (decision === "rejected") {
+    await prisma.kycJob.update({
+      where: { id: job.id },
+      data: {
+        status: "rejected",
+        rawResultRef: rawResultRef ?? job.rawResultRef,
+      },
+    });
     await prisma.user.update({
       where: { id: job.userId },
       data: { kycStatus: "rejected" },
+    });
+  } else {
+    await prisma.kycJob.update({
+      where: { id: job.id },
+      data: {
+        status: "processing",
+        rawResultRef: rawResultRef ?? job.rawResultRef,
+      },
+    });
+    await prisma.user.update({
+      where: { id: job.userId },
+      data: { kycStatus: "pending_review" },
     });
   }
 
   return job;
 }
 
-/**
- * Verify Smile webhook authenticity when a secret is configured.
- * Smile may send HMAC in headers; we also accept a shared secret query/body token in sandbox.
- */
-function verifySmileWebhook(req: Request): boolean {
-  const secret = process.env.SMILE_WEBHOOK_SECRET;
+function mapDiditStatus(
+  status: string
+): "approved" | "rejected" | "in_review" | "pending" {
+  switch (status) {
+    case "Approved":
+      return "approved";
+    case "Declined":
+      return "rejected";
+    case "In Review":
+      return "in_review";
+    case "In Progress":
+    case "Not Started":
+    case "Resubmitted":
+    case "Abandoned":
+    case "Expired":
+    case "Kyc Expired":
+    case "Awaiting User":
+    default:
+      return "pending";
+  }
+}
+
+function verifyDiditWebhook(req: Request): boolean {
+  const secret = process.env.DIDIT_WEBHOOK_SECRET;
   if (!secret) {
-    // No secret configured — accept but log (common during early sandbox)
-    if (!isSandbox()) {
-      console.warn("[KYC] SMILE_WEBHOOK_SECRET unset; accepting webhook without signature check");
+    if (!isDiditSandbox()) {
+      console.warn(
+        "[KYC] DIDIT_WEBHOOK_SECRET unset; accepting webhook without signature check"
+      );
+    } else {
+      console.warn(
+        "[KYC] DIDIT_WEBHOOK_SECRET unset in sandbox; accepting webhook without signature check"
+      );
     }
     return true;
   }
 
-  const headerSig =
-    (req.headers["x-smile-signature"] as string) ||
-    (req.headers["x-signature"] as string) ||
-    "";
-  const bodyToken = String(req.body?.webhook_secret || req.query?.secret || "");
+  const timestamp = String(req.headers["x-timestamp"] || "");
+  const signatureV2 = String(req.headers["x-signature-v2"] || "");
+  const signatureRaw = String(req.headers["x-signature"] || "");
+  const signatureSimple = String(req.headers["x-signature-simple"] || "");
+  const body = (req.body || {}) as Record<string, unknown>;
+  const rawBody = String((req as any).rawBody || "");
 
-  if (bodyToken && bodyToken === secret) return true;
-
-  if (headerSig) {
-    const raw = (req as any).rawBody || JSON.stringify(req.body || {});
-    const expected = crypto.createHmac("sha256", secret).update(raw).digest("hex");
-    try {
-      return crypto.timingSafeEqual(
-        Buffer.from(headerSig),
-        Buffer.from(expected)
-      );
-    } catch {
-      return headerSig === expected || headerSig === `sha256=${expected}`;
-    }
+  if (signatureV2 && verifySignatureV2(body, signatureV2, timestamp, secret)) {
+    return true;
+  }
+  if (signatureRaw && rawBody && verifySignatureRaw(rawBody, signatureRaw, timestamp, secret)) {
+    return true;
+  }
+  if (signatureSimple && verifySignatureSimple(body, signatureSimple, timestamp, secret)) {
+    return true;
   }
 
   return false;
 }
 
 /**
- * Map Smile job result codes to approved / rejected.
- * Smile historically uses ResultCode / Actions / job_complete payloads.
+ * POST /kyc/webhook — Didit callback (no user auth; signature checked).
  */
-function parseSmileDecision(body: any): "approved" | "rejected" | "pending" {
-  const code = String(
-    body?.ResultCode ?? body?.result_code ?? body?.code ?? ""
-  );
-  const successFlag = body?.success ?? body?.job_success;
-  const action =
-    body?.Actions?.Verify_Document ||
-    body?.Actions?.Document_Check ||
-    body?.actions?.document_check;
-
-  if (
-    successFlag === true ||
-    code === "0810" ||
-    code === "0820" ||
-    String(action).toLowerCase() === "passed" ||
-    String(body?.status).toLowerCase() === "approved"
-  ) {
-    return "approved";
-  }
-
-  if (
-    successFlag === false ||
-    String(body?.status).toLowerCase() === "rejected" ||
-    String(action).toLowerCase() === "failed" ||
-    code.startsWith("09")
-  ) {
-    return "rejected";
-  }
-
-  return "pending";
-}
-
-/**
- * POST /kyc/webhook — Smile callback (no user auth; signature checked).
- */
-export async function smileKycWebhook(req: Request, res: Response) {
+export async function diditKycWebhook(req: Request, res: Response) {
   try {
-    if (!verifySmileWebhook(req)) {
+    if (!verifyDiditWebhook(req)) {
       return res.status(401).json({ success: false, error: "Invalid webhook signature" });
     }
 
     const body = req.body || {};
-    const jobId = String(
-      body?.PartnerParams?.job_id ||
-        body?.partner_params?.job_id ||
-        body?.job_id ||
-        body?.jobId ||
-        ""
-    );
+    const webhookType = String(body.webhook_type || "");
+    const sessionId = String(body.session_id || "");
+    const status = String(body.status || "");
+    const eventId = body.event_id ? String(body.event_id) : "";
+    const vendorData = body.vendor_data != null ? String(body.vendor_data) : "";
+    const environment = body.environment != null ? String(body.environment) : "";
+    const sandboxScenario =
+      body.sandbox_scenario != null ? String(body.sandbox_scenario) : "";
 
-    if (!jobId) {
-      console.warn("[KYC] webhook missing job_id", JSON.stringify(body).slice(0, 400));
-      return res.status(400).json({ success: false, error: "Missing job_id" });
+    // Fast-ack non-session events we don't act on
+    if (
+      webhookType &&
+      webhookType !== "status.updated" &&
+      webhookType !== "data.updated"
+    ) {
+      return res.status(200).json({ success: true, ignored: true, webhookType });
     }
 
-    const decision = parseSmileDecision(body);
-    if (decision === "pending") {
-      await prisma.kycJob.updateMany({
-        where: { jobId },
-        data: {
-          status: "processing",
-          rawResultRef: JSON.stringify(body).slice(0, 2000),
-        },
+    if (!sessionId) {
+      console.warn("[KYC] Didit webhook missing session_id", JSON.stringify(body).slice(0, 400));
+      return res.status(400).json({ success: false, error: "Missing session_id" });
+    }
+
+    let job = await prisma.kycJob.findUnique({ where: { jobId: sessionId } });
+
+    // Fallback: match by vendor_data (user id) if session row missing
+    if (!job && vendorData && /^\d+$/.test(vendorData)) {
+      job = await prisma.kycJob.findFirst({
+        where: { userId: Number(vendorData), provider: "didit" },
+        orderBy: { createdAt: "desc" },
       });
+      if (job && job.jobId !== sessionId) {
+        // Keep original jobId if already terminal; otherwise align to Didit session id
+        if (job.status === "pending" || job.status === "processing") {
+          await prisma.kycJob.update({
+            where: { id: job.id },
+            data: { jobId: sessionId },
+          });
+          job = { ...job, jobId: sessionId };
+        }
+      }
+    }
+
+    if (!job) {
+      console.warn(`[KYC] Unknown Didit session ${sessionId}`);
+      // Still 200 so Didit does not retry forever for orphaned test pings
+      return res.status(200).json({ success: true, unknownSession: true });
+    }
+
+    // Idempotency: skip if we already recorded this event_id
+    if (eventId && job.rawResultRef?.includes(eventId)) {
+      return res.status(200).json({ success: true, duplicate: true });
+    }
+
+    const decision = mapDiditStatus(status);
+    const rawSlice = JSON.stringify({
+      event_id: eventId || undefined,
+      status,
+      webhook_type: webhookType,
+      environment: environment || undefined,
+      sandbox_scenario: sandboxScenario || undefined,
+      decision: body.decision,
+    }).slice(0, 2000);
+
+    if (decision === "pending") {
+      await prisma.kycJob.update({
+        where: { id: job.id },
+        data: { status: "processing", rawResultRef: rawSlice },
+      });
+      if (status === "In Progress" || status === "Not Started") {
+        await prisma.user.update({
+          where: { id: job.userId },
+          data: { kycStatus: "pending" },
+        });
+      }
       return res.status(200).json({ success: true, status: "processing" });
     }
 
-    const job = await applyJobDecision(
-      jobId,
-      decision,
-      JSON.stringify(body).slice(0, 2000)
+    const updated = await applyJobDecision(job.jobId, decision, rawSlice);
+    console.log(
+      `[KYC] Didit session ${sessionId} → ${decision} (user ${updated?.userId}, status=${status}, env=${environment || "n/a"}, scenario=${sandboxScenario || "n/a"})`
     );
-
-    if (!job) {
-      return res.status(404).json({ success: false, error: "Unknown job_id" });
-    }
-
-    console.log(`[KYC] job ${jobId} → ${decision} (user ${job.userId})`);
     return res.status(200).json({ success: true, status: decision });
   } catch (error) {
-    console.error("smileKycWebhook error:", error);
+    console.error("diditKycWebhook error:", error);
     return res.status(500).json({ success: false, error: "Webhook processing failed" });
   }
 }
 
+/** @deprecated Alias kept for old imports / route names during migration */
+export const smileKycWebhook = diditKycWebhook;
+
 /**
- * POST /kyc/sandbox/approve — only when SMILE_SANDBOX=true.
+ * POST /kyc/sandbox/approve — only when DIDIT_LOCAL_MOCK=true (offline mock).
+ * Not used for Didit Console sandbox — those finish via webhook.
  * Body: { jobId }
  */
 export async function sandboxApproveKyc(req: Request, res: Response) {
   try {
-    if (!isSandbox()) {
-      return res.status(403).json({ success: false, error: "Sandbox approvals disabled" });
+    if (!isLocalMock()) {
+      return res.status(403).json({
+        success: false,
+        error:
+          "Local mock approvals disabled. With Didit sandbox keys, wait for the Didit webhook (or set DIDIT_LOCAL_MOCK=true).",
+      });
     }
 
     const userId = req.user?.userId;
@@ -434,6 +585,7 @@ export async function getKycJob(req: Request, res: Response) {
       jobId: job.jobId,
       documentType: job.documentType,
       status: job.status,
+      provider: job.provider,
       kycTier: user?.kycTier ?? 1,
       kycStatus: user?.kycStatus ?? "none",
       limitKes: resolveMonthlyLimit(user?.kycTier ?? 1),

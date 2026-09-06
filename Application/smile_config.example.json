@@ -1,7 +1,0 @@
-{
-  "partner_id": "REPLACE_WITH_SMILE_PARTNER_ID",
-  "auth_token": "REPLACE_WITH_SMILE_AUTH_TOKEN",
-  "callback_url": "https://your-api-host/kyc/webhook",
-  "env": "sandbox",
-  "_comment": "Download the real smile_config.json from https://portal.usesmileid.com/sdk and replace this file (gitignored as smile_config.json)."
-}
