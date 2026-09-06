@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@coinbase/wallet-mobile-sdk": "^1.1.2",
+    "@didit-protocol/sdk-react-native": "^4.7.5",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.4.4",

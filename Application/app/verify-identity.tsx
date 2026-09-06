@@ -24,15 +24,13 @@ import {
   createKycSession,
   getKycJob,
   getKycStatus,
-  KYC_DOC_OPTIONS,
   reportKycClientResult,
   sandboxApproveKyc,
-  type KycDocumentType,
   type KycStatusResponse,
 } from "@/lib/kycService";
-import SmileDocumentCapture from "@/components/SmileDocumentCapture";
+import DiditVerificationCapture from "@/components/DiditVerificationCapture";
 
-type Step = "intro" | "pick" | "capture" | "pending" | "done" | "failed";
+type Step = "intro" | "capture" | "pending" | "done" | "failed";
 
 export default function VerifyIdentityScreen() {
   const router = useRouter();
@@ -42,12 +40,10 @@ export default function VerifyIdentityScreen() {
   const [status, setStatus] = useState<KycStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [docType, setDocType] = useState<KycDocumentType | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
-  const [smileParams, setSmileParams] = useState<Record<string, unknown> | null>(
-    null
-  );
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [sandbox, setSandbox] = useState(false);
+  const [localMock, setLocalMock] = useState(false);
   const [errorText, setErrorText] = useState("");
 
   const loadStatus = useCallback(async () => {
@@ -59,6 +55,7 @@ export default function VerifyIdentityScreen() {
     const res = await getKycStatus(token);
     setStatus(res);
     setSandbox(Boolean(res?.sandbox));
+    setLocalMock(Boolean(res?.localMock));
     if (res?.kycTier && res.kycTier >= 2 && res.kycStatus === "approved") {
       setStep("done");
     }
@@ -81,7 +78,9 @@ export default function VerifyIdentityScreen() {
         await loadStatus();
       } else if (job.status === "rejected" || job.status === "error") {
         setStep("failed");
-        setErrorText("Verification was not approved. Please try again with a clearer scan.");
+        setErrorText(
+          "Verification was not approved. Please try again with a clearer scan."
+        );
       }
     };
 
@@ -93,16 +92,15 @@ export default function VerifyIdentityScreen() {
     };
   }, [step, token, jobId, loadStatus]);
 
-  const startSession = async (type: KycDocumentType) => {
+  const beginVerification = async () => {
     if (!token) {
       Alert.alert("Sign in required", "Please sign in to verify your identity.");
       return;
     }
     setBusy(true);
     setErrorText("");
-    setDocType(type);
     try {
-      const session = await createKycSession(token, type);
+      const session = await createKycSession(token);
       if (session.alreadyVerified) {
         setStep("done");
         await loadStatus();
@@ -112,8 +110,9 @@ export default function VerifyIdentityScreen() {
         throw new Error(session.error || "Could not start verification");
       }
       setJobId(session.jobId);
-      setSmileParams(session.smileParams || null);
+      setSessionToken(session.sessionToken || null);
       setSandbox(Boolean(session.sandbox));
+      setLocalMock(Boolean(session.localMock) || !session.sessionToken);
       setStep("capture");
     } catch (e: any) {
       setErrorText(e?.message || "Could not start verification");
@@ -123,18 +122,32 @@ export default function VerifyIdentityScreen() {
     }
   };
 
-  const onCaptureComplete = async (resultRef?: string) => {
+  const onCaptureComplete = async (result: {
+    status?: string;
+    resultRef?: string;
+  }) => {
     if (!token || !jobId) return;
     setBusy(true);
     try {
-      await reportKycClientResult(token, jobId, resultRef);
-      if (sandbox) {
+      await reportKycClientResult(token, jobId, result.resultRef, result.status);
+      // Offline mock only — Didit Console sandbox finishes via webhook.
+      if (localMock) {
         const approved = await sandboxApproveKyc(token, jobId);
         if (approved?.success) {
           setStep("done");
           await loadStatus();
           return;
         }
+      }
+      if (result.status === "Declined") {
+        setStep("failed");
+        setErrorText("Verification was declined. Please try again.");
+        return;
+      }
+      if (result.status === "Approved") {
+        // Webhook is source of truth; poll briefly in case it already landed.
+        setStep("pending");
+        return;
       }
       setStep("pending");
     } catch {
@@ -212,7 +225,10 @@ export default function VerifyIdentityScreen() {
                 Chamapay lets you deposit up to KES{" "}
                 {status?.tier1LimitKes?.toLocaleString() ?? "20,000"} per month
                 without extra checks. To go higher, we need a quick ID and face
-                check powered by Smile ID.
+                check powered by Didit — fully in-app, no redirects.
+                {sandbox
+                  ? " (Didit sandbox — test mode, no real billing.)"
+                  : ""}
               </Text>
               <View className="gap-3">
                 <View className="flex-row items-start">
@@ -238,49 +254,23 @@ export default function VerifyIdentityScreen() {
             </View>
 
             <TouchableOpacity
-              onPress={() => setStep("pick")}
+              onPress={beginVerification}
+              disabled={busy}
               className="bg-blue-600 py-4 rounded-2xl items-center"
               activeOpacity={0.85}
             >
-              <Text className="text-white font-bold text-[16px]">Continue</Text>
+              {busy ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text className="text-white font-bold text-[16px]">
+                  Continue
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         )}
 
-        {step === "pick" && (
-          <View>
-            <Text className="text-lg font-bold text-gray-900 mb-1">
-              Choose a document
-            </Text>
-            <Text className="text-gray-500 text-sm mb-4">
-              Use a clear, well-lit photo of a valid Kenya document.
-            </Text>
-            {KYC_DOC_OPTIONS.map((opt) => (
-              <TouchableOpacity
-                key={opt.type}
-                disabled={busy}
-                onPress={() => startSession(opt.type)}
-                className="bg-white border border-gray-100 rounded-2xl p-4 mb-3 flex-row items-center"
-                activeOpacity={0.8}
-              >
-                <View className="w-11 h-11 rounded-xl bg-blue-50 items-center justify-center mr-3">
-                  <FileText size={20} color="#2563eb" />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-gray-900 font-bold text-[15px]">
-                    {opt.label}
-                  </Text>
-                  <Text className="text-gray-500 text-sm mt-0.5">{opt.hint}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-            {busy ? (
-              <ActivityIndicator className="mt-2" color="#2563eb" />
-            ) : null}
-          </View>
-        )}
-
-        {step === "capture" && smileParams && docType && (
+        {step === "capture" && (
           <View>
             <Text className="text-lg font-bold text-gray-900 mb-2">
               Scan & selfie
@@ -288,16 +278,17 @@ export default function VerifyIdentityScreen() {
             <Text className="text-gray-500 text-sm mb-4 leading-5">
               Follow the on-screen steps. Keep your face and document fully in
               frame.
-              {sandbox
-                ? " Sandbox mode is on — you can complete a test approval without Smile keys."
-                : ""}
             </Text>
-            <SmileDocumentCapture
-              params={smileParams}
+            <DiditVerificationCapture
+              sessionToken={sessionToken}
               sandbox={sandbox}
-              documentType={docType}
+              localMock={localMock}
               busy={busy}
               onComplete={onCaptureComplete}
+              onCancel={() => {
+                setErrorText("");
+                setStep("intro");
+              }}
               onError={(msg) => {
                 setErrorText(msg);
                 setStep("failed");
@@ -352,7 +343,9 @@ export default function VerifyIdentityScreen() {
             <TouchableOpacity
               onPress={() => {
                 setErrorText("");
-                setStep("pick");
+                setSessionToken(null);
+                setJobId(null);
+                setStep("intro");
               }}
               className="bg-blue-600 py-4 rounded-2xl items-center"
             >

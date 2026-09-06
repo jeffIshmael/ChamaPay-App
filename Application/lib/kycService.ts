@@ -1,7 +1,5 @@
 import { serverUrl } from "@/constants/serverUrl";
 
-export type KycDocumentType = "NATIONAL_ID" | "PASSPORT" | "DRIVERS_LICENSE";
-
 export type KycStatusResponse = {
   success: boolean;
   kycTier: number;
@@ -12,7 +10,11 @@ export type KycStatusResponse = {
   remainingKes: number;
   tier1LimitKes: number;
   tier2LimitKes: number;
+  /** Didit Console sandbox application */
   sandbox: boolean;
+  /** Offline mock (no Didit API) */
+  localMock?: boolean;
+  provider?: string;
   latestJob?: {
     jobId: string;
     documentType: string;
@@ -26,11 +28,14 @@ export type KycSessionResponse = {
   success: boolean;
   alreadyVerified?: boolean;
   jobId?: string;
-  documentType?: string;
-  countryCode?: string;
-  partnerId?: string;
+  sessionId?: string;
+  /** Pass to Didit RN SDK startVerification — never store permanently */
+  sessionToken?: string | null;
   sandbox?: boolean;
-  smileParams?: Record<string, unknown>;
+  localMock?: boolean;
+  sandboxScenario?: string | null;
+  provider?: string;
+  status?: string;
   message?: string;
   kycTier?: number;
   error?: string;
@@ -47,10 +52,8 @@ export async function getKycStatus(token: string): Promise<KycStatusResponse | n
   }
 }
 
-export async function createKycSession(
-  token: string,
-  documentType: KycDocumentType
-): Promise<KycSessionResponse> {
+/** Start Didit session (document + liveness handled inside Didit UI). */
+export async function createKycSession(token: string): Promise<KycSessionResponse> {
   try {
     const response = await fetch(`${serverUrl}/kyc/session`, {
       method: "POST",
@@ -58,7 +61,7 @@ export async function createKycSession(
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ documentType }),
+      body: JSON.stringify({}),
     });
     return await response.json();
   } catch {
@@ -69,7 +72,8 @@ export async function createKycSession(
 export async function reportKycClientResult(
   token: string,
   jobId: string,
-  resultRef?: string
+  resultRef?: string,
+  status?: string
 ) {
   try {
     const response = await fetch(`${serverUrl}/kyc/jobs/${jobId}/client-result`, {
@@ -78,7 +82,7 @@ export async function reportKycClientResult(
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ resultRef }),
+      body: JSON.stringify({ resultRef, status }),
     });
     return await response.json();
   } catch {
@@ -97,7 +101,7 @@ export async function getKycJob(token: string, jobId: string) {
   }
 }
 
-/** Sandbox-only: approve without Smile provider. */
+/** Offline local-mock only: approve without Didit. Not for Didit Console sandbox. */
 export async function sandboxApproveKyc(token: string, jobId: string) {
   try {
     const response = await fetch(`${serverUrl}/kyc/sandbox/approve`, {
@@ -113,25 +117,3 @@ export async function sandboxApproveKyc(token: string, jobId: string) {
     return { success: false, error: "Sandbox approve failed" };
   }
 }
-
-export const KYC_DOC_OPTIONS: {
-  type: KycDocumentType;
-  label: string;
-  hint: string;
-}[] = [
-  {
-    type: "NATIONAL_ID",
-    label: "National ID",
-    hint: "Kenya ID card (front and back)",
-  },
-  {
-    type: "PASSPORT",
-    label: "Passport",
-    hint: "Photo page of your passport",
-  },
-  {
-    type: "DRIVERS_LICENSE",
-    label: "Driver's license",
-    hint: "Kenya driving licence (front and back)",
-  },
-];

@@ -26,9 +26,9 @@ model User {
   emailNotify         Boolean              @default(true)
   expoPushToken       String?
   pushNotify          Boolean              @default(false)
-  /** 1 = default (20k KES/mo), 2 = Smile-verified (100k KES/mo) */
+  /** 1 = default (20k KES/mo), 2 = Didit-verified (100k KES/mo) */
   kycTier             Int                  @default(1)
-  /** none | pending | approved | rejected */
+  /** none | pending | pending_review | approved | rejected */
   kycStatus           String               @default("none")
   kycVerifiedAt       DateTime?
   createdChamas       Chama[]              @relation("AdminChamas")
@@ -46,7 +46,8 @@ model User {
 model KycJob {
   id           Int      @id @default(autoincrement())
   userId       Int
-  provider     String   @default("smile")
+  provider     String   @default("didit")
+  /** Didit session_id (or local sandbox job id) */
   jobId        String   @unique
   documentType String
   /** pending | processing | approved | rejected | error */

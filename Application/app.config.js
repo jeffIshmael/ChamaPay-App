@@ -108,7 +108,14 @@ export default {
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow ChamaPay to access your camera to scan QR codes."
+          "cameraPermission": "Allow ChamaPay to access your camera to scan QR codes and verify your identity."
+        }
+      ],
+      [
+        "@didit-protocol/sdk-react-native",
+        {
+          "iosNfcEnabled": false,
+          "androidNfcEnabled": false
         }
       ],
       "expo-router",
