@@ -7,6 +7,9 @@ import {
 } from "react-native";
 import { ShieldCheck } from "lucide-react-native";
 
+/** Brand downy-600 — matches Verify Identity screen */
+const DOWNY_600 = "#1c8584";
+
 type Props = {
   sessionToken: string | null;
   /** Didit Console sandbox application */
@@ -110,9 +113,9 @@ export default function DiditVerificationCapture({
   const loading = busy || starting;
 
   return (
-    <View className="bg-white rounded-3xl border border-gray-100 p-5">
-      <View className="w-12 h-12 rounded-2xl bg-emerald-50 items-center justify-center mb-3">
-        <ShieldCheck size={22} color="#059669" />
+    <View className="bg-white rounded-3xl border border-downy-100 p-5">
+      <View className="w-12 h-12 rounded-2xl bg-downy-100 items-center justify-center mb-3">
+        <ShieldCheck size={22} color={DOWNY_600} />
       </View>
       <Text className="text-gray-900 font-bold text-lg mb-2">
         Secure in-app check
@@ -127,11 +130,11 @@ export default function DiditVerificationCapture({
       </Text>
 
       {loading ? (
-        <ActivityIndicator color="#2563eb" />
+        <ActivityIndicator color={DOWNY_600} />
       ) : (
         <TouchableOpacity
           onPress={launch}
-          className="bg-blue-600 py-3.5 rounded-2xl items-center"
+          className="bg-downy-600 py-3.5 rounded-2xl items-center"
           activeOpacity={0.85}
         >
           <Text className="text-white font-bold">

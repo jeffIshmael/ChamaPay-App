@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,18 +7,23 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Image,
+  Modal,
+  Pressable,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import {
   ArrowLeft,
-  BadgeCheck,
   Camera,
   CheckCircle2,
-  FileText,
+  Clock3,
+  Contact,
   Shield,
+  X,
 } from "lucide-react-native";
+import { BlurView } from "expo-blur";
 import { useAuth } from "@/Contexts/AuthContext";
 import {
   createKycSession,
@@ -26,18 +31,49 @@ import {
   getKycStatus,
   reportKycClientResult,
   sandboxApproveKyc,
-  type KycStatusResponse,
 } from "@/lib/kycService";
 import DiditVerificationCapture from "@/components/DiditVerificationCapture";
 
 type Step = "intro" | "capture" | "pending" | "done" | "failed";
+
+/** Brand downy-600 */
+const DOWNY_600 = "#1c8584";
+const INK = "#0f172a";
+
+const verifyIdentityHero = require("@/assets/images/verify-identity-hero.png");
+
+function DetailRow({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <View className="flex-row items-center py-4">
+      <View className="w-11 h-11 items-center justify-center">{icon}</View>
+      <View className="flex-1 ml-3">
+        <Text
+          className="text-[16px] font-semibold leading-5"
+          style={{ color: INK }}
+        >
+          {title}
+        </Text>
+        <Text className="text-gray-500 text-[13px] mt-1 leading-5">
+          {subtitle}
+        </Text>
+      </View>
+    </View>
+  );
+}
 
 export default function VerifyIdentityScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
   const [step, setStep] = useState<Step>("intro");
-  const [status, setStatus] = useState<KycStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -45,6 +81,7 @@ export default function VerifyIdentityScreen() {
   const [sandbox, setSandbox] = useState(false);
   const [localMock, setLocalMock] = useState(false);
   const [errorText, setErrorText] = useState("");
+  const [whyVisible, setWhyVisible] = useState(false);
 
   const loadStatus = useCallback(async () => {
     if (!token) {
@@ -53,7 +90,6 @@ export default function VerifyIdentityScreen() {
     }
     setLoading(true);
     const res = await getKycStatus(token);
-    setStatus(res);
     setSandbox(Boolean(res?.sandbox));
     setLocalMock(Boolean(res?.localMock));
     if (res?.kycTier && res.kycTier >= 2 && res.kycStatus === "approved") {
@@ -130,7 +166,6 @@ export default function VerifyIdentityScreen() {
     setBusy(true);
     try {
       await reportKycClientResult(token, jobId, result.resultRef, result.status);
-      // Offline mock only — Didit Console sandbox finishes via webhook.
       if (localMock) {
         const approved = await sandboxApproveKyc(token, jobId);
         if (approved?.success) {
@@ -144,11 +179,6 @@ export default function VerifyIdentityScreen() {
         setErrorText("Verification was declined. Please try again.");
         return;
       }
-      if (result.status === "Approved") {
-        // Webhook is source of truth; poll briefly in case it already landed.
-        setStep("pending");
-        return;
-      }
       setStep("pending");
     } catch {
       setStep("pending");
@@ -156,19 +186,6 @@ export default function VerifyIdentityScreen() {
       setBusy(false);
     }
   };
-
-  const remainingLabel = useMemo(() => {
-    if (!status) return null;
-    return `KES ${Math.floor(status.remainingKes).toLocaleString()} left this month (limit KES ${status.limitKes.toLocaleString()})`;
-  }, [status]);
-
-  if (loading) {
-    return (
-      <View className="flex-1 bg-gray-50 items-center justify-center">
-        <ActivityIndicator color="#0f766e" />
-      </View>
-    );
-  }
 
   return (
     <View className="flex-1 bg-gray-50">
@@ -190,172 +207,281 @@ export default function VerifyIdentityScreen() {
 
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 40 }}
+        contentContainerStyle={{
+          paddingHorizontal: 24,
+          paddingTop: 8,
+          paddingBottom: Math.max(insets.bottom, 16) + 20,
+          flexGrow: 1,
+        }}
         showsVerticalScrollIndicator={false}
       >
-        {remainingLabel ? (
-          <View className="bg-white border border-gray-100 rounded-2xl p-4 mb-4">
-            <Text className="text-gray-500 text-xs font-semibold uppercase mb-1">
-              Deposit headroom
+        {loading ? (
+          <View className="flex-1 items-center justify-center py-24">
+            <ActivityIndicator color={DOWNY_600} size="large" />
+            <Text className="text-gray-500 text-sm mt-4">
+              Preparing verification…
             </Text>
-            <Text className="text-gray-900 font-bold text-[15px]">{remainingLabel}</Text>
-            {status && status.kycTier < 2 ? (
-              <Text className="text-gray-500 text-sm mt-2 leading-5">
-                Verify once to raise your monthly M-Pesa deposit limit to KES{" "}
-                {status.tier2LimitKes.toLocaleString()}.
-              </Text>
+          </View>
+        ) : (
+          <>
+            {errorText && step !== "failed" ? (
+              <Text className="text-red-600 text-sm mb-3">{errorText}</Text>
             ) : null}
-          </View>
-        ) : null}
 
-        {errorText ? (
-          <Text className="text-red-600 text-sm mb-3">{errorText}</Text>
-        ) : null}
+            {step === "intro" && (
+              <View className="flex-1">
+                <View className="items-center justify-center pt-1 pb-1">
+                  <Image
+                    source={verifyIdentityHero}
+                    style={{ width: 200, height: 200 }}
+                    resizeMode="contain"
+                    accessibilityLabel="Identity document scan illustration"
+                  />
+                </View>
 
-        {step === "intro" && (
-          <View>
-            <View className="bg-white rounded-3xl border border-gray-100 p-5 mb-4">
-              <View className="w-12 h-12 rounded-2xl bg-emerald-50 items-center justify-center mb-3">
-                <Shield size={22} color="#059669" />
-              </View>
-              <Text className="text-xl font-bold text-gray-900 mb-2">
-                Increase your deposit limit
-              </Text>
-              <Text className="text-gray-600 text-[15px] leading-6 mb-4">
-                Chamapay lets you deposit up to KES{" "}
-                {status?.tier1LimitKes?.toLocaleString() ?? "20,000"} per month
-                without extra checks. To go higher, we need a quick ID and face
-                check powered by Didit — fully in-app, no redirects.
-                {sandbox
-                  ? " (Didit sandbox — test mode, no real billing.)"
-                  : ""}
-              </Text>
-              <View className="gap-3">
-                <View className="flex-row items-start">
-                  <FileText size={18} color="#2563eb" />
-                  <Text className="text-gray-700 text-sm ml-2 flex-1 leading-5">
-                    Scan your National ID, passport, or driver’s license
-                  </Text>
-                </View>
-                <View className="flex-row items-start">
-                  <Camera size={18} color="#2563eb" />
-                  <Text className="text-gray-700 text-sm ml-2 flex-1 leading-5">
-                    Take a live selfie so we know it’s you
-                  </Text>
-                </View>
-                <View className="flex-row items-start">
-                  <BadgeCheck size={18} color="#2563eb" />
-                  <Text className="text-gray-700 text-sm ml-2 flex-1 leading-5">
-                    After approval, your monthly limit becomes KES{" "}
-                    {status?.tier2LimitKes?.toLocaleString() ?? "100,000"}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              onPress={beginVerification}
-              disabled={busy}
-              className="bg-blue-600 py-4 rounded-2xl items-center"
-              activeOpacity={0.85}
-            >
-              {busy ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text className="text-white font-bold text-[16px]">
-                  Continue
+                <Text
+                  className="text-[26px] font-bold leading-8 text-center"
+                  style={{ color: INK }}
+                >
+                  Identity verification
                 </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
+                <Text className="text-gray-500 text-[15px] mt-2 leading-6 text-center px-1">
+                  During this process, you will:
+                  {sandbox ? " (Sandbox mode is on for testing.)" : ""}
+                </Text>
 
-        {step === "capture" && (
-          <View>
-            <Text className="text-lg font-bold text-gray-900 mb-2">
-              Scan & selfie
-            </Text>
-            <Text className="text-gray-500 text-sm mb-4 leading-5">
-              Follow the on-screen steps. Keep your face and document fully in
-              frame.
-            </Text>
-            <DiditVerificationCapture
-              sessionToken={sessionToken}
-              sandbox={sandbox}
-              localMock={localMock}
-              busy={busy}
-              onComplete={onCaptureComplete}
-              onCancel={() => {
-                setErrorText("");
-                setStep("intro");
-              }}
-              onError={(msg) => {
-                setErrorText(msg);
-                setStep("failed");
-              }}
-            />
-          </View>
-        )}
+                <View className="mt-5 bg-white rounded-3xl px-4 border border-downy-100">
+                  <DetailRow
+                    icon={<Contact size={26} color={INK} strokeWidth={1.8} />}
+                    title="Take a picture of your ID"
+                    subtitle="Front and back of a valid national ID"
+                  />
+                  <View className="h-px bg-gray-100 ml-14" />
+                  <DetailRow
+                    icon={<Camera size={26} color={INK} strokeWidth={1.8} />}
+                    title="Take a selfie of yourself"
+                    subtitle="So we can match your face to your ID"
+                  />
+                  <View className="h-px bg-gray-100 ml-14" />
+                  <DetailRow
+                    icon={<Clock3 size={26} color={INK} strokeWidth={1.8} />}
+                    title="Get verified"
+                    subtitle="Checks usually take about 1 minute"
+                  />
+                </View>
 
-        {step === "pending" && (
-          <View className="bg-white rounded-3xl border border-gray-100 p-6 items-center">
-            <ActivityIndicator color="#0f766e" size="large" />
-            <Text className="text-gray-900 font-bold text-lg mt-4">
-              Checking your documents
-            </Text>
-            <Text className="text-gray-500 text-sm text-center mt-2 leading-5">
-              This usually takes a few seconds. You can leave this screen open.
-            </Text>
-          </View>
-        )}
+                <View className="mt-auto pt-12">
+                  <TouchableOpacity
+                    onPress={beginVerification}
+                    disabled={busy}
+                    className="bg-downy-600 py-4 rounded-2xl items-center"
+                    activeOpacity={0.85}
+                  >
+                    {busy ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text className="text-white font-bold text-[16px]">
+                        Start verification
+                      </Text>
+                    )}
+                  </TouchableOpacity>
 
-        {step === "done" && (
-          <View className="bg-white rounded-3xl border border-emerald-100 p-6 items-center">
-            <CheckCircle2 size={48} color="#059669" />
-            <Text className="text-gray-900 font-bold text-xl mt-4">
-              You're verified
-            </Text>
-            <Text className="text-gray-600 text-sm text-center mt-2 leading-5">
-              Your monthly M-Pesa deposit limit is now KES{" "}
-              {status?.limitKes?.toLocaleString() ??
-                status?.tier2LimitKes?.toLocaleString() ??
-                "100,000"}
-              .
-            </Text>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              className="bg-emerald-600 w-full py-4 rounded-2xl items-center mt-6"
-            >
-              <Text className="text-white font-bold text-[16px]">Done</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+                  <TouchableOpacity
+                    onPress={() => setWhyVisible(true)}
+                    className="items-center mt-8"
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      className="text-[15px] font-medium text-center"
+                      style={{
+                        color: INK,
+                        textDecorationLine: "underline",
+                      }}
+                    >
+                      Why is this needed?
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
-        {step === "failed" && (
-          <View className="bg-white rounded-3xl border border-red-100 p-6">
-            <Text className="text-gray-900 font-bold text-lg mb-2">
-              Verification didn't go through
-            </Text>
-            <Text className="text-gray-600 text-sm leading-5 mb-5">
-              {errorText ||
-                "Please retry with better lighting and a clear document photo."}
-            </Text>
-            <TouchableOpacity
-              onPress={() => {
-                setErrorText("");
-                setSessionToken(null);
-                setJobId(null);
-                setStep("intro");
-              }}
-              className="bg-blue-600 py-4 rounded-2xl items-center"
-            >
-              <Text className="text-white font-bold text-[16px]">Try again</Text>
-            </TouchableOpacity>
-          </View>
+            {step === "capture" && (
+              <View className="pt-4">
+                <Text
+                  className="text-xl font-bold mb-2"
+                  style={{ color: INK }}
+                >
+                  Scan & selfie
+                </Text>
+                <Text className="text-gray-500 text-[15px] mb-5 leading-6">
+                  Follow the on-screen steps. Keep your face and document fully
+                  in frame.
+                </Text>
+                <DiditVerificationCapture
+                  sessionToken={sessionToken}
+                  sandbox={sandbox}
+                  localMock={localMock}
+                  busy={busy}
+                  onComplete={onCaptureComplete}
+                  onCancel={() => {
+                    setErrorText("");
+                    setStep("intro");
+                  }}
+                  onError={(msg) => {
+                    setErrorText(msg);
+                    setStep("failed");
+                  }}
+                />
+              </View>
+            )}
+
+            {step === "pending" && (
+              <View className="items-center pt-16 px-4">
+                <View
+                  className="w-20 h-20 rounded-full items-center justify-center mb-6"
+                  style={{ backgroundColor: "rgba(28,133,132,0.1)" }}
+                >
+                  <ActivityIndicator color={DOWNY_600} size="large" />
+                </View>
+                <Text
+                  className="text-2xl font-bold text-center"
+                  style={{ color: INK }}
+                >
+                  Checking your documents
+                </Text>
+                <Text className="text-gray-500 text-[15px] text-center mt-3 leading-6">
+                  This usually takes a few seconds. You can leave this screen
+                  open.
+                </Text>
+              </View>
+            )}
+
+            {step === "done" && (
+              <View className="items-center pt-16 px-4">
+                <View
+                  className="w-20 h-20 rounded-full items-center justify-center mb-6"
+                  style={{ backgroundColor: "rgba(28,133,132,0.12)" }}
+                >
+                  <CheckCircle2 size={40} color={DOWNY_600} strokeWidth={2} />
+                </View>
+                <Text
+                  className="text-2xl font-bold text-center"
+                  style={{ color: INK }}
+                >
+                  You’re verified
+                </Text>
+                <Text className="text-gray-500 text-[15px] text-center mt-3 leading-6">
+                  Your identity check is complete. You’re all set.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => router.back()}
+                  className="bg-downy-600 w-full py-4 rounded-2xl items-center mt-10"
+                  activeOpacity={0.85}
+                >
+                  <Text className="text-white font-bold text-[16px]">Done</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {step === "failed" && (
+              <View className="pt-12">
+                <Text
+                  className="text-2xl font-bold mb-3"
+                  style={{ color: INK }}
+                >
+                  Verification didn’t go through
+                </Text>
+                <Text className="text-gray-500 text-[15px] leading-6 mb-8">
+                  {errorText ||
+                    "Please retry with better lighting and a clear document photo."}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setErrorText("");
+                    setSessionToken(null);
+                    setJobId(null);
+                    setStep("intro");
+                  }}
+                  className="bg-downy-600 py-4 rounded-2xl items-center"
+                  activeOpacity={0.85}
+                >
+                  <Text className="text-white font-bold text-[16px]">
+                    Try again
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
         )}
 
         {Platform.OS === "ios" ? <View className="h-4" /> : null}
       </ScrollView>
+
+      <Modal
+        visible={whyVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setWhyVisible(false)}
+      >
+        <View className="flex-1 justify-end">
+          <View className="absolute inset-0" pointerEvents="none">
+            <BlurView intensity={28} tint="dark" className="absolute inset-0" />
+            <View className="absolute inset-0 bg-black/55" />
+          </View>
+          <Pressable
+            className="absolute inset-0"
+            onPress={() => setWhyVisible(false)}
+          />
+          <View
+            className="bg-white rounded-t-[28px] px-5 pt-3"
+            style={{ paddingBottom: Math.max(insets.bottom, 16) + 12 }}
+          >
+            <View className="items-center pb-2">
+              <View className="w-10 h-1 rounded-full bg-gray-300" />
+            </View>
+
+            <View className="flex-row items-center justify-between mb-4 mt-1">
+              <View className="flex-row items-center flex-1 pr-3">
+                <View className="w-10 h-10 rounded-full bg-downy-50 items-center justify-center mr-3">
+                  <Shield size={20} color={DOWNY_600} />
+                </View>
+                <Text
+                  className="text-xl font-bold flex-1"
+                  style={{ color: INK }}
+                >
+                  Why is this needed?
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setWhyVisible(false)}
+                className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center"
+              >
+                <X size={18} color="#4b5563" />
+              </TouchableOpacity>
+            </View>
+
+            <Text className="text-gray-700 text-[15px] leading-6 mb-4">
+              Identity verification helps us meet anti-money laundering (AML)
+              requirements and keep Chamapay safe for everyone.
+            </Text>
+            <Text className="text-gray-700 text-[15px] leading-6 mb-5">
+              On Chamapay, you can freely deposit up to{" "}
+              <Text className="font-semibold text-gray-900">KES 20,000</Text>{" "}
+              per month without full verification. If you need to go above that
+              limit, we’ll ask you to verify your identity first.
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => setWhyVisible(false)}
+              className="bg-downy-600 py-3.5 rounded-2xl items-center"
+              activeOpacity={0.85}
+            >
+              <Text className="text-white font-bold text-[15px]">Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

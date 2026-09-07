@@ -1,5 +1,8 @@
 import SeedPhraseModal from "@/components/SeedPhraseModal";
+import DepositLimitCard from "@/components/DepositLimitCard";
+import KycProfileAvatar, { isIdentityVerified } from "@/components/KycProfileAvatar";
 import { useAuth } from "@/Contexts/AuthContext";
+import { getKycStatus, type KycStatusResponse } from "@/lib/kycService";
 import { registerForPushNotificationsAsync } from "@/lib/notificationUtils";
 import { updateUserNotificationSettings, updateUserPushToken } from "@/lib/userService";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
@@ -19,7 +22,6 @@ import {
   HelpCircle,
   Info,
   LogOut,
-  ShieldCheck,
   Twitter
 } from "lucide-react-native";
 import React, { useState } from "react";
@@ -66,8 +68,9 @@ export default function ProfileSettings() {
   });
   const [hasPin, setHasPin] = useState(false);
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
+  const [kycStatus, setKycStatus] = useState<KycStatusResponse | null>(null);
 
-  // Check for existing PIN
+  // Check for existing PIN + refresh KYC fields / deposit limits
   useFocusEffect(
     React.useCallback(() => {
       const checkPin = async () => {
@@ -75,8 +78,16 @@ export default function ProfileSettings() {
         setHasPin(!!pin);
       };
       checkPin();
-    }, [])
+      void refreshUser();
+      if (token) {
+        void getKycStatus(token).then((res) => {
+          if (res?.success) setKycStatus(res);
+        });
+      }
+    }, [refreshUser, token])
   );
+
+  const identityVerified = isIdentityVerified(user);
 
   React.useEffect(() => {
     if (user?.location === "KE" && !hasSetCurrency) {
@@ -265,13 +276,13 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
         {/* Profile Preview Card */}
         <View className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
           <View className="flex-row items-center gap-4">
-            <View className="relative">
-              <Image
-                source={{ uri: getUserProfileImage() }}
-                className="w-16 h-16 rounded-full border-2 border-white/30"
-              />
-
-            </View>
+            <KycProfileAvatar
+              imageUrl={getUserProfileImage()}
+              initials={user?.userName || "U"}
+              verified={identityVerified}
+              size="md"
+              onDark
+            />
             <View className="flex-1">
               <Text className="text-lg font-bold text-white">
                 {user?.userName || "User"}
@@ -279,9 +290,31 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
               <Text className="text-emerald-100 text-sm">
                 {user?.email || "No email provided"}
               </Text>
-              <View className="flex-row items-center gap-1 mt-1">
-                <View className="w-2 h-2 bg-emerald-300 rounded-full" />
-                <Text className="text-emerald-100 text-xs">Active</Text>
+              <View className="mt-1.5 flex-row items-center justify-between">
+                <View className="flex-row items-center gap-1.5">
+                  <View
+                    className={`h-2 w-2 rounded-full ${
+                      identityVerified ? "bg-emerald-400" : "bg-amber-400"
+                    }`}
+                  />
+                  <Text
+                    className={`text-xs font-semibold ${
+                      identityVerified ? "text-emerald-300" : "text-amber-300"
+                    }`}
+                  >
+                    {identityVerified ? "Verified" : "Unverified"}
+                  </Text>
+                </View>
+                {!identityVerified ? (
+                  <TouchableOpacity
+                    onPress={() => router.push("/verify-identity")}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text className="text-xs font-semibold text-amber-300 underline">
+                      Verify identity
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </View>
           </View>
@@ -318,71 +351,49 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
             </View>
           </TouchableOpacity>
 
-          {/* Identity verification / deposit limit */}
-          <TouchableOpacity onPress={() => router.push("/verify-identity")}>
-            <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center gap-4 flex-1 pr-2">
-                  <View className="w-12 h-12 bg-blue-100 rounded-xl items-center justify-center">
-                    <ShieldCheck size={20} color="#2563eb" />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-lg font-bold text-gray-900">
-                      Verify identity
-                    </Text>
-                    <Text className="text-gray-600 text-sm">
-                      Raise your monthly M-Pesa deposit limit
-                    </Text>
-                  </View>
-                </View>
-                <View className="w-10 h-10 bg-blue-50 rounded-xl items-center justify-center">
-                  <ChevronRight size={20} color="#2563eb" />
-                </View>
-              </View>
-            </View>
-          </TouchableOpacity>
+          {/* Monthly deposit limit + Verify Identity */}
+          <DepositLimitCard
+            verified={identityVerified}
+            status={kycStatus}
+            onPress={() => router.push("/verify-identity")}
+          />
 
           {/* Wallet Info */}
-          {user?.address && (
-            <View className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
-              <View className="flex-row items-center gap-3 mb-4">
-                <View>
-                  <Text className="text-lg font-bold text-gray-900">
-                    Wallet Information
+          {user?.smartAddress ? (
+            <TouchableOpacity onPress={copyWalletAddress} activeOpacity={0.85}>
+              <View className="mb-6 rounded-2xl border border-gray-100 bg-white p-6 shadow-lg">
+                <View className="mb-4 flex-row items-center justify-between">
+                  <View className="mr-3 flex-1">
+                    <Text className="text-lg font-bold text-gray-900">
+                      Wallet Information
+                    </Text>
+                    <Text className="mt-0.5 text-sm text-gray-600">
+                      Your onchain wallet address
+                    </Text>
+                  </View>
+                  <View className="h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
+                    {copiedAddress ? (
+                      <Check size={18} color="#059669" />
+                    ) : (
+                      <Copy size={18} color="#059669" />
+                    )}
+                  </View>
+                </View>
+
+                <View className="rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3.5">
+                  <Text className="mb-1 text-[11px] font-bold uppercase tracking-wider text-emerald-700/70">
+                    Address
                   </Text>
-                  <Text className="text-gray-600 text-sm">
-                    Your onchain wallet details
+                  <Text className="font-mono text-[15px] font-semibold text-gray-900">
+                    {formatWalletAddress(user.smartAddress)}
+                  </Text>
+                  <Text className="mt-2 text-xs font-medium text-emerald-700">
+                    {copiedAddress ? "Copied to clipboard" : "Tap card to copy full address"}
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity onPress={copyWalletAddress}>
-                <View className="bg-white rounded-xl p-4 border border-gray-100">
-                  <Text className="text-sm text-blue-700 font-medium mb-2">
-                    Wallet Address
-                  </Text>
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-gray-900 font-mono text-sm flex-1">
-                      {formatWalletAddress(user.smartAddress)}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={copyWalletAddress}
-                      className="ml-3 p-2 bg-blue-600 rounded-lg active:bg-blue-700"
-                      activeOpacity={0.8}
-                    >
-                      {copiedAddress ? (
-                        <Check size={14} color="white" />
-                      ) : (
-                        <Copy size={14} color="white" />
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                  <Text className="text-xs text-blue-600 mt-2 font-medium">
-                    Tap to copy full address
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          )}
+            </TouchableOpacity>
+          ) : null}
 
           {/* Currency Display */}
           {user?.location === "KE" && (
