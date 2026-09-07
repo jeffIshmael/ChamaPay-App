@@ -28,6 +28,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import LottieLoader from "@/components/LottieLoader";
 
 export interface Notification {
   id: string;
@@ -302,34 +303,12 @@ break;
         </View>
 
         {/* Loading Content */}
-        <View className="flex-1 p-4">
-          {/* Skeleton Cards */}
-          {[1, 2, 3, 4, 5].map((item) => (
-            <View
-              key={item}
-              className="mb-3 p-4 bg-white rounded-xl border border-gray-200"
-            >
-              <View className="flex-row items-start gap-3">
-                {/* Icon Skeleton */}
-                <View className="w-5 h-5 bg-gray-200 rounded-full" />
-
-                <View className="flex-1">
-                  {/* Title Skeleton */}
-                  <View className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
-
-                  {/* Message Skeleton */}
-                  <View className="h-3 bg-gray-200 rounded w-full mb-1" />
-                  <View className="h-3 bg-gray-200 rounded w-5/6 mb-3" />
-
-                  {/* Footer Skeleton */}
-                  <View className="flex-row items-center justify-between">
-                    <View className="h-3 bg-gray-200 rounded w-20" />
-                    <View className="h-3 bg-gray-200 rounded w-16" />
-                  </View>
-                </View>
-              </View>
-            </View>
-          ))}
+        <View className="flex-1 items-center justify-center px-6">
+          <LottieLoader
+            source="history"
+            label="Fetching notifications..."
+            size={160}
+          />
         </View>
       </View>
     );
@@ -378,6 +357,10 @@ break;
       {/* Notifications List */}
       <ScrollView
         className="flex-1 p-4"
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingBottom: insets.bottom + 100,
+        }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
@@ -514,18 +497,16 @@ break;
           </TouchableOpacity>
         ))}
         {notifications.length === 0 && (
-          <View className="flex-1 items-center justify-center py-24">
-            <View className="w-24 h-24  rounded-full items-center justify-center mb-6">
-              <Image
-                source={require("@/assets/images/no-notification.png")}
-                className="w-16 h-16 opacity-80"
-                resizeMode="contain"
-              />
-            </View>
+          <View className="flex-1 items-center justify-center px-6 pb-8">
+            <Image
+              source={require("@/assets/images/no-notification.png")}
+              className="w-24 h-24 mb-4"
+              resizeMode="contain"
+            />
             <Text className="text-xl font-bold text-gray-900 mb-2">
               No Notifications
             </Text>
-            <Text className="text-sm text-gray-500 text-center px-12 leading-5">
+            <Text className="text-sm text-gray-500 text-center px-8 leading-5">
               We'll notify you when something important happens.
             </Text>
           </View>

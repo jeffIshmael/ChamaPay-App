@@ -329,6 +329,7 @@ export default function DepositCryptoScreen() {
                 verified={isIdentityVerified(user)}
                 status={kycStatus}
                 loading={kycLoading}
+                variant="deposit"
                 dense
                 onPress={() => router.push("/verify-identity")}
               />

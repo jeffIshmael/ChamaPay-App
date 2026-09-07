@@ -163,14 +163,13 @@ export async function getMoonwellLiveSnapshot(
     getMoonwellMarketUsdc(),
   ]);
 
-  // Prefer on-chain getCash when API liquidity is missing/negative
-  let liquidityUsd = market?.liquidityUsd ?? null;
-  if (liquidityUsd == null || liquidityUsd <= 0) {
-    try {
-      liquidityUsd = await readMoonwellMarketCashUsdc();
-    } catch {
-      /* keep API value */
-    }
+  // Withdraw gate uses on-chain getCash — always prefer that for status so the
+  // UI matches what redeem will actually allow (API liquidity can be stale/wrong).
+  let liquidityUsd: number | null = null;
+  try {
+    liquidityUsd = await readMoonwellMarketCashUsdc();
+  } catch {
+    liquidityUsd = market?.liquidityUsd ?? null;
   }
 
   if (apiBalance != null) {

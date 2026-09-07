@@ -25,6 +25,7 @@ import { formatCurrency } from '@/Utils/pretiumUtils';
 import { useFormattedBalance } from '@/hooks/useFormattedBalance';
 import MoonwellInfoButton from '@/components/MoonwellInfoButton';
 import MoonwellWithdrawStatus from '@/components/MoonwellWithdrawStatus';
+import LottieLoader from '@/components/LottieLoader';
 
 const monoFont = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
 
@@ -268,6 +269,7 @@ export default function MoonwellDetailsScreen() {
             <View className="mb-4">
               <MoonwellWithdrawStatus
                 liquidityUsd={snapshot?.liquidityUsd}
+                neededUsdc={totalBalance}
                 loading={snapshotLoading}
                 variant="full"
               />
@@ -337,10 +339,12 @@ export default function MoonwellDetailsScreen() {
         {activeTab === 'history' ? (
           <View className="px-5 pb-6">
             {isLoading ? (
-              <View className="bg-white rounded-2xl p-8 items-center justify-center shadow-sm border border-gray-100 mb-6">
-                <View className="animate-pulse flex-row items-center justify-center">
-                   <Text className="text-gray-400 font-medium">Loading history...</Text>
-                </View>
+              <View className="bg-white rounded-2xl p-6 items-center justify-center shadow-sm border border-gray-100 mb-6">
+                <LottieLoader
+                  source="history"
+                  label="Loading history..."
+                  size={140}
+                />
               </View>
             ) : groupedHistory.length > 0 ? (
               groupedHistory.map((group, groupIdx) => (

@@ -32,6 +32,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Modal,
   ScrollView,
   Text,
@@ -39,6 +40,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import LottieLoader from "@/components/LottieLoader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
@@ -301,7 +303,8 @@ Alert.alert(
         className="flex-1 px-5"
         contentContainerStyle={{
           paddingTop: 20,
-          paddingBottom: insets.bottom + 100, // Accounts for safe area
+          paddingBottom: insets.bottom + 100,
+          flexGrow: 1,
         }}
         showsVerticalScrollIndicator={false}
       >
@@ -330,12 +333,16 @@ Alert.alert(
         </View>
 
         {loading ? (
-          <View className="items-center py-16">
-            <ActivityIndicator size="large" color="#10b981" />
-            <Text className="text-gray-500 mt-3">Fetching your chamas...</Text>
+          <View className="flex-1 w-full items-center justify-center">
+            <LottieLoader
+              source="home"
+              label="Fetching your chamas..."
+              size={140}
+              speed={0.45}
+            />
           </View>
         ) : error ? (
-          <View className="items-center py-16">
+          <View className="flex-1 items-center justify-center">
             <Text className="text-red-500 font-medium mb-2">⚠️ {error}</Text>
           </View>
         ) : chamas.length > 0 ? (
@@ -484,14 +491,18 @@ Alert.alert(
             </Card>
           ))
         ) : (
-          <View className="items-center py-20">
-            <Users color="#9ca3af" size={60} />
-            <Text className="text-gray-900 font-semibold text-lg mt-4 mb-1">
+          <View className="flex-1 items-center justify-center px-6 pb-8">
+            <Image
+              source={require("@/assets/images/empty.png")}
+              className="w-24 h-24 mb-3"
+              resizeMode="contain"
+            />
+            <Text className="text-gray-900 font-semibold text-lg mb-1">
               No Chamas Yet
             </Text>
-            <Text className="text-gray-600 text-sm text-center mb-6 px-6">
+            <Text className="text-gray-600 text-sm text-center mb-5 px-2">
               Join or create your first chama to start saving with your
-              community 💚
+              community
             </Text>
             <TouchableOpacity
               onPress={() => router.push("/create-chama")}
@@ -499,7 +510,7 @@ Alert.alert(
               activeOpacity={0.9}
             >
               <Text className="text-white font-semibold text-base">
-                🌍 Create Chama
+                Create Chama
               </Text>
             </TouchableOpacity>
           </View>
@@ -523,82 +534,104 @@ Alert.alert(
             onPress={(e) => e.stopPropagation()}
             className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"
           >
-            <Text className="text-2xl font-bold text-gray-900 mb-2">
-              Paste Invite Link
-            </Text>
-            <Text className="text-gray-600 text-sm mb-4">
-              Paste the chama invite link below to join
-            </Text>
+            <View className="items-center mb-5">
+              <View className="w-14 h-14 rounded-2xl bg-downy-100 items-center justify-center mb-3">
+                <Link size={26} color="#1c8584" />
+              </View>
+              <Text className="text-2xl font-bold text-gray-900 text-center">
+                Paste Invite Link
+              </Text>
+              <Text className="text-gray-500 text-sm mt-1.5 text-center leading-5">
+                Paste a Chamapay invite link to join a chama
+              </Text>
+            </View>
 
-            <TextInput
-              value={pasteLink}
-              onChangeText={setPasteLink}
-              placeholder="Paste link here..."
-              className="bg-gray-100 rounded-xl px-4 py-3 text-gray-900 mb-2"
-              placeholderTextColor="#9ca3af"
-              multiline
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            <View
+              className={`rounded-2xl border px-4 py-1 mb-2 ${
+                pasteLink.trim().length === 0
+                  ? "border-gray-200 bg-gray-50"
+                  : isValidChamaLink(pasteLink)
+                    ? "border-downy-300 bg-downy-50"
+                    : "border-red-200 bg-red-50"
+              }`}
+            >
+              <TextInput
+                value={pasteLink}
+                onChangeText={setPasteLink}
+                placeholder="https://chamapay.app/..."
+                className="text-gray-900 py-3 text-[15px]"
+                placeholderTextColor="#9ca3af"
+                multiline
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
 
-            {/* Validation Feedback */}
             {pasteLink.trim().length > 0 && (
-              <View className="mb-4">
+              <View className="mb-5">
                 {isValidChamaLink(pasteLink) ? (
-                  <View className="flex-row items-center gap-2 bg-emerald-50 px-3 py-2 rounded-lg">
-                    {/* <Text className="text-downy-600 text-lg">✓</Text> */}
-                    <Text className="text-downy-700 text-sm font-medium">
-                      Valid Chamapay link
-                    </Text>
-                  </View>
+                  <Text className="text-downy-700 text-sm font-medium px-1">
+                    Valid Chamapay link
+                  </Text>
                 ) : (
-                  <View className="flex-row items-center gap-2 bg-red-50 px-3 py-2 rounded-lg">
-                    {/* <Text className="text-red-600 text-lg">✗</Text> */}
-                    <Text className="text-red-700 text-sm font-medium">
-                      Invalid link format
-                    </Text>
-                  </View>
+                  <Text className="text-red-600 text-sm font-medium px-1">
+                    Invalid link format
+                  </Text>
                 )}
               </View>
             )}
 
-            <View className="flex-row gap-3">
-              <TouchableOpacity
-                disabled={isProcessingLink}
-                onPress={() => {
-                  setShowPasteModal(false);
-                  setPasteLink("");
-                }}
-                className="flex-1 bg-gray-700 py-3 rounded-xl"
-                activeOpacity={0.7}
-              >
-                <Text className="text-gray-100 font-semibold text-center">
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleProcessLink(pasteLink)}
-                disabled={!isValidChamaLink(pasteLink) || isProcessingLink}
-                className={`flex-1 py-3 rounded-xl ${!isValidChamaLink(pasteLink) || isProcessingLink
-                  ? "bg-gray-300"
-                  : "bg-emerald-600"
-                  }`}
-                activeOpacity={0.7}
-              >
-                {isProcessingLink ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <Text
-                    className={`font-semibold text-center ${!isValidChamaLink(pasteLink)
+            {pasteLink.trim().length === 0 ? <View className="mb-5" /> : null}
+
+            <TouchableOpacity
+              onPress={() => handleProcessLink(pasteLink)}
+              disabled={!isValidChamaLink(pasteLink) || isProcessingLink}
+              className={`w-full py-4 rounded-2xl mb-3 ${
+                !isValidChamaLink(pasteLink) || isProcessingLink
+                  ? "bg-gray-200"
+                  : "bg-downy-600"
+              }`}
+              activeOpacity={0.85}
+              style={
+                isValidChamaLink(pasteLink) && !isProcessingLink
+                  ? {
+                      shadowColor: "#1c8584",
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.25,
+                      shadowRadius: 8,
+                      elevation: 4,
+                    }
+                  : undefined
+              }
+            >
+              {isProcessingLink ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <Text
+                  className={`font-bold text-center text-base ${
+                    !isValidChamaLink(pasteLink)
                       ? "text-gray-500"
                       : "text-white"
-                      }`}
-                  >
-                    Open
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
+                  }`}
+                >
+                  Join Chama
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              disabled={isProcessingLink}
+              onPress={() => {
+                setShowPasteModal(false);
+                setPasteLink("");
+              }}
+              className="w-full py-3.5 rounded-2xl bg-gray-100"
+              activeOpacity={0.7}
+            >
+              <Text className="text-gray-700 font-semibold text-center">
+                Cancel
+              </Text>
+            </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
