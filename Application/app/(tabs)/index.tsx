@@ -1,5 +1,6 @@
 import { JoinedChama } from "@/constants/mockData";
 import { useAuth } from "@/Contexts/AuthContext";
+import KycProfileAvatar, { isIdentityVerified } from "@/components/KycProfileAvatar";
 import {
   getChamaBySlug,
   getUserChamas,
@@ -31,7 +32,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Modal,
   ScrollView,
   Text,
@@ -43,7 +43,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, token, unReadNotificationCount } = useAuth();
+  const { user, token, unReadNotificationCount, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [showPasteModal, setShowPasteModal] = useState(false);
@@ -52,6 +52,7 @@ export default function HomeScreen() {
   const { currency } = useCurrencyStore();
   const { formatBalance } = useFormattedBalance();
   const hasInitialized = React.useRef(false);
+  const identityVerified = isIdentityVerified(user);
 
   // Fetch user's chamas using React Query
   const {
@@ -98,11 +99,12 @@ await updateUserPushToken(pushToken, token);
     return () => clearTimeout(timer);
   }, [user, token]);
 
-  // Refresh chamas when screen comes into focus
+  // Refresh chamas + KYC fields when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchChamas();
-    }, [fetchChamas])
+      void refreshUser();
+    }, [fetchChamas, refreshUser])
   );
 
   // Validate if the link matches ChamaPay format
@@ -251,18 +253,13 @@ Alert.alert(
             className="mr-3"
             activeOpacity={0.8}
           >
-            {user?.profileImageUrl ? (
-              <Image
-                source={{ uri: user.profileImageUrl }}
-                className="w-12 h-12 rounded-full border-2 border-white/40"
-              />
-            ) : (
-              <View className="w-12 h-12 rounded-full bg-emerald-500 items-center justify-center border border-white/30">
-                <Text className="text-white text-lg font-bold">
-                  {user?.userName?.charAt(0)?.toUpperCase() || "U"}
-                </Text>
-              </View>
-            )}
+            <KycProfileAvatar
+              imageUrl={user?.profileImageUrl}
+              initials={user?.userName || "U"}
+              verified={identityVerified}
+              size="sm"
+              onDark
+            />
           </TouchableOpacity>
           <View>
             <Text className="text-white/90 text-sm font-medium">

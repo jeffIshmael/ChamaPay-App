@@ -218,19 +218,39 @@ export async function createKycSession(req: Request, res: Response) {
       });
     }
 
-    await prisma.kycJob.create({
-      data: {
+    const rawResultRef = JSON.stringify({
+      status: session.status,
+      workflow_id: session.workflow_id,
+      sandbox_scenario: sandboxScenario || null,
+      environment: isDiditSandbox() ? "sandbox" : "live",
+    }).slice(0, 2000);
+
+    // Upsert: Didit may reuse an open session_id on retry; jobId is unique.
+    const existing = await prisma.kycJob.findUnique({ where: { jobId: sessionId } });
+    if (existing && existing.userId !== userId) {
+      console.error(
+        `[KYC] session_id ${sessionId} already owned by user ${existing.userId}, not ${userId}`
+      );
+      return res.status(409).json({
+        success: false,
+        error: "Verification session conflict. Please try again.",
+      });
+    }
+
+    await prisma.kycJob.upsert({
+      where: { jobId: sessionId },
+      create: {
         userId,
         provider: "didit",
         jobId: sessionId,
         documentType: "DIDIT_WORKFLOW",
         status: "pending",
-        rawResultRef: JSON.stringify({
-          status: session.status,
-          workflow_id: session.workflow_id,
-          sandbox_scenario: sandboxScenario || null,
-          environment: isDiditSandbox() ? "sandbox" : "live",
-        }).slice(0, 2000),
+        rawResultRef,
+      },
+      update: {
+        status: "pending",
+        documentType: "DIDIT_WORKFLOW",
+        rawResultRef,
       },
     });
 

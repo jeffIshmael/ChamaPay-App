@@ -27,6 +27,10 @@ export interface User {
   pushToken: string | null;
   pushNotify: boolean;
   emailNotify: boolean;
+  /** 1 = unverified limits, 2+ = Didit-approved */
+  kycTier?: number;
+  /** none | pending | pending_review | approved | rejected */
+  kycStatus?: string;
   notifications?: any[]; // added for unread count calculation
   joinRequests?: any[]; // added for unread count calculation
 }
