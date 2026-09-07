@@ -20,6 +20,7 @@ import { AddLockedFundsModal, WithdrawModal } from "./ChamaBalanceModals";
 import { ResolvedAddress } from "./ResolvedAddress";
 import { Card } from "./ui/Card";
 import { useFormattedBalance } from "@/hooks/useFormattedBalance";
+import LottieLoader from "@/components/LottieLoader";
 
 type Props = {
   myContributions: number;
@@ -31,6 +32,8 @@ type Props = {
   contributionDueDate: Date;
   currentTurnMember: string;
   recentTransactions: Transaction[];
+  /** True while recent transactions are still loading */
+  transactionsLoading?: boolean;
   nextPayoutAmount: number;
   nextPayoutDate: string;
   leaveChama: () => void;
@@ -59,6 +62,7 @@ const ChamaOverviewTab: FC<Props> = ({
   contributionDueDate,
   currentTurnMember,
   recentTransactions,
+  transactionsLoading = false,
   nextPayoutAmount,
   nextPayoutDate,
   leaveChama,
@@ -583,7 +587,14 @@ const ChamaOverviewTab: FC<Props> = ({
         <View className="h-px bg-gray-200 mb-4" />
 
         <View className="gap-3">
-          {recentTransactions.length > 0 ? (
+          {transactionsLoading ? (
+            <LottieLoader
+              source="history"
+              label="Loading transactions..."
+              size={120}
+              className="py-4"
+            />
+          ) : recentTransactions.length > 0 ? (
             recentTransactions.slice(0, 3).map((transaction) => {
               const isMyTransaction = transaction.user.address === userAddress;
               return (

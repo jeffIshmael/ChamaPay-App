@@ -19,10 +19,8 @@ import {
   Edit,
   FileText,
   Fingerprint,
-  HelpCircle,
   Info,
   LogOut,
-  Twitter
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -666,8 +664,12 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
                 className="w-full p-4 bg-gray-50 rounded-xl active:bg-gray-100 flex-row items-center justify-between"
               >
                 <View className="flex-row items-center gap-3">
-                  <View className="w-10 h-10 bg-orange-100 rounded-lg items-center justify-center">
-                    <HelpCircle size={16} color="#ea580c" />
+                  <View className="w-10 h-10 rounded-lg items-center justify-center overflow-hidden">
+                    <Image
+                      source={require("@/assets/images/telegram.jpg")}
+                      style={{ width: 40, height: 40 }}
+                      resizeMode="cover"
+                    />
                   </View>
                   <View>
                     <Text className="text-gray-900 font-semibold text-base">
@@ -686,8 +688,12 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
                 className="w-full p-4 bg-gray-50 rounded-xl active:bg-gray-100 flex-row items-center justify-between"
               >
                 <View className="flex-row items-center gap-3">
-                  <View className="w-10 h-10 bg-blue-50 rounded-lg items-center justify-center">
-                    <Twitter size={16} color="#1d9bf0" />
+                  <View className="w-10 h-10 rounded-lg items-center justify-center overflow-hidden bg-black">
+                    <Image
+                      source={require("@/assets/images/x_logo.jpeg")}
+                      style={{ width: 40, height: 40 }}
+                      resizeMode="cover"
+                    />
                   </View>
                   <View>
                     <Text className="text-gray-900 font-semibold text-base">

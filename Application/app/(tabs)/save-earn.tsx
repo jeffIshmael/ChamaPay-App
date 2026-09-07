@@ -192,6 +192,7 @@ export default function SaveAndEarnScreen() {
                 <View className="mb-4">
                   <MoonwellWithdrawStatus
                     liquidityUsd={moonwellSnapshot?.liquidityUsd}
+                    neededUsdc={moonwellSnapshot?.totalBalanceUsdc ?? 0}
                     loading={moonwellLoading}
                     variant="full"
                   />

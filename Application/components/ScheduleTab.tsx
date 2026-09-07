@@ -18,6 +18,7 @@ import {
   Pressable,
   StyleSheet,
 } from "react-native";
+import LottieLoader from "@/components/LottieLoader";
 
 type Props = {
   chamaId?: number;
@@ -30,6 +31,8 @@ type Props = {
   currentCycle?: number;
   currentRound?: number;
   onRefresh?: () => void;
+  /** True while payout schedule is still loading */
+  loading?: boolean;
 };
 
 type PayoutStatus = "completed" | "next" | "upcoming" | "pending";
@@ -74,6 +77,7 @@ const ScheduleTab: FC<Props> = ({
   currentCycle,
   currentRound,
   onRefresh,
+  loading = false,
 }) => {
   const { user, token } = useAuth();
   const { formatBalance } = useFormattedBalance();
@@ -157,6 +161,20 @@ Alert.alert("Error", "An unexpected error occurred.");
 
   const progressRatio = members.length > 0 ? orderedMembers.length / members.length : 0;
   const allSelected = orderedMembers.length === members.length;
+
+  // ─── Loading ──────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <View style={[s.flex1, s.emptyState]}>
+        <LottieLoader
+          source="schedule"
+          label="Loading schedule..."
+          size={160}
+        />
+      </View>
+    );
+  }
 
   // ─── Empty / not started ──────────────────────────────────────────────────
 

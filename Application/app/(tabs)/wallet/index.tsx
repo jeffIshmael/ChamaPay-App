@@ -28,7 +28,6 @@ import {
 import QRCode from "react-native-qrcode-svg";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -44,6 +43,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { withdrawalToMpesaFee } from "@/Utils/transactionFeeUtils";
+import LottieLoader from "@/components/LottieLoader";
 
 interface Transaction {
   id: number;
@@ -575,10 +575,8 @@ setTransactionError("Failed to load transactions");
   };
 
   const LoadingState = () => (
-    <View className="bg-transparent p-8  items-center justify-center ">
-      <View className="mb-4">
-        <ActivityIndicator size="large" color="#10b981" />
-      </View>
+    <View className="bg-transparent py-6 items-center justify-center">
+      <LottieLoader source="wallet" size={120} speed={0.55} />
     </View>
   );
 
