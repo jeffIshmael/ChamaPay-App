@@ -17,6 +17,85 @@ const prisma = new PrismaClient();
 
 const DIDIT_SESSION_URL = "https://verification.didit.me/v3/session/";
 
+export type KycIdentityDetails = {
+  documentType: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  fullName: string | null;
+  dateOfBirth: string | null;
+  documentNumber: string | null;
+  nationality: string | null;
+};
+
+function asNonEmptyString(value: unknown): string | null {
+  if (value == null) return null;
+  const s = String(value).trim();
+  return s.length ? s : null;
+}
+
+/**
+ * Pull OCR identity fields from a Didit decision payload
+ * (`body.decision` on webhooks or GET /v3/session/{id}/decision/).
+ */
+export function extractKycIdentityFromDecision(
+  decision: unknown
+): KycIdentityDetails | null {
+  if (!decision || typeof decision !== "object") return null;
+  const root = decision as Record<string, unknown>;
+
+  const list = Array.isArray(root.id_verifications)
+    ? root.id_verifications
+    : root.id_verification && typeof root.id_verification === "object"
+      ? [root.id_verification]
+      : [];
+
+  if (!list.length) return null;
+  const idv = list[0] as Record<string, unknown>;
+
+  const firstName = asNonEmptyString(idv.first_name);
+  const lastName = asNonEmptyString(idv.last_name);
+  const fullName =
+    asNonEmptyString(idv.full_name) ||
+    ([firstName, lastName].filter(Boolean).join(" ") || null);
+
+  const documentNumber =
+    asNonEmptyString(idv.document_number) ||
+    asNonEmptyString(idv.personal_number);
+
+  return {
+    documentType: asNonEmptyString(idv.document_type),
+    firstName,
+    lastName,
+    fullName,
+    dateOfBirth: asNonEmptyString(idv.date_of_birth),
+    documentNumber,
+    nationality: asNonEmptyString(idv.nationality),
+  };
+}
+
+async function fetchDiditSessionDecision(
+  sessionId: string
+): Promise<Record<string, unknown> | null> {
+  const apiKey = process.env.DIDIT_API_KEY || "";
+  if (!apiKey || !sessionId) return null;
+  try {
+    const res = await fetch(`${DIDIT_SESSION_URL}${sessionId}/decision/`, {
+      method: "GET",
+      headers: { "x-api-key": apiKey },
+    });
+    if (!res.ok) {
+      console.warn(
+        `[KYC] Decision fetch failed for ${sessionId}: ${res.status}`
+      );
+      return null;
+    }
+    return (await res.json()) as Record<string, unknown>;
+  } catch (e) {
+    console.warn(`[KYC] Decision fetch error for ${sessionId}:`, e);
+    return null;
+  }
+}
+
 /**
  * Didit Console sandbox application (separate from live).
  * Same API host; sandbox keys mock providers and accept `sandbox_scenario`.
@@ -57,6 +136,15 @@ export async function getKycStatus(req: Request, res: Response) {
         kycTier: true,
         kycStatus: true,
         kycVerifiedAt: true,
+        phoneE164: true,
+        phoneNo: true,
+        kycDocumentType: true,
+        kycFirstName: true,
+        kycLastName: true,
+        kycFullName: true,
+        kycDateOfBirth: true,
+        kycDocumentNumber: true,
+        kycNationality: true,
       },
     });
 
@@ -87,6 +175,18 @@ export async function getKycStatus(req: Request, res: Response) {
       sandbox: isDiditSandbox(),
       localMock: isLocalMock(),
       provider: "didit",
+      phoneE164: user.phoneE164,
+      phoneNo: user.phoneNo,
+      identity: {
+        documentType: user.kycDocumentType,
+        firstName: user.kycFirstName,
+        lastName: user.kycLastName,
+        fullName: user.kycFullName,
+        dateOfBirth: user.kycDateOfBirth,
+        documentNumber: user.kycDocumentNumber,
+        nationality: user.kycNationality,
+        phoneE164: user.phoneE164,
+      },
       latestJob: latestJob
         ? {
             jobId: latestJob.jobId,
@@ -330,7 +430,8 @@ export async function reportClientKycResult(req: Request, res: Response) {
 async function applyJobDecision(
   jobId: string,
   decision: "approved" | "rejected" | "in_review",
-  rawResultRef?: string
+  rawResultRef?: string,
+  identity?: KycIdentityDetails | null
 ) {
   const job = await prisma.kycJob.findUnique({ where: { jobId } });
   if (!job) return null;
@@ -341,6 +442,9 @@ async function applyJobDecision(
       data: {
         status: "approved",
         rawResultRef: rawResultRef ?? job.rawResultRef,
+        ...(identity?.documentType
+          ? { documentType: identity.documentType.slice(0, 64) }
+          : {}),
       },
     });
     await prisma.user.update({
@@ -349,6 +453,17 @@ async function applyJobDecision(
         kycTier: 2,
         kycStatus: "approved",
         kycVerifiedAt: new Date(),
+        ...(identity
+          ? {
+              kycDocumentType: identity.documentType,
+              kycFirstName: identity.firstName,
+              kycLastName: identity.lastName,
+              kycFullName: identity.fullName,
+              kycDateOfBirth: identity.dateOfBirth,
+              kycDocumentNumber: identity.documentNumber,
+              kycNationality: identity.nationality,
+            }
+          : {}),
       },
     });
   } else if (decision === "rejected") {
@@ -502,14 +617,28 @@ export async function diditKycWebhook(req: Request, res: Response) {
     }
 
     const decision = mapDiditStatus(status);
+    let identity = extractKycIdentityFromDecision(body.decision);
+
+    // Webhook decision can be partial — fetch full report when approving.
+    if (decision === "approved" && (!identity || !identity.documentNumber)) {
+      const fullDecision = await fetchDiditSessionDecision(sessionId);
+      if (fullDecision) {
+        identity =
+          extractKycIdentityFromDecision(fullDecision) ||
+          extractKycIdentityFromDecision(fullDecision.decision) ||
+          identity;
+      }
+    }
+
     const rawSlice = JSON.stringify({
       event_id: eventId || undefined,
       status,
       webhook_type: webhookType,
       environment: environment || undefined,
       sandbox_scenario: sandboxScenario || undefined,
+      identity: identity || undefined,
       decision: body.decision,
-    }).slice(0, 2000);
+    }).slice(0, 4000);
 
     if (decision === "pending") {
       await prisma.kycJob.update({
@@ -525,9 +654,14 @@ export async function diditKycWebhook(req: Request, res: Response) {
       return res.status(200).json({ success: true, status: "processing" });
     }
 
-    const updated = await applyJobDecision(job.jobId, decision, rawSlice);
+    const updated = await applyJobDecision(
+      job.jobId,
+      decision,
+      rawSlice,
+      identity
+    );
     console.log(
-      `[KYC] Didit session ${sessionId} → ${decision} (user ${updated?.userId}, status=${status}, env=${environment || "n/a"}, scenario=${sandboxScenario || "n/a"})`
+      `[KYC] Didit session ${sessionId} → ${decision} (user ${updated?.userId}, status=${status}, env=${environment || "n/a"}, scenario=${sandboxScenario || "n/a"}, name=${identity?.fullName || "n/a"}, doc=${identity?.documentType || "n/a"})`
     );
     return res.status(200).json({ success: true, status: decision });
   } catch (error) {

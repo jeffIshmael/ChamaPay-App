@@ -38,7 +38,7 @@ Public callback must be reachable by Didit (ngrok/cloudflare tunnel in local san
 1. User opens **Verify identity**
 2. Server `POST /kyc/session` → Didit `POST /v3/session/` with `vendor_data = userId`
 3. App runs `startVerification(session_token)` in-process
-4. Didit `POST /kyc/webhook` → on `Approved`, `User.kycTier = 2`, `kycStatus = approved`
+4. Didit `POST /kyc/webhook` → on `Approved`, `User.kycTier = 2`, `kycStatus = approved`, and OCR identity fields are saved (`kycFullName`, `kycFirstName`, `kycLastName`, `kycDateOfBirth`, `kycDocumentNumber`, `kycDocumentType`, `kycNationality`). Phone stays on `User.phoneE164` (login phone). If the webhook decision is thin, the server fetches `GET /v3/session/{id}/decision/`.
 
 ## Docs
 

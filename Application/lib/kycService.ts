@@ -15,6 +15,18 @@ export type KycStatusResponse = {
   /** Offline mock (no Didit API) */
   localMock?: boolean;
   provider?: string;
+  phoneE164?: string | null;
+  phoneNo?: number | null;
+  identity?: {
+    documentType: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    fullName: string | null;
+    dateOfBirth: string | null;
+    documentNumber: string | null;
+    nationality: string | null;
+    phoneE164: string | null;
+  };
   latestJob?: {
     jobId: string;
     documentType: string;
