@@ -69,21 +69,31 @@ export default function ProfileSettings() {
   const [hasPin, setHasPin] = useState(false);
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
   const [kycStatus, setKycStatus] = useState<KycStatusResponse | null>(null);
+  const [kycLoading, setKycLoading] = useState(true);
 
-  // Check for existing PIN + refresh KYC fields / deposit limits
+  // Check for existing PIN + refresh KYC fields / deposit limits (once per focus)
   useFocusEffect(
     React.useCallback(() => {
+      let cancelled = false;
       const checkPin = async () => {
         const pin = await SecureStore.getItemAsync("user_pin");
-        setHasPin(!!pin);
+        if (!cancelled) setHasPin(!!pin);
       };
       checkPin();
       void refreshUser();
       if (token) {
+        setKycLoading(true);
         void getKycStatus(token).then((res) => {
+          if (cancelled) return;
           if (res?.success) setKycStatus(res);
+          setKycLoading(false);
         });
+      } else {
+        setKycLoading(false);
       }
+      return () => {
+        cancelled = true;
+      };
     }, [refreshUser, token])
   );
 
@@ -355,6 +365,7 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
           <DepositLimitCard
             verified={identityVerified}
             status={kycStatus}
+            loading={kycLoading}
             onPress={() => router.push("/verify-identity")}
           />
 
