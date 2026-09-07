@@ -20,6 +20,8 @@ export interface User {
   email: string;
   userName: string | null;
   phoneNo: number | null;
+  /** E.164 digits, e.g. 254712345678 */
+  phoneE164?: string | null;
   address: string;
   smartAddress: string;
   profileImageUrl: string | null;
@@ -31,6 +33,14 @@ export interface User {
   kycTier?: number;
   /** none | pending | pending_review | approved | rejected */
   kycStatus?: string;
+  kycVerifiedAt?: string | null;
+  kycDocumentType?: string | null;
+  kycFirstName?: string | null;
+  kycLastName?: string | null;
+  kycFullName?: string | null;
+  kycDateOfBirth?: string | null;
+  kycDocumentNumber?: string | null;
+  kycNationality?: string | null;
   notifications?: any[]; // added for unread count calculation
   joinRequests?: any[]; // added for unread count calculation
 }

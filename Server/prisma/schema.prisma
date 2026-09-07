@@ -31,6 +31,17 @@ model User {
   /** none | pending | pending_review | approved | rejected */
   kycStatus           String               @default("none")
   kycVerifiedAt       DateTime?
+  /** Didit OCR — Identity Card | Passport | Driver's License | … */
+  kycDocumentType     String?
+  kycFirstName        String?
+  kycLastName         String?
+  kycFullName         String?
+  /** YYYY-MM-DD from Didit OCR */
+  kycDateOfBirth      String?
+  /** Document / national ID number from Didit OCR */
+  kycDocumentNumber   String?
+  /** ISO 3166-1 alpha-3 when provided */
+  kycNationality      String?
   createdChamas       Chama[]              @relation("AdminChamas")
   chamas              ChamaMember[]
   joinRequests        ChamaRequest[]
