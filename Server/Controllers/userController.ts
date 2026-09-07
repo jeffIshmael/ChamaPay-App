@@ -17,6 +17,7 @@ import {
 } from "../Lib/prismaFunctions";
 import { uploadToPinata } from "../utils/PinataUtils";
 import { getCached, setCache } from "../Lib/cache";
+import { decryptKycDocumentNumber } from "../Lib/kycPii";
 
 const prisma = new PrismaClient();
 
@@ -142,7 +143,11 @@ export const getUserDetails = async (
     const sentRequests = await getSentRequests(userResults.id);
 
     const { hashedPrivkey, hashedPassphrase, ...safeUserResults } = userResults;
-    const user = { ...safeUserResults, sentRequests };
+    const user = {
+      ...safeUserResults,
+      kycDocumentNumber: decryptKycDocumentNumber(safeUserResults.kycDocumentNumber),
+      sentRequests,
+    };
 
     res.status(200).json({ user: user });
   } catch (error: unknown) {
