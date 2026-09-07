@@ -275,6 +275,10 @@ export async function createKycSession(req: Request, res: Response) {
     const sessionBody: Record<string, unknown> = {
       workflow_id: workflowId,
       vendor_data: String(userId),
+      // Prefill document country picker (ISO-3). Alters the user-facing select-document step.
+      expected_details: {
+        id_country: process.env.DIDIT_DEFAULT_ID_COUNTRY?.trim() || "KEN",
+      },
       metadata: {
         source: "chamapay",
         platform: "mobile",

@@ -32,9 +32,9 @@ import {
   reportKycClientResult,
   sandboxApproveKyc,
 } from "@/lib/kycService";
-import DiditVerificationCapture from "@/components/DiditVerificationCapture";
+import { launchDiditVerification } from "@/lib/diditLaunch";
 
-type Step = "intro" | "capture" | "pending" | "done" | "failed";
+type Step = "intro" | "pending" | "done" | "failed";
 
 /** Brand downy-600 */
 const DOWNY_600 = "#1c8584";
@@ -77,7 +77,6 @@ export default function VerifyIdentityScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
-  const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [sandbox, setSandbox] = useState(false);
   const [localMock, setLocalMock] = useState(false);
   const [errorText, setErrorText] = useState("");
@@ -128,6 +127,40 @@ export default function VerifyIdentityScreen() {
     };
   }, [step, token, jobId, loadStatus]);
 
+  const onCaptureComplete = useCallback(
+    async (result: { status?: string; resultRef?: string }, activeJobId: string) => {
+      if (!token || !activeJobId) return;
+      setBusy(true);
+      try {
+        await reportKycClientResult(
+          token,
+          activeJobId,
+          result.resultRef,
+          result.status
+        );
+        if (localMock) {
+          const approved = await sandboxApproveKyc(token, activeJobId);
+          if (approved?.success) {
+            setStep("done");
+            await loadStatus();
+            return;
+          }
+        }
+        if (result.status === "Declined") {
+          setStep("failed");
+          setErrorText("Verification was declined. Please try again.");
+          return;
+        }
+        setStep("pending");
+      } catch {
+        setStep("pending");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [token, localMock, loadStatus]
+  );
+
   const beginVerification = async () => {
     if (!token) {
       Alert.alert("Sign in required", "Please sign in to verify your identity.");
@@ -145,43 +178,49 @@ export default function VerifyIdentityScreen() {
       if (!session.success || !session.jobId) {
         throw new Error(session.error || "Could not start verification");
       }
-      setJobId(session.jobId);
-      setSessionToken(session.sessionToken || null);
+
+      const activeJobId = session.jobId;
+      setJobId(activeJobId);
       setSandbox(Boolean(session.sandbox));
-      setLocalMock(Boolean(session.localMock) || !session.sessionToken);
-      setStep("capture");
+      const useLocalMock =
+        Boolean(session.localMock) || !session.sessionToken;
+      setLocalMock(useLocalMock);
+
+      // Open Didit immediately — no intermediate ChamaPay capture screen.
+      if (useLocalMock || !session.sessionToken) {
+        await onCaptureComplete(
+          { status: "sandbox", resultRef: "local_mock" },
+          activeJobId
+        );
+        return;
+      }
+
+      const diditResult = await launchDiditVerification(session.sessionToken);
+      if (diditResult.type === "cancelled") {
+        setErrorText("");
+        setStep("intro");
+        return;
+      }
+      if (diditResult.type === "failed") {
+        setErrorText(diditResult.errorMessage || "Verification failed to start");
+        setStep("failed");
+        return;
+      }
+
+      await onCaptureComplete(
+        {
+          status: diditResult.status,
+          resultRef: JSON.stringify({
+            type: diditResult.type,
+            status: diditResult.status,
+          }),
+        },
+        activeJobId
+      );
     } catch (e: any) {
       setErrorText(e?.message || "Could not start verification");
       Alert.alert("Verification", e?.message || "Could not start verification");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const onCaptureComplete = async (result: {
-    status?: string;
-    resultRef?: string;
-  }) => {
-    if (!token || !jobId) return;
-    setBusy(true);
-    try {
-      await reportKycClientResult(token, jobId, result.resultRef, result.status);
-      if (localMock) {
-        const approved = await sandboxApproveKyc(token, jobId);
-        if (approved?.success) {
-          setStep("done");
-          await loadStatus();
-          return;
-        }
-      }
-      if (result.status === "Declined") {
-        setStep("failed");
-        setErrorText("Verification was declined. Please try again.");
-        return;
-      }
-      setStep("pending");
-    } catch {
-      setStep("pending");
+      setStep("intro");
     } finally {
       setBusy(false);
     }
@@ -305,36 +344,6 @@ export default function VerifyIdentityScreen() {
               </View>
             )}
 
-            {step === "capture" && (
-              <View className="pt-4">
-                <Text
-                  className="text-xl font-bold mb-2"
-                  style={{ color: INK }}
-                >
-                  Scan & selfie
-                </Text>
-                <Text className="text-gray-500 text-[15px] mb-5 leading-6">
-                  Follow the on-screen steps. Keep your face and document fully
-                  in frame.
-                </Text>
-                <DiditVerificationCapture
-                  sessionToken={sessionToken}
-                  sandbox={sandbox}
-                  localMock={localMock}
-                  busy={busy}
-                  onComplete={onCaptureComplete}
-                  onCancel={() => {
-                    setErrorText("");
-                    setStep("intro");
-                  }}
-                  onError={(msg) => {
-                    setErrorText(msg);
-                    setStep("failed");
-                  }}
-                />
-              </View>
-            )}
-
             {step === "pending" && (
               <View className="items-center pt-16 px-4">
                 <View
@@ -398,7 +407,6 @@ export default function VerifyIdentityScreen() {
                 <TouchableOpacity
                   onPress={() => {
                     setErrorText("");
-                    setSessionToken(null);
                     setJobId(null);
                     setStep("intro");
                   }}
