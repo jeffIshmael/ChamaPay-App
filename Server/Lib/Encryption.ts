@@ -128,19 +128,31 @@ class EncryptionService {
 
 
   /**
+   * Resolves a 32-byte AES key: ENCRYPTION_MASTER_KEY (64 hex) or SHA-256 of ENCRYPTION_SECRET.
+   */
+  private resolveServerKey(): Buffer {
+    const masterKey = process.env.ENCRYPTION_MASTER_KEY;
+    if (masterKey && masterKey.length === 64 && /^[0-9a-fA-F]+$/.test(masterKey)) {
+      return Buffer.from(masterKey, "hex");
+    }
+    const secret = process.env.ENCRYPTION_SECRET;
+    if (secret && secret.length > 0) {
+      return crypto.createHash("sha256").update(secret).digest();
+    }
+    throw new Error(
+      "Missing ENCRYPTION_MASTER_KEY (64 hex chars) or ENCRYPTION_SECRET"
+    );
+  }
+
+  /**
    * Encrypts data with a master key (for server-side encryption)
    * @param data - Data to encrypt
    * @returns Encrypted data
    */
   encryptWithMasterKey(data: string): MasterKeyEncryptedData {
     try {
-      const masterKey: string | undefined = process.env.ENCRYPTION_MASTER_KEY;
-      if (!masterKey || masterKey.length !== 64) { // 32 bytes = 64 hex chars
-        throw new Error('Invalid or missing ENCRYPTION_MASTER_KEY');
-      }
-      
       const algorithm = 'aes-256-cbc';
-      const key: Buffer = Buffer.from(masterKey, 'hex');
+      const key: Buffer = this.resolveServerKey();
       const iv: Buffer = crypto.randomBytes(16);
       
       // Create cipher
@@ -168,13 +180,8 @@ class EncryptionService {
    */
   decryptWithMasterKey(encryptedData: MasterKeyEncryptedData): string {
     try {
-      const masterKey: string | undefined = process.env.ENCRYPTION_MASTER_KEY;
-      if (!masterKey) {
-        throw new Error('Missing ENCRYPTION_MASTER_KEY');
-      }
-      
       const { encrypted, iv, algorithm } = encryptedData;
-      const key: Buffer = Buffer.from(masterKey, 'hex');
+      const key: Buffer = this.resolveServerKey();
       const ivBuffer: Buffer = Buffer.from(iv, 'base64');
       const encryptedBuffer: Buffer = Buffer.from(encrypted, 'base64');
       

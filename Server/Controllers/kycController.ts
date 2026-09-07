@@ -8,6 +8,10 @@ import {
   resolveMonthlyLimit,
 } from "../Lib/kycService";
 import {
+  decryptKycDocumentNumber,
+  encryptKycDocumentNumber,
+} from "../Lib/kycPii";
+import {
   verifySignatureRaw,
   verifySignatureSimple,
   verifySignatureV2,
@@ -183,7 +187,7 @@ export async function getKycStatus(req: Request, res: Response) {
         lastName: user.kycLastName,
         fullName: user.kycFullName,
         dateOfBirth: user.kycDateOfBirth,
-        documentNumber: user.kycDocumentNumber,
+        documentNumber: decryptKycDocumentNumber(user.kycDocumentNumber),
         nationality: user.kycNationality,
         phoneE164: user.phoneE164,
       },
@@ -460,7 +464,7 @@ async function applyJobDecision(
               kycLastName: identity.lastName,
               kycFullName: identity.fullName,
               kycDateOfBirth: identity.dateOfBirth,
-              kycDocumentNumber: identity.documentNumber,
+              kycDocumentNumber: encryptKycDocumentNumber(identity.documentNumber),
               kycNationality: identity.nationality,
             }
           : {}),
@@ -636,8 +640,13 @@ export async function diditKycWebhook(req: Request, res: Response) {
       webhook_type: webhookType,
       environment: environment || undefined,
       sandbox_scenario: sandboxScenario || undefined,
-      identity: identity || undefined,
-      decision: body.decision,
+      // Redact document number — plaintext lives only briefly in memory, then encrypted on User.
+      identity: identity
+        ? {
+            ...identity,
+            documentNumber: identity.documentNumber ? "[redacted]" : null,
+          }
+        : undefined,
     }).slice(0, 4000);
 
     if (decision === "pending") {
