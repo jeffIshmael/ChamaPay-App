@@ -4,6 +4,9 @@ import {
   pollPretiumPaymentStatus,
   pretiumOnramp
 } from "@/lib/pretiumService";
+import { getKycStatus, type KycStatusResponse } from "@/lib/kycService";
+import DepositLimitCard from "@/components/DepositLimitCard";
+import { isIdentityVerified } from "@/components/KycProfileAvatar";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { PRETIUM_TRANSACTION_LIMIT, formatCurrency } from "@/Utils/pretiumUtils";
 import { ArrowLeft } from "lucide-react-native";
@@ -64,6 +67,18 @@ const MobileMoneyPay = ({
   const { platformRate: sellingRate, currency: preferredCurrency } = useCurrencyStore();
   const [isKESMode, setIsKESMode] = useState(preferredCurrency === "KES");
   const loadingRate = false;
+  const [kycStatus, setKycStatus] = useState<KycStatusResponse | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    void getKycStatus(token).then((res) => {
+      if (!cancelled && res?.success) setKycStatus(res);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   // Animation values
   const [fadeAnim] = useState(new Animated.Value(1));
@@ -522,6 +537,19 @@ const MobileMoneyPay = ({
               </Text>
             </View>
           </View>
+
+          {/* Only when monthly M-Pesa headroom is exhausted */}
+          {currentStep === "input" && !loading ? (
+            <DepositLimitCard
+              verified={isIdentityVerified(user)}
+              status={kycStatus}
+              variant="limit-reached"
+              onPress={() => {
+                onClose?.();
+                router.push("/verify-identity");
+              }}
+            />
+          ) : null}
 
           {/* Remaining Amount Alert */}
           {remainingAmount > 0 && !loading && currentStep === "input" && Number(usdcAmount || 0) < remainingAmount && (

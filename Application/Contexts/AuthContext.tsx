@@ -242,7 +242,7 @@ return {
     }
   };
 
-  const loginWithRefreshToken = async (): Promise<{
+  const loginWithRefreshToken = useCallback(async (): Promise<{
     success: boolean;
     error?: string;
   }> => {
@@ -284,23 +284,29 @@ return {
         if (newRefreshToken) setRefreshToken(newRefreshToken);
 
         return { success: true };
-      } else {
-        // Refresh token invalid - clear auth
-        await clearAuth();
-        return {
-          success: false,
-          error: "Session expired. Please sign in again.",
-        };
       }
-    } catch (error) {
-return {
-        success: false,
-        error: "An error occurred. Please try again.",
-      };
+
+      await clearAuth();
+      return { success: false, error: data.message || "Session expired" };
+    } catch {
+      return { success: false, error: "Failed to refresh session" };
     } finally {
       isRefreshingToken.current = false;
     }
-  };
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    const activeToken = token ?? (await storage.getToken());
+    if (!activeToken) return;
+    try {
+      await fetchUserData(activeToken);
+    } catch {
+      const storedRefresh = await storage.getRefreshToken?.();
+      if (storedRefresh && !isRefreshingToken.current) {
+        await loginWithRefreshToken();
+      }
+    }
+  }, [token, loginWithRefreshToken]);
 
   const clearAuth = async () => {
     await storage.removeToken();
@@ -323,19 +329,6 @@ return {
       const updatedUser = { ...user, ...userData };
       setUser(updatedUser);
       storage.setUser(updatedUser);
-    }
-  };
-
-  const refreshUser = async () => {
-    if (token) {
-      try {
-        await fetchUserData(token);
-      } catch (error) {
-        // If fetch fails, try refresh token
-        if (refreshToken && !isRefreshingToken.current) {
-          await loginWithRefreshToken();
-        }
-      }
     }
   };
 
@@ -403,12 +396,14 @@ throw error;
     unReadNotificationCount,
     markNotificationsRead
   }), [
-    user, 
-    token, 
-    refreshToken, 
-    isLoading, 
-    isAuthenticated, 
-    unReadNotificationCount
+    user,
+    token,
+    refreshToken,
+    isLoading,
+    isAuthenticated,
+    unReadNotificationCount,
+    refreshUser,
+    loginWithRefreshToken,
   ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

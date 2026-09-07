@@ -2,7 +2,7 @@ import { useAuth } from "@/Contexts/AuthContext";
 import { pollPretiumPaymentStatus, pretiumOnramp } from "@/lib/pretiumService";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
-import { ArrowLeft, Check, Smartphone, ShieldCheck } from "lucide-react-native";
+import { ArrowLeft, Check, Smartphone } from "lucide-react-native";
 import React, { useState, useCallback } from "react";
 import {
   ActivityIndicator,
@@ -26,6 +26,8 @@ import {
   isValidPhoneNumber
 } from "@/Utils/pretiumUtils";
 import SupportedWalletLogos from "@/components/SupportedWalletLogos";
+import DepositLimitCard from "@/components/DepositLimitCard";
+import { isIdentityVerified } from "@/components/KycProfileAvatar";
 import { getKycStatus, type KycStatusResponse } from "@/lib/kycService";
 
 export default function DepositCryptoScreen() {
@@ -46,6 +48,7 @@ export default function DepositCryptoScreen() {
     | "failed"
   >("idle");
   const [kycStatus, setKycStatus] = useState<KycStatusResponse | null>(null);
+  const [kycLoading, setKycLoading] = useState(true);
 
   const { user, token } = useAuth();
   const { USDCBalance } = useLocalSearchParams();
@@ -60,10 +63,20 @@ export default function DepositCryptoScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!token) return;
+      if (!token) {
+        setKycLoading(false);
+        return;
+      }
+      let cancelled = false;
+      setKycLoading(true);
       getKycStatus(token).then((res) => {
+        if (cancelled) return;
         if (res?.success) setKycStatus(res);
+        setKycLoading(false);
       });
+      return () => {
+        cancelled = true;
+      };
     }, [token])
   );
 
@@ -311,59 +324,37 @@ export default function DepositCryptoScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View className="px-6 py-8 gap-5">
+            <View className="gap-3">
+              <DepositLimitCard
+                verified={isIdentityVerified(user)}
+                status={kycStatus}
+                loading={kycLoading}
+                dense
+                onPress={() => router.push("/verify-identity")}
+              />
 
-            {kycStatus?.success ? (
-              <TouchableOpacity
-                onPress={() => {
-                  if ((kycStatus.kycTier ?? 1) < 2) {
-                    router.push("/verify-identity");
-                  }
-                }}
-                activeOpacity={(kycStatus.kycTier ?? 1) < 2 ? 0.85 : 1}
-                className="bg-white rounded-2xl border border-blue-100 p-4 flex-row items-center"
-              >
-                <View className="w-10 h-10 rounded-xl bg-blue-50 items-center justify-center mr-3">
-                  <ShieldCheck size={20} color="#2563eb" />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-gray-900 font-bold text-sm">
-                    {(kycStatus.kycTier ?? 1) >= 2
-                      ? "Identity verified"
-                      : "Monthly deposit limit"}
-                  </Text>
-                  <Text className="text-gray-500 text-xs mt-0.5">
-                    KES {Math.floor(kycStatus.remainingKes).toLocaleString()} remaining
-                    {" · "}
-                    limit KES {kycStatus.limitKes.toLocaleString()}
-                    {(kycStatus.kycTier ?? 1) < 2
-                      ? " · Tap to verify & raise"
-                      : ""}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ) : null}
+              {/* M-Pesa Info Card */}
+              <View className="bg-downy-50 rounded-3xl p-5 shadow-lg border border-downy-100">
+                <View className="flex-row items-center">
+                  <View className="w-16 h-16 rounded-2xl bg-green-50 items-center justify-center">
+                    <Image
+                      source={require("@/assets/images/mpesa.png")}
+                      className="w-16 h-16"
+                      resizeMode="contain"
+                    />
+                  </View>
 
-            {/* M-Pesa Info Card */}
-            <View className="bg-downy-50 rounded-3xl p-5 shadow-lg border border-downy-100">
-              <View className="flex-row items-center">
-                <View className="w-16 h-16 rounded-2xl bg-green-50 items-center justify-center">
-                  <Image
-                    source={require("@/assets/images/mpesa.png")}
-                    className="w-16 h-16"
-                    resizeMode="contain"
-                  />
-                </View>
+                  {/* Vertical Divider */}
+                  <View className="w-px h-12 bg-gray-300 mx-4" />
 
-                {/* Vertical Divider */}
-                <View className="w-px h-12 bg-gray-300 mx-4" />
-
-                <View className="flex-1">
-                  <Text className="text-lg font-bold text-gray-900">
-                    M-Pesa
-                  </Text>
-                  <Text className="text-xs text-gray-500">
-                    Safaricom Kenya
-                  </Text>
+                  <View className="flex-1">
+                    <Text className="text-lg font-bold text-gray-900">
+                      M-Pesa
+                    </Text>
+                    <Text className="text-xs text-gray-500">
+                      Safaricom Kenya
+                    </Text>
+                  </View>
                 </View>
               </View>
             </View>
