@@ -37,8 +37,12 @@ Public callback must be reachable by Didit (ngrok/cloudflare tunnel in local san
 
 1. User opens **Verify identity**
 2. Server `POST /kyc/session` → Didit `POST /v3/session/` with `vendor_data = userId`
-3. App runs `startVerification(session_token)` in-process
+3. App runs `startVerification(session_token)` in-process (opened immediately from **Start verification** — no intermediate ChamaPay capture screen)
 4. Didit `POST /kyc/webhook` → on `Approved`, `User.kycTier = 2`, `kycStatus = approved`, and OCR identity fields are saved (`kycFullName`, `kycFirstName`, `kycLastName`, `kycDateOfBirth`, `kycDocumentNumber`, `kycDocumentType`, `kycNationality`). **`kycDocumentNumber` is encrypted at rest** (AES via `ENCRYPTION_MASTER_KEY`, or derived from `ENCRYPTION_SECRET`); other OCR fields stay plaintext. Phone stays on `User.phoneE164` (login phone). If the webhook decision is thin, the server fetches `GET /v3/session/{id}/decision/`.
+
+Session create sends `expected_details.id_country` (default **`KEN`**, override with `DIDIT_DEFAULT_ID_COUNTRY`) so the document-country picker prefers Kenya.
+
+To skip Didit’s own welcome / “Verify your identity” intro screen: Console → **Customization → General → Skip welcome screen** (or `PATCH /v3/customization/` with `skip_welcome_screen: true`). That is separate from ChamaPay’s intro.
 
 ## Docs
 

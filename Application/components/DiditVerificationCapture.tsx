@@ -5,7 +5,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
-import { ShieldCheck } from "lucide-react-native";
+import { launchDiditVerification } from "@/lib/diditLaunch";
 
 /** Brand downy-600 — matches Verify Identity screen */
 const DOWNY_600 = "#1c8584";
@@ -52,22 +52,7 @@ export default function DiditVerificationCapture({
 
     setStarting(true);
     try {
-      // Optional until a native rebuild links the module.
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const didit = require("@didit-protocol/sdk-react-native");
-      const startVerification = didit.startVerification as (
-        token: string
-      ) => Promise<{
-        type: "completed" | "cancelled" | "failed";
-        session?: { status?: string };
-        error?: { message?: string };
-      }>;
-
-      if (typeof startVerification !== "function") {
-        throw new Error("Didit SDK startVerification is unavailable");
-      }
-
-      const result = await startVerification(sessionToken);
+      const result = await launchDiditVerification(sessionToken);
 
       if (result.type === "cancelled") {
         onCancel?.();
@@ -76,15 +61,15 @@ export default function DiditVerificationCapture({
       }
 
       if (result.type === "failed") {
-        onError(result.error?.message || "Verification failed to start");
+        onError(result.errorMessage || "Verification failed to start");
         return;
       }
 
       onComplete({
-        status: result.session?.status,
+        status: result.status,
         resultRef: JSON.stringify({
           type: result.type,
-          status: result.session?.status,
+          status: result.status,
         }),
       });
     } catch (e: unknown) {
