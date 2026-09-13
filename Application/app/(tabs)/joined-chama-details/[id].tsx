@@ -31,14 +31,15 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Share, Share2, User, UserPlus, Edit3, Calendar, Clock, LogOut, CheckCircle } from "lucide-react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import { ArrowLeft, Share2, User, UserPlus, Edit3, Calendar, Clock, LogOut, CheckCircle } from "lucide-react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -93,16 +94,20 @@ export default function JoinedChamaDetails() {
       email: string;
       smartAddress: string;
       profileImageUrl: string | null;
+      isMember?: boolean;
     }>
   >([]);
   const [isShareSearching, setIsShareSearching] = useState(false);
   const [showShareSearchResults, setShowShareSearchResults] = useState(false);
+  const [shareSearchDoneFor, setShareSearchDoneFor] = useState("");
+  const shareSearchReqId = useRef(0);
   const [selectedShareUser, setSelectedShareUser] = useState<{
     id: number;
     userName: string;
     email: string;
     smartAddress: string;
     profileImageUrl: string | null;
+    isMember?: boolean;
   } | null>(null);
   const [myBalance, setMyBalance] = useState<bigint[] | undefined>();
   const [memberBalances, setMemberBalances] = useState<
@@ -122,16 +127,20 @@ export default function JoinedChamaDetails() {
       email: string;
       smartAddress: string;
       profileImageUrl: string | null;
+      isMember?: boolean;
     }>
   >([]);
   const [isAddMemberSearching, setIsAddMemberSearching] = useState(false);
   const [showAddMemberSearchResults, setShowAddMemberSearchResults] = useState(false);
+  const [addMemberSearchDoneFor, setAddMemberSearchDoneFor] = useState("");
+  const addMemberSearchReqId = useRef(0);
   const [selectedAddMemberUser, setSelectedAddMemberUser] = useState<{
     id: number;
     userName: string;
     email: string;
     smartAddress: string;
     profileImageUrl: string | null;
+    isMember?: boolean;
   } | null>(null);
   const [isAddingMember, setIsAddingMember] = useState(false);
 
@@ -492,87 +501,126 @@ export default function JoinedChamaDetails() {
 
   // Search users for sharing with debouncing
   useEffect(() => {
-    const searchForShareUsers = async () => {
-      if (!shareUsername.trim() || shareUsername.trim().length < 2) {
-        setShareSearchResults([]);
-        setShowShareSearchResults(false);
-        return;
-      }
+    const q = shareUsername.trim();
 
-      // Don't search if a user is already selected (prevents search on selection)
-      if (selectedShareUser && shareUsername === selectedShareUser.userName) {
-        return;
-      }
+    if (q.length < 2) {
+      shareSearchReqId.current += 1;
+      setShareSearchResults([]);
+      setShowShareSearchResults(false);
+      setIsShareSearching(false);
+      setShareSearchDoneFor("");
+      return;
+    }
 
-      setIsShareSearching(true);
+    if (selectedShareUser && shareUsername === selectedShareUser.userName) {
+      setIsShareSearching(false);
+      return;
+    }
+
+    const reqId = ++shareSearchReqId.current;
+    setIsShareSearching(true);
+    setShareSearchDoneFor("");
+    setShareSearchResults([]);
+    setShowShareSearchResults(false);
+
+    const timeoutId = setTimeout(async () => {
       try {
-        const result = await searchUsers(shareUsername.trim());
+        const result = await searchUsers(q);
+        if (reqId !== shareSearchReqId.current) return;
+
         if (result.success && result.users) {
-          // Filter out the current user from search results
-          const filteredUsers = result.users.filter(
-            (searchUser) => searchUser.id !== user?.id
-          );
+          const existingMemberIds = chama?.members.map((m) => m.id) || [];
+          const filteredUsers = result.users
+            .filter((searchUser) => searchUser.id !== user?.id)
+            .map((searchUser) => ({
+              ...searchUser,
+              isMember: existingMemberIds.includes(searchUser.id),
+            }));
           setShareSearchResults(filteredUsers);
           setShowShareSearchResults(filteredUsers.length > 0);
         } else {
           setShareSearchResults([]);
           setShowShareSearchResults(false);
         }
+        setShareSearchDoneFor(q);
       } catch (error) {
-setShareSearchResults([]);
+        if (reqId !== shareSearchReqId.current) return;
+        setShareSearchResults([]);
         setShowShareSearchResults(false);
+        setShareSearchDoneFor(q);
       } finally {
-        setIsShareSearching(false);
+        if (reqId === shareSearchReqId.current) {
+          setIsShareSearching(false);
+        }
       }
-    };
+    }, 300);
 
-    const timeoutId = setTimeout(searchForShareUsers, 300);
     return () => clearTimeout(timeoutId);
-  }, [shareUsername, selectedShareUser, user]);
+  }, [shareUsername, selectedShareUser, user, chama?.members]);
 
   // Search users for adding members with debouncing
   useEffect(() => {
-    const searchForAddMemberUsers = async () => {
-      if (!addMemberUsername.trim() || addMemberUsername.trim().length < 2) {
-        setAddMemberSearchResults([]);
-        setShowAddMemberSearchResults(false);
-        return;
-      }
+    const q = addMemberUsername.trim();
 
-      if (selectedAddMemberUser && addMemberUsername === selectedAddMemberUser.userName) {
-        return;
-      }
+    if (q.length < 2) {
+      addMemberSearchReqId.current += 1;
+      setAddMemberSearchResults([]);
+      setShowAddMemberSearchResults(false);
+      setIsAddMemberSearching(false);
+      setAddMemberSearchDoneFor("");
+      return;
+    }
 
-      setIsAddMemberSearching(true);
+    if (selectedAddMemberUser && addMemberUsername === selectedAddMemberUser.userName) {
+      setIsAddMemberSearching(false);
+      return;
+    }
+
+    const reqId = ++addMemberSearchReqId.current;
+    setIsAddMemberSearching(true);
+    setAddMemberSearchDoneFor("");
+    setAddMemberSearchResults([]);
+    setShowAddMemberSearchResults(false);
+
+    const timeoutId = setTimeout(async () => {
       try {
-        const result = await searchUsers(addMemberUsername.trim());
+        const result = await searchUsers(q);
+        if (reqId !== addMemberSearchReqId.current) return;
+
         if (result.success && result.users) {
-          // Filter out existing members and the current user
-          const existingMemberIds = chama?.members.map(m => m.id) || [];
-          const filteredUsers = result.users.filter(
-            (searchUser) => searchUser.id !== user?.id && !existingMemberIds.includes(searchUser.id)
-          );
+          const existingMemberIds = chama?.members.map((m) => m.id) || [];
+          const filteredUsers = result.users
+            .filter((searchUser) => searchUser.id !== user?.id)
+            .map((searchUser) => ({
+              ...searchUser,
+              isMember: existingMemberIds.includes(searchUser.id),
+            }));
           setAddMemberSearchResults(filteredUsers);
           setShowAddMemberSearchResults(filteredUsers.length > 0);
         } else {
           setAddMemberSearchResults([]);
           setShowAddMemberSearchResults(false);
         }
+        setAddMemberSearchDoneFor(q);
       } catch (error) {
-setAddMemberSearchResults([]);
+        if (reqId !== addMemberSearchReqId.current) return;
+        setAddMemberSearchResults([]);
         setShowAddMemberSearchResults(false);
+        setAddMemberSearchDoneFor(q);
       } finally {
-        setIsAddMemberSearching(false);
+        if (reqId === addMemberSearchReqId.current) {
+          setIsAddMemberSearching(false);
+        }
       }
-    };
+    }, 300);
 
-    const timeoutId = setTimeout(searchForAddMemberUsers, 300);
     return () => clearTimeout(timeoutId);
   }, [addMemberUsername, selectedAddMemberUser, user, chama?.members]);
 
   const handleAddMemberUserSelect = (user: typeof selectedAddMemberUser) => {
+    if (!user || user.isMember) return;
     setSelectedAddMemberUser(user);
-    setAddMemberUsername(user?.userName || "");
+    setAddMemberUsername(user.userName || "");
     setShowAddMemberSearchResults(false);
   };
 
@@ -614,8 +662,9 @@ Alert.alert("Error", "An unexpected error occurred");
   };
 
   const handleShareUserSelect = (user: typeof selectedShareUser) => {
+    if (!user || user.isMember) return;
     setSelectedShareUser(user);
-    setShareUsername(user?.userName || "");
+    setShareUsername(user.userName || "");
     setShowShareSearchResults(false);
   };
 
@@ -991,7 +1040,7 @@ Alert.alert("Error", "An unexpected error occurred");
       {/* Share Modal */}
       <Modal
         visible={showShareModal}
-        transparent={true}
+        transparent
         animationType="fade"
         onRequestClose={() => {
           setShowShareModal(false);
@@ -999,186 +1048,242 @@ Alert.alert("Error", "An unexpected error occurred");
           setIsShareSearching(false);
           setShowShareSearchResults(false);
           setSelectedShareUser(null);
+          setShareSearchResults([]);
+          setShareSearchDoneFor("");
         }}
       >
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => setShowShareModal(false)}
-          className="flex-1 items-center justify-center bg-black/70 px-6"
+        <Pressable
+          onPress={() => {
+            setShowShareModal(false);
+            setShareUsername("");
+            setIsShareSearching(false);
+            setShowShareSearchResults(false);
+            setSelectedShareUser(null);
+            setShareSearchResults([]);
+            setShareSearchDoneFor("");
+          }}
+          className="flex-1 justify-center bg-black/55 px-5"
         >
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-            className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"
-          >
-            {/* Header */}
-            <View className="items-center mb-6">
-              <View className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-full items-center justify-center mb-3 shadow-sm">
-                <Share size={28} color="#10b981" />
-              </View>
-              <Text className="text-2xl font-bold text-gray-900 mb-1">
-                Share Chama
-              </Text>
-              <Text className="text-gray-500 text-center text-sm">
-                Invite others to join this chama
-              </Text>
-            </View>
-
-            <View className="gap-4">
-              {/* Quick Copy Link Button */}
-              <TouchableOpacity
-                onPress={copyLink}
-                className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 flex-row items-center gap-3"
-                activeOpacity={0.7}
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+            <Pressable
+              onPress={(e) => e.stopPropagation()}
+              className="bg-white w-full self-center rounded-3xl overflow-hidden"
+              style={{ maxWidth: 380 }}
+            >
+              <View
+                className="bg-emerald-50 border-b border-emerald-100"
+                style={{ paddingTop: 14, paddingBottom: 16, paddingHorizontal: 20 }}
               >
-                <View className="w-12 h-12 bg-emerald-100 rounded-xl items-center justify-center">
-                  <Text className="text-2xl">🔗</Text>
+                <View className="flex-row items-center">
+                  <View className="w-11 h-11 rounded-full bg-white items-center justify-center border border-emerald-100">
+                    <Share2 size={20} color="#059669" />
+                  </View>
+                  <View className="flex-1 mr-3" style={{ marginLeft: 10 }}>
+                    <Text className="text-lg font-bold text-gray-900 leading-6">
+                      Share Chama
+                    </Text>
+                    <Text className="text-xs text-gray-500 mt-0.5 leading-4">
+                      Invite others to join
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowShareModal(false);
+                      setShareUsername("");
+                      setIsShareSearching(false);
+                      setShowShareSearchResults(false);
+                      setSelectedShareUser(null);
+                      setShareSearchResults([]);
+                      setShareSearchDoneFor("");
+                    }}
+                    className="w-9 h-9 rounded-full bg-white items-center justify-center border border-emerald-100"
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close" size={18} color="#6B7280" />
+                  </TouchableOpacity>
                 </View>
-                <View className="flex-1">
-                  <Text className="font-bold text-gray-900 text-base">
-                    Copy Invite Link
-                  </Text>
-                </View>
-                <View className="bg-downy-600 rounded-lg px-3 py-1.5">
-                  <Text className="text-white font-semibold text-xs">Copy</Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Divider */}
-              <View className="flex-row items-center gap-3">
-                <View className="flex-1 h-px bg-gray-200" />
-                <Text className="text-gray-400 text-xs font-medium">OR</Text>
-                <View className="flex-1 h-px bg-gray-200" />
               </View>
 
-              {/* Share to Specific User */}
-              <View className="bg-sky-100 border border-emerald-200 rounded-2xl p-5">
-                {/* Section Header */}
-                <View className="flex-row items-center mb-4">
-                  <View className="w-10 h-10 bg-white rounded-xl items-center justify-center shadow-sm">
-                    <Text className="text-xl">👤</Text>
+              <View className="px-5 pt-4 pb-5">
+                <TouchableOpacity
+                  onPress={copyLink}
+                  className="flex-row items-center rounded-2xl border border-emerald-200 bg-white px-3 py-3"
+                  activeOpacity={0.7}
+                  style={{ borderWidth: 1.5 }}
+                >
+                  <View className="w-10 h-10 rounded-xl bg-emerald-100 items-center justify-center">
+                    <Ionicons name="link" size={18} color="#059669" />
                   </View>
-                  <View className="ml-3 flex-1">
-                    <Text className="text-base font-bold text-gray-900">
-                      Send to a Chamapay user
+                  <View className="flex-1 ml-3 mr-3">
+                    <Text className="font-semibold text-gray-900 text-sm">
+                      Copy invite link
                     </Text>
-                    <Text className="text-xs text-gray-600">
-                      Enter their username
+                    <Text className="text-[11px] text-gray-500 mt-0.5">
+                      Share anywhere
                     </Text>
                   </View>
+                  <View className="bg-downy-600 rounded-lg px-3 py-1.5">
+                    <Text className="text-white font-semibold text-xs">Copy</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <View className="flex-row items-center my-4">
+                  <View className="flex-1 h-px bg-gray-100" />
+                  <Text className="mx-2.5 text-[10px] font-semibold tracking-wide text-gray-400">
+                    OR SEND IN-APP
+                  </Text>
+                  <View className="flex-1 h-px bg-gray-100" />
                 </View>
 
-                {/* Input Field */}
-                <View className="mb-3 relative">
-                  <View className="flex-row items-center bg-white border border-emerald-300 rounded-xl px-4 py-2">
-                    <Text className="text-lg font-semibold text-emerald-600 mr-3">
-                      @
-                    </Text>
-                    <TextInput
-                      value={shareUsername}
-                      onChangeText={(text) => {
-                        setShareUsername(text);
-                        setSelectedShareUser(null);
-                      }}
-                      placeholder="username"
-                      className="flex-1 text-gray-900 font-medium"
-                      placeholderTextColor="#9CA3AF"
-                      onFocus={() => {
-                        if (shareSearchResults.length > 0) {
-                          setShowShareSearchResults(true);
-                        }
-                      }}
-                    />
-                    {isShareSearching && (
-                      <View className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                    )}
-                  </View>
+                <Text className="text-xs font-semibold text-gray-600 mb-2">
+                  Share to a Chamapay user
+                </Text>
 
-                  {/* Search Results Dropdown */}
-                  {showShareSearchResults && shareSearchResults.length > 0 && (
-                    <View className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-emerald-200 shadow-lg z-50 max-h-48">
-                      <ScrollView keyboardShouldPersistTaps="handled">
-                        {shareSearchResults.map((user) => (
-                          <TouchableOpacity
-                            key={user.id}
-                            onPress={() => handleShareUserSelect(user)}
-                            className="flex-row items-center p-3 border-b border-gray-100 last:border-b-0"
-                            activeOpacity={0.7}
+                <View
+                  className="flex-row items-center rounded-xl border border-gray-200 bg-gray-50 px-3"
+                  style={{ height: 46 }}
+                >
+                  <Text className="text-base font-semibold text-emerald-600 mr-1.5">@</Text>
+                  <TextInput
+                    value={shareUsername}
+                    onChangeText={(text) => {
+                      setShareUsername(text);
+                      setSelectedShareUser(null);
+                      setShareSearchDoneFor("");
+                      if (text.trim().length >= 2) {
+                        setIsShareSearching(true);
+                        setShareSearchResults([]);
+                        setShowShareSearchResults(false);
+                      } else {
+                        setIsShareSearching(false);
+                        setShareSearchResults([]);
+                        setShowShareSearchResults(false);
+                      }
+                    }}
+                    placeholder="username"
+                    placeholderTextColor="#9CA3AF"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={{ flex: 1, fontSize: 15, color: "#111827", paddingVertical: 0 }}
+                  />
+                  {isShareSearching ? (
+                    <ActivityIndicator size="small" color="#059669" />
+                  ) : null}
+                </View>
+
+                {isShareSearching ? (
+                  <View className="mt-2 rounded-xl border border-gray-100 bg-white px-3 py-2.5 flex-row items-center justify-center">
+                    <ActivityIndicator size="small" color="#059669" />
+                    <Text className="ml-2 text-sm text-gray-500">Searching...</Text>
+                  </View>
+                ) : null}
+
+                {!isShareSearching &&
+                showShareSearchResults &&
+                shareSearchResults.length > 0 ? (
+                  <View className="mt-2 rounded-xl border border-gray-100 bg-white overflow-hidden max-h-40">
+                    <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                      {shareSearchResults.map((user) => (
+                        <TouchableOpacity
+                          key={user.id}
+                          onPress={() => handleShareUserSelect(user)}
+                          disabled={!!user.isMember}
+                          className={`flex-row items-center px-3 py-2.5 border-b border-gray-50 ${
+                            user.isMember ? "bg-slate-50 opacity-70" : ""
+                          }`}
+                          activeOpacity={user.isMember ? 1 : 0.7}
+                        >
+                          <View
+                            className={`w-9 h-9 rounded-full items-center justify-center mr-2.5 ${
+                              user.isMember ? "bg-slate-200" : "bg-emerald-100"
+                            }`}
                           >
-                            <View className="w-10 h-10 bg-emerald-100 rounded-full items-center justify-center mr-3">
-                              {user.profileImageUrl ? (
-                                <Image
-                                  source={{ uri: user.profileImageUrl }}
-                                  className="w-10 h-10 rounded-full"
-                                />
-                              ) : (
-                                <User size={20} color="#10b981" />
-                              )}
-                            </View>
-                            <View className="flex-1">
-                              <Text className="font-semibold text-gray-900">
-                                @{user.userName}
+                            {user.profileImageUrl ? (
+                              <Image
+                                source={{ uri: user.profileImageUrl }}
+                                className={`w-9 h-9 rounded-full ${user.isMember ? "opacity-50" : ""}`}
+                              />
+                            ) : (
+                              <User size={16} color={user.isMember ? "#94a3b8" : "#059669"} />
+                            )}
+                          </View>
+                          <View className="flex-1">
+                            <Text
+                              className={`font-semibold text-sm ${
+                                user.isMember ? "text-slate-400" : "text-gray-900"
+                              }`}
+                            >
+                              @{user.userName}
+                            </Text>
+                            {user.isMember ? (
+                              <Text className="text-[11px] text-slate-400">Already a member</Text>
+                            ) : null}
+                          </View>
+                          {user.isMember ? (
+                            <View className="px-2 py-0.5 rounded-full bg-slate-200">
+                              <Text className="text-[10px] font-bold text-slate-500 uppercase">
+                                Member
                               </Text>
-                              <Text className="text-xs text-gray-400 font-mono">
-                                {user?.smartAddress?.slice(0, 6) || "..."}...
-                                {user?.smartAddress?.slice(-4) || "..."}
-                              </Text>
                             </View>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  )}
+                          ) : null}
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                ) : null}
 
-                  {/* User Not Found Message */}
-                  {shareUsername.trim().length >= 2 &&
-                    !isShareSearching &&
-                    shareSearchResults.length === 0 && (
-                      <View className="absolute top-full left-0 right-0 mt-1 bg-red-50 border border-red-200 rounded-xl p-3 z-50">
-                        <Text className="text-red-600 text-sm font-medium text-center">
-                          User not found
-                        </Text>
-                      </View>
-                    )}
-                </View>
+                {!isShareSearching &&
+                shareUsername.trim().length >= 2 &&
+                !selectedShareUser &&
+                shareSearchResults.length === 0 &&
+                shareSearchDoneFor === shareUsername.trim() ? (
+                  <View className="mt-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2.5">
+                    <Text className="text-red-600 text-sm font-medium text-center">
+                      User not found
+                    </Text>
+                  </View>
+                ) : null}
 
-                {/* Send Button */}
+                {selectedShareUser ? (
+                  <View className="mt-2.5 flex-row items-center rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2">
+                    <User size={14} color="#059669" />
+                    <Text className="ml-2 flex-1 font-semibold text-emerald-800 text-sm">
+                      @{selectedShareUser.userName}
+                    </Text>
+                    <Ionicons name="checkmark-circle" size={16} color="#059669" />
+                  </View>
+                ) : null}
+
                 <TouchableOpacity
                   onPress={() => shareToUser(chama.slug)}
                   disabled={!selectedShareUser || sendingLink}
                   activeOpacity={0.7}
-                  className={`py-3.5 rounded-xl flex-row items-center justify-center shadow-lg ${selectedShareUser && !sendingLink ? "bg-downy-600" : "bg-gray-300"
-                    }`}
+                  className={`mt-3 h-11 rounded-xl items-center justify-center ${
+                    selectedShareUser && !sendingLink ? "bg-downy-600" : "bg-gray-200"
+                  }`}
                 >
-                  <Text
-                    className={`font-bold text-base ${selectedShareUser && !sendingLink ? "text-white" : "text-gray-500"
+                  {sendingLink ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text
+                      className={`font-bold text-[15px] ${
+                        selectedShareUser ? "text-white" : "text-gray-400"
                       }`}
-                  >
-                    {sendingLink ? "Sending..." : "  Send Invite"}
-                  </Text>
+                    >
+                      Send Invite
+                    </Text>
+                  )}
                 </TouchableOpacity>
               </View>
-            </View>
-
-            {/* Cancel Button */}
-            <TouchableOpacity
-              onPress={() => setShowShareModal(false)}
-              disabled={sendingLink}
-              className="mt-6 bg-gray-300 py-3 rounded-xl border border-gray-500 border-2"
-              activeOpacity={0.7}
-            >
-              <Text className="text-gray-700 font-semibold text-center text-base">
-                Close
-              </Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </TouchableOpacity>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
       </Modal>
 
       {/* Add Member Modal */}
       <Modal
         visible={showAddMemberModal}
-        transparent={true}
+        transparent
         animationType="fade"
         onRequestClose={() => {
           setShowAddMemberModal(false);
@@ -1186,138 +1291,206 @@ Alert.alert("Error", "An unexpected error occurred");
           setIsAddMemberSearching(false);
           setShowAddMemberSearchResults(false);
           setSelectedAddMemberUser(null);
+          setAddMemberSearchResults([]);
+          setAddMemberSearchDoneFor("");
         }}
       >
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => setShowAddMemberModal(false)}
-          className="flex-1 items-center justify-center bg-black/70 px-6"
+        <Pressable
+          onPress={() => {
+            setShowAddMemberModal(false);
+            setAddMemberUsername("");
+            setIsAddMemberSearching(false);
+            setShowAddMemberSearchResults(false);
+            setSelectedAddMemberUser(null);
+            setAddMemberSearchResults([]);
+            setAddMemberSearchDoneFor("");
+          }}
+          className="flex-1 justify-center bg-black/55 px-5"
         >
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-            className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"
-          >
-            {/* Header */}
-            <View className="items-center mb-6">
-              <View className="w-16 h-16 bg-emerald-100 rounded-full items-center justify-center mb-3 shadow-sm">
-                <UserPlus size={28} color="#10b981" />
-              </View>
-              <Text className="text-2xl font-bold text-gray-900 mb-1">
-                Add Member
-              </Text>
-              <Text className="text-gray-500 text-center text-sm">
-                Add a user directly to this chama
-              </Text>
-            </View>
-
-            <View className="gap-4">
-              <View className="bg-sky-50 border border-emerald-200 rounded-2xl p-5">
-                {/* Input Field */}
-                <View className="mb-3 relative">
-                  <View className="flex-row items-center bg-white border border-emerald-300 rounded-xl px-4 py-2">
-                    <Text className="text-lg font-semibold text-emerald-600 mr-3">
-                      @
-                    </Text>
-                    <TextInput
-                      value={addMemberUsername}
-                      onChangeText={(text) => {
-                        setAddMemberUsername(text);
-                        setSelectedAddMemberUser(null);
-                      }}
-                      placeholder="username"
-                      className="flex-1 text-gray-900 font-medium"
-                      placeholderTextColor="#9CA3AF"
-                      onFocus={() => {
-                        if (addMemberSearchResults.length > 0) {
-                          setShowAddMemberSearchResults(true);
-                        }
-                      }}
-                    />
-                    {isAddMemberSearching && (
-                      <View className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                    )}
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+            <Pressable
+              onPress={(e) => e.stopPropagation()}
+              className="bg-white w-full self-center rounded-3xl overflow-hidden"
+              style={{ maxWidth: 380 }}
+            >
+              <View
+                className="bg-emerald-50 border-b border-emerald-100"
+                style={{ paddingTop: 14, paddingBottom: 16, paddingHorizontal: 20 }}
+              >
+                <View className="flex-row items-center">
+                  <View className="w-11 h-11 rounded-full bg-white items-center justify-center border border-emerald-100">
+                    <UserPlus size={20} color="#059669" />
                   </View>
+                  <View className="flex-1 mr-3" style={{ marginLeft: 10 }}>
+                    <Text className="text-lg font-bold text-gray-900 leading-6">
+                      Add Member
+                    </Text>
+                    <Text className="text-xs text-gray-500 mt-0.5 leading-4">
+                      Already on Chamapay
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowAddMemberModal(false);
+                      setAddMemberUsername("");
+                      setIsAddMemberSearching(false);
+                      setShowAddMemberSearchResults(false);
+                      setSelectedAddMemberUser(null);
+                      setAddMemberSearchResults([]);
+                      setAddMemberSearchDoneFor("");
+                    }}
+                    className="w-9 h-9 rounded-full bg-white items-center justify-center border border-emerald-100"
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close" size={18} color="#6B7280" />
+                  </TouchableOpacity>
+                </View>
+              </View>
 
-                  {/* Search Results Dropdown */}
-                  {showAddMemberSearchResults && addMemberSearchResults.length > 0 && (
-                    <View className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-emerald-200 shadow-lg z-50 max-h-48">
-                      <ScrollView keyboardShouldPersistTaps="handled">
-                        {addMemberSearchResults.map((user) => (
-                          <TouchableOpacity
-                            key={user.id}
-                            onPress={() => handleAddMemberUserSelect(user)}
-                            className="flex-row items-center p-3 border-b border-gray-100 last:border-b-0"
-                            activeOpacity={0.7}
-                          >
-                            <View className="w-10 h-10 bg-emerald-100 rounded-full items-center justify-center mr-3">
-                              {user.profileImageUrl ? (
-                                <Image
-                                  source={{ uri: user.profileImageUrl }}
-                                  className="w-10 h-10 rounded-full"
-                                />
-                              ) : (
-                                <User size={20} color="#10b981" />
-                              )}
-                            </View>
-                            <View className="flex-1">
-                              <Text className="font-semibold text-gray-900">
-                                @{user.userName}
-                              </Text>
-                              <Text className="text-xs text-gray-400 font-mono">
-                                {user?.smartAddress?.slice(0, 6) || "..."}...
-                                {user?.smartAddress?.slice(-4) || "..."}
-                              </Text>
-                            </View>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  )}
+              <View className="px-5 pt-4 pb-5">
+                <Text className="text-xs font-semibold text-gray-600 mb-2">
+                  Search by username
+                </Text>
 
-                  {/* User Not Found Message */}
-                  {addMemberUsername.trim().length >= 2 &&
-                    !isAddMemberSearching &&
-                    addMemberSearchResults.length === 0 && (
-                      <View className="absolute top-full left-0 right-0 mt-1 bg-red-50 border border-red-200 rounded-xl p-3 z-50">
-                        <Text className="text-red-600 text-sm font-medium text-center">
-                          User not found or already a member
-                        </Text>
-                      </View>
-                    )}
+                <View
+                  className="flex-row items-center rounded-xl border border-gray-200 bg-gray-50 px-3"
+                  style={{ height: 46 }}
+                >
+                  <Text className="text-base font-semibold text-emerald-600 mr-1.5">@</Text>
+                  <TextInput
+                    value={addMemberUsername}
+                    onChangeText={(text) => {
+                      setAddMemberUsername(text);
+                      setSelectedAddMemberUser(null);
+                      setAddMemberSearchDoneFor("");
+                      if (text.trim().length >= 2) {
+                        setIsAddMemberSearching(true);
+                        setAddMemberSearchResults([]);
+                        setShowAddMemberSearchResults(false);
+                      } else {
+                        setIsAddMemberSearching(false);
+                        setAddMemberSearchResults([]);
+                        setShowAddMemberSearchResults(false);
+                      }
+                    }}
+                    placeholder="username"
+                    placeholderTextColor="#9CA3AF"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={{ flex: 1, fontSize: 15, color: "#111827", paddingVertical: 0 }}
+                  />
+                  {isAddMemberSearching ? (
+                    <ActivityIndicator size="small" color="#059669" />
+                  ) : null}
                 </View>
 
-                {/* Add Button */}
+                {isAddMemberSearching ? (
+                  <View className="mt-2 rounded-xl border border-gray-100 bg-white px-3 py-2.5 flex-row items-center justify-center">
+                    <ActivityIndicator size="small" color="#059669" />
+                    <Text className="ml-2 text-sm text-gray-500">Searching...</Text>
+                  </View>
+                ) : null}
+
+                {!isAddMemberSearching &&
+                showAddMemberSearchResults &&
+                addMemberSearchResults.length > 0 ? (
+                  <View className="mt-2 rounded-xl border border-gray-100 bg-white overflow-hidden max-h-40">
+                    <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                      {addMemberSearchResults.map((user) => (
+                        <TouchableOpacity
+                          key={user.id}
+                          onPress={() => handleAddMemberUserSelect(user)}
+                          disabled={!!user.isMember}
+                          className={`flex-row items-center px-3 py-2.5 border-b border-gray-50 ${
+                            user.isMember ? "bg-slate-50 opacity-70" : ""
+                          }`}
+                          activeOpacity={user.isMember ? 1 : 0.7}
+                        >
+                          <View
+                            className={`w-9 h-9 rounded-full items-center justify-center mr-2.5 ${
+                              user.isMember ? "bg-slate-200" : "bg-emerald-100"
+                            }`}
+                          >
+                            {user.profileImageUrl ? (
+                              <Image
+                                source={{ uri: user.profileImageUrl }}
+                                className={`w-9 h-9 rounded-full ${user.isMember ? "opacity-50" : ""}`}
+                              />
+                            ) : (
+                              <User size={16} color={user.isMember ? "#94a3b8" : "#059669"} />
+                            )}
+                          </View>
+                          <View className="flex-1">
+                            <Text
+                              className={`font-semibold text-sm ${
+                                user.isMember ? "text-slate-400" : "text-gray-900"
+                              }`}
+                            >
+                              @{user.userName}
+                            </Text>
+                            {user.isMember ? (
+                              <Text className="text-[11px] text-slate-400">Already a member</Text>
+                            ) : null}
+                          </View>
+                          {user.isMember ? (
+                            <View className="px-2 py-0.5 rounded-full bg-slate-200">
+                              <Text className="text-[10px] font-bold text-slate-500 uppercase">
+                                Member
+                              </Text>
+                            </View>
+                          ) : null}
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                ) : null}
+
+                {!isAddMemberSearching &&
+                addMemberUsername.trim().length >= 2 &&
+                !selectedAddMemberUser &&
+                addMemberSearchResults.length === 0 &&
+                addMemberSearchDoneFor === addMemberUsername.trim() ? (
+                  <View className="mt-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2.5">
+                    <Text className="text-red-600 text-sm font-medium text-center">
+                      User not found
+                    </Text>
+                  </View>
+                ) : null}
+
+                {selectedAddMemberUser ? (
+                  <View className="mt-2.5 flex-row items-center rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2">
+                    <User size={14} color="#059669" />
+                    <Text className="ml-2 flex-1 font-semibold text-emerald-800 text-sm">
+                      @{selectedAddMemberUser.userName}
+                    </Text>
+                    <Ionicons name="checkmark-circle" size={16} color="#059669" />
+                  </View>
+                ) : null}
+
                 <TouchableOpacity
                   onPress={handleAddMember}
                   disabled={!selectedAddMemberUser || isAddingMember}
                   activeOpacity={0.7}
-                  className={`py-3.5 rounded-xl flex-row items-center justify-center shadow-lg ${selectedAddMemberUser && !isAddingMember ? "bg-downy-600" : "bg-gray-300"
-                    }`}
+                  className={`mt-3 h-11 rounded-xl items-center justify-center ${
+                    selectedAddMemberUser && !isAddingMember ? "bg-downy-600" : "bg-gray-200"
+                  }`}
                 >
-                  <Text
-                    className={`font-bold text-base ${selectedAddMemberUser && !isAddingMember ? "text-white" : "text-gray-500"
+                  {isAddingMember ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text
+                      className={`font-bold text-[15px] ${
+                        selectedAddMemberUser ? "text-white" : "text-gray-400"
                       }`}
-                  >
-                    {isAddingMember ? "Adding..." : "Add to Chama"}
-                  </Text>
+                    >
+                      Add to Chama
+                    </Text>
+                  )}
                 </TouchableOpacity>
               </View>
-            </View>
-
-            {/* Cancel Button */}
-            <TouchableOpacity
-              onPress={() => setShowAddMemberModal(false)}
-              disabled={isAddingMember}
-              className="mt-6 bg-gray-300 py-3 rounded-xl border border-gray-500 border-2"
-              activeOpacity={0.7}
-            >
-              <Text className="text-gray-700 font-semibold text-center text-base">
-                Close
-              </Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </TouchableOpacity>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
       </Modal>
 
       {/* Success Modal */}
@@ -1412,20 +1585,25 @@ Alert.alert("Error", "An unexpected error occurred");
           className="flex-1"
         >
           <View className="flex-1 justify-end bg-black/50">
-            <View className="bg-white rounded-t-3xl h-[70%]">
-              {/* Header */}
-              <View className="flex-row justify-between items-center p-6 border-b border-gray-100">
-                <Text className="text-xl font-bold text-gray-900">Edit Details</Text>
+            <View className="bg-white rounded-t-3xl" style={{ maxHeight: "78%" }}>
+              <View className="items-center pt-3 pb-1">
+                <View className="w-10 h-1 rounded-full bg-gray-300" />
+              </View>
+              <View className="flex-row justify-between items-center px-5 pb-3 border-b border-gray-100">
+                <View>
+                  <Text className="text-xl font-bold text-gray-900">Edit Details</Text>
+                  <Text className="text-xs text-gray-500 mt-0.5">Update chama settings</Text>
+                </View>
                 <TouchableOpacity
                   onPress={() => setShowEditModal(false)}
-                  className="p-2 bg-gray-100 rounded-full"
+                  className="w-9 h-9 items-center justify-center bg-gray-100 rounded-full"
                 >
-                  <Ionicons name="close" size={20} color="#374151" />
+                  <Ionicons name="close" size={18} color="#374151" />
                 </TouchableOpacity>
               </View>
 
-              <ScrollView className="p-6">
-                <Text className="text-gray-700 font-medium mb-2">Chama Name</Text>
+              <ScrollView className="px-5 pt-4" keyboardShouldPersistTaps="handled">
+                <Text className="text-gray-700 font-medium mb-2 text-sm">Chama Name</Text>
                 <TextInput
                   value={editFormData.name}
                   onChangeText={(text) =>
@@ -1436,7 +1614,7 @@ Alert.alert("Error", "An unexpected error occurred");
                 />
 
                 <View className="flex-row justify-between items-center mb-2">
-                  <Text className="text-gray-700 font-medium">Amount ({isEditKESMode ? "KES" : "USDC"})</Text>
+                  <Text className="text-gray-700 font-medium text-sm">Amount ({isEditKESMode ? "KES" : "USDC"})</Text>
                   {user?.location === "KE" && (
                     <TouchableOpacity onPress={() => setIsEditKESMode(!isEditKESMode)} className="bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">
                       <Text className="text-emerald-700 text-[10px] font-bold">Switch to {isEditKESMode ? "USDC" : "KES"}</Text>
@@ -1467,7 +1645,7 @@ Alert.alert("Error", "An unexpected error occurred");
                   </View>
                 )}
 
-                <Text className="text-gray-700 font-medium mb-2">Cycle Time (days)</Text>
+                <Text className="text-gray-700 font-medium mb-2 text-sm">Cycle Time (days)</Text>
                 <TextInput
                   value={editFormData.duration}
                   onChangeText={(text) =>
@@ -1480,7 +1658,7 @@ Alert.alert("Error", "An unexpected error occurred");
 
                 <View className="flex-row gap-4 mb-4">
                   <View className="flex-1">
-                    <Text className="text-gray-700 font-medium mb-2">Current Cycle</Text>
+                    <Text className="text-gray-700 font-medium mb-2 text-sm">Current Cycle</Text>
                     <TextInput
                       value={editFormData.cycle}
                       onChangeText={(text) =>
@@ -1492,7 +1670,7 @@ Alert.alert("Error", "An unexpected error occurred");
                     />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-gray-700 font-medium mb-2">Current Round</Text>
+                    <Text className="text-gray-700 font-medium mb-2 text-sm">Current Round</Text>
                     <TextInput
                       value={editFormData.round}
                       onChangeText={(text) =>
@@ -1505,21 +1683,21 @@ Alert.alert("Error", "An unexpected error occurred");
                   </View>
                 </View>
 
-                <Text className="text-gray-700 font-medium mb-2">Pay Date & Time</Text>
-                <View className="flex-row gap-4 mb-8">
+                <Text className="text-gray-700 font-medium mb-2 text-sm">Pay Date & Time</Text>
+                <View className="flex-row gap-3 mb-6">
                   <TouchableOpacity
                     onPress={() => setShowPayDatePicker(true)}
-                    className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex-row items-center justify-between"
+                    className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-3 flex-row items-center justify-between"
                   >
-                    <Text className="font-medium text-gray-900">{selectedPayDate.toLocaleDateString()}</Text>
-                    <Calendar size={20} color="#6b7280" />
+                    <Text className="font-medium text-gray-900 text-sm">{selectedPayDate.toLocaleDateString()}</Text>
+                    <Calendar size={18} color="#6b7280" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => setShowPayTimePicker(true)}
-                    className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex-row items-center justify-between"
+                    className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-3 flex-row items-center justify-between"
                   >
-                    <Text className="font-medium text-gray-900">{selectedPayDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-                    <Clock size={20} color="#6b7280" />
+                    <Text className="font-medium text-gray-900 text-sm">{selectedPayDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                    <Clock size={18} color="#6b7280" />
                   </TouchableOpacity>
                 </View>
 
@@ -1612,20 +1790,37 @@ Alert.alert("Error", "An unexpected error occurred");
                     </Modal>
                   </>
                 )}
-                
+              </ScrollView>
+
+              <View className="px-5 pt-3 pb-6 border-t border-gray-100 bg-white">
                 <TouchableOpacity
                   onPress={handleUpdateDetails}
                   disabled={!hasEditDetailsChanged() || isUpdatingDetails}
-                  className={`bg-downy-800 py-4 rounded-xl items-center shadow-sm ${
-                    (!hasEditDetailsChanged() || isUpdatingDetails) ? "opacity-70" : ""
+                  className={`h-12 rounded-2xl items-center justify-center flex-row ${
+                    hasEditDetailsChanged() && !isUpdatingDetails
+                      ? "bg-downy-700"
+                      : "bg-gray-200"
                   }`}
                 >
-                  <Text className="text-white font-semibold text-lg">
-                    {isUpdatingDetails ? "Updating..." : "Update Details"}
-                  </Text>
+                  {isUpdatingDetails ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Edit3
+                        size={16}
+                        color={hasEditDetailsChanged() ? "#fff" : "#9CA3AF"}
+                      />
+                      <Text
+                        className={`ml-2 font-semibold text-base ${
+                          hasEditDetailsChanged() ? "text-white" : "text-gray-400"
+                        }`}
+                      >
+                        Save Changes
+                      </Text>
+                    </>
+                  )}
                 </TouchableOpacity>
-                <View className="h-10" />
-              </ScrollView>
+              </View>
             </View>
           </View>
         </KeyboardAvoidingView>

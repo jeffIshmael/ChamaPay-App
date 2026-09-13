@@ -7,8 +7,9 @@ import {
   CheckCircle,
   ArrowUpDown,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -50,6 +51,8 @@ export default function SendCryptoScreen() {
   >([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [searchDoneFor, setSearchDoneFor] = useState("");
+  const searchReqId = useRef(0);
   const [selectedUser, setSelectedUser] = useState<{
     id: number;
     userName: string;
@@ -88,41 +91,53 @@ export default function SendCryptoScreen() {
 
   // Search users with debouncing
   useEffect(() => {
-    const searchForUsers = async () => {
-      if (
-        sendMode !== "chamapay" ||
-        !recipient.trim() ||
-        recipient.trim().length < 2
-      ) {
-        setSearchResults([]);
-        setShowSearchResults(false);
-        return;
-      }
+    const q = recipient.trim();
 
-      // Don't search if a user is already selected (prevents search on selection)
-      if (selectedUser && recipient === selectedUser.userName) {
-        return;
-      }
+    if (sendMode !== "chamapay" || q.length < 2) {
+      searchReqId.current += 1;
+      setSearchResults([]);
+      setShowSearchResults(false);
+      setIsSearching(false);
+      setSearchDoneFor("");
+      return;
+    }
 
-      setIsSearching(true);
+    if (selectedUser && recipient === selectedUser.userName) {
+      setIsSearching(false);
+      return;
+    }
+
+    const reqId = ++searchReqId.current;
+    setIsSearching(true);
+    setSearchDoneFor("");
+    setSearchResults([]);
+    setShowSearchResults(false);
+
+    const timeoutId = setTimeout(async () => {
       try {
-        const result = await searchUsers(recipient.trim());
+        const result = await searchUsers(q);
+        if (reqId !== searchReqId.current) return;
+
         if (result.success && result.users) {
           setSearchResults(result.users);
-          setShowSearchResults(true);
+          setShowSearchResults(result.users.length > 0);
         } else {
           setSearchResults([]);
           setShowSearchResults(false);
         }
+        setSearchDoneFor(q);
       } catch (error) {
-setSearchResults([]);
+        if (reqId !== searchReqId.current) return;
+        setSearchResults([]);
         setShowSearchResults(false);
+        setSearchDoneFor(q);
       } finally {
-        setIsSearching(false);
+        if (reqId === searchReqId.current) {
+          setIsSearching(false);
+        }
       }
-    };
+    }, 300);
 
-    const timeoutId = setTimeout(searchForUsers, 300);
     return () => clearTimeout(timeoutId);
   }, [recipient, sendMode, selectedUser]);
 
@@ -460,7 +475,7 @@ showToast("Failed to send transaction");
             {sendMode === "chamapay" && !selectedUser && (
               <Text className="text-sm text-gray-500 mb-3">
                 {
-                  "Enter the recipient's Chamapay username or scan their QR code"
+                  "Enter the recipient's Chamapay username"
                 }
               </Text>
             )}
@@ -517,10 +532,22 @@ showToast("Failed to send transaction");
                       onChangeText={(text: string) => {
                         setRecipient(text);
                         setSelectedUser(null);
+                        setSearchDoneFor("");
+                        if (text.trim().length >= 2) {
+                          setIsSearching(true);
+                          setSearchResults([]);
+                          setShowSearchResults(false);
+                        } else {
+                          setIsSearching(false);
+                          setSearchResults([]);
+                          setShowSearchResults(false);
+                        }
                       }}
                       placeholder="username"
                       placeholderTextColor="#9CA3AF"
                       className="flex-1 text-base py-3"
+                      autoCapitalize="none"
+                      autoCorrect={false}
                       onFocus={() => {
                         setIsRecipientFocused(true);
                         if (searchResults.length > 0) {
@@ -532,68 +559,70 @@ showToast("Failed to send transaction");
                         handleInputBlur();
                       }}
                     />
-                    {isSearching && (
-                      <View className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mr-2" />
-                    )}
-                    {/* <TouchableOpacity
-                      onPress={handleOpenScanner}
-                      className="p-1"
-                      activeOpacity={0.7}
-                    >
-                      <Svg
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="#1c8584"
-                      >
-                        <Path d="M4 4h5V2H2v7h2V4zM4 15H2v7h7v-2H4v-5zM15 2v2h5v5h2V2h-7zM20 20h-5v2h7v-7h-2v5zM2 11h20v2H2z" />
-                      </Svg>
-                    </TouchableOpacity> */}
+                    {isSearching ? (
+                      <ActivityIndicator
+                        size="small"
+                        color="#059669"
+                        className="mr-1"
+                      />
+                    ) : null}
                   </View>
 
-                  {/* Search Results Dropdown */}
-                  {showSearchResults && searchResults.length > 0 && (
+                  {isSearching && (
                     <View
-                      className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 max-h-48"
+                      className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 px-4 py-3.5 flex-row items-center justify-center gap-2"
                       style={{ zIndex: 9999, elevation: 10 }}
                     >
-                      <ScrollView keyboardShouldPersistTaps="handled">
-                        {searchResults.map((item: any) => (
-                          <TouchableOpacity
-                            key={item.id}
-                            onPress={() => handleUserSelect(item)}
-                            className="flex-row items-center p-3 border-b border-gray-100 last:border-b-0"
-                            activeOpacity={0.7}
-                          >
-                            <View className="w-10 h-10 bg-emerald-100 rounded-full items-center justify-center mr-3">
-                              {item.profileImageUrl ? (
-                                <Image
-                                  source={{ uri: item.profileImageUrl }}
-                                  className="w-10 h-10 rounded-full"
-                                />
-                              ) : (
-                                <User size={20} color="#10b981" />
-                              )}
-                            </View>
-                            <View className="flex-1">
-                              <Text className="font-semibold text-gray-900">
-                                @{item.userName}
-                              </Text>
-                              <Text className="text-xs text-gray-400 font-mono">
-                                {item.smartAddress.slice(0, 6)}...
-                                {item.smartAddress.slice(-4)}
-                              </Text>
-                            </View>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
+                      <ActivityIndicator size="small" color="#059669" />
+                      <Text className="text-sm text-gray-500 font-medium">
+                        Searching...
+                      </Text>
                     </View>
                   )}
+
+                  {/* Search Results Dropdown */}
+                  {!isSearching &&
+                    showSearchResults &&
+                    searchResults.length > 0 && (
+                      <View
+                        className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 max-h-48"
+                        style={{ zIndex: 9999, elevation: 10 }}
+                      >
+                        <ScrollView keyboardShouldPersistTaps="handled">
+                          {searchResults.map((item: any) => (
+                            <TouchableOpacity
+                              key={item.id}
+                              onPress={() => handleUserSelect(item)}
+                              className="flex-row items-center p-3 border-b border-gray-100 last:border-b-0"
+                              activeOpacity={0.7}
+                            >
+                              <View className="w-10 h-10 bg-emerald-100 rounded-full items-center justify-center mr-3">
+                                {item.profileImageUrl ? (
+                                  <Image
+                                    source={{ uri: item.profileImageUrl }}
+                                    className="w-10 h-10 rounded-full"
+                                  />
+                                ) : (
+                                  <User size={20} color="#10b981" />
+                                )}
+                              </View>
+                              <View className="flex-1">
+                                <Text className="font-semibold text-gray-900">
+                                  @{item.userName}
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
 
                   {/* User Not Found Message */}
                   {recipient.trim().length >= 2 &&
                     !isSearching &&
-                    searchResults.length === 0 && (
+                    !selectedUser &&
+                    searchResults.length === 0 &&
+                    searchDoneFor === recipient.trim() && (
                       <View className="absolute top-full left-0 right-0 mt-1 bg-red-50 border border-red-200 rounded-xl p-3 z-50">
                         <Text className="text-red-600 text-sm font-medium text-center">
                           User not found

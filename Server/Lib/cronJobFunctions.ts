@@ -308,6 +308,14 @@ async function processRefundPayout(chama: ChamaWithMembers) {
     },
   });
 
+  await prisma.refund.create({
+    data: {
+      chamaId: chama.id,
+      cycle: chama.cycle,
+      round: chama.round,
+    },
+  });
+
   const title = "Payout skipped — funds refunded";
   const message = `Cycle ${chama.cycle} Round ${chama.round} of the ${chama.name} chama didn't go through because some members didn't contribute. Your contribution has been refunded to your wallet.`;
 

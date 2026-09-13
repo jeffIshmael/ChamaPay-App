@@ -69,7 +69,7 @@ interface AuthContextType {
   getToken: () => Promise<string | null>;
   getRefreshToken: () => Promise<string | null>;
   unReadNotificationCount: number;
-  markNotificationsRead: () => Promise<void>;
+  markNotificationsRead: (notificationIds?: number[]) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -366,17 +366,22 @@ throw error;
     return null;
   };
 
-  const markNotificationsRead = async () => {
-    if (token) {
-      setUnReadNotificationCount(0); // Optimistic update
-      // Also update user state to reflect read status
-      if (user && user.notifications) {
-        const updatedNotifications = user.notifications.map((n: any) => ({ ...n, read: true }));
-        updateUser({ notifications: updatedNotifications });
-      }
-      await markNotificationsReadApi(token);
-      await refreshUser(); // Sync with server to be sure
+  const markNotificationsRead = async (notificationIds?: number[]) => {
+    if (!token) return;
+
+    if (user && user.notifications) {
+      const updatedNotifications = user.notifications.map((n: any) => {
+        if (!notificationIds?.length) {
+          return { ...n, read: true };
+        }
+        return notificationIds.includes(Number(n.id))
+          ? { ...n, read: true }
+          : n;
+      });
+      updateUser({ notifications: updatedNotifications });
     }
+
+    await markNotificationsReadApi(token, notificationIds);
   };
 
   const value = useMemo<AuthContextType>(() => ({

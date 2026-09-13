@@ -222,7 +222,16 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
             },
             orderBy: { doneAt: "desc" },
             take: 20,
-          }
+          },
+          refunds: {
+            orderBy: { createdAt: "desc" },
+            take: 20,
+          },
+          roundOutcome: {
+            where: { disburse: false },
+            orderBy: { createdAt: "desc" },
+            take: 20,
+          },
         },
       })
     ]);
@@ -327,11 +336,13 @@ export const getChamaPayments = async (req: Request, res: Response) => {
 
       UNION ALL
 
-      SELECT 
-        'refund' AS type, r.id, NULL as amount, NULL as description, r."createdAt" as "doneAt", NULL as "txHash", NULL::int as "userId", r.cycle, r.round,
+      SELECT
+        'refund' AS type, o.id, NULL as amount,
+        CONCAT('Cycle ', o."chamaCycle", ' Round ', o."chamaRound", ' refund') as description,
+        o."createdAt" as "doneAt", NULL as "txHash", NULL::int as "userId", o."chamaCycle" as cycle, o."chamaRound" as round,
         NULL as "userSmartAddress", NULL as "userUserName", NULL as "userProfileImageUrl"
-      FROM "Refund" r
-      WHERE r."chamaId" = ${Number(chamaId)}
+      FROM "roundOutcome" o
+      WHERE o."chamaId" = ${Number(chamaId)} AND o.disburse = false
 
       ORDER BY "doneAt" DESC
       LIMIT ${limit} OFFSET ${offset}

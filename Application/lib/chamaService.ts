@@ -124,6 +124,8 @@ export interface BackendChama {
   messages: Message[];
   payments?: any[];
   payOuts?: any[];
+  refunds?: any[];
+  roundOutcome?: any[];
   _count?: {
     members: number;
   };
@@ -533,15 +535,69 @@ export const transformChamaData = (
         description: "Payout",
         txHash: payout.txHash,
         userId: payout.userId,
-        // Pauto user details come from the included user relation
         user: {
           id: payout.user.id,
           name: payout.user.userName,
-          email: "", // email might not be selected in controller, check if needed. MockData says email is required string? Controller selects id, smartAddress, userName, profileImageUrl. Email is missing in controller select!
+          email: "",
           profileImageUrl: payout.user.profileImageUrl,
           address: payout.user.smartAddress,
         },
-      })) || [])
+      })) || []),
+      ...(() => {
+        const fromOutcomes =
+          backendChama.roundOutcome
+            ?.filter((o: any) => o.disburse === false)
+            .map((outcome: any) => ({
+              id: `refund-outcome-${outcome.id}`,
+              amount: backendChama.amount,
+              type: "refund",
+              date: outcome.createdAt,
+              status: "completed",
+              description: `Cycle ${outcome.chamaCycle} Round ${outcome.chamaRound} refund`,
+              txHash: "",
+              userId: 0,
+              cycle: outcome.chamaCycle,
+              round: outcome.chamaRound,
+              user: {
+                id: 0,
+                name: "All members",
+                email: "",
+                profileImageUrl: "",
+                address: "",
+              },
+            })) || [];
+
+        const outcomeKeys = new Set(
+          fromOutcomes.map((r: any) => `${r.cycle}-${r.round}`)
+        );
+
+        const fromRefunds =
+          backendChama.refunds
+            ?.filter(
+              (refund: any) => !outcomeKeys.has(`${refund.cycle}-${refund.round}`)
+            )
+            .map((refund: any) => ({
+              id: `refund-${refund.id}`,
+              amount: backendChama.amount,
+              type: "refund",
+              date: refund.createdAt,
+              status: "completed",
+              description: `Cycle ${refund.cycle} Round ${refund.round} refund`,
+              txHash: "",
+              userId: 0,
+              cycle: refund.cycle,
+              round: refund.round,
+              user: {
+                id: 0,
+                name: "All members",
+                email: "",
+                profileImageUrl: "",
+                address: "",
+              },
+            })) || [];
+
+        return [...fromOutcomes, ...fromRefunds];
+      })(),
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     userChamaBalance: backendChama.userBalance,
     eachMemberBalance: backendChama.eachMemberBalance,
@@ -649,55 +705,83 @@ return {
 };
 
 // Helper function to map notification types from database to UI types
-const mapNotificationType = (type: string | null): Notification["type"] => {
+const mapNotificationType = (
+  type: string | null,
+  message?: string
+): Notification["type"] => {
+  const msg = (message || "").toLowerCase();
+
+  // Infer from message when older rows have no type
+  if (!type) {
+    if (msg.includes("refund")) return "payout_refunded";
+    if (msg.includes("payout") && msg.includes("received")) return "payout_received";
+    if (msg.includes("joined") || msg.includes("new member")) return "member_joined";
+    return "other";
+  }
+
   switch (type) {
     case "contribution_due":
       return "contribution_due";
     case "payout_received":
       return "payout_received";
+    case "payout_refunded":
+      return "payout_refunded";
     case "new_message":
       return "new_message";
     case "member_joined":
       return "member_joined";
     case "payout_scheduled":
+    case "round_complete":
       return "payout_scheduled";
     case "payment_made":
       return "contribution_due";
-    case "round_complete":
-      return "payout_scheduled";
     case "chama_started":
       return "chama_started";
     case "invite_link":
       return "invite_link";
+    case "join_request":
+      return "join_request";
     default:
-      return "other"; // Default fallback
+      if (type.startsWith("payout_reminder")) return "payout_scheduled";
+      if (msg.includes("refund")) return "payout_refunded";
+      return "other";
   }
 };
 
 // Helper function to generate user-friendly titles
-const generateNotificationTitle = (type: string | null, chamaName: string): string => {
-  switch (type) {
+const generateNotificationTitle = (
+  type: string | null,
+  chamaName: string,
+  message?: string
+): string => {
+  const resolved = mapNotificationType(type, message);
+
+  switch (resolved) {
     case "contribution_due":
-      return "Contribution Due Soon";
+      return type === "payment_made" ? "Payment Confirmed" : "Contribution Due Soon";
     case "payout_received":
-      return "Payout Received!";
+      return "Payout Processed";
+    case "payout_refunded":
+      return "Payout Refunded";
     case "new_message":
       return "New Message";
     case "member_joined":
       return "New Member Joined";
     case "payout_scheduled":
-      return "Your Payout is Coming Up";
-    case "payment_made":
-      return "Payment Confirmed";
-    case "round_complete":
-      return "Round Completed";
-    case "request_approved":
-      return "Request Approved";
-    case "request_rejected":
-      return "Request Declined";
+      return type?.startsWith("payout_reminder")
+        ? "Payout Reminder"
+        : type === "round_complete"
+          ? "Round Completed"
+          : "Your Payout is Coming Up";
     case "chama_started":
       return `${chamaName} Chama Started`;
+    case "invite_link":
+      return "Chama Invite";
+    case "join_request":
+      return "New Join Request";
     default:
+      if (type === "request_approved") return "Request Approved";
+      if (type === "request_rejected") return "Request Declined";
       return "Notification";
   }
 };
@@ -714,8 +798,12 @@ export const transformNotification = async (
     notifications.forEach((notif) => {
       const transformed: Notification = {
         id: notif.id.toString(),
-        type: mapNotificationType(notif.type),
-        title: generateNotificationTitle(notif.type, notif.chama?.name!),
+        type: mapNotificationType(notif.type, notif.message),
+        title: generateNotificationTitle(
+          notif.type,
+          notif.chama?.name || "",
+          notif.message
+        ),
         message: notif.message,
         timestamp: notif.createdAt,
         read: notif.read,
@@ -733,22 +821,25 @@ export const transformNotification = async (
     const pendingRequests = requests.filter((req) => req.status === "pending");
 
     pendingRequests.forEach((request) => {
+      const canAdd = request.chama?.round == 1;
       const transformed: Notification = {
-        id: request.id.toString(),
+        id: `request-${request.id}`,
         type: "join_request",
         title: "New Join Request",
         message: `${request.user?.userName || "A user"} wants to join ${request.chama?.name || "a"} chama`,
         timestamp: request.createdAt,
-        read: request.status !== "pending",
-        actionRequired: request.status === "pending" && request.chama?.round == 1,
+        read: false,
+        // Always actionable while pending; UI disables Approve mid-cycle
+        actionRequired: true,
         chama: request.chama?.name || "Unknown Chama",
         chamaId: request.chama?.id || 0,
+        chamaSlug: request.chama?.slug || "",
         requestId: request.id,
         requestUserId: request.user?.id || 0,
         requestUserName: request.user?.userName || "A User",
         requestUserAddress: request.user?.smartAddress || "",
         chamaBlockchainId: request.chama?.blockchainId || 0,
-        canAdd: request.chama?.round == 1,
+        canAdd,
       };
 
       transformedNotifications.push(transformed);
@@ -794,8 +885,11 @@ return { success: false, error: "Failed to mark messages as read" };
   }
 };
 
-// mark notifications as read
-export const markNotificationsReadApi = async (token: string) => {
+// mark notifications as read (all, or specific ids)
+export const markNotificationsReadApi = async (
+  token: string,
+  notificationIds?: number[]
+) => {
   try {
     const response = await fetch(`${serverUrl}/user/notifications/mark-read`, {
       method: "POST",
@@ -803,11 +897,14 @@ export const markNotificationsReadApi = async (token: string) => {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
+      body: JSON.stringify(
+        notificationIds?.length ? { notificationIds } : {}
+      ),
     });
     const data = await response.json();
     return data;
   } catch (error) {
-return { success: false, error: "Failed to mark notifications as read" };
+    return { success: false, error: "Failed to mark notifications as read" };
   }
 };
 

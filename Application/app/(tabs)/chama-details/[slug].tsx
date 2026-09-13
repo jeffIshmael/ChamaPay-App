@@ -30,7 +30,7 @@ import {
   Users,
   Wallet
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -67,6 +67,8 @@ export default function ChamaDetails() {
   >([]);
   const [isShareSearching, setIsShareSearching] = useState(false);
   const [showShareSearchResults, setShowShareSearchResults] = useState(false);
+  const [shareSearchDoneFor, setShareSearchDoneFor] = useState("");
+  const shareSearchReqId = useRef(0);
   const [selectedShareUser, setSelectedShareUser] = useState<{
     id: number;
     userName: string;
@@ -155,23 +157,34 @@ Alert.alert("Error", "Failed to load chama details. Please try again.");
 
   // Search users for sharing with debouncing
   useEffect(() => {
-    const searchForShareUsers = async () => {
-      if (!shareUsername.trim() || shareUsername.trim().length < 2) {
-        setShareSearchResults([]);
-        setShowShareSearchResults(false);
-        return;
-      }
+    const q = shareUsername.trim();
 
-      // Don't search if a user is already selected (prevents search on selection)
-      if (selectedShareUser && shareUsername === selectedShareUser.userName) {
-        return;
-      }
+    if (q.length < 2) {
+      shareSearchReqId.current += 1;
+      setShareSearchResults([]);
+      setShowShareSearchResults(false);
+      setIsShareSearching(false);
+      setShareSearchDoneFor("");
+      return;
+    }
 
-      setIsShareSearching(true);
+    if (selectedShareUser && shareUsername === selectedShareUser.userName) {
+      setIsShareSearching(false);
+      return;
+    }
+
+    const reqId = ++shareSearchReqId.current;
+    setIsShareSearching(true);
+    setShareSearchDoneFor("");
+    setShareSearchResults([]);
+    setShowShareSearchResults(false);
+
+    const timeoutId = setTimeout(async () => {
       try {
-        const result = await searchUsers(shareUsername.trim());
+        const result = await searchUsers(q);
+        if (reqId !== shareSearchReqId.current) return;
+
         if (result.success && result.users) {
-          // Filter out the current user from search results
           const filteredUsers = result.users.filter(
             (searchUser) => searchUser.id !== user?.id
           );
@@ -181,15 +194,19 @@ Alert.alert("Error", "Failed to load chama details. Please try again.");
           setShareSearchResults([]);
           setShowShareSearchResults(false);
         }
+        setShareSearchDoneFor(q);
       } catch (error) {
-setShareSearchResults([]);
+        if (reqId !== shareSearchReqId.current) return;
+        setShareSearchResults([]);
         setShowShareSearchResults(false);
+        setShareSearchDoneFor(q);
       } finally {
-        setIsShareSearching(false);
+        if (reqId === shareSearchReqId.current) {
+          setIsShareSearching(false);
+        }
       }
-    };
+    }, 300);
 
-    const timeoutId = setTimeout(searchForShareUsers, 300);
     return () => clearTimeout(timeoutId);
   }, [shareUsername, selectedShareUser, user]);
 
@@ -999,68 +1016,89 @@ ToastAndroid.show("Failed to request to join chama. Please try again.", ToastAnd
                       onChangeText={(text) => {
                         setShareUsername(text);
                         setSelectedShareUser(null);
+                        setShareSearchDoneFor("");
+                        if (text.trim().length >= 2) {
+                          setIsShareSearching(true);
+                          setShareSearchResults([]);
+                          setShowShareSearchResults(false);
+                        } else {
+                          setIsShareSearching(false);
+                          setShareSearchResults([]);
+                          setShowShareSearchResults(false);
+                        }
                       }}
                       placeholder="username"
                       className="flex-1 text-gray-900 font-medium"
                       placeholderTextColor="#9CA3AF"
+                      autoCapitalize="none"
+                      autoCorrect={false}
                       onFocus={() => {
                         if (shareSearchResults.length > 0) {
                           setShowShareSearchResults(true);
                         }
                       }}
                     />
-                    {isShareSearching && (
+                    {isShareSearching ? (
                       <ActivityIndicator size="small" color="#10b981" />
-                    )}
+                    ) : null}
                   </View>
 
-                  {/* Search Results Dropdown */}
-                  {showShareSearchResults && shareSearchResults.length > 0 && (
-                    <View className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-emerald-200 shadow-lg z-50 max-h-48">
-                      <ScrollView keyboardShouldPersistTaps="handled">
-                        {shareSearchResults.map((user) => (
-                          <TouchableOpacity
-                            key={user.id}
-                            onPress={() => handleShareUserSelect(user)}
-                            className="flex-row items-center p-3 border-b border-gray-100 last:border-b-0"
-                            activeOpacity={0.7}
-                          >
-                            <View className="w-10 h-10 bg-emerald-100 rounded-full items-center justify-center mr-3">
-                              {user.profileImageUrl ? (
-                                <Image
-                                  source={{ uri: user.profileImageUrl }}
-                                  className="w-10 h-10 rounded-full"
-                                />
-                              ) : (
-                                <User size={20} color="#10b981" />
-                              )}
-                            </View>
-                            <View className="flex-1">
-                              <Text className="font-semibold text-gray-900">
-                                @{user.userName}
-                              </Text>
-                              <Text className="text-xs text-gray-400 font-mono">
-                                {user.smartAddress.slice(0, 6)}...
-                                {user.smartAddress.slice(-4)}
-                              </Text>
-                            </View>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
+                  {isShareSearching && (
+                    <View className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-emerald-200 shadow-lg z-50 px-4 py-3.5 flex-row items-center justify-center gap-2">
+                      <ActivityIndicator size="small" color="#10b981" />
+                      <Text className="text-sm text-gray-500 font-medium">
+                        Searching...
+                      </Text>
                     </View>
                   )}
+
+                  {/* Search Results Dropdown */}
+                  {!isShareSearching &&
+                    showShareSearchResults &&
+                    shareSearchResults.length > 0 && (
+                      <View className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-emerald-200 shadow-lg z-50 max-h-48">
+                        <ScrollView keyboardShouldPersistTaps="handled">
+                          {shareSearchResults.map((user) => (
+                            <TouchableOpacity
+                              key={user.id}
+                              onPress={() => handleShareUserSelect(user)}
+                              className="flex-row items-center p-3 border-b border-gray-100 last:border-b-0"
+                              activeOpacity={0.7}
+                            >
+                              <View className="w-10 h-10 bg-emerald-100 rounded-full items-center justify-center mr-3">
+                                {user.profileImageUrl ? (
+                                  <Image
+                                    source={{ uri: user.profileImageUrl }}
+                                    className="w-10 h-10 rounded-full"
+                                  />
+                                ) : (
+                                  <User size={20} color="#10b981" />
+                                )}
+                              </View>
+                              <View className="flex-1">
+                                <Text className="font-semibold text-gray-900">
+                                  @{user.userName}
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
 
                   {/* User Not Found Message */}
                   {shareUsername.trim().length >= 2 &&
                     !isShareSearching &&
-                    shareSearchResults.length === 0 && (
+                    !selectedShareUser &&
+                    shareSearchResults.length === 0 &&
+                    shareSearchDoneFor === shareUsername.trim() && (
                       <View className="absolute top-full left-0 right-0 mt-1 bg-red-50 border border-red-200 rounded-xl p-3 z-50">
                         <Text className="text-red-600 text-sm font-medium text-center">
                           User not found
                         </Text>
                       </View>
                     )}
-                </View>
+                  </View>
 
                 {/* Send Button */}
                 <TouchableOpacity
