@@ -195,6 +195,15 @@ export const getUserTransactions = async (
       prisma.payment.findMany({
         where: {
           userId,
+          // Wallet activity = this user's own money movements only.
+          // "Pay on behalf" rows are attributed to the beneficiary for chama
+          // bookkeeping, but that money never left their wallet — exclude them.
+          NOT: {
+            description: {
+              contains: "on behalf of",
+              mode: "insensitive",
+            },
+          },
           ...(dateFilter ? { doneAt: dateFilter } : {}),
         },
         orderBy: { doneAt: "desc" },

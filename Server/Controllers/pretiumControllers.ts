@@ -398,17 +398,36 @@ export async function pretiumCallback(req: Request, res: Response) {
           }
 
           if (txResult) {
-            // Update the payment
+            // Record against the payer (wallet that funded the payment).
+            const payerUserId = transaction.userId;
+            const payerDescription =
+              memberForId && description.includes("on behalf of")
+                ? `Deposited for @${description.split("on behalf of @")[1] || "member"}`
+                : description;
+
             await prisma.payment.create({
               data: {
                 amount: transaction.cusdAmount ? transaction.cusdAmount.toString() : transaction.amount.toString(),
-                description: description,
+                description: payerDescription,
                 chamaId: transaction.chamaId || null,
                 txHash: txResult,
-                userId: targetUserId,
+                userId: payerUserId,
                 receiver: transaction.type === "moonwell" ? "Moonwell" : undefined,
               },
             });
+
+            // Beneficiary bookkeeping row for pay-on-behalf (excluded from wallet feed).
+            if (memberForId && targetUserId !== payerUserId) {
+              await prisma.payment.create({
+                data: {
+                  amount: transaction.cusdAmount ? transaction.cusdAmount.toString() : transaction.amount.toString(),
+                  description,
+                  chamaId: transaction.chamaId || null,
+                  txHash: txResult,
+                  userId: targetUserId,
+                },
+              });
+            }
 
             // Mark the PretiumTransaction as COMPLETELY done now!
             await prisma.pretiumTransaction.update({
