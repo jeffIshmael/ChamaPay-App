@@ -38,7 +38,12 @@ export async function sendExpoNotificationToAllUsers(tittle: string, body: strin
 }
 
 // function to send notification to a user
-export async function sendExpoNotificationToAUser(userId: number, tittle: string, body: string): Promise<ExpoPushTicket[]> {
+export async function sendExpoNotificationToAUser(
+    userId: number,
+    tittle: string,
+    body: string,
+    extraData?: Record<string, string | number | undefined>
+): Promise<ExpoPushTicket[]> {
     try {
         // get users with expo push token and pushNotify set to true
         const user = await prisma.user.findUnique({
@@ -62,6 +67,7 @@ export async function sendExpoNotificationToAUser(userId: number, tittle: string
             body: body,
             data: {
                 type: "notification",
+                ...extraData,
             },
         };
         const response = await sendPushNotification(notification);
@@ -74,8 +80,19 @@ export async function sendExpoNotificationToAUser(userId: number, tittle: string
 }
 
 // function to senf expo notification to all members of a chama excluding some members
-export async function sendExpoNotificationToAllChamaMembers(tittle: string, body: string, chamaId: number, excludeUserIds?: number[] | number): Promise<ExpoPushTicket[]> {
+export async function sendExpoNotificationToAllChamaMembers(
+    tittle: string,
+    body: string,
+    chamaId: number,
+    excludeUserIds?: number[] | number,
+    extraData?: Record<string, string | number | undefined>
+): Promise<ExpoPushTicket[]> {
     try {
+        const chama = await prisma.chama.findUnique({
+            where: { id: chamaId },
+            select: { slug: true },
+        });
+
         // get chama members expo push token and pushNotify set to true
         let members = [];
         members = await prisma.chamaMember.findMany({
@@ -105,6 +122,9 @@ export async function sendExpoNotificationToAllChamaMembers(tittle: string, body
             body: body,
             data: {
                 type: "notification",
+                chamaId,
+                chamaSlug: chama?.slug,
+                ...extraData,
             },
         };
         const response = await sendPushNotification(notification);

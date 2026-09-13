@@ -4,7 +4,7 @@ import { useAuth } from "@/Contexts/AuthContext";
 import { useFormattedBalance } from "@/hooks/useFormattedBalance";
 import { getRelativeTime } from "@/Utils/helperFunctions";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, CornerUpRight, ExternalLink, Minus, Plus, Receipt } from "lucide-react-native"; // ReceiptIcon is not in lucide-react-native, using Receipt
+import { ArrowLeft, CornerUpRight, ExternalLink, Minus, Plus, Receipt, RotateCcw } from "lucide-react-native";
 import React, { useState } from "react";
 import { FlatList, Linking, Modal, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,9 +26,10 @@ export default function ChamaTransactions() {
     const filteredTransactions = parsedTransactions.filter(t => {
         const searchLower = searchTerm.toLowerCase();
         return (
-            t.description.toLowerCase().includes(searchLower) ||
-            t.user.name.toLowerCase().includes(searchLower) ||
-            t.user.address.toLowerCase().includes(searchLower)
+            t.description?.toLowerCase().includes(searchLower) ||
+            t.type?.toLowerCase().includes(searchLower) ||
+            t.user?.name?.toLowerCase().includes(searchLower) ||
+            t.user?.address?.toLowerCase().includes(searchLower)
         );
     });
 
@@ -45,30 +46,56 @@ export default function ChamaTransactions() {
     };
 
     const renderTransactionItem = ({ item: transaction }: { item: Transaction }) => {
-        const isMyTransaction = transaction.user.address === user?.smartAddress;
-        const currency = "USDC"; // Assuming USDC as default base currency from context
+        const isRefund = transaction.type === "refund";
+        const isMyTransaction =
+            !isRefund && transaction.user?.address === user?.smartAddress;
 
         return (
             <TouchableOpacity
                 onPress={() => handleTransactionPress(transaction)}
-                className={`flex-row justify-between py-3 px-4 rounded-xl mb-3 ${transaction.type === "payout"
-                        ? "bg-indigo-50 border border-indigo-200"
-                        : isMyTransaction
-                            ? "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200"
-                            : "bg-white border border-gray-100"
-                    }`}
+                className={`flex-row justify-between py-3 px-4 rounded-xl mb-3 ${
+                    isRefund
+                        ? "bg-amber-50 border border-amber-200"
+                        : transaction.type === "payout"
+                            ? "bg-indigo-50 border border-indigo-200"
+                            : isMyTransaction
+                                ? "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200"
+                                : "bg-white border border-gray-100"
+                }`}
                 activeOpacity={0.7}
             >
                 <View className="flex-1 justify-center mr-4">
-                    <Text className={`text-base font-semibold capitalize mb-1 ${transaction.type === "payout" ? "text-indigo-600" : transaction.type === "deposit_on_behalf" ? "text-teal-600" : "text-gray-900"}`} numberOfLines={1}>
-                        {transaction.type === "payout" ? "Cycle & Round Payout" : transaction.description}
+                    <Text
+                        className={`text-base font-semibold capitalize mb-1 ${
+                            transaction.type === "payout"
+                                ? "text-indigo-600"
+                                : transaction.type === "deposit_on_behalf"
+                                    ? "text-teal-600"
+                                    : transaction.type === "refund"
+                                        ? "text-amber-700"
+                                        : "text-gray-900"
+                        }`}
+                        numberOfLines={1}
+                    >
+                        {transaction.type === "payout"
+                            ? "Cycle & Round Payout"
+                            : transaction.type === "refund"
+                                ? "Payout Refunded"
+                                : transaction.description}
                     </Text>
 
                     {transaction.type === "payout" ? (
                         <Text className="text-xs text-gray-500" numberOfLines={1}>
-                            Received by <Text className="font-medium text-gray-700">
-                                {transaction.user.address === user?.smartAddress ? "You" : transaction.user.name || "Member"}
+                            Received by{" "}
+                            <Text className="font-medium text-gray-700">
+                                {transaction.user.address === user?.smartAddress
+                                    ? "You"
+                                    : transaction.user.name || "Member"}
                             </Text>
+                        </Text>
+                    ) : transaction.type === "refund" ? (
+                        <Text className="text-xs text-amber-700/80" numberOfLines={1}>
+                            {transaction.description}
                         </Text>
                     ) : (
                         <View className="flex-row items-center">
@@ -88,17 +115,40 @@ export default function ChamaTransactions() {
 
                 <View className="items-end justify-center">
                     <Text
-                        className={`text-sm font-bold flex-row items-center mb-1 ${transaction.type === "contribution" || transaction.type === "deposit_on_behalf"
-                            ? "text-emerald-700"
-                            : transaction.type === "payout"
-                                ? "text-purple-700"
-                                : "text-orange-700"
-                            }`}
+                        className={`text-sm font-bold flex-row items-center mb-1 ${
+                            transaction.type === "contribution" ||
+                            transaction.type === "deposit_on_behalf"
+                                ? "text-emerald-700"
+                                : transaction.type === "payout"
+                                    ? "text-purple-700"
+                                    : transaction.type === "refund"
+                                        ? "text-amber-700"
+                                        : "text-orange-700"
+                        }`}
                     >
-                        {transaction.type === "contribution" || transaction.type === "deposit_on_behalf" ? (
-                            <Plus size={12} color={transaction.type === "deposit_on_behalf" ? "#0f766e" : "#059669"} style={{ marginRight: 2 }} />
+                        {transaction.type === "contribution" ||
+                        transaction.type === "deposit_on_behalf" ? (
+                            <Plus
+                                size={12}
+                                color={
+                                    transaction.type === "deposit_on_behalf"
+                                        ? "#0f766e"
+                                        : "#059669"
+                                }
+                                style={{ marginRight: 2 }}
+                            />
                         ) : transaction.type === "payout" ? (
-                            <CornerUpRight size={12} color="#7c3aed" style={{ marginRight: 2 }} />
+                            <CornerUpRight
+                                size={12}
+                                color="#7c3aed"
+                                style={{ marginRight: 2 }}
+                            />
+                        ) : transaction.type === "refund" ? (
+                            <RotateCcw
+                                size={12}
+                                color="#b45309"
+                                style={{ marginRight: 2 }}
+                            />
                         ) : (
                             <Minus size={12} color="#ea580c" style={{ marginRight: 2 }} />
                         )}

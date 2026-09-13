@@ -938,15 +938,30 @@ export const markNotificationsRead = async (
       return;
     }
 
-    await prisma.notification.updateMany({
-      where: {
-        userId: userId,
-        read: false,
-      },
-      data: {
-        read: true,
-      },
-    });
+    const { notificationIds } = req.body as { notificationIds?: number[] };
+
+    if (Array.isArray(notificationIds) && notificationIds.length > 0) {
+      const ids = notificationIds
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id));
+
+      await prisma.notification.updateMany({
+        where: {
+          userId,
+          id: { in: ids },
+          read: false,
+        },
+        data: { read: true },
+      });
+    } else {
+      await prisma.notification.updateMany({
+        where: {
+          userId,
+          read: false,
+        },
+        data: { read: true },
+      });
+    }
 
     res.json({ success: true, message: "Notifications marked as read" });
   } catch (error) {

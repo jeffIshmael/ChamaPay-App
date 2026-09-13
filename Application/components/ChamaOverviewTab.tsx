@@ -10,7 +10,8 @@ import {
   Minus,
   Plus,
   Receipt,
-  ReceiptIcon
+  ReceiptIcon,
+  RotateCcw,
 } from "lucide-react-native";
 import React, { FC, useState } from "react";
 import { Dimensions, Linking, Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
@@ -596,27 +597,56 @@ const ChamaOverviewTab: FC<Props> = ({
             />
           ) : recentTransactions.length > 0 ? (
             recentTransactions.slice(0, 3).map((transaction) => {
-              const isMyTransaction = transaction.user.address === userAddress;
+              const isRefund = transaction.type === "refund";
+              const isMyTransaction =
+                !isRefund && transaction.user?.address === userAddress;
               return (
                 <TouchableOpacity
                   key={transaction.id}
                   onPress={() => handleTransactionPress(transaction)}
-                  className={`flex-row justify-between py-3 px-4 rounded-xl ${isMyTransaction
-                    ? "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200"
-                    : "bg-gray-50"
-                    }`}
+                  className={`flex-row justify-between py-3 px-4 rounded-xl ${
+                    isRefund
+                      ? "bg-amber-50 border border-amber-200"
+                      : isMyTransaction
+                        ? "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200"
+                        : "bg-gray-50"
+                  }`}
                   activeOpacity={0.7}
                 >
                   <View className="flex-1 justify-center mr-4">
-                    <Text className={`text-base font-semibold capitalize mb-1 ${transaction.type === "payout" ? "text-indigo-600" : transaction.type === "deposit_on_behalf" ? "text-teal-600" : transaction.type === "contribution" ? "text-gray-900" :"text-orange-600" }`} numberOfLines={1}>
-                      {transaction.type === "payout" ? "Cycle & Round Payout" : transaction.description}
+                    <Text
+                      className={`text-base font-semibold capitalize mb-1 ${
+                        transaction.type === "payout"
+                          ? "text-indigo-600"
+                          : transaction.type === "deposit_on_behalf"
+                            ? "text-teal-600"
+                            : transaction.type === "refund"
+                              ? "text-amber-700"
+                              : transaction.type === "contribution"
+                                ? "text-gray-900"
+                                : "text-orange-600"
+                      }`}
+                      numberOfLines={1}
+                    >
+                      {transaction.type === "payout"
+                        ? "Cycle & Round Payout"
+                        : transaction.type === "refund"
+                          ? "Payout Refunded"
+                          : transaction.description}
                     </Text>
 
                     {transaction.type === "payout" ? (
                       <Text className="text-xs text-gray-500" numberOfLines={1}>
-                        Received by <Text className="font-medium text-gray-700">
-                          {transaction.user.address === userAddress ? "You" : transaction.user.name || "Member"}
+                        Received by{" "}
+                        <Text className="font-medium text-gray-700">
+                          {transaction.user.address === userAddress
+                            ? "You"
+                            : transaction.user.name || "Member"}
                         </Text>
+                      </Text>
+                    ) : transaction.type === "refund" ? (
+                      <Text className="text-xs text-amber-700/80" numberOfLines={1}>
+                        {transaction.description}
                       </Text>
                     ) : (
                       <View className="flex-row items-center">
@@ -635,25 +665,39 @@ const ChamaOverviewTab: FC<Props> = ({
                   </View>
                   <View className="items-end justify-center">
                     <Text
-                      className={`text-sm font-bold flex-row items-center mb-1 ${transaction.type === "contribution"
-                        ? "text-emerald-700"
-                        : transaction.type === "deposit_on_behalf"
-                          ? "text-teal-700"
-                          : transaction.type === "payout"
-                            ? "text-purple-700"
-                            : "text-orange-700"
-                        }`}
+                      className={`text-sm font-bold flex-row items-center mb-1 ${
+                        transaction.type === "contribution"
+                          ? "text-emerald-700"
+                          : transaction.type === "deposit_on_behalf"
+                            ? "text-teal-700"
+                            : transaction.type === "payout"
+                              ? "text-purple-700"
+                              : transaction.type === "refund"
+                                ? "text-amber-700"
+                                : "text-orange-700"
+                      }`}
                     >
-                      {transaction.type === "contribution" || transaction.type === "deposit_on_behalf" ? (
+                      {transaction.type === "contribution" ||
+                      transaction.type === "deposit_on_behalf" ? (
                         <Plus
                           size={12}
-                          color={transaction.type === "deposit_on_behalf" ? "#0f766e" : "#059669"}
+                          color={
+                            transaction.type === "deposit_on_behalf"
+                              ? "#0f766e"
+                              : "#059669"
+                          }
                           style={{ marginRight: 2 }}
                         />
                       ) : transaction.type === "payout" ? (
                         <CornerUpRight
                           size={12}
                           color={"#7c3aed"}
+                          style={{ marginRight: 2 }}
+                        />
+                      ) : transaction.type === "refund" ? (
+                        <RotateCcw
+                          size={12}
+                          color={"#b45309"}
                           style={{ marginRight: 2 }}
                         />
                       ) : (
@@ -669,7 +713,6 @@ const ChamaOverviewTab: FC<Props> = ({
                       {getRelativeTime(transaction.date)}
                     </Text>
                   </View>
-
                 </TouchableOpacity>
               );
             })
@@ -783,9 +826,15 @@ const ChamaOverviewTab: FC<Props> = ({
                   </View>
 
                   <View className="bg-gray-50 rounded-xl p-4">
-                    <Text className="text-sm text-gray-600 mb-1">From</Text>
+                    <Text className="text-sm text-gray-600 mb-1">
+                      {selectedTransaction.type === "refund" ? "Scope" : "From"}
+                    </Text>
                     <Text className="text-base font-semibold text-gray-900">
-                      {selectedTransaction.user.address === userAddress ? (
+                      {selectedTransaction.type === "refund" ? (
+                        <Text className="font-semibold text-amber-800">
+                          Returned to all contributing members
+                        </Text>
+                      ) : selectedTransaction.user.address === userAddress ? (
                         <Text className="font-semibold text-gray-800">You</Text>
                       ) : (
                         <ResolvedAddress

@@ -13,6 +13,7 @@ import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { serverUrl } from "@/constants/serverUrl";
 import { logAppOpen } from "@/lib/analytics";
+import PushNotificationRouter from "@/components/PushNotificationRouter";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -112,6 +113,7 @@ setHasSplashHidden(true);
 return (
     <SafeAreaProvider style={{ flex: 1, backgroundColor: "#d1f6f1" }}>
       <StatusBar style="dark" translucent backgroundColor="transparent" />
+      <PushNotificationRouter />
       <Stack
         screenOptions={{
           headerShown: false,
