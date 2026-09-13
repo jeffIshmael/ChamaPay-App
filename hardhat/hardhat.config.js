@@ -11,8 +11,9 @@ const config = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 10,
+        runs: 1,
       },
+      viaIR: true,
     },
   },
   networks: {

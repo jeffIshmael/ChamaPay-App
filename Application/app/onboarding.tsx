@@ -44,11 +44,11 @@ const onboardingSlides: OnboardingSlide[] = [
     id: "2",
     title: "Grow Your Savings",
     description:
-      "Put your idle USDC to work and earn passive yield while keeping full control of your funds.",
+      "Supply idle money to earn variable interest. Withdraw when the pool has free cash.",
     features: [
-      "Earn 4–8% APY",
-      "Deposit or withdraw anytime",
-      "No lock-up period",
+      "Earn variable APY from borrowers",
+      "Withdraw when the pool has free cash",
+      "Your balance stays yours while earning",
     ],
     cardColor: "#0F7A6E",
     imageSource: require("@/assets/images/screen2.png"),

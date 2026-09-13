@@ -242,13 +242,103 @@ class EmailService {
     }
   }
 
-  async sendBulkReminderEmails(emails: string[], chamaName: string, daysLeft: number) {
+  async sendBulkRefundEmails(
+    emails: string[],
+    chamaName: string,
+    cycle: number,
+    round: number
+  ) {
     if (emails.length === 0) return { success: true };
     try {
       const body = `
-        ${heading("Payout approaching")}
+        ${heading("Payout skipped — funds refunded")}
         ${paragraph(
-          `The next payout for <strong style="color:${INK};">${chamaName}</strong> is in <strong style="color:${ACCENT_SOFT};">${daysLeft} day${daysLeft === 1 ? "" : "s"}</strong>. Make sure your contribution is in on time.`
+          `Cycle ${cycle}, Round ${round} of <strong style="color:${INK};">${chamaName}</strong> didn't go through because some members didn't contribute.`
+        )}
+        <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="font-size:13px; color:${MUTED};">Chama</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${chamaName}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Cycle</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${cycle}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Round</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${round}</td>
+            </tr>
+          </table>
+        </div>
+        ${paragraph("Your contribution has been refunded to your wallet. Open the Chamapay app to confirm your balance. The next payout date has been updated — please contribute on time for the next round.")}
+      `;
+
+      const payload = emails.map((email) => ({
+        from: "Chamapay <updates@chamapay.xyz>",
+        to: email,
+        subject: `Refund issued — ${chamaName}`,
+        html: wrapEmail(body, {
+          preheader: `Round ${round} of ${chamaName} was skipped and contributions were refunded`,
+        }),
+      }));
+
+      const batches = [];
+      for (let i = 0; i < payload.length; i += 100) {
+        batches.push(resend.batch.send(payload.slice(i, i + 100)));
+      }
+
+      await Promise.all(batches);
+      return { success: true };
+    } catch (error) {
+      console.error("Error sending bulk refund emails:", error);
+      return { success: false };
+    }
+  }
+
+  async sendBulkReminderEmails(
+    emails: string[],
+    chamaName: string,
+    daysLeft: number,
+    payoutDate?: Date | string
+  ) {
+    if (emails.length === 0) return { success: true };
+    try {
+      const payoutDateLabel = payoutDate
+        ? new Date(payoutDate).toLocaleString("en-US", {
+            weekday: "short",
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          })
+        : null;
+
+      const body = `
+        ${heading(`Payout in ${daysLeft} days`)}
+        ${paragraph(
+          `The next payout for <strong style="color:${INK};">${chamaName}</strong> is in <strong style="color:${ACCENT_SOFT};">${daysLeft} day${daysLeft === 1 ? "" : "s"}</strong>.`
+        )}
+        ${
+          payoutDateLabel
+            ? `<div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="font-size:13px; color:${MUTED};">Chama</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${chamaName}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Payout date</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${payoutDateLabel}</td>
+            </tr>
+          </table>
+        </div>`
+            : ""
+        }
+        ${paragraph(
+          "Please make sure your contribution is in <strong>before</strong> this date and time. Late or missing contributions can cause the payout to be skipped and funds refunded."
         )}
       `;
 
@@ -256,7 +346,11 @@ class EmailService {
         from: "Chamapay <reminders@chamapay.xyz>",
         to: email,
         subject: `Payout in ${daysLeft} day${daysLeft === 1 ? "" : "s"} — ${chamaName}`,
-        html: wrapEmail(body, { preheader: `${chamaName} payout is coming up in ${daysLeft} days` }),
+        html: wrapEmail(body, {
+          preheader: payoutDateLabel
+            ? `${chamaName} payout is on ${payoutDateLabel}`
+            : `${chamaName} payout is coming up in ${daysLeft} days`,
+        }),
       }));
 
       // Resend batch send takes up to 100 emails at a time.

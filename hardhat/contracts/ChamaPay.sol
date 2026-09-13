@@ -105,6 +105,7 @@ contract ChamaPay is
     event FeesWithdrawn(address indexed _address, uint amount);
     event UserMigrated(address indexed oldAddress, address indexed newAddress, uint256 timestamp);
     event MigrationFinalized(uint256 timestamp);
+    event ChamaPayDateUpdated(uint indexed chamaId, uint oldPayDate, uint newPayDate);
 
     function createPrivateChama(
         uint _amount, 
@@ -504,6 +505,26 @@ contract ChamaPay is
         require(_newRound > 0, "Round must be greater than 0");
         
         chama.round = _newRound;
+    }
+
+    /// @notice Owner/aiAgent can repair payDate (and optionally cycle) at any round.
+    /// @param _newCycle Pass 0 to leave cycle unchanged.
+    function setChamaPayDate(
+        uint _chamaId,
+        uint _newPayDate,
+        uint _newCycle
+    ) public whenNotPaused {
+        require(_chamaId < totalChamas, "Chama does not exist");
+        Chama storage chama = chamas[_chamaId];
+        require(msg.sender == owner() || msg.sender == aiAgent, "Only owner or aiAgent");
+        require(_newPayDate > 0, "Invalid pay date");
+
+        uint oldPayDate = chama.payDate;
+        chama.payDate = _newPayDate;
+        if (_newCycle > 0) {
+            chama.cycle = _newCycle;
+        }
+        emit ChamaPayDateUpdated(_chamaId, oldPayDate, _newPayDate);
     }
 
     function checkPayDate(uint[] memory chamaIds) public onlyAiAgent nonReentrant whenNotPaused {

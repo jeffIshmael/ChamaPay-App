@@ -112,7 +112,7 @@ export default function SaveAndEarnScreen() {
           Save & Earn
         </Text>
         <Text className="text-white text-[15px] font-medium text-center px-4 leading-6">
-          Grow your idle funds securely.
+          Supply your money to earn interest. Withdraw when the pool has free cash.
         </Text>
       </View>
 
@@ -176,15 +176,15 @@ export default function SaveAndEarnScreen() {
               <View className="flex-row justify-between gap-2 mb-4">
                 <View className="flex-1 items-center justify-center bg-gray-50 py-2.5 rounded-2xl border border-gray-100">
                   <LogIn size={18} color="#10b981" className="mb-1.5" />
-                  <Text className="text-[11px] font-bold text-gray-700 text-center leading-tight">Deposit{'\n'}anytime</Text>
+                  <Text className="text-[11px] font-bold text-gray-700 text-center leading-tight">Supply{'\n'}anytime</Text>
                 </View>
                 <View className="flex-1 items-center justify-center bg-gray-50 py-2.5 rounded-2xl border border-gray-100">
                   <Activity size={18} color="#3b82f6" className="mb-1.5" />
-                  <Text className="text-[11px] font-bold text-gray-700 text-center leading-tight">Earn{'\n'}{isKES ? 'KES' : 'USDC'}</Text>
+                  <Text className="text-[11px] font-bold text-gray-700 text-center leading-tight">Earn while{'\n'}borrowed</Text>
                 </View>
                 <View className="flex-1 items-center justify-center bg-gray-50 py-2.5 rounded-2xl border border-gray-100">
                   <LogOut size={18} color="#f59e0b" className="mb-1.5" />
-                  <Text className="text-[11px] font-bold text-gray-700 text-center leading-tight">Withdraw{'\n'}when funded</Text>
+                  <Text className="text-[11px] font-bold text-gray-700 text-center leading-tight">Withdraw when{'\n'}cash is free</Text>
                 </View>
               </View>
 
@@ -238,7 +238,9 @@ export default function SaveAndEarnScreen() {
 
         <View className="px-6 mt-4">
           <Text className="text-xs text-gray-400 leading-5 text-center">
-            Interest is paid by borrowers on the underlying protocol and accrues every block. Rates move with market demand and aren't guaranteed. You can withdraw anytime when the pool has free money (liquidity).
+            {isKES
+              ? "You supply money into a lending pool (balances shown in KES). Borrowers may use that cash and pay interest. That is what you earn. Rates change with demand and are not guaranteed. You can only withdraw when the pool has free cash again."
+              : "You supply money into a lending pool. Borrowers may use that cash and pay interest. That is what you earn. Rates change with demand and are not guaranteed. You can only withdraw when the pool has free cash again."}
           </Text>
         </View>
       </ScrollView>

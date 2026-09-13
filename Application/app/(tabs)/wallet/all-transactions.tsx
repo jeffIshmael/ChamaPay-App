@@ -1,6 +1,11 @@
 import { ResolvedAddress } from "@/components/ResolvedAddress";
 import { useAuth } from "@/Contexts/AuthContext";
-import { getTheUserTx } from "@/lib/walletServices";
+import {
+  getTheUserTx,
+  getMoonwellActivitySubtitle,
+  getMoonwellActivityTitle,
+  isMoonwellTx,
+} from "@/lib/walletServices";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useFormattedBalance } from "@/hooks/useFormattedBalance";
 import { useRouter } from "expo-router";
@@ -231,9 +236,13 @@ if (!isLoadMore) {
           </View>
 
           <View className="flex-1">
-            <View className="flex-row items-center gap-2">
-              <Text className="text-gray-900 font-semibold text-base capitalize">
-                {tx.type}
+            <View className="flex-row items-center gap-2 flex-wrap">
+              <Text
+                className={`text-gray-900 font-semibold text-base ${
+                  isMoonwellTx(tx) ? "" : "capitalize"
+                }`}
+              >
+                {isMoonwellTx(tx) ? getMoonwellActivityTitle(tx) : tx.type}
               </Text>
               {tx.isPretiumTx && (
                 <View className="bg-purple-100 px-1 py-0.5 rounded-full">
@@ -243,7 +252,11 @@ if (!isLoadMore) {
                 </View>
               )}
             </View>
-            {tx.isPretiumTx ? (
+            {isMoonwellTx(tx) ? (
+              <Text className="text-xs text-gray-500 mt-1">
+                {getMoonwellActivitySubtitle(tx)}
+              </Text>
+            ) : tx.isPretiumTx ? (
               <Text className="text-xs text-gray-500 mt-1">
                 {tx.type === "deposited"
                   ? `From: ${tx.sender || "M-PESA"}`
@@ -343,8 +356,14 @@ if (!isLoadMore) {
                     </Text>
                   </View>
                 )}
-                <Text className="text-white text-2xl font-bold mb-1 capitalize">
-                  {selectedTransaction.type}
+                <Text
+                  className={`text-white text-2xl font-bold mb-1 ${
+                    isMoonwellTx(selectedTransaction) ? "" : "capitalize"
+                  }`}
+                >
+                  {isMoonwellTx(selectedTransaction)
+                    ? getMoonwellActivityTitle(selectedTransaction)
+                    : selectedTransaction.type}
                 </Text>
                 <Text className="text-white text-3xl font-extrabold text-center">
                   {selectedTransaction.type === "sent" ||

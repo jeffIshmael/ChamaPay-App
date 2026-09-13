@@ -1,6 +1,9 @@
 import React from "react";
 import { View, Text } from "react-native";
 import { CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react-native";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
+import { useFormattedBalance } from "@/hooks/useFormattedBalance";
+import { formatCurrency } from "@/Utils/pretiumUtils";
 
 type Props = {
   /** Free USDC available in the Moonwell market (getCash). null = unknown. */
@@ -17,6 +20,20 @@ type Props = {
 
 type StatusKind = "available" | "limited" | "paused";
 
+function formatMoney(
+  usdc: number,
+  isKES: boolean,
+  getKesValue: (n: number) => number
+): string {
+  if (isKES) {
+    const kes = getKesValue(usdc);
+    if (usdc > 0 && kes < 0.01) return "less than KES 0.01";
+    return `KES ${formatCurrency(kes, 2)}`;
+  }
+  if (usdc > 0 && usdc < 0.01) return `${usdc.toFixed(4)} USDC`;
+  return `${usdc.toFixed(2)} USDC`;
+}
+
 /**
  * Surfaces whether Moonwell withdrawals can succeed right now.
  * Compares pool cash to the user's balance (not just cash > 0).
@@ -27,6 +44,10 @@ export default function MoonwellWithdrawStatus({
   variant = "full",
   loading = false,
 }: Props) {
+  const { currency } = useCurrencyStore();
+  const { getKesValue } = useFormattedBalance();
+  const isKES = currency === "KES";
+
   if (loading) {
     return (
       <View className="h-7 w-36 bg-gray-100 rounded-full self-start" />
@@ -44,11 +65,14 @@ export default function MoonwellWithdrawStatus({
   if (liquidityUsd <= 0) {
     kind = "paused";
   } else if (need != null && need > 0 && liquidityUsd + 1e-9 < need) {
-    // Pool has some cash, but not enough to cover this user's balance
     kind = "limited";
   } else {
     kind = "available";
   }
+
+  const freeLabel = formatMoney(liquidityUsd, isKES, getKesValue);
+  const needLabel =
+    need != null ? formatMoney(need, isKES, getKesValue) : null;
 
   const styles = {
     available: {
@@ -58,7 +82,9 @@ export default function MoonwellWithdrawStatus({
       body: "text-emerald-800",
       icon: "#059669",
       label: "Withdraw available",
-      copy: "The pool has enough free cash for your balance right now. Your funds stay yours.",
+      copy: isKES
+        ? "The pool has enough free cash for your full balance right now. You can withdraw to your wallet (shown in KES)."
+        : "The pool has enough free cash for your full balance right now. You can withdraw to your wallet.",
     },
     limited: {
       badgeBg: "bg-amber-50 border-amber-200",
@@ -66,11 +92,11 @@ export default function MoonwellWithdrawStatus({
       text: "text-amber-800",
       body: "text-amber-900",
       icon: "#d97706",
-      label: "Limited liquidity",
+      label: "Limited free cash",
       copy:
-        need != null
-          ? `The pool only has about ${liquidityUsd.toFixed(2)} USDC free right now, less than your ${need.toFixed(2)} USDC balance. You may withdraw up to the free amount, or try again later for a full exit. Your deposit is still safe and earning.`
-          : "The pool has some free cash, but not enough for a full withdrawal right now. Your deposit is still safe and earning.",
+        needLabel != null
+          ? `Your money is still safe and earning, but others have borrowed most of the pool. Only about ${freeLabel} is free right now, less than your ${needLabel} balance, so a full withdrawal may not go through. Try a smaller amount, or come back when more cash returns.`
+          : `Your money is still safe and earning, but others have borrowed most of the pool. Only about ${freeLabel} is free right now, so a full withdrawal may not go through.`,
     },
     paused: {
       badgeBg: "bg-amber-50 border-amber-200",
@@ -79,7 +105,9 @@ export default function MoonwellWithdrawStatus({
       body: "text-amber-900",
       icon: "#d97706",
       label: "Withdraw paused",
-      copy: "The pool is fully borrowed right now, so there is no free cash to pay withdrawals. Your deposit is still safe and earning. Try again when the pool has money.",
+      copy: isKES
+        ? "Borrowers are using the pool’s cash right now, so there is nothing free to pay withdrawals. Your deposit (shown in KES) is still safe and earning. Try again when free cash returns."
+        : "Borrowers are using the pool’s cash right now, so there is nothing free to pay withdrawals. Your deposit is still safe and earning. Try again when free cash returns.",
     },
   }[kind];
 

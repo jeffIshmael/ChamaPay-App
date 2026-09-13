@@ -119,14 +119,25 @@ export default function WithdrawCryptoScreen() {
   // Get current exchange rate
   const currentExchangeRate = theExhangeQuote?.exchangeRate?.buying_rate || 0;
 
+  const resetWithdrawForm = () => {
+    setAmountUSDC("");
+    setAmountKES("");
+    setPhoneNumber("");
+    setIsPhoneTouched(false);
+    setShowVerificationModal(false);
+    setIsVerifying(false);
+    setVerifiedPhoneData(null);
+    setVerificationError("");
+    setIsProcessing(false);
+    setProcessingStep("idle");
+    setWithdrawalProgressStep(1);
+  };
+
   useFocusEffect(
     React.useCallback(() => {
       return () => {
-        // Clear state when user leaves the screen
-        setAmountUSDC("");
-        setAmountKES("");
-        setPhoneNumber("");
-        setIsPhoneTouched(false);
+        // Clear form when user leaves so inputs don't persist on return
+        resetWithdrawForm();
       };
     }, [])
   );
@@ -341,7 +352,12 @@ switch (status) {
           ToastAndroid.SHORT,
         );
         setAmountUSDC("");
+        setAmountKES("");
         setPhoneNumber("");
+        setIsPhoneTouched(false);
+        setVerifiedPhoneData(null);
+        setVerificationError("");
+        setShowVerificationModal(false);
         router.push("/wallet");
       } catch (pollError: any) {
         let errorTitle = "Withdrawal Processing";
@@ -419,8 +435,7 @@ setProcessingStep("failed");
         <View className="flex-row items-center justify-between mb-2">
           <TouchableOpacity
             onPress={() => {
-              setAmountUSDC("");
-              setPhoneNumber("");
+              resetWithdrawForm();
               router.push("/(tabs)/wallet");
             }}
             className="w-10 h-10 rounded-full bg-white/20 items-center justify-center"

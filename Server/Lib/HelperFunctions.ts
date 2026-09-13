@@ -108,6 +108,7 @@ export async function getChamasForThreeDayReminder() {
                 smartAddress: true,
                 userName: true,
                 profileImageUrl: true,
+                email: true,
               },
             },
           },

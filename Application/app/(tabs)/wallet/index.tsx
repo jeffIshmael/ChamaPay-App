@@ -3,7 +3,12 @@ import { useAuth } from "@/Contexts/AuthContext";
 import { useUserResolver } from "@/hooks/useUserResolver";
 import { CurrencyCode } from "@/lib/pretiumService";
 import { getUserBalance } from "@/lib/userService";
-import { getTheUserTx } from "@/lib/walletServices";
+import {
+  getTheUserTx,
+  getMoonwellActivitySubtitle,
+  getMoonwellActivityTitle,
+  isMoonwellTx,
+} from "@/lib/walletServices";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useFormattedBalance } from "@/hooks/useFormattedBalance";
 import * as Clipboard from "expo-clipboard";
@@ -256,9 +261,13 @@ setTransactionError("Failed to load transactions");
           </View>
 
           <View className="flex-1">
-            <View className="flex-row items-center gap-2">
-              <Text className="text-gray-900 font-semibold text-base capitalize">
-                {tx.type}
+            <View className="flex-row items-center gap-2 flex-wrap">
+              <Text
+                className={`text-gray-900 font-semibold text-base ${
+                  isMoonwellTx(tx) ? "" : "capitalize"
+                }`}
+              >
+                {isMoonwellTx(tx) ? getMoonwellActivityTitle(tx) : tx.type}
               </Text>
               {tx.isPretiumTx && (
                 <View className="bg-purple-100 px-1 py-0.5 rounded-full">
@@ -268,7 +277,11 @@ setTransactionError("Failed to load transactions");
                 </View>
               )}
             </View>
-            {tx.isPretiumTx ? (
+            {isMoonwellTx(tx) ? (
+              <Text className="text-xs text-gray-500 mt-1">
+                {getMoonwellActivitySubtitle(tx)}
+              </Text>
+            ) : tx.isPretiumTx ? (
               <Text className="text-xs text-gray-500 mt-1">
                 {tx.type === "deposited"
                   ? `From: ${tx.sender || "M-PESA"}`
@@ -373,8 +386,15 @@ setTransactionError("Failed to load transactions");
                     </Text>
                   </View>
                 )}
-                <Text className="text-2xl font-bold mb-1 capitalize" style={{ color: headerColor }}>
-                  {selectedTransaction.type}
+                <Text
+                  className={`text-2xl font-bold mb-1 ${
+                    isMoonwellTx(selectedTransaction) ? "" : "capitalize"
+                  }`}
+                  style={{ color: headerColor }}
+                >
+                  {isMoonwellTx(selectedTransaction)
+                    ? getMoonwellActivityTitle(selectedTransaction)
+                    : selectedTransaction.type}
                 </Text>
                 <Text className={`text-3xl font-extrabold`} style={{ color: headerColor }}>
                   {`${selectedTransaction.type === "sent" || selectedTransaction.type === "withdrew" ? "-" : "+"}${
@@ -420,53 +440,68 @@ setTransactionError("Failed to load transactions");
                 </View>
 
                 {/* To/From */}
-                {(selectedTransaction.type === "sent" ||
-                  selectedTransaction.type === "withdrew") &&
-                  selectedTransaction.recipient && (
-                    <View className="py-3 border-b border-gray-100">
-                      <Text className="text-gray-600 font-medium mb-2">To</Text>
-                      <TouchableOpacity 
-                        onPress={() => {
-                          Clipboard.setStringAsync(selectedTransaction.recipient!);
-                          Alert.alert("Copied", "Recipient address copied to clipboard");
-                        }}
-                        className="bg-gray-50 p-3 rounded-lg flex-row items-center justify-between"
-                      >
-                        <ResolvedAddress
-                          address={selectedTransaction.recipient}
-                          type="recipient"
-                          showPrefix={false}
-                          textClassName="text-gray-900 font-mono text-sm"
-                        />
-                        <Copy size={16} color="#9ca3af" />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-
-                {(selectedTransaction.type === "received" ||
-                  selectedTransaction.type === "deposited") &&
-                  selectedTransaction.sender && (
-                    <View className="py-3 border-b border-gray-100">
-                      <Text className="text-gray-600 font-medium mb-2">
-                        From
+                {isMoonwellTx(selectedTransaction) ? (
+                  <View className="py-3 border-b border-gray-100">
+                    <Text className="text-gray-600 font-medium mb-2">
+                      Details
+                    </Text>
+                    <View className="bg-gray-50 p-3 rounded-lg">
+                      <Text className="text-gray-900 text-sm font-medium">
+                        {getMoonwellActivitySubtitle(selectedTransaction)}
                       </Text>
-                      <TouchableOpacity 
-                        onPress={() => {
-                          Clipboard.setStringAsync(selectedTransaction.sender!);
-                          Alert.alert("Copied", "Sender address copied to clipboard");
-                        }}
-                        className="bg-gray-50 p-3 rounded-lg flex-row items-center justify-between"
-                      >
-                        <ResolvedAddress
-                          address={selectedTransaction.sender}
-                          type="sender"
-                          showPrefix={false}
-                          textClassName="text-gray-900 font-mono text-sm"
-                        />
-                        <Copy size={16} color="#9ca3af" />
-                      </TouchableOpacity>
                     </View>
-                  )}
+                  </View>
+                ) : (
+                  <>
+                    {(selectedTransaction.type === "sent" ||
+                      selectedTransaction.type === "withdrew") &&
+                      selectedTransaction.recipient && (
+                        <View className="py-3 border-b border-gray-100">
+                          <Text className="text-gray-600 font-medium mb-2">To</Text>
+                          <TouchableOpacity 
+                            onPress={() => {
+                              Clipboard.setStringAsync(selectedTransaction.recipient!);
+                              Alert.alert("Copied", "Recipient address copied to clipboard");
+                            }}
+                            className="bg-gray-50 p-3 rounded-lg flex-row items-center justify-between"
+                          >
+                            <ResolvedAddress
+                              address={selectedTransaction.recipient}
+                              type="recipient"
+                              showPrefix={false}
+                              textClassName="text-gray-900 font-mono text-sm"
+                            />
+                            <Copy size={16} color="#9ca3af" />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+
+                    {(selectedTransaction.type === "received" ||
+                      selectedTransaction.type === "deposited") &&
+                      selectedTransaction.sender && (
+                        <View className="py-3 border-b border-gray-100">
+                          <Text className="text-gray-600 font-medium mb-2">
+                            From
+                          </Text>
+                          <TouchableOpacity 
+                            onPress={() => {
+                              Clipboard.setStringAsync(selectedTransaction.sender!);
+                              Alert.alert("Copied", "Sender address copied to clipboard");
+                            }}
+                            className="bg-gray-50 p-3 rounded-lg flex-row items-center justify-between"
+                          >
+                            <ResolvedAddress
+                              address={selectedTransaction.sender}
+                              type="sender"
+                              showPrefix={false}
+                              textClassName="text-gray-900 font-mono text-sm"
+                            />
+                            <Copy size={16} color="#9ca3af" />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                  </>
+                )}
 
                 {/* Breakdown for M-PESA Withdrawals */}
                 {selectedTransaction.isPretiumTx && selectedTransaction.type === "withdrew" && selectedTransaction.fiatAmount ? (
