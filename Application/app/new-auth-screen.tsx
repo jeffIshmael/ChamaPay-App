@@ -9,11 +9,12 @@ import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
-import { Mail, Shield, ChevronLeft, KeyRound, ChevronDown, ChevronUp, Check, Phone, MessageCircle } from "lucide-react-native";
+import { Mail, Shield, ChevronLeft, KeyRound, ChevronDown, Check, Phone, MessageCircle } from "lucide-react-native";
 import { useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Dimensions,
   Easing,
   Image,
   KeyboardAvoidingView,
@@ -29,9 +30,31 @@ import {
 
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
+import { StatusBar } from "expo-status-bar";
 import AuthLoadingView from "@/components/AuthLoadingView";
 import CountrySelector from "@/components/CountrySelector";
 import { DEFAULT_PHONE_COUNTRY } from "@/Utils/phoneCountries";
+
+/** Brand accent — downy-600; focus uses lighter downy-400 */
+const AUTH_PRIMARY = "#1c8584";
+const AUTH_FOCUS = "#3fc2bb";
+/** Solid wall behind transparent 3D logo */
+const AUTH_WALL = "#1c5e64";
+const SCREEN_HEIGHT = Dimensions.get("window").height;
+/** Hero slot for centered 3D brand object (Sporty-style). */
+const HERO_HEIGHT = Math.round(SCREEN_HEIGHT * 0.36);
+/**
+ * Flip to compare hero treatments:
+ * - "piggy": 3D light piggy on downy-600
+ * - "crest": 3D wall-mounted logo sign + Chamapay + slogan
+ */
+const AUTH_HERO_VARIANT: "piggy" | "crest" = "crest";
+const AUTH_SLOGAN = "Save as a circle. Grow as one.";
+const brandWordmarkFont = Platform.select({
+  ios: "Georgia",
+  android: "serif",
+  default: "serif",
+});
 
 const GoogleIcon = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24">
@@ -54,7 +77,8 @@ const GoogleIcon = () => (
   </Svg>
 );
 
-const chamapayLogo = require("@/assets/images/chamapay-logo.png");
+const authHeroPiggy = require("@/assets/images/auth-hero.png");
+const authLogo3dWall = require("@/assets/images/auth-logo-3d-wall-clear.png");
 
 // CRITICAL: Complete the auth session so the browser can redirect back to the app
 WebBrowser.maybeCompleteAuthSession();
@@ -67,7 +91,6 @@ export default function AuthScreen() {
     () => DEFAULT_PHONE_COUNTRY
   );
   const [showPhoneCountryPicker, setShowPhoneCountryPicker] = useState(false);
-  const [showEmailInput, setShowEmailInput] = useState(false);
   /** Dedicated phone WhatsApp modal (not the email expander) */
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [phoneStep, setPhoneStep] = useState<"enter" | "sent" | "code">("enter");
@@ -79,6 +102,7 @@ export default function AuthScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isSendingPhone, setIsSendingPhone] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const router = useRouter();
   const inputRef = useRef<TextInput>(null);
@@ -470,7 +494,6 @@ export default function AuthScreen() {
   };
 
   const openPhoneModal = () => {
-    setShowEmailInput(false);
     setPhoneModalError("");
     setPhoneStep("enter");
     setVerificationCode("");
@@ -633,277 +656,291 @@ export default function AuthScreen() {
 
   return (
     <View className="flex-1 bg-white">
-      {/* Gradient Background */}
-      <View
-        className="absolute top-0 left-0 right-0 overflow-hidden"
-        style={{
-          height: "75%",
-          backgroundColor: "#d1f6f1",
-          borderBottomLeftRadius: 30,
-          borderBottomRightRadius: 30,
-        }}
-      />
+      <StatusBar style="light" />
 
-      {/* Decorative circles */}
-      <View
-        className="absolute rounded-full"
-        style={{
-          top: -120,
-          right: -90,
-          width: 280,
-          height: 280,
-          backgroundColor: "#a3ece4",
-          opacity: 0.4,
-        }}
-      />
-      <View
-        className="absolute rounded-full"
-        style={{
-          top: 80,
-          left: -120,
-          width: 200,
-          height: 200,
-          backgroundColor: "#66d9d0",
-          opacity: 0.3,
-        }}
-      />
-
-      <SafeAreaView className="flex-1">
-        <ScrollView
+      <SafeAreaView className="flex-1" edges={["bottom"]}>
+        <KeyboardAvoidingView
           className="flex-1"
-          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-          {/* Single centered content block — logo + buttons move together as one unit,
-              so a taller/shorter usable screen height (custom nav bars, gesture UI,
-              different status bar heights) just re-centers everything instead of
-              stranding the buttons near the bottom edge. */}
-          <View className="px-6">
-            {/* Logo / Title */}
-            <View className="items-center mb-10">
+          <ScrollView
+            className="flex-1"
+            contentContainerStyle={{ flexGrow: 1 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            bounces={false}
+          >
+            {/* Top hero — flip AUTH_HERO_VARIANT to compare piggy vs crest */}
+            <View
+              style={{
+                height: HERO_HEIGHT,
+                width: "100%",
+                backgroundColor:
+                  AUTH_HERO_VARIANT === "crest" ? AUTH_WALL : AUTH_PRIMARY,
+                overflow: "hidden",
+                justifyContent: "center",
+                alignItems: "center",
+                paddingHorizontal: 24,
+                paddingBottom: 12,
+              }}
+            >
+              {AUTH_HERO_VARIANT === "piggy" ? (
+                <Image
+                  source={authHeroPiggy}
+                  style={{
+                    width: "130%",
+                    height: "130%",
+                    transform: [{ scale: 1.15 }, { translateY: -10 }],
+                  }}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View className="items-center justify-center">
+                  {/* 3D extruded logo sign mounted on the wall */}
+                  <Image
+                    source={authLogo3dWall}
+                    style={{ width: 168, height: 168 }}
+                    resizeMode="contain"
+                  />
+                  <Text
+                    style={{
+                      marginTop: 4,
+                      fontFamily: brandWordmarkFont,
+                      fontSize: 32,
+                      fontWeight: "600",
+                      color: "#ffffff",
+                      letterSpacing: 1,
+                      fontStyle: "italic",
+                    }}
+                  >
+                    Chamapay
+                  </Text>
+                  <Text
+                    style={{
+                      marginTop: 6,
+                      color: "rgba(255,255,255,0.82)",
+                      fontSize: 13,
+                      textAlign: "center",
+                      letterSpacing: 0.3,
+                      maxWidth: 260,
+                      lineHeight: 18,
+                    }}
+                  >
+                    {AUTH_SLOGAN}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Auth sheet — slight overlap so rounded top shows on teal */}
+            <View
+              className="flex-1 bg-white px-6 pt-2"
+              style={{
+                marginTop: -16,
+                borderTopLeftRadius: 28,
+                borderTopRightRadius: 28,
+                minHeight: SCREEN_HEIGHT - HERO_HEIGHT + 16,
+                paddingBottom: Math.max(insets.bottom, 16),
+                shadowColor: "#0f3d3c",
+                shadowOffset: { width: 0, height: -3 },
+                shadowOpacity: 0.12,
+                shadowRadius: 10,
+                elevation: 8,
+              }}
+            >
+              {AUTH_HERO_VARIANT === "piggy" ? (
+                <View className="items-center mb-3">
+                  <Text
+                    style={{
+                      marginTop: 4,
+                      fontFamily: brandWordmarkFont,
+                      fontSize: 28,
+                      fontWeight: "600",
+                      color: AUTH_PRIMARY,
+                      letterSpacing: 0.8,
+                      fontStyle: "italic",
+                    }}
+                  >
+                    Chamapay
+                  </Text>
+                </View>
+              ) : (
+                <View className="mb-2" />
+              )}
+
+              <Text className="text-gray-900 text-[20px] font-bold text-center leading-7 mb-1">
+                Sign in to continue
+              </Text>
+              <Text className="text-gray-500 text-[13px] text-center leading-5 mb-10 px-2">
+                Use email for a one-time code. No password needed.
+              </Text>
+
+              {errorText && !showVerificationModal && !showPhoneModal ? (
+                <View
+                  className="flex-row items-center bg-red-50 p-3.5 rounded-2xl mb-4 border border-red-200"
+                  style={styles.card}
+                >
+                  <Shield color="#ef4444" size={18} />
+                  <Text className="text-red-600 ml-3 text-sm font-medium flex-1">
+                    {errorText}
+                  </Text>
+                </View>
+              ) : null}
+
+              <Text className="text-gray-500 text-sm font-medium mb-2">
+                Email
+              </Text>
               <View
-                className="mb-8 rounded-full overflow-hidden"
+                className="rounded-2xl px-4 justify-center mb-3 bg-white"
                 style={{
-                  width: 140,
-                  height: 140,
-                  backgroundColor: "transparent",
-                  shadowColor: "#26a6a2",
+                  height: 52,
+                  borderWidth: emailFocused ? 1 : 1,
+                  borderColor: emailFocused ? AUTH_FOCUS : "#e5e7eb",
                 }}
               >
-                <Image
-                  source={chamapayLogo}
-                  style={{ width: "100%", height: "100%" }}
-                  resizeMode="contain"
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="Enter your email"
+                  placeholderTextColor="#9ca3af"
+                  className="text-gray-900 text-base font-medium"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!isLoading && !isSendingEmail}
+                  onSubmitEditing={handleEmailSubmit}
+                  returnKeyType="send"
+                  onFocus={() => setEmailFocused(true)}
+                  onBlur={() => setEmailFocused(false)}
                 />
               </View>
 
-              <Text className="text-5xl mb-4 text-gray-900 font-bold text-center">
-                Chamapay
-              </Text>
-              <Text
-                className="text-center text-xl font-medium px-8"
-                style={{ color: "#1c8584" }}
+              <Pressable
+                onPress={handleEmailSubmit}
+                disabled={!email.trim() || isSendingEmail || isLoading}
+                className="w-full rounded-2xl items-center justify-center mb-5"
+                style={{
+                  height: 52,
+                  backgroundColor:
+                    !email.trim() || isSendingEmail || isLoading
+                      ? "#9ca3af"
+                      : AUTH_PRIMARY,
+                }}
               >
-                The circular savings app
-              </Text>
-            </View>
+                {isSendingEmail ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text className="text-white font-bold text-base">
+                    Continue with email
+                  </Text>
+                )}
+              </Pressable>
 
-            {/* Error Message */}
-            {errorText && !showVerificationModal ? (
-              <View
-                className="flex-row items-center bg-red-50 p-4 rounded-2xl mb-6 border border-red-200"
-                style={styles.card}
-              >
-                <Shield color="#ef4444" size={20} />
-                <Text className="text-red-600 ml-3 text-sm font-medium flex-1">
-                  {errorText}
+              <View className="flex-row items-center mb-5">
+                <View className="flex-1 h-px bg-gray-200" />
+                <Text className="px-4 text-gray-400 text-sm font-medium">
+                  or
                 </Text>
+                <View className="flex-1 h-px bg-gray-200" />
               </View>
-            ) : null}
 
-            {/* Auth Section */}
-            <View>
-              {/* Auth Buttons in Column */}
-              <View className="mb-6">
-                {/* Phone — opens dedicated WhatsApp modal */}
-                <View className="mb-3">
-                  <Pressable
-                    onPress={openPhoneModal}
-                    className="w-full p-3 rounded-2xl flex-row items-center h-16"
-                    style={[
-                      styles.authButton,
-                      {
-                        borderWidth: 1,
-                        borderColor: "#e5e7eb",
-                        backgroundColor: "white",
-                      },
-                    ]}
-                  >
-                    <View className="w-10 h-10 bg-emerald-50 rounded-lg items-center justify-center ml-1">
-                      <Phone size={20} color="#059669" />
-                    </View>
-                    <View className="flex-1 ml-3 items-start justify-center">
-                      <Text className="text-gray-800 font-medium text-base">
-                        Continue with phone
-                      </Text>
-                      <Text className="text-gray-500 text-xs mt-0.5">
-                        Get a code on WhatsApp
-                      </Text>
-                    </View>
-                  </Pressable>
+              <Pressable
+                onPress={() => {}}
+                disabled
+                className="w-full rounded-2xl items-center justify-center mb-3 border flex-row opacity-60"
+                style={{
+                  height: 52,
+                  borderColor: "#d1d5db",
+                  backgroundColor: "#f9fafb",
+                }}
+              >
+                <Phone size={18} color="#9ca3af" />
+                <Text className="font-bold text-base ml-2 text-gray-400">
+                  Continue with phone number
+                </Text>
+                <View className="ml-2 px-2 py-0.5 rounded-full bg-amber-100 border border-amber-200">
+                  <Text className="text-[10px] font-bold text-amber-700 uppercase tracking-wide">
+                    Coming soon
+                  </Text>
                 </View>
+              </Pressable>
 
-                {/* Email Button / Input Section */}
-                <View className="mb-3">
-                  <Pressable
-                    onPress={() => setShowEmailInput(!showEmailInput)}
-                    className="w-full p-3 rounded-2xl flex-row items-center h-16"
-                    style={[
-                      styles.authButton,
-                      {
-                        borderWidth: 1,
-                        borderColor: showEmailInput ? "#26a6a2" : "#e5e7eb",
-                        backgroundColor: showEmailInput ? "#f0fdfa" : "white",
-                      },
-                    ]}
-                  >
-                    {!showEmailInput && (
-                      <View className="w-10 h-10 bg-gray-100 rounded-lg items-center justify-center ml-1">
-                        <Mail size={20} color="#4b5563" />
-                      </View>
-                    )}
-                    <View className={`flex-1 ${!showEmailInput ? "ml-3" : "ml-4"} items-start justify-center`}>
-                      <Text className="text-gray-800 font-medium text-base">
-                        Continue with email
-                      </Text>
-                    </View>
-                    <View className="mr-2">
-                      {showEmailInput ? (
-                        <ChevronUp size={20} color="#26a6a2" />
-                      ) : (
-                        <ChevronDown size={20} color="#6b7280" />
-                      )}
-                    </View>
-                  </Pressable>
-
-                  {/* Render Input Box Below if expanded */}
-                  {showEmailInput && (
-                    <View className="w-full bg-white rounded-2xl flex-row items-center border border-[#e5e7eb] p-1 h-16 mt-1" style={styles.authButton}>
-                      <View className="w-10 h-10 bg-[#f3f4f6] rounded-xl items-center justify-center ml-1">
-                        <Mail size={20} color="#4b5563" />
-                      </View>
-                      <TextInput
-                        value={email}
-                        onChangeText={setEmail}
-                        placeholder="your@email.com"
-                        className="flex-1 text-gray-800 px-3 font-medium text-base h-full"
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        editable={!isLoading}
-                        autoFocus={true}
-                        onSubmitEditing={handleEmailSubmit}
-                        returnKeyType="send"
-                      />
-                      <Pressable
-                        onPress={handleEmailSubmit}
-                        disabled={!email || isSendingEmail}
-                        className="px-4 h-full justify-center items-center"
-                      >
-                        {isSendingEmail && showEmailInput ? (
-                          <ActivityIndicator size="small" color="#26a6a2" />
-                        ) : (
-                          <Text className={`font-semibold text-base ${email ? "text-gray-800" : "text-gray-300"}`}>
-                            Submit
-                          </Text>
-                        )}
-                      </Pressable>
-                    </View>
-                  )}
+              <Pressable
+                onPress={handleGoogleSignIn}
+                disabled={isLoading || !request || isAuthenticated}
+                className="w-full bg-white rounded-2xl flex-row items-center px-3 mb-3"
+                style={[
+                  {
+                    height: 52,
+                    borderWidth: 1,
+                    borderColor: "#e5e7eb",
+                  },
+                  (isLoading || !request || isAuthenticated) && { opacity: 0.6 },
+                ]}
+              >
+                <View className="w-10 h-10 items-center justify-center">
+                  <GoogleIcon />
                 </View>
+                <Text className="flex-1 text-center text-gray-800 font-semibold text-base mr-10">
+                  {isLoading || isAuthenticated
+                    ? "Signing in..."
+                    : "Continue with Google"}
+                </Text>
+              </Pressable>
 
-                {/* Divider */}
-                <View className="flex-row items-center my-4">
-                  <View className="flex-1 h-px bg-gray-200" />
-                  <Text className="px-4 text-gray-400 text-sm font-medium">or</Text>
-                  <View className="flex-1 h-px bg-gray-200" />
-                </View>
-
-                {/* Google Button */}
+              {Platform.OS === "ios" && (
                 <Pressable
-                  onPress={handleGoogleSignIn}
-                  disabled={isLoading || !request || isAuthenticated}
-                  className="w-full bg-white p-3 rounded-2xl flex-row items-center h-16 mb-3"
+                  onPress={handleAppleAuth}
+                  disabled={isLoading}
+                  className="w-full bg-white rounded-2xl flex-row items-center px-3 mb-3"
                   style={[
-                    styles.authButton,
                     {
+                      height: 52,
                       borderWidth: 1,
                       borderColor: "#e5e7eb",
                     },
-                    (isLoading || !request || isAuthenticated) && { opacity: 0.6 },
+                    isLoading && { opacity: 0.6 },
                   ]}
                 >
-                  <View className="w-10 h-10 bg-gray-100 rounded-lg items-center justify-center ml-1">
-                    <GoogleIcon />
+                  <View className="w-10 h-10 items-center justify-center">
+                    <Svg width={18} height={18} viewBox="0 0 24 24">
+                      <Path
+                        fill="#000000"
+                        d="M19.665 17.025c-.315.735-.69 1.41-1.125 2.02-.59.835-1.071 1.41-1.44 1.725-.575.53-1.191.805-1.854.825-.474 0-1.047-.135-1.72-.405-.674-.27-1.293-.405-1.86-.405-.59 0-1.225.135-1.905.405-.68.27-1.234.41-1.665.42-.64.03-1.27-.255-1.89-.855-.405-.375-.91-1.005-1.515-1.89-.65-.945-1.185-2.04-1.605-3.285-.45-1.365-.675-2.685-.675-3.96 0-1.465.32-2.73.96-3.795.5-.855 1.165-1.53 1.995-2.025.83-.495 1.72-.75 2.67-.765.525 0 1.215.155 2.07.465.855.31 1.405.47 1.65.48.18 0 .79-.195 1.83-.585 1-.36 1.845-.51 2.535-.45 1.875.15 3.285.885 4.23 2.205-1.68 1.02-2.52 2.46-2.52 4.32 0 1.44.54 2.64 1.62 3.6.48.45 1.02.795 1.62 1.035-.13.39-.27.765-.42 1.125zM15.27 2.385c0 .435-.16.9-.48 1.395-.305.48-.69.87-1.155 1.17-.435.27-.84.42-1.215.45-.03-.09-.06-.195-.075-.315a2.77 2.77 0 0 1 .66-2.04c.22-.27.5-.495.84-.675.34-.18.665-.28.975-.3.01.105.02.21.02.315z"
+                      />
+                    </Svg>
                   </View>
-                  <View className="flex-1 ml-3 items-start justify-center">
-                    <Text className="text-gray-800 font-medium text-base">
-                      {isLoading || isAuthenticated ? "Signing in..." : "Continue with Google"}
-                    </Text>
-                  </View>
-                  <View className="bg-gray-100 px-3 py-1 rounded-full mr-1">
-                    <Text className="text-gray-500 font-medium text-xs">Recent</Text>
-                  </View>
+                  <Text className="flex-1 text-center text-gray-800 font-semibold text-base mr-10">
+                    Continue with Apple
+                  </Text>
                 </Pressable>
+              )}
 
-                {/* Apple Button */}
-                {Platform.OS === "ios" && (
-                  <Pressable
-                    onPress={handleAppleAuth}
-                    disabled={isLoading}
-                    className="w-full bg-white p-3 rounded-2xl flex-row items-center h-16 mb-3"
-                    style={[
-                      styles.authButton,
-                      {
-                        borderWidth: 1,
-                        borderColor: "#e5e7eb",
-                      },
-                      isLoading && { opacity: 0.6 },
-                    ]}
+              <View style={{ flexGrow: 1, minHeight: 24 }} />
+
+              <View className="pt-2 pb-1">
+                <Text className="text-xs text-gray-500 text-center leading-relaxed">
+                  By continuing, you agree to our{" "}
+                  <Text
+                    className="font-semibold"
+                    style={{ color: AUTH_PRIMARY }}
+                    onPress={() => router.push("/info?type=terms" as any)}
                   >
-                    <View className="w-10 h-10 bg-gray-100 rounded-lg items-center justify-center ml-1">
-                      <Svg width={18} height={18} viewBox="0 0 24 24">
-                        <Path
-                          fill="#000000"
-                          d="M19.665 17.025c-.315.735-.69 1.41-1.125 2.02-.59.835-1.071 1.41-1.44 1.725-.575.53-1.191.805-1.854.825-.474 0-1.047-.135-1.72-.405-.674-.27-1.293-.405-1.86-.405-.59 0-1.225.135-1.905.405-.68.27-1.234.41-1.665.42-.64.03-1.27-.255-1.89-.855-.405-.375-.91-1.005-1.515-1.89-.65-.945-1.185-2.04-1.605-3.285-.45-1.365-.675-2.685-.675-3.96 0-1.465.32-2.73.96-3.795.5-.855 1.165-1.53 1.995-2.025.83-.495 1.72-.75 2.67-.765.525 0 1.215.155 2.07.465.855.31 1.405.47 1.65.48.18 0 .79-.195 1.83-.585 1-.36 1.845-.51 2.535-.45 1.875.15 3.285.885 4.23 2.205-1.68 1.02-2.52 2.46-2.52 4.32 0 1.44.54 2.64 1.62 3.6.48.45 1.02.795 1.62 1.035-.13.39-.27.765-.42 1.125zM15.27 2.385c0 .435-.16.9-.48 1.395-.305.48-.69.87-1.155 1.17-.435.27-.84.42-1.215.45-.03-.09-.06-.195-.075-.315a2.77 2.77 0 0 1 .66-2.04c.22-.27.5-.495.84-.675.34-.18.665-.28.975-.3.01.105.02.21.02.315z"
-                        />
-                      </Svg>
-                    </View>
-                    <View className="flex-1 ml-3 items-start justify-center">
-                      <Text className="text-gray-800 font-medium text-base">Apple</Text>
-                    </View>
-                  </Pressable>
-                )}
+                    Terms of Service
+                  </Text>{" "}
+                  and{" "}
+                  <Text
+                    className="font-semibold"
+                    style={{ color: AUTH_PRIMARY }}
+                    onPress={() => router.push("/info?type=privacy" as any)}
+                  >
+                    Privacy Policy
+                  </Text>
+                </Text>
               </View>
-
             </View>
-          </View>
-        </ScrollView>
-
-        {/* Terms - Fixed at bottom */}
-        <View className="px-8 pb-4 bg-white">
-          <Text className="text-xs text-gray-500 text-center leading-relaxed">
-            By continuing, you agree to our{" "}
-            <Text className="font-semibold" style={{ color: "#26a6a2" }}>
-              Terms of Service
-            </Text>{" "}
-            and{" "}
-            <Text className="font-semibold" style={{ color: "#26a6a2" }}>
-              Privacy Policy
-            </Text>
-          </Text>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
 
       {/* Loading Overlay - Using Video-based AuthLoadingView */}
@@ -913,36 +950,40 @@ export default function AuthScreen() {
         />
       )}
 
-      {/* Phone WhatsApp Modal — enter → sent → code */}
+      {/* Phone WhatsApp bottom sheet — enter → sent → code */}
       <Modal
         visible={showPhoneModal}
-        animationType="fade"
+        animationType="slide"
         transparent
         statusBarTranslucent
         onRequestClose={closePhoneModal}
       >
-        <View style={{ flex: 1 }}>
-          {/* Explicit dark-gray backdrop (nativewind opacity can fail inside Modal) */}
-          <View
-            pointerEvents="none"
+        <View style={{ flex: 1, justifyContent: "flex-end" }}>
+          <Pressable
             style={{
               ...StyleSheet.absoluteFillObject,
-              backgroundColor: "rgba(55, 65, 81, 0.88)",
+              backgroundColor: "rgba(0, 0, 0, 0.45)",
             }}
+            onPress={closePhoneModal}
           />
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : undefined}
-            style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 20 }}
+            style={{ width: "100%" }}
           >
-            <Pressable
-              style={StyleSheet.absoluteFill}
-              onPress={closePhoneModal}
-            />
             <View
-              className="bg-white w-full rounded-[24px] px-5 pt-4 pb-6"
-              style={{ maxWidth: 380, zIndex: 2 }}
+              className="bg-white w-full px-5 pt-3"
+              style={{
+                borderTopLeftRadius: 32,
+                borderTopRightRadius: 32,
+                paddingBottom: Math.max(insets.bottom, 20),
+                maxHeight: SCREEN_HEIGHT * 0.88,
+              }}
             >
-              <View className="flex-row items-center justify-between mb-5">
+              <View className="items-center mb-3">
+                <View className="w-10 h-1 rounded-full bg-gray-200" />
+              </View>
+
+              <View className="flex-row items-center justify-between mb-4">
                 <Pressable
                   onPress={() => {
                     if (phoneStep === "code") {
@@ -958,18 +999,18 @@ export default function AuthScreen() {
                     closePhoneModal();
                   }}
                   disabled={verifying || verifySuccess || isSendingPhone}
-                  className="w-12 h-12 bg-gray-100 rounded-full items-center justify-center"
+                  className="w-10 h-10 bg-gray-100 rounded-full items-center justify-center"
                   hitSlop={8}
                 >
-                  <ChevronLeft size={28} color="#4b5563" strokeWidth={2.5} />
+                  <ChevronLeft size={22} color="#4b5563" strokeWidth={2.5} />
                 </Pressable>
                 <Pressable
                   onPress={closePhoneModal}
                   disabled={verifying || verifySuccess || isSendingPhone}
-                  className="w-12 h-12 bg-gray-100 rounded-full items-center justify-center"
+                  className="w-10 h-10 bg-gray-100 rounded-full items-center justify-center"
                   hitSlop={8}
                 >
-                  <Text className="text-gray-600 text-3xl leading-none" style={{ marginTop: -2 }}>
+                  <Text className="text-gray-600 text-2xl leading-none" style={{ marginTop: -2 }}>
                     ×
                   </Text>
                 </Pressable>
@@ -978,14 +1019,17 @@ export default function AuthScreen() {
               {phoneStep === "enter" && (
                 <View>
                   <View className="items-center mb-6">
-                    <View className="w-14 h-14 rounded-full bg-emerald-50 items-center justify-center mb-4">
-                      <Phone size={26} color="#059669" />
+                    <View
+                      className="w-14 h-14 rounded-full items-center justify-center mb-4"
+                      style={{ backgroundColor: AUTH_PRIMARY }}
+                    >
+                      <Phone size={26} color="white" />
                     </View>
                     <Text className="text-gray-900 font-bold text-xl text-center mb-2">
-                      Sign in with phone number
+                      Sign in with phone
                     </Text>
                     <Text className="text-gray-500 text-sm text-center leading-5 px-1">
-                      We'll send a 6-digit code to this number on WhatsApp.
+                      Enter your number. We will send a 6-digit code on WhatsApp.
                     </Text>
                   </View>
 
@@ -1024,44 +1068,48 @@ export default function AuthScreen() {
                     <Text className="text-red-500 text-sm mb-4">{phoneModalError}</Text>
                   ) : (
                     <Text className="text-gray-400 text-xs mb-4 leading-4">
-                      Local number only — country code is selected on the left.
+                      Local number only. Country code is selected on the left.
                     </Text>
                   )}
 
                   <Pressable
                     onPress={handlePhoneSubmit}
                     disabled={!phone.trim() || isSendingPhone}
-                    className={`w-full py-4 rounded-2xl items-center ${
-                      !phone.trim() || isSendingPhone ? "bg-emerald-300" : "bg-emerald-600"
-                    }`}
+                    className="w-full py-4 rounded-2xl items-center"
+                    style={{
+                      backgroundColor:
+                        !phone.trim() || isSendingPhone ? "#9ca3af" : AUTH_PRIMARY,
+                    }}
                   >
                     {isSendingPhone ? (
                       <ActivityIndicator color="white" />
                     ) : (
-                      <Text className="text-white font-bold text-[16px]">Get code</Text>
+                      <Text className="text-white font-bold text-[16px]">Continue</Text>
                     )}
                   </Pressable>
                 </View>
               )}
 
               {phoneStep === "sent" && (
-                <View className="items-center pt-1 pb-2">
-                  <View className="w-20 h-20 rounded-full bg-[#dcf8c6] items-center justify-center mb-5">
-                    <MessageCircle size={36} color="#128C7E" fill="#128C7E" />
+                <View className="items-center pt-2 pb-2">
+                  <View
+                    className="w-16 h-16 rounded-full items-center justify-center mb-4"
+                    style={{
+                      backgroundColor: AUTH_PRIMARY,
+                      marginTop: -8,
+                    }}
+                  >
+                    <MessageCircle size={28} color="white" />
                   </View>
                   <Text className="text-gray-900 font-bold text-2xl text-center mb-3">
-                    Code sent
+                    Check WhatsApp
                   </Text>
                   <Text className="text-gray-500 text-[15px] text-center leading-6 mb-2 px-2">
-                    Open WhatsApp on
+                    Instructions to sign in have been sent. Please check WhatsApp now.
                   </Text>
-                  <Text className="text-gray-900 font-bold text-lg text-center mb-3">
+                  <Text className="text-gray-900 font-bold text-lg text-center mb-6">
                     +{phoneCountry.phoneCode}{" "}
                     {phone.replace(/^0/, "").replace(new RegExp(`^${phoneCountry.phoneCode}`), "")}
-                  </Text>
-                  <Text className="text-gray-500 text-sm text-center leading-5 px-3 mb-8">
-                    You should see a Chamapay message with your 6-digit code.
-                    It expires in 10 minutes.
                   </Text>
 
                   <Pressable
@@ -1070,10 +1118,11 @@ export default function AuthScreen() {
                       setErrorText("");
                       setVerificationCode("");
                     }}
-                    className="w-full bg-[#128C7E] py-4 rounded-2xl items-center mb-3"
+                    className="w-full py-4 rounded-2xl items-center mb-3"
+                    style={{ backgroundColor: AUTH_PRIMARY }}
                   >
                     <Text className="text-white font-bold text-[16px]">
-                      I have the code
+                      Enter code
                     </Text>
                   </Pressable>
 
@@ -1083,10 +1132,13 @@ export default function AuthScreen() {
                     className="py-3"
                   >
                     {isSendingPhone ? (
-                      <ActivityIndicator color="#128C7E" />
+                      <ActivityIndicator color={AUTH_PRIMARY} />
                     ) : (
-                      <Text className="text-[#128C7E] font-semibold text-[15px]">
-                        Resend on WhatsApp
+                      <Text
+                        className="font-semibold text-[15px]"
+                        style={{ color: AUTH_PRIMARY }}
+                      >
+                        Didn&apos;t get a code? Resend now
                       </Text>
                     )}
                   </Pressable>
@@ -1098,20 +1150,23 @@ export default function AuthScreen() {
                   <View className="items-center mb-5">
                     <View
                       className="w-16 h-16 rounded-full items-center justify-center mb-3"
-                      style={{ backgroundColor: verifySuccess ? "#dcfce7" : "#e0f2f1" }}
+                      style={{
+                        backgroundColor: verifySuccess ? "#dcfce7" : AUTH_PRIMARY,
+                      }}
                     >
                       {verifySuccess ? (
                         <Check size={28} color="#16a34a" />
                       ) : (
-                        <KeyRound size={28} color="#26a6a2" />
+                        <KeyRound size={28} color="white" />
                       )}
                     </View>
                     <Text className="text-xl font-bold text-gray-900 mb-2 text-center">
-                      {verifySuccess ? "Verified!" : "Enter confirmation code"}
+                      {verifySuccess ? "Verified!" : "Verify your account"}
                     </Text>
                     {!verifySuccess && (
                       <Text className="text-gray-500 text-center text-sm leading-relaxed px-2">
-                        Type the 6 digits from WhatsApp
+                        Enter the 6-digit code we sent on WhatsApp to continue
+                        securely.
                       </Text>
                     )}
                   </View>
@@ -1163,7 +1218,7 @@ export default function AuthScreen() {
                                 : errorText
                                   ? "#ef4444"
                                   : isActive || filled
-                                    ? "#26a6a2"
+                                    ? AUTH_PRIMARY
                                     : "#d1d5db",
                               backgroundColor: verifySuccess ? "#f0fdf4" : "white",
                               opacity: verifying ? 0.5 : 1,
@@ -1214,10 +1269,12 @@ export default function AuthScreen() {
                       <Text
                         className="font-semibold text-sm"
                         style={{
-                          color: isSendingPhone || verifying ? "#9ca3af" : "#128C7E",
+                          color: isSendingPhone || verifying ? "#9ca3af" : AUTH_PRIMARY,
                         }}
                       >
-                        {isSendingPhone ? "Sending..." : "Resend WhatsApp code"}
+                        {isSendingPhone
+                          ? "Sending..."
+                          : "Didn't get a code? Resend now"}
                       </Text>
                     </Pressable>
                   )}
@@ -1236,176 +1293,209 @@ export default function AuthScreen() {
         onClose={() => setShowPhoneCountryPicker(false)}
       />
 
-      {/* Verification Modal */}
+      {/* Email verification bottom sheet */}
       <Modal
         visible={showVerificationModal}
-        animationType="fade"
-        transparent={true}
+        animationType="slide"
+        transparent
+        statusBarTranslucent
         onRequestClose={closeVerificationModal}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          className="flex-1 justify-center items-center bg-black/50 px-4"
-        >
-          <View className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-xl relative">
-            {/* Header Icons */}
-            <View className="flex-row justify-between w-full mb-4">
-              <Pressable
-                onPress={closeVerificationModal}
-                disabled={verifying || verifySuccess}
-                className="w-8 h-8 bg-gray-100 rounded-full items-center justify-center"
-                style={(verifying || verifySuccess) && { opacity: 0.4 }}
-              >
-                <ChevronLeft size={20} color="#6b7280" />
-              </Pressable>
-              <Pressable
-                onPress={closeVerificationModal}
-                disabled={verifying || verifySuccess}
-                className="w-8 h-8 bg-gray-100 rounded-full items-center justify-center"
-                style={(verifying || verifySuccess) && { opacity: 0.4 }}
-              >
-                <Text className="text-gray-500 text-lg leading-none mb-1">×</Text>
-              </Pressable>
-            </View>
-
-            <View className="items-center mb-6">
-              <View
-                className="w-16 h-16 rounded-full items-center justify-center mb-4"
-                style={{ backgroundColor: verifySuccess ? "#dcfce7" : "#e0f2f1" }}
-              >
-                {verifySuccess ? (
-                  <Check size={28} color="#16a34a" />
-                ) : (
-                  <KeyRound size={28} color="#26a6a2" />
-                )}
-              </View>
-              <Text className="text-xl font-bold text-gray-900 mb-2 text-center">
-                {verifySuccess ? "Verified!" : "Enter confirmation code"}
-              </Text>
-              {!verifySuccess && (
-                <Text className="text-gray-500 text-center text-sm leading-relaxed px-2">
-                  Please check{" "}
-                  <Text className="font-bold text-gray-800">{email}</Text> for an
-                  email and enter your code below.
-                </Text>
-              )}
-            </View>
-
-            {/* Code Input Boxes */}
-            <Animated.View
+        <View style={{ flex: 1, justifyContent: "flex-end" }}>
+          <Pressable
+            style={{
+              ...StyleSheet.absoluteFillObject,
+              backgroundColor: "rgba(0, 0, 0, 0.45)",
+            }}
+            onPress={
+              verifying || verifySuccess ? undefined : closeVerificationModal
+            }
+          />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={{ width: "100%" }}
+          >
+            <View
+              className="bg-white w-full px-6 pt-3"
               style={{
-                transform: [
-                  {
-                    translateX: shakeAnim.interpolate({
-                      inputRange: [-1, 0, 1],
-                      outputRange: [-10, 0, 10],
-                    }),
-                  },
-                ],
+                borderTopLeftRadius: 32,
+                borderTopRightRadius: 32,
+                paddingBottom: Math.max(insets.bottom, 24),
               }}
             >
-              <Pressable
-                onPress={() => !verifying && !verifySuccess && inputRef.current?.focus()}
-                className="flex-row justify-center mb-2 gap-x-2 relative"
-              >
-                <TextInput
-                  ref={inputRef}
-                  value={verificationCode}
-                  onChangeText={(val) => {
-                    setVerificationCode(val);
-                    if (val.length === 6) {
-                      handleVerifyCode(val);
-                    }
+              <View className="items-center mb-2">
+                <View className="w-10 h-1 rounded-full bg-gray-200" />
+              </View>
+
+              <View className="flex-row justify-between w-full mb-2">
+                <Pressable
+                  onPress={closeVerificationModal}
+                  disabled={verifying || verifySuccess}
+                  className="w-10 h-10 bg-gray-100 rounded-full items-center justify-center"
+                  style={(verifying || verifySuccess) && { opacity: 0.4 }}
+                >
+                  <ChevronLeft size={22} color="#6b7280" />
+                </Pressable>
+                <Pressable
+                  onPress={closeVerificationModal}
+                  disabled={verifying || verifySuccess}
+                  className="w-10 h-10 bg-gray-100 rounded-full items-center justify-center"
+                  style={(verifying || verifySuccess) && { opacity: 0.4 }}
+                >
+                  <Text className="text-gray-500 text-2xl leading-none mb-0.5">
+                    ×
+                  </Text>
+                </Pressable>
+              </View>
+
+              <View className="items-center mb-5">
+                <View
+                  className="w-16 h-16 rounded-full items-center justify-center mb-4"
+                  style={{
+                    backgroundColor: verifySuccess ? "#dcfce7" : AUTH_PRIMARY,
+                    marginTop: -4,
                   }}
-                  maxLength={6}
-                  keyboardType="number-pad"
-                  className="absolute w-full h-full z-10"
-                  style={{ opacity: 0.01 }}
-                  editable={!verifying && !verifySuccess}
-                  caretHidden={true}
-                />
-                {[0, 1, 2, 3, 4, 5].map((index) => {
-                  const filled = index < verificationCode.length;
-                  const isActive = verificationCode.length === index && !verifying && !verifySuccess;
-                  return (
-                    <View
-                      key={index}
-                      className="w-11 h-14 rounded-xl items-center justify-center bg-white"
+                >
+                  {verifySuccess ? (
+                    <Check size={28} color="#16a34a" />
+                  ) : (
+                    <Mail size={28} color="white" />
+                  )}
+                </View>
+                <Text className="text-xl font-bold text-gray-900 mb-2 text-center">
+                  {verifySuccess ? "Verified!" : "Verify your account"}
+                </Text>
+                {!verifySuccess && (
+                  <Text className="text-gray-500 text-center text-sm leading-relaxed px-2">
+                    Please enter the 6-digit verification code we sent to{" "}
+                    <Text className="font-bold text-gray-800">{email}</Text> to
+                    proceed securely.
+                  </Text>
+                )}
+              </View>
+
+              <Animated.View
+                style={{
+                  transform: [
+                    {
+                      translateX: shakeAnim.interpolate({
+                        inputRange: [-1, 0, 1],
+                        outputRange: [-10, 0, 10],
+                      }),
+                    },
+                  ],
+                }}
+              >
+                <Pressable
+                  onPress={() =>
+                    !verifying && !verifySuccess && inputRef.current?.focus()
+                  }
+                  className="flex-row justify-center mb-2 gap-x-2 relative"
+                >
+                  <TextInput
+                    ref={inputRef}
+                    value={verificationCode}
+                    onChangeText={(val) => {
+                      setVerificationCode(val);
+                      if (val.length === 6) {
+                        handleVerifyCode(val);
+                      }
+                    }}
+                    maxLength={6}
+                    keyboardType="number-pad"
+                    className="absolute w-full h-full z-10"
+                    style={{ opacity: 0.01 }}
+                    editable={!verifying && !verifySuccess}
+                    caretHidden={true}
+                  />
+                  {[0, 1, 2, 3, 4, 5].map((index) => {
+                    const filled = index < verificationCode.length;
+                    const isActive =
+                      verificationCode.length === index &&
+                      !verifying &&
+                      !verifySuccess;
+                    return (
+                      <View
+                        key={index}
+                        className="w-11 h-14 rounded-xl items-center justify-center bg-white"
+                        style={{
+                          borderWidth: isActive ? 2 : 1,
+                          borderColor: verifySuccess
+                            ? "#16a34a"
+                            : errorText
+                              ? "#ef4444"
+                              : isActive || filled
+                                ? AUTH_PRIMARY
+                                : "#d1d5db",
+                          backgroundColor: verifySuccess ? "#f0fdf4" : "white",
+                          opacity: verifying ? 0.5 : 1,
+                        }}
+                      >
+                        {verifySuccess ? (
+                          index === 5 && (
+                            <Animated.View
+                              style={{
+                                opacity: successAnim,
+                                transform: [{ scale: successAnim }],
+                              }}
+                            >
+                              <Check size={18} color="#16a34a" />
+                            </Animated.View>
+                          )
+                        ) : (
+                          <Text className="text-2xl font-bold text-gray-900">
+                            {verificationCode[index] || ""}
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })}
+                </Pressable>
+              </Animated.View>
+
+              {verifying && (
+                <View className="flex-row items-center justify-center mb-4 mt-1">
+                  <ActivityIndicator size="small" color={AUTH_PRIMARY} />
+                  <Text className="text-gray-500 text-xs font-medium ml-2">
+                    Verifying...
+                  </Text>
+                </View>
+              )}
+
+              {errorText && !verifySuccess ? (
+                <Text className="text-red-500 text-center mb-2 mt-2 font-medium text-sm">
+                  {errorText}
+                </Text>
+              ) : (
+                <View style={{ height: verifying ? 0 : 8 }} />
+              )}
+
+              {!verifySuccess && (
+                <View className="items-center pb-2 pt-3">
+                  <Text className="text-gray-500 text-sm">
+                    Didn&apos;t receive a code?{" "}
+                    <Text
+                      onPress={
+                        isSendingEmail || verifying
+                          ? undefined
+                          : handleEmailSubmit
+                      }
+                      className="font-semibold"
                       style={{
-                        borderWidth: isActive ? 2 : 1,
-                        borderColor: verifySuccess
-                          ? "#16a34a"
-                          : errorText
-                          ? "#ef4444"
-                          : isActive
-                          ? "#26a6a2"
-                          : filled
-                          ? "#26a6a2"
-                          : "#d1d5db",
-                        backgroundColor: verifySuccess ? "#f0fdf4" : "white",
-                        opacity: verifying ? 0.5 : 1,
+                        color:
+                          isSendingEmail || verifying
+                            ? "#9ca3af"
+                            : AUTH_PRIMARY,
                       }}
                     >
-                      {verifySuccess ? (
-                        index === 5 && (
-                          <Animated.View
-                            style={{
-                              opacity: successAnim,
-                              transform: [{ scale: successAnim }],
-                            }}
-                          >
-                            <Check size={18} color="#16a34a" />
-                          </Animated.View>
-                        )
-                      ) : (
-                        <Text className="text-2xl font-bold text-gray-900">
-                          {verificationCode[index] || ""}
-                        </Text>
-                      )}
-                    </View>
-                  );
-                })}
-              </Pressable>
-            </Animated.View>
-
-            {/* Inline verifying indicator */}
-            {verifying && (
-              <View className="flex-row items-center justify-center mb-4 mt-1">
-                <ActivityIndicator size="small" color="#26a6a2" />
-                <Text className="text-gray-500 text-xs font-medium ml-2">Verifying...</Text>
-              </View>
-            )}
-
-            {/* Error Message */}
-            {errorText && !verifySuccess ? (
-              <Text className="text-red-500 text-center mb-2 mt-2 font-medium text-sm">
-                {errorText}
-              </Text>
-            ) : (
-              <View style={{ height: verifying ? 0 : 8 }} />
-            )}
-
-            {/* Resend Link */}
-            {!verifySuccess && (
-              <View className="items-center pb-2 pt-2">
-                <Text className="text-gray-500 text-sm">
-                  Didn't get an email?{" "}
-                  <Text
-                    onPress={
-                      isSendingEmail || verifying ? undefined : handleEmailSubmit
-                    }
-                    className="font-medium"
-                    style={{
-                      color: isSendingEmail || verifying ? "#9ca3af" : "#26a6a2",
-                    }}
-                  >
-                    {isSendingEmail ? "Sending..." : "Resend code"}
+                      {isSendingEmail ? "Sending..." : "Resend Now"}
+                    </Text>
                   </Text>
-                </Text>
-              </View>
-            )}
-          </View>
-        </KeyboardAvoidingView>
+                </View>
+              )}
+            </View>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
     </View>
   );

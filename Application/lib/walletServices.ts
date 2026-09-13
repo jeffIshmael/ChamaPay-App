@@ -45,7 +45,65 @@ interface TransactionsResponse {
   hasMore: boolean;
 }
 
+const descOf = (tx: { description?: string }) => tx.description ?? "";
+
+/** Moonwell / Save & Earn activity (wallet deposit, M-Pesa deposit, or withdraw). */
+export const isMoonwellTx = (tx: {
+  description?: string;
+  rawReceiver?: string;
+  rawSender?: string;
+}): boolean => {
+  const d = descOf(tx);
+  return (
+    d.includes("Moonwell") ||
+    tx.rawReceiver === "Moonwell" ||
+    tx.rawSender === "Moonwell"
+  );
+};
+
+export const isMoonwellWithdrawal = (tx: {
+  description?: string;
+  rawSender?: string;
+  type?: string;
+}): boolean => {
+  const d = descOf(tx).toLowerCase();
+  if (d.includes("withdraw")) return true;
+  if (tx.rawSender === "Moonwell") return true;
+  return tx.type === "withdrew" && isMoonwellTx(tx as Transaction);
+};
+
+export const getMoonwellActivityTitle = (tx: {
+  description?: string;
+  rawReceiver?: string;
+  rawSender?: string;
+  type?: string;
+}): string =>
+  isMoonwellWithdrawal(tx) ? "Save & Earn withdraw" : "Save & Earn deposit";
+
+export const getMoonwellActivitySubtitle = (tx: {
+  description?: string;
+  isPretiumTx?: boolean;
+  rawReceiver?: string;
+  rawSender?: string;
+  type?: string;
+}): string => {
+  if (isMoonwellWithdrawal(tx)) return "From Moonwell to wallet";
+  if (tx.isPretiumTx || descOf(tx).includes("M-Pesa")) {
+    return "From M-Pesa to Moonwell";
+  }
+  return "From wallet to Moonwell";
+};
+
 const transformApiTransaction = (tx: ApiTransaction): Transaction => {
+  const description = tx.description ?? "";
+  const isMwDeposit =
+    description === "Moonwell Deposit" ||
+    description.startsWith("Moonwell Deposit");
+  const isMwWithdraw =
+    description === "Moonwell Withdrawal" ||
+    (description.includes("Moonwell") &&
+      description.toLowerCase().includes("withdraw"));
+
   if (tx.source === "payout") {
     return {
       id: tx.id,
@@ -65,13 +123,22 @@ const transformApiTransaction = (tx: ApiTransaction): Transaction => {
   }
 
   if (tx.source === "pretium") {
+    const moonwellOnramp = isMwDeposit || description.includes("Moonwell");
     return {
       id: tx.id,
       type: tx.isOnramp ? "deposited" : "withdrew",
       token: "USDC",
       amount: tx.amount,
-      recipient: tx.isOnramp ? "you" : tx.shortcode,
-      sender: tx.isOnramp ? tx.shortcode : "You",
+      recipient: moonwellOnramp && tx.isOnramp
+        ? "Moonwell"
+        : tx.isOnramp
+          ? "you"
+          : tx.shortcode,
+      sender: moonwellOnramp && tx.isOnramp
+        ? tx.shortcode || "M-Pesa"
+        : tx.isOnramp
+          ? tx.shortcode
+          : "You",
       hash: tx.txHash || "N/A",
       date: tx.doneAt,
       status: "completed",
@@ -79,8 +146,46 @@ const transformApiTransaction = (tx: ApiTransaction): Transaction => {
       receiptNumber: tx.receiptNumber || undefined,
       fiatAmount: tx.fiatAmount,
       description: tx.description,
-      rawReceiver: tx.receiver,
+      rawReceiver: tx.receiver ?? (moonwellOnramp ? "Moonwell" : undefined),
       rawSender: tx.sender,
+    };
+  }
+
+  // Wallet → Moonwell supply
+  if (isMwDeposit) {
+    return {
+      id: tx.id,
+      type: "deposited",
+      token: "USDC",
+      amount: tx.amount,
+      recipient: "Moonwell",
+      sender: "You",
+      hash: tx.txHash,
+      date: tx.doneAt,
+      status: "completed",
+      isPretiumTx: false,
+      description: tx.description,
+      rawReceiver: tx.receiver ?? "Moonwell",
+      rawSender: tx.sender,
+    };
+  }
+
+  // Moonwell → wallet withdraw
+  if (isMwWithdraw) {
+    return {
+      id: tx.id,
+      type: "withdrew",
+      token: "USDC",
+      amount: tx.amount,
+      recipient: "You",
+      sender: "Moonwell",
+      hash: tx.txHash,
+      date: tx.doneAt,
+      status: "completed",
+      isPretiumTx: false,
+      description: tx.description,
+      rawReceiver: tx.receiver,
+      rawSender: tx.sender ?? "Moonwell",
     };
   }
 

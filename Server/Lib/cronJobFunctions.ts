@@ -38,88 +38,91 @@ export const checkStartDate = async () => {
   try {
     const firstPayoutChamas = await getFirstPayoutChamas();
 
-    if (firstPayoutChamas.length === 0) {
-      return;
-    }
+    let successfulCount = 0;
+    let failedCount = 0;
 
-    const results = await Promise.allSettled(
-      firstPayoutChamas.map(async (chama) => {
-        const members = chama.members;
-        const addresses = members.map((m) => m.user.smartAddress);
-        let payoutOrderData = chama.payOutOrder;
+    if (firstPayoutChamas.length > 0) {
+      const results = await Promise.allSettled(
+        firstPayoutChamas.map(async (chama) => {
+          const members = chama.members;
+          const addresses = members.map((m) => m.user.smartAddress);
+          let payoutOrderData = chama.payOutOrder;
 
-        if (!payoutOrderData) {
-          const shuffledPayoutOrder = shuffleArray(addresses);
-          console.log("shuffledPayoutOrder", shuffledPayoutOrder);
+          if (!payoutOrderData) {
+            const shuffledPayoutOrder = shuffleArray(addresses);
+            console.log("shuffledPayoutOrder", shuffledPayoutOrder);
 
-          const txHash = await pimlicoSetPayoutOrder(
-            Number(chama.blockchainId),
-            shuffledPayoutOrder
-          );
+            const txHash = await pimlicoSetPayoutOrder(
+              Number(chama.blockchainId),
+              shuffledPayoutOrder
+            );
 
-          if (!txHash) {
-            throw new Error("Failed to set payout order");
+            if (!txHash) {
+              throw new Error("Failed to set payout order");
+            }
+
+            const payoutOrder: PayoutOrder[] = shuffledPayoutOrder.map(
+              (address, index) => ({
+                userAddress: address,
+                payDate: new Date(
+                  chama.payDate.getTime() +
+                  chama.cycleTime * 24 * 60 * 60 * 1000 * index
+                ),
+                paid: false,
+                amount: "0",
+              })
+            );
+
+            payoutOrderData = JSON.stringify(payoutOrder);
+
+            await prisma.chama.update({
+              where: { id: chama.id },
+              data: { payOutOrder: payoutOrderData },
+            });
+
+            const firstAddress = payoutOrder[0];
+            const firstMember = chama.members.find((m: any) => m.user.smartAddress === firstAddress);
+            const firstName = firstMember ? firstMember.user.userName : "Someone";
+
+            await notifyAllChamaMembers(
+              chama.id,
+              `Great news! The payout order for ${chama.name} is officially set. ${firstName} is up first! 🚀`
+            );
+
+            await sendExpoNotificationToAllChamaMembers(
+              `Payout Order Ready! 🎉`,
+              `${firstName} will receive the first payout in ${chama.name} chama. Tap to view the full order!`,
+              chama.id,
+              firstMember?.user.id
+            );
+
+            await sendExpoNotificationToAUser(
+              firstMember?.user.id!,
+              `Payout Order Ready! 🎉`,
+              `You are the first in the payout order for ${chama.name} chama. Tap to view the full order!`,
+            )
           }
 
-          const payoutOrder: PayoutOrder[] = shuffledPayoutOrder.map(
-            (address, index) => ({
-              userAddress: address,
-              payDate: new Date(
-                chama.payDate.getTime() +
-                chama.cycleTime * 24 * 60 * 60 * 1000 * index
-              ),
-              paid: false,
-              amount: "0",
-            })
-          );
+          return { chamaId: chama.id, status: 'success' };
+        })
+      );
 
-          payoutOrderData = JSON.stringify(payoutOrder);
+      const successful = results.filter((r) => r.status === 'fulfilled');
+      const failed = results.filter((r) => r.status === 'rejected');
+      successfulCount = successful.length;
+      failedCount = failed.length;
 
-          await prisma.chama.update({
-            where: { id: chama.id },
-            data: { payOutOrder: payoutOrderData },
-          });
+      console.log(`✅ Successful: ${successful.length}`);
+      console.log(`❌ Failed: ${failed.length}`);
 
-          const firstAddress = payoutOrder[0];
-          const firstMember = chama.members.find((m: any) => m.user.smartAddress === firstAddress);
-          const firstName = firstMember ? firstMember.user.userName : "Someone";
-
-          await notifyAllChamaMembers(
-            chama.id,
-            `Great news! The payout order for ${chama.name} is officially set. ${firstName} is up first! 🚀`
-          );
-
-          await sendExpoNotificationToAllChamaMembers(
-            `Payout Order Ready! 🎉`,
-            `${firstName} will receive the first payout in ${chama.name} chama. Tap to view the full order!`,
-            chama.id,
-            firstMember?.user.id
-          );
-
-          await sendExpoNotificationToAUser(
-            firstMember?.user.id!,
-            `Payout Order Ready! 🎉`,
-            `You are the first in the payout order for ${chama.name} chama. Tap to view the full order!`,
-          )
+      failed.forEach((f, idx) => {
+        if (f.status === 'rejected') {
+          console.error(`Chama ${firstPayoutChamas[idx]?.id} failed:`, f.reason);
         }
+      });
+    }
 
-        return { chamaId: chama.id, status: 'success' };
-      })
-    );
-
-    const successful = results.filter((r) => r.status === 'fulfilled');
-    const failed = results.filter((r) => r.status === 'rejected');
-
-    console.log(`✅ Successful: ${successful.length}`);
-    console.log(`❌ Failed: ${failed.length}`);
-
-    failed.forEach((f, idx) => {
-      if (f.status === 'rejected') {
-        console.error(`Chama ${firstPayoutChamas[idx]?.id} failed:`, f.reason);
-      }
-    });
-
-    // Send one-time 3-day payout reminders
+    // Send one-time 3-day payout reminders (runs even when no first-payout chamas)
     const reminderChamas = await getChamasForThreeDayReminder();
     for (const chama of reminderChamas) {
       const reminderType = `payout_reminder_3days_c${chama.cycle}_r${chama.round}`;
@@ -129,23 +132,40 @@ export const checkStartDate = async () => {
 
       if (alreadySent) continue;
 
+      const payoutDateLabel = new Date(chama.payDate).toLocaleString("en-US", {
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+
       await notifyAllChamaMembers(
         chama.id,
-        `Reminder: The payout for ${chama.name} is in 3 days. Make sure you have contributed!`,
+        `Reminder: The payout for ${chama.name} is in 3 days (${payoutDateLabel}). Make sure you contribute before then!`,
         reminderType
       );
 
       await sendExpoNotificationToAllChamaMembers(
         `Payout Approaching ⌛`,
-        `Payout for ${chama.name} chama is in 3 days. Make sure you have contributed!`,
+        `Payout for ${chama.name} is on ${payoutDateLabel}. Contribute before then!`,
         chama.id
       );
 
-      const emails = chama.members.map((m: any) => m.user.email);
-      await emailService.sendBulkReminderEmails(emails, chama.name, 3);
+      const emails = chama.members
+        .map((m: any) => m.user?.email)
+        .filter((e: string | null | undefined): e is string => !!e);
+      await emailService.sendBulkReminderEmails(
+        emails,
+        chama.name,
+        3,
+        chama.payDate
+      );
     }
 
-    return { successful: successful.length, failed: failed.length };
+    return { successful: successfulCount, failed: failedCount };
 
   } catch (error) {
     console.error('Critical error in checkStartDate:', error);
@@ -291,9 +311,24 @@ async function processRefundPayout(chama: ChamaWithMembers) {
   const title = "Payout skipped — funds refunded";
   const message = `Cycle ${chama.cycle} Round ${chama.round} of the ${chama.name} chama didn't go through because some members didn't contribute. Your contribution has been refunded to your wallet.`;
 
+  const memberIds = chama.members.map((m) => m.userId);
+  const membersWithEmail = await prisma.user.findMany({
+    where: { id: { in: memberIds } },
+    select: { email: true },
+  });
+  const emails = membersWithEmail
+    .map((u) => u.email)
+    .filter((e): e is string => !!e);
+
   await Promise.allSettled([
-    notifyAllChamaMembers(chama.id, message),
+    notifyAllChamaMembers(chama.id, message, "payout_refunded"),
     sendExpoNotificationToAllChamaMembers(title, message, chama.id),
+    emailService.sendBulkRefundEmails(
+      emails,
+      chama.name,
+      chama.cycle,
+      chama.round
+    ),
   ]);
 }
 

@@ -548,10 +548,10 @@ const ChamaOverviewTab: FC<Props> = ({
               </View>
               <View className="flex-row justify-between items-center">
                 <Text className="text-sm font-medium text-gray-600">
-                  Payout In
+                  Payout date
                 </Text>
-                <Text className="text-base font-semibold text-gray-900">
-                  {formatTimeRemaining(nextPayoutDate as unknown as string)}
+                <Text className="text-base font-semibold text-gray-900 text-right flex-1 ml-3">
+                  {formatDate(nextPayoutDate as unknown as string)}
                 </Text>
               </View>
             </View>

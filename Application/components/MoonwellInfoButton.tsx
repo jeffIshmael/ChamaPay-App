@@ -185,10 +185,9 @@ export default function MoonwellInfoButton({
               bounces={false}
             >
               <Text className="text-gray-700 text-[15px] leading-6 mb-5">
-                Think of Moonwell like a community savings pot that other people
-                can borrow from. When you put money in moonwell through Chamapay, it is
-                supplied to that pot. Borrowers pay interest, and that interest
-                is what you earn.
+                Moonwell is a supply-and-borrow pool. When you put money in
+                through Chamapay, you supply it to that pool. Other people can
+                borrow it. The interest borrowers pay is what you earn.
               </Text>
 
               <View className="bg-slate-50 rounded-2xl border border-slate-100 p-4 mb-3">
@@ -198,13 +197,12 @@ export default function MoonwellInfoButton({
                   </View>
                   <View className="flex-1">
                     <Text className="text-gray-900 font-bold text-[15px] mb-1">
-                      What happens when you supply
+                      When you supply
                     </Text>
                     <Text className="text-gray-600 text-[14px] leading-5">
-                      Your deposit (KES or USDC) is converted and placed into the
-                      Moonwell USDC pool. It stays yours. Interest starts adding
-                      to your balance automatically. You do not need to do
-                      anything else.
+                      Your deposit (from M-Pesa or wallet; shown in KES if that
+                      is your currency) is placed in the Moonwell pool. It stays
+                      yours. Interest adds to your balance automatically.
                     </Text>
                   </View>
                 </View>
@@ -217,14 +215,14 @@ export default function MoonwellInfoButton({
                   </View>
                   <View className="flex-1">
                     <Text className="text-gray-900 font-bold text-[15px] mb-1">
-                      Taking money out
+                      When you withdraw
                     </Text>
                     <Text className="text-gray-600 text-[14px] leading-5">
-                      You can withdraw anytime when the pool has free money
-                      (liquidity). You get back what you put in, plus what you
-                      have earned. There is no lock-up. If the pool is fully
-                      borrowed, withdrawals pause until cash returns — your
-                      deposit stays safe and keeps earning.
+                      You can only take money out when the pool has free cash,
+                      meaning money that is not currently borrowed. There is no fixed
+                      lock-up, but if the pool is fully borrowed, withdrawals
+                      pause until cash returns. Your deposit stays safe and keeps
+                      earning in the meantime.
                     </Text>
                   </View>
                 </View>
@@ -243,18 +241,16 @@ export default function MoonwellInfoButton({
                       The APY you see
                       {apyLabel ? ` (right now about ${apyLabel})` : ""} is a
                       live market rate, not a fixed bank rate. When many people
-                      want to borrow, it can climb high (even past 100%). When
-                      demand cools, it can drop to a few percent. That number
-                      can change during the day, so treat it as a snapshot, not a
-                      promise.
+                      want to borrow, it can climb. When demand cools, it can
+                      drop. Treat it as a snapshot, not a promise.
                     </Text>
                   </View>
                 </View>
               </View>
 
               <Text className="text-gray-500 text-[12px] leading-4 mb-4 text-center px-2">
-                Earnings are paid by borrowers on Moonwell. Chamapay shows you
-                the live balance and rate.
+                Earnings come from borrowers on Moonwell. Chamapay shows your
+                live balance and the current rate.
               </Text>
 
               <TouchableOpacity

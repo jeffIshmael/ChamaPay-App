@@ -64,6 +64,17 @@ const MoonwellWithdrawModal = ({
   const { getKesValue } = useFormattedBalance();
 
   useEffect(() => {
+    if (visible) return;
+    setAmount("");
+    setIsMax(false);
+    setActivePreset(null);
+    setLockedUsdcAmount(null);
+    setError("");
+    setIsSuccess(false);
+    setSuccessData(null);
+  }, [visible]);
+
+  useEffect(() => {
     if (!visible) return;
 
     setLiveTotal(availableBalance);
@@ -311,7 +322,13 @@ const MoonwellWithdrawModal = ({
       }}
     >
       <View className="flex-1 justify-end bg-black/50">
-        <TouchableOpacity className="absolute inset-0" onPress={onClose} />
+        <TouchableOpacity
+          className="absolute inset-0"
+          onPress={() => {
+            resetState();
+            onClose();
+          }}
+        />
         <View className="bg-white rounded-t-[30px] p-4 pb-8">
           {isSuccess ? (
             <View className="items-center py-8">
@@ -381,16 +398,27 @@ const MoonwellWithdrawModal = ({
               {marketLiquidityUsd != null && marketLiquidityUsd <= 0 ? (
                 <View className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200">
                   <Text className="text-amber-800 text-xs leading-5">
-                    Withdrawals are paused because the Moonwell pool has no free
-                    cash right now. You can withdraw anytime when the pool has
-                    money again. Your deposit is still safe and earning.
+                    Withdrawals are paused. Borrowers are using the pool’s cash
+                    right now. Your money is still safe and earning
+                    {currency === "KES" ? " (shown in KES)" : ""}. Try again when
+                    free cash returns.
+                  </Text>
+                </View>
+              ) : marketLiquidityUsd != null &&
+                liveTotal > 0 &&
+                marketLiquidityUsd + 1e-9 < liveTotal ? (
+                <View className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                  <Text className="text-amber-800 text-xs leading-5">
+                    Limited free cash in the pool right now. A full withdrawal
+                    may fail. Try a smaller amount, or wait until more cash is
+                    free. Your balance stays yours and keeps earning.
                   </Text>
                 </View>
               ) : marketLiquidityUsd != null && marketLiquidityUsd > 0 ? (
                 <View className="mb-4 p-3 rounded-lg bg-emerald-50 border border-emerald-100">
                   <Text className="text-emerald-800 text-xs leading-5">
-                    Withdraw available. You can take out your money anytime while
-                    the pool has free liquidity.
+                    The pool has enough free cash for your balance right now. You
+                    can withdraw to your wallet.
                   </Text>
                 </View>
               ) : null}

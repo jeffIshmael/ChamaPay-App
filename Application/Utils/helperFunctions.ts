@@ -24,12 +24,20 @@ export const formatTimeRemaining = (targetDate: string | Date): string => {
     if (hours === 0) {
       return `${minutes} min${minutes !== 1 ? "s" : ""}`;
     }
+    if (minutes === 0) {
+      return `${hours} hr${hours !== 1 ? "s" : ""}`;
+    }
     return `${hours} hr${hours !== 1 ? "s" : ""} ${minutes} min${minutes !== 1 ? "s" : ""}`;
   }
 
-  // Less than a week - show days
+  // Less than a week - show days and leftover hours (e.g. "1 day 3 hrs")
   if (diffDays < 7) {
-    return `${diffDays} dy${diffDays !== 1 ? "s" : ""}`;
+    const hours = diffHours % 24;
+    const dayLabel = `${diffDays} day${diffDays !== 1 ? "s" : ""}`;
+    if (hours === 0) {
+      return dayLabel;
+    }
+    return `${dayLabel} ${hours} hr${hours !== 1 ? "s" : ""}`;
   }
 
   // Less than a month - show weeks and days

@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Copy,
   Edit,
+  ExternalLink,
   FileText,
   Fingerprint,
   Info,
@@ -680,7 +681,7 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
                     </Text>
                   </View>
                 </View>
-                <ChevronRight size={20} color="#9ca3af" />
+                <ExternalLink size={18} color="#9ca3af" />
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -690,7 +691,7 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
                 <View className="flex-row items-center gap-3">
                   <View className="w-10 h-10 rounded-lg items-center justify-center overflow-hidden bg-black">
                     <Image
-                      source={require("@/assets/images/x_logo.jpeg")}
+                      source={require("@/assets/images/x_logo.jpg")}
                       style={{ width: 40, height: 40 }}
                       resizeMode="cover"
                     />
@@ -704,7 +705,7 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
                     </Text>
                   </View>
                 </View>
-                <ChevronRight size={20} color="#9ca3af" />
+                <ExternalLink size={18} color="#9ca3af" />
               </TouchableOpacity>
 
               <TouchableOpacity 

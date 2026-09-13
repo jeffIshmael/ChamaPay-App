@@ -301,16 +301,20 @@ export default function MoonwellDetailsScreen() {
           <View className=" ml-2 ">
             <View className="flex-row items-center mb-3">
               <View className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-3" />
-              <Text className="text-gray-700 font-medium text-sm flex-1">Deposit directly from your account {isKES && "or M-pesa"}.</Text>
+              <Text className="text-gray-700 font-medium text-sm flex-1">
+                Supply from your wallet{isKES ? " or M-Pesa (shown in KES)" : ""}. Your money goes into a shared lending pool.
+              </Text>
             </View>
             <View className="flex-row items-center mb-3">
               <View className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-3" />
-              <Text className="text-gray-700 font-medium text-sm flex-1">Earn variable interest.</Text>
+              <Text className="text-gray-700 font-medium text-sm flex-1">
+                Others can borrow from that pool. The interest they pay is what you earn. The rate moves with demand.
+              </Text>
             </View>
             <View className="flex-row items-center">
               <View className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-3" />
               <Text className="text-gray-700 font-medium text-sm flex-1">
-                Withdraw anytime when the pool has free money (liquidity). Your deposit stays yours either way.
+                Withdraw only when the pool has free cash. If cash is borrowed, your balance stays yours and keeps earning. Try again later.
               </Text>
             </View>
           </View>
@@ -341,7 +345,7 @@ export default function MoonwellDetailsScreen() {
             {isLoading ? (
               <View className="bg-white rounded-2xl p-6 items-center justify-center shadow-sm border border-gray-100 mb-6">
                 <LottieLoader
-                  source="history"
+                  source="wallet"
                   label="Loading history..."
                   size={140}
                 />
@@ -366,15 +370,27 @@ export default function MoonwellDetailsScreen() {
                         </View>
                       );
                     } else {
+                      const desc = String(item.description || '');
+                      const isWithdrawal =
+                        desc.toLowerCase().includes('withdraw') ||
+                        item.rawSender === 'Moonwell';
+                      const absAmount = Math.abs(Number(item.amount) || 0);
+                      const sign = isWithdrawal ? '-' : '+';
+                      const amountColor = isWithdrawal
+                        ? 'text-red-600'
+                        : 'text-emerald-600';
+
                       return (
                         <View key={`tx-${itemIdx}`} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-3 flex-row justify-between items-center">
-                          <View>
-                            <Text className="text-gray-900 font-bold mb-1">{item.description || 'Deposit'}</Text>
+                          <View className="flex-1 pr-3">
+                            <Text className="text-gray-900 font-bold mb-1">
+                              {desc || (isWithdrawal ? 'Withdrawal' : 'Deposit')}
+                            </Text>
                             <Text className="text-gray-500 text-xs">{item.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</Text>
                           </View>
                           <View className="items-end">
-                            <Text style={{ fontFamily: monoFont }} className="text-emerald-600 font-bold text-base">
-                              {Number(item.amount) > 0 ? '+' : ''}{displayAmount(Number(item.amount))} {isKES ? 'KES' : 'USDC'}
+                            <Text style={{ fontFamily: monoFont }} className={`${amountColor} font-bold text-base`}>
+                              {sign}{displayAmount(absAmount)} {isKES ? 'KES' : 'USDC'}
                             </Text>
                           </View>
                         </View>
