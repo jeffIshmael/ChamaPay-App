@@ -15,12 +15,24 @@ Chamapay uses **Didit** for in-app ID + selfie/liveness (no browser redirect).
 ## Server env (`Server/.env`)
 
 ```bash
+DIDIT_API_KEY=           # from your LIVE Didit application
+DIDIT_WORKFLOW_ID=       # published KYC workflow on that same live app
+DIDIT_WEBHOOK_SECRET=    # live webhook destination secret
+DIDIT_SANDBOX=false      # live verifications (no sandbox_scenario)
+# DIDIT_DEFAULT_ID_COUNTRY=KEN
+# DIDIT_LOCAL_MOCK=true  # offline only — skips Didit API (not for production)
+```
+
+Live and sandbox are **separate applications** in Didit Console. For production scanning, use the live app’s API key, workflow ID, and webhook secret, and keep `DIDIT_SANDBOX=false`.
+
+For local testing only:
+
+```bash
 DIDIT_API_KEY=           # from your SANDBOX application
-DIDIT_WORKFLOW_ID=       # published KYC workflow on that same sandbox app
-DIDIT_WEBHOOK_SECRET=    # sandbox webhook destination secret
+DIDIT_WORKFLOW_ID=       # sandbox workflow
+DIDIT_WEBHOOK_SECRET=    # sandbox webhook secret
 DIDIT_SANDBOX=true       # arms sandbox_scenario on session create (default: approve)
 # DIDIT_SANDBOX_SCENARIO=approve
-# DIDIT_LOCAL_MOCK=true  # offline only — skips Didit API (not Console sandbox)
 ```
 
 With `DIDIT_SANDBOX=true` and sandbox keys filled in, the server calls Didit’s real sandbox API and passes `sandbox_scenario` (default **`approve`**). Tier upgrades still come from the **webhook** (`environment: "sandbox"`). Do not use `/kyc/sandbox/approve` for Console sandbox — that route is only for `DIDIT_LOCAL_MOCK`.
