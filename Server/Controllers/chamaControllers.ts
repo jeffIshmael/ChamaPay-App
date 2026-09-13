@@ -477,6 +477,8 @@ export const depositToChama = async (req: Request, res: Response) => {
     let targetUserId = userId;
     let description = `deposited`;
     let memberForAddress: string | null = null;
+    let targetUserName: string | null = null;
+    let callerUserName: string | null = null;
 
     if (memberForId) {
       const targetMember = await prisma.chamaMember.findFirst({
@@ -501,7 +503,9 @@ export const depositToChama = async (req: Request, res: Response) => {
       }
 
       targetUserId = memberForId;
-      description = `Deposited by @${callerUser?.userName || "Unknown"} on behalf of @${targetUser.userName}`;
+      targetUserName = targetUser.userName;
+      callerUserName = callerUser?.userName || "Unknown";
+      description = `Deposited by @${callerUserName} on behalf of @${targetUserName}`;
       memberForAddress = targetUser.smartAddress;
     }
 
@@ -522,25 +526,38 @@ export const depositToChama = async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, error: "Failed to deposit for chama." });
     }
 
-    // Record the payment in the database
+    // Record against the payer's wallet (money left their account).
     await prisma.payment.create({
       data: {
         amount: amount,
-        description: description,
+        description: memberForId
+          ? `Deposited for @${targetUserName || "member"}`
+          : description,
         txHash: depositTxHash,
         chamaId: parseInt(chamaId),
-        userId: targetUserId,
+        userId: userId,
       },
     });
 
+    // If paying on behalf, also keep a beneficiary bookkeeping row
+    // (excluded from wallet recent activity — money never left their wallet).
     if (memberForId) {
+      await prisma.payment.create({
+        data: {
+          amount: amount,
+          description,
+          txHash: depositTxHash,
+          chamaId: parseInt(chamaId),
+          userId: targetUserId,
+        },
+      });
+
       const targetUser = await prisma.user.findUnique({ where: { id: memberForId } });
       if (targetUser && targetUser.emailNotify) {
-        const callerUser = await prisma.user.findUnique({ where: { id: userId } });
         const amountKES = targetUser.location === "KE" ? (parseFloat(amount) * parseFloat(process.env.CHAMAPAY_RATE || "132")).toFixed(2) : null;
         await emailService.sendPaidForSomeoneEmail(
           targetUser.email,
-          callerUser?.userName || "Someone",
+          callerUserName || "Someone",
           amount.toString(),
           amountKES,
           chama.name
