@@ -34,12 +34,25 @@ if (!pretiumApiKey || !settlementAddress || !serverUrl) {
   throw new Error("Pretium api key or settlement address not set.");
 }
 
+/** Pretium pay can take >10s; avoid dropping the HTTP response mid-flight. */
+const PRETIUM_PAY_TIMEOUT_MS = 60_000;
+
 function formatPretiumPhone(phone: string): string {
   let cleaned = phone.replace(/\D/g, '');
   if (cleaned.startsWith('254') && cleaned.length === 12) {
     cleaned = '0' + cleaned.substring(3);
   }
   return cleaned;
+}
+
+function logAxiosError(context: string, error: unknown) {
+  if (axios.isAxiosError(error)) {
+    console.error(`[Pretium ${context}] API Error:`, error.response?.data ?? error.message);
+    console.error(`[Pretium ${context}] Status:`, error.response?.status);
+    console.error(`[Pretium ${context}] Code:`, error.code);
+  } else {
+    console.error(`[Pretium ${context}] Error:`, error);
+  }
 }
 
 
@@ -122,7 +135,8 @@ export async function pretiumOfframp(
   phoneNumber: string,
   amount: number,
   kesFee: number,
-  transactionHash: string
+  transactionHash: string,
+  mobileNetwork: string = "Safaricom"
 ): Promise<OfframpResult | null> {
   try {
     const response = await axios.post(
@@ -132,7 +146,7 @@ export async function pretiumOfframp(
         shortcode: formatPretiumPhone(phoneNumber),
         amount: amount,
         fee: kesFee,
-        mobile_network: "Safaricom",
+        mobile_network: mobileNetwork,
         chain: "BASE",
         transaction_hash: transactionHash,
         callback_url: `${serverUrl}/pretium/offrampCallback`,
@@ -142,21 +156,16 @@ export async function pretiumOfframp(
           "x-api-key": pretiumApiKey,
           "Content-Type": "application/json",
         },
+        timeout: PRETIUM_PAY_TIMEOUT_MS,
       }
     );
-    if (response.statusText !== "OK") {
+    if (response.status < 200 || response.status >= 300) {
       throw new Error("The request to offramp did not succeed.");
     }
-    return response.data.data;
+    return response.data?.data ?? null;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("API Error:", error.response?.data);
-      console.error("Status:", error.response?.status);
-      return null;
-    } else {
-      console.error("Error:", error);
-      return null;
-    }
+    logAxiosError("offramp", error);
+    return null;
   }
 }
 
@@ -195,8 +204,23 @@ export async function verifyPhoneNo(
   }
 }
 
+export type PretiumStatusDetails = {
+  transaction_code?: string;
+  status?: string;
+  amount?: string | number;
+  amount_in_usd?: string | number;
+  shortcode?: string | null;
+  receipt_number?: string | null;
+  transaction_hash?: string | null;
+  message?: string | null;
+  public_name?: string | null;
+  type?: string | null;
+};
+
 // function to check status of a transaction
-export async function checkPretiumTxStatus(transactionCode: string) {
+export async function checkPretiumTxStatus(
+  transactionCode: string
+): Promise<PretiumStatusDetails | null> {
   try {
     const response = await axios.post(
       "https://api.xwift.africa/v1/status/KES",
@@ -208,21 +232,16 @@ export async function checkPretiumTxStatus(transactionCode: string) {
           "x-api-key": pretiumApiKey,
           "Content-Type": "application/json",
         },
+        timeout: 30_000,
       }
     );
-    if (response.statusText !== "OK" || response.data.code !== 200) {
+    if (response.status < 200 || response.status >= 300 || response.data.code !== 200) {
       throw new Error("The request to check tx status did not succeed.");
     }
     return response.data.data;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("API Error:", error.response?.data);
-      console.error("Status:", error.response?.status);
-      return null;
-    } else {
-      console.error("Error:", error);
-      return null;
-    }
+    logAxiosError("status", error);
+    return null;
   }
 }
 

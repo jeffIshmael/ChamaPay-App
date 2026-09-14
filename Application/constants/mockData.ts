@@ -29,7 +29,7 @@ export interface PayoutScheduleItem {
 export interface Transaction {
   id: number | string;
   type: string;
-  amount: number;
+  amount: number | null;
   date: string;
   status: string;
   description: string;

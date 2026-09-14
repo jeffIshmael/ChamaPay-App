@@ -505,27 +505,78 @@ export const transformChamaData = (
       })) || [],
 
     recentTransactions: [
-      ...(backendChama.payments?.map((payment) => ({
-        id: `payment-${payment.id}`,
-        amount: payment.amount,
-        type: payment.description?.toLowerCase().includes("on behalf of")
-          ? "deposit_on_behalf"
-          : payment.description?.toLowerCase().includes("deposit") || payment.description?.toLowerCase().includes("locked")
-          ? "contribution"
-          : "withdrawal",
-        date: payment.doneAt,
-        status: "completed",
-        description: payment.description || "Contribution",
-        txHash: payment.txHash,
-        userId: payment.userId,
-        user: {
-          id: payment.user.id,
-          name: payment.user.userName,
-          email: payment.user.email,
-          profileImageUrl: payment.user.profileImageUrl,
-          address: payment.user.smartAddress,
-        },
-      })) || []),
+      ...(() => {
+        const payments = backendChama.payments || [];
+        // Pay-on-behalf writes two rows (payer + beneficiary). Show one chama feed
+        // entry attributed to the payer ("Deposited for @X" → You / @payer).
+        const byTxHash = new Map<string, any[]>();
+        const noHash: any[] = [];
+        for (const payment of payments) {
+          const hash = payment.txHash ? String(payment.txHash) : "";
+          if (!hash) {
+            noHash.push(payment);
+            continue;
+          }
+          const list = byTxHash.get(hash) || [];
+          list.push(payment);
+          byTxHash.set(hash, list);
+        }
+
+        const preferPayerRow = (rows: any[]) => {
+          if (rows.length === 1) return rows[0];
+          const depositedFor = rows.find((p) =>
+            String(p.description || "")
+              .toLowerCase()
+              .includes("deposited for @")
+          );
+          if (depositedFor) return depositedFor;
+          const notOnBehalf = rows.find(
+            (p) =>
+              !String(p.description || "")
+                .toLowerCase()
+                .includes("on behalf of")
+          );
+          return notOnBehalf || rows[0];
+        };
+
+        const dedupedPayments = [
+          ...Array.from(byTxHash.values()).map(preferPayerRow),
+          ...noHash.filter(
+            (p) =>
+              !String(p.description || "")
+                .toLowerCase()
+                .includes("on behalf of")
+          ),
+        ];
+
+        const isOnBehalfDescription = (description?: string | null) => {
+          const d = String(description || "").toLowerCase();
+          return d.includes("on behalf of") || d.includes("deposited for @");
+        };
+
+        return dedupedPayments.map((payment) => ({
+          id: `payment-${payment.id}`,
+          amount: payment.amount,
+          type: isOnBehalfDescription(payment.description)
+            ? "deposit_on_behalf"
+            : payment.description?.toLowerCase().includes("deposit") ||
+                payment.description?.toLowerCase().includes("locked")
+              ? "contribution"
+              : "withdrawal",
+          date: payment.doneAt,
+          status: "completed",
+          description: payment.description || "Contribution",
+          txHash: payment.txHash,
+          userId: payment.userId,
+          user: {
+            id: payment.user.id,
+            name: payment.user.userName,
+            email: payment.user.email,
+            profileImageUrl: payment.user.profileImageUrl,
+            address: payment.user.smartAddress,
+          },
+        }));
+      })(),
       ...(backendChama.payOuts?.map((payout: any) => ({
         id: `payout-${payout.id}`,
         amount: payout.amount,
@@ -549,7 +600,7 @@ export const transformChamaData = (
             ?.filter((o: any) => o.disburse === false)
             .map((outcome: any) => ({
               id: `refund-outcome-${outcome.id}`,
-              amount: backendChama.amount,
+              amount: null,
               type: "refund",
               date: outcome.createdAt,
               status: "completed",
@@ -578,7 +629,7 @@ export const transformChamaData = (
             )
             .map((refund: any) => ({
               id: `refund-${refund.id}`,
-              amount: backendChama.amount,
+              amount: null,
               type: "refund",
               date: refund.createdAt,
               status: "completed",

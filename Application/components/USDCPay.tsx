@@ -221,9 +221,11 @@ setError("Failed to process payment. Please try again.");
                       <Text className="text-sm font-bold text-amber-900">
                         {currency === "KES" ? `KSh ${(Math.ceil(remainingAmount * platformRate * 100) / 100).toFixed(2)}` : `${(Math.ceil(remainingAmount * 1000) / 1000).toFixed(3)} USDC`} remaining
                       </Text>
-                      <Text className="text-xs text-amber-700 mt-0.5">
-                        Required: {currency === "KES" ? `KSh ${(contributionAmount * platformRate).toFixed(2)}` : `${contributionAmount.toFixed(3)} USDC`}
-                      </Text>
+                      {!recipient ? (
+                        <Text className="text-xs text-amber-700 mt-0.5">
+                          Required: {currency === "KES" ? `KSh ${(contributionAmount * platformRate).toFixed(2)}` : `${contributionAmount.toFixed(3)} USDC`}
+                        </Text>
+                      ) : null}
                     </View>
                     <TouchableOpacity
                       onPress={fillRemainingAmount}

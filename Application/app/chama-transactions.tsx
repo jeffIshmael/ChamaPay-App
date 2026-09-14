@@ -4,10 +4,11 @@ import { useAuth } from "@/Contexts/AuthContext";
 import { useFormattedBalance } from "@/hooks/useFormattedBalance";
 import { getRelativeTime } from "@/Utils/helperFunctions";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, CornerUpRight, ExternalLink, Minus, Plus, Receipt, RotateCcw } from "lucide-react-native";
+import { ArrowLeft, Copy, CornerUpRight, ExternalLink, Minus, Plus, Receipt } from "lucide-react-native";
 import React, { useState } from "react";
-import { FlatList, Linking, Modal, Text, TouchableOpacity, View } from "react-native";
+import { Alert, FlatList, Linking, Modal, Platform, ScrollView, Text, ToastAndroid, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Clipboard from "expo-clipboard";
 
 export default function ChamaTransactions() {
     const router = useRouter();
@@ -40,8 +41,40 @@ export default function ChamaTransactions() {
 
     const handleViewOnChain = () => {
         if (selectedTransaction?.txHash) {
-            const url = `https://celoscan.io/tx/${selectedTransaction.txHash}`;
+            const url = `https://basescan.org/tx/${selectedTransaction.txHash}`;
             Linking.openURL(url);
+        }
+    };
+
+    const handleCopyTxHash = async () => {
+        if (!selectedTransaction?.txHash) return;
+        await Clipboard.setStringAsync(selectedTransaction.txHash);
+        if (Platform.OS === "android") {
+            ToastAndroid.show("Transaction hash copied", ToastAndroid.SHORT);
+        } else {
+            Alert.alert("Copied", "Transaction hash copied to clipboard");
+        }
+    };
+
+    const getTxTypeLabel = (tx: Transaction) => {
+        if (tx.type === "payout") return "Cycle & Round Payout";
+        if (tx.type === "refund") return "Payout Refunded";
+        if (tx.type === "deposit_on_behalf") return tx.description || "Paid on behalf";
+        return tx.description || "Transaction";
+    };
+
+    const getTxAccent = (type: string) => {
+        switch (type) {
+            case "payout":
+                return { bg: "bg-indigo-100", color: "#4f46e5" };
+            case "refund":
+                return { bg: "bg-amber-100", color: "#b45309" };
+            case "deposit_on_behalf":
+                return { bg: "bg-teal-100", color: "#0f766e" };
+            case "contribution":
+                return { bg: "bg-emerald-100", color: "#059669" };
+            default:
+                return { bg: "bg-orange-100", color: "#ea580c" };
         }
     };
 
@@ -114,6 +147,11 @@ export default function ChamaTransactions() {
                 </View>
 
                 <View className="items-end justify-center">
+                    {transaction.type === "refund" ? (
+                        <Text className="text-xs font-semibold text-amber-700 mb-1">
+                            Refunded
+                        </Text>
+                    ) : (
                     <Text
                         className={`text-sm font-bold flex-row items-center mb-1 ${
                             transaction.type === "contribution" ||
@@ -121,9 +159,7 @@ export default function ChamaTransactions() {
                                 ? "text-emerald-700"
                                 : transaction.type === "payout"
                                     ? "text-purple-700"
-                                    : transaction.type === "refund"
-                                        ? "text-amber-700"
-                                        : "text-orange-700"
+                                    : "text-orange-700"
                         }`}
                     >
                         {transaction.type === "contribution" ||
@@ -143,17 +179,12 @@ export default function ChamaTransactions() {
                                 color="#7c3aed"
                                 style={{ marginRight: 2 }}
                             />
-                        ) : transaction.type === "refund" ? (
-                            <RotateCcw
-                                size={12}
-                                color="#b45309"
-                                style={{ marginRight: 2 }}
-                            />
                         ) : (
                             <Minus size={12} color="#ea580c" style={{ marginRight: 2 }} />
                         )}
                         {formatBalance(transaction.amount || 0)}
                     </Text>
+                    )}
                     <Text className="text-xs text-gray-400">
                         {getRelativeTime(transaction.date)}
                     </Text>
@@ -210,104 +241,148 @@ export default function ChamaTransactions() {
                 animationType="slide"
                 onRequestClose={() => setShowTransactionModal(false)}
             >
-                <View className="flex-1 justify-end bg-black/50">
-                    <View className="bg-white rounded-t-3xl p-6 max-h-[80%]">
-                        <View className="w-10 h-1 bg-gray-300 rounded self-center mb-6" />
+                <View className="flex-1 justify-end bg-black/55">
+                    <View className="bg-white rounded-t-3xl overflow-hidden max-h-[85%]">
+                        <View className="items-center pt-3 pb-1 bg-emerald-50">
+                            <View className="w-10 h-1 rounded-full bg-emerald-200" />
+                        </View>
 
                         {selectedTransaction && (
                             <>
-                                <View className="items-center mb-6">
-                                    <View className="w-16 h-16 bg-emerald-50 rounded-full items-center justify-center mb-4">
-                                        <Receipt size={32} color="#059669" />
+                                <View
+                                    className="bg-emerald-50 px-5 pb-5 border-b border-emerald-100"
+                                    style={{ paddingTop: 12 }}
+                                >
+                                    <View className="items-center">
+                                        <View
+                                            className={`w-14 h-14 rounded-full items-center justify-center mb-3 ${
+                                                getTxAccent(selectedTransaction.type).bg
+                                            }`}
+                                        >
+                                            <Receipt
+                                                size={26}
+                                                color={getTxAccent(selectedTransaction.type).color}
+                                            />
+                                        </View>
+                                        <Text className="text-lg font-bold text-gray-900 text-center">
+                                            {getTxTypeLabel(selectedTransaction)}
+                                        </Text>
+                                        {selectedTransaction.type !== "refund" ? (
+                                            <Text className="text-2xl font-extrabold text-downy-700 mt-1">
+                                                {formatBalance(selectedTransaction.amount || 0)}
+                                            </Text>
+                                        ) : (
+                                            <View className="mt-2 px-3 py-1 rounded-full bg-amber-100">
+                                                <Text className="text-xs font-semibold text-amber-800">
+                                                    Refunded
+                                                </Text>
+                                            </View>
+                                        )}
+                                        <View className="mt-2 px-2.5 py-1 rounded-full bg-white border border-emerald-100">
+                                            <Text className="text-[11px] font-semibold text-emerald-700 capitalize">
+                                                {selectedTransaction.status || "completed"}
+                                            </Text>
+                                        </View>
                                     </View>
-                                    <Text className="text-xl font-bold text-gray-900 mb-2">
-                                        Transaction Details
-                                    </Text>
-                                    <Text className="text-sm text-gray-600 text-center px-4">
-                                        {selectedTransaction.description}
-                                    </Text>
                                 </View>
 
-                                <View className="space-y-4 mb-6">
-                                    <View className="bg-gray-50 rounded-xl p-4">
-                                        <Text className="text-sm text-gray-500 mb-1">Amount</Text>
-                                        <Text className="text-2xl font-bold text-gray-900 mt-2">
-                                            {formatBalance(selectedTransaction.amount || 0)}
-                                        </Text>
-                                    </View>
-
-                                    <View className="bg-gray-50 rounded-xl p-4">
-                                        <Text className="text-sm text-gray-500 mb-1">From</Text>
-                                        <Text className="text-base font-semibold text-gray-900">
-                                            {selectedTransaction.user.address === user?.smartAddress ? (
-                                                <Text className="font-semibold text-gray-900">You</Text>
+                                <ScrollView
+                                    className="px-5 pt-4"
+                                    showsVerticalScrollIndicator={false}
+                                    bounces={false}
+                                >
+                                    <View className="gap-3 mb-4">
+                                        <View className="bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3.5">
+                                            <Text className="text-xs font-semibold text-gray-500 mb-1">
+                                                {selectedTransaction.type === "refund" ? "Scope" : "From"}
+                                            </Text>
+                                            {selectedTransaction.type === "refund" ? (
+                                                <Text className="text-base font-semibold text-amber-800">
+                                                    Returned to all contributing members
+                                                </Text>
+                                            ) : selectedTransaction.user.address === user?.smartAddress ? (
+                                                <Text className="text-base font-semibold text-downy-700">
+                                                    You
+                                                </Text>
                                             ) : (
                                                 <ResolvedAddress
                                                     address={selectedTransaction.user.address}
                                                     showPrefix={false}
-                                                    textClassName="font-semibold text-gray-900"
+                                                    textClassName="text-base font-semibold text-gray-900"
                                                     fallback={selectedTransaction.user.name}
                                                 />
                                             )}
-                                        </Text>
+                                        </View>
+
+                                        <View className="bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3.5">
+                                            <Text className="text-xs font-semibold text-gray-500 mb-1">
+                                                Date & Time
+                                            </Text>
+                                            <Text className="text-base font-semibold text-gray-900">
+                                                {new Date(selectedTransaction.date).toLocaleDateString(
+                                                    "en-US",
+                                                    {
+                                                        weekday: "short",
+                                                        year: "numeric",
+                                                        month: "short",
+                                                        day: "numeric",
+                                                        hour: "2-digit",
+                                                        minute: "2-digit",
+                                                    }
+                                                )}
+                                            </Text>
+                                        </View>
+
+                                        {selectedTransaction.txHash ? (
+                                            <View className="bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3.5">
+                                                <Text className="text-xs font-semibold text-gray-500 mb-2">
+                                                    Transaction Hash
+                                                </Text>
+                                                <View className="flex-row items-center">
+                                                    <Text
+                                                        className="flex-1 text-xs text-gray-700 font-mono mr-2"
+                                                        numberOfLines={1}
+                                                        ellipsizeMode="middle"
+                                                    >
+                                                        {selectedTransaction.txHash}
+                                                    </Text>
+                                                    <TouchableOpacity
+                                                        onPress={handleCopyTxHash}
+                                                        className="w-9 h-9 rounded-xl bg-emerald-100 items-center justify-center"
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Copy size={16} color="#059669" />
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        ) : null}
                                     </View>
 
-                                    <View className="bg-gray-50 rounded-xl p-4">
-                                        <Text className="text-sm text-gray-500 mb-1">
-                                            Date & Time
-                                        </Text>
-                                        <Text className="text-base font-semibold text-gray-900">
-                                            {new Date(selectedTransaction.date).toLocaleDateString(
-                                                "en-US",
-                                                {
-                                                    weekday: "short",
-                                                    year: "numeric",
-                                                    month: "short",
-                                                    day: "numeric",
-                                                    hour: "2-digit",
-                                                    minute: "2-digit",
-                                                    hour12: false
-                                                }
-                                            )}
-                                        </Text>
-                                    </View>
+                                    <View className="gap-3 pb-8">
+                                        {selectedTransaction.txHash ? (
+                                            <TouchableOpacity
+                                                onPress={handleViewOnChain}
+                                                className="bg-downy-600 py-3.5 rounded-2xl flex-row items-center justify-center gap-2"
+                                                activeOpacity={0.8}
+                                            >
+                                                <ExternalLink size={18} color="white" />
+                                                <Text className="text-white font-semibold text-base">
+                                                    View on Basescan
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ) : null}
 
-                                    <View className="bg-gray-50 rounded-xl p-4">
-                                        <Text className="text-sm text-gray-500 mb-1">
-                                            Transaction Hash
-                                        </Text>
-                                        <Text
-                                            className="text-xs text-gray-700 font-mono"
-                                            numberOfLines={1}
-                                            ellipsizeMode="middle"
+                                        <TouchableOpacity
+                                            onPress={() => setShowTransactionModal(false)}
+                                            className="bg-gray-100 py-3.5 rounded-2xl border border-gray-200"
+                                            activeOpacity={0.8}
                                         >
-                                            {selectedTransaction.txHash}
-                                        </Text>
+                                            <Text className="text-gray-700 font-semibold text-base text-center">
+                                                Close
+                                            </Text>
+                                        </TouchableOpacity>
                                     </View>
-                                </View>
-
-                                <View className="gap-3">
-                                    <TouchableOpacity
-                                        onPress={handleViewOnChain}
-                                        className="bg-emerald-600 py-4 rounded-xl flex-row items-center justify-center gap-2"
-                                        activeOpacity={0.8}
-                                    >
-                                        <ExternalLink size={18} color="white" />
-                                        <Text className="text-white font-semibold text-base">
-                                            View on Chain
-                                        </Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        onPress={() => setShowTransactionModal(false)}
-                                        className="bg-gray-100 py-4 rounded-xl border border-gray-300"
-                                        activeOpacity={0.8}
-                                    >
-                                        <Text className="text-gray-700 font-semibold text-base text-center">
-                                            Close
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
+                                </ScrollView>
                             </>
                         )}
                     </View>
