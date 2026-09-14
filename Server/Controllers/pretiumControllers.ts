@@ -7,6 +7,7 @@ import { transferTx } from "../Blockchain/erc20Functions";
 import { bcMoonwellDeposit, bcDepositFundsToChama, bcDepositFundsForMember } from "../Blockchain/WriteFunction";
 import emailService from "../Lib/EmailService";
 import {
+  checkPretiumTxStatus,
   getQuote,
   pretiumOfframp,
   pretiumOnramp,
@@ -213,36 +214,62 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
         error: "Failed to send USDC to pretium settlement address",
       });
     }
-    // for the offramp, the fee will be charged from the crypto
-    const result = await pretiumOfframp(phoneNo, amount, kesFee, txHash);
-    console.log("the offramp pretium result", result);
-    if (!result) {
-      return res.status(400).json({
-        success: false,
-        error: result || "Failed to initiate pretium onramp.",
-      });
-    }
-    // Save onramp transaction to database
+
+    const pendingCode = `pending_${txHash}`;
     await prisma.pretiumTransaction.create({
       data: {
         userId,
-        transactionCode: result.transaction_code,
+        transactionCode: pendingCode,
         isOnramp: false,
+        pretiumType: "MOBILE",
         shortcode: phoneNo.toString(),
         amount: amount,
-        status: result.status,
+        status: "PENDING",
         isRealesed: false,
         cusdAmount: usdcAmount,
         exchangeRate: exchangeRate,
         walletAddress: user.smartAddress,
+        blockchainTxHash: txHash,
+        message: "Awaiting Pretium confirmation",
       },
     });
+
+    // for the offramp, the fee will be charged from the crypto
+    const result = await pretiumOfframp(phoneNo, amount, kesFee, txHash);
+    console.log("the offramp pretium result", result);
+
+    if (result?.transaction_code) {
+      await prisma.pretiumTransaction.update({
+        where: { transactionCode: pendingCode },
+        data: {
+          transactionCode: result.transaction_code,
+          status: result.status || "PENDING",
+          message: result.message,
+        },
+      });
+      return res.status(200).json({
+        success: true,
+        message: result.message,
+        status: result.status,
+        transactionCode: result.transaction_code,
+        result,
+      });
+    }
+
+    // USDC already sent; Pretium may still complete via callback. Keep PENDING row.
+    console.warn(
+      `Pretium offramp sync response missing for ${txHash}; leaving ${pendingCode} for callback reconcile`
+    );
     return res.status(200).json({
       success: true,
-      message: result.message,
-      status: result.status,
-      transactionCode: result.transaction_code,
-      result,
+      message: "Withdrawal submitted. Confirming with payment provider...",
+      status: "PENDING",
+      transactionCode: pendingCode,
+      result: {
+        transaction_code: pendingCode,
+        status: "PENDING",
+        message: "Awaiting Pretium confirmation",
+      },
     });
   } catch (error) {
     console.log("error in the offramping pretium", error);
@@ -526,6 +553,47 @@ export async function pretiumCallback(req: Request, res: Response) {
   }
 }
 
+async function findOfframpTransactionForCallback(body: {
+  transaction_code?: string;
+  transaction_hash?: string;
+}) {
+  if (!body.transaction_code) return null;
+
+  let transaction = await prisma.pretiumTransaction.findUnique({
+    where: { transactionCode: body.transaction_code },
+    include: { user: true },
+  });
+  if (transaction) return transaction;
+
+  // Sync response may have timed out; match the PENDING row by on-chain hash.
+  let txHash = body.transaction_hash;
+  if (!txHash) {
+    const details = await checkPretiumTxStatus(body.transaction_code);
+    txHash = details?.transaction_hash || undefined;
+  }
+  if (!txHash) return null;
+
+  transaction = await prisma.pretiumTransaction.findFirst({
+    where: {
+      isOnramp: false,
+      OR: [
+        { blockchainTxHash: txHash },
+        { transactionCode: `pending_${txHash}` },
+      ],
+    },
+    include: { user: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (transaction && transaction.transactionCode !== body.transaction_code) {
+    console.log(
+      `Reconciling pending offramp ${transaction.transactionCode} → ${body.transaction_code}`
+    );
+  }
+
+  return transaction;
+}
+
 // offramp callback
 export async function pretiumOfframpCallback(
   req: Request,
@@ -545,13 +613,7 @@ export async function pretiumOfframpCallback(
 
     console.log("The normal body", body);
 
-    // Find transaction
-    const transaction = await prisma.pretiumTransaction.findUnique({
-      where: {
-        transactionCode: body.transaction_code,
-      },
-      include: { user: true }
-    });
+    const transaction = await findOfframpTransactionForCallback(body);
 
     if (!transaction) {
       console.error(
@@ -562,7 +624,12 @@ export async function pretiumOfframpCallback(
     }
 
     // Prevent duplicate processing
-    if (transaction.status === "COMPLETE") {
+    if (
+      transaction.status === "COMPLETE" ||
+      transaction.status === "SUCCESS" ||
+      transaction.status === "SUCCESSFUL" ||
+      transaction.status === "COMPLETED"
+    ) {
       console.log(
         `⚠️ Offramp transaction already processed: ${body.transaction_code}`
       );
@@ -575,12 +642,13 @@ export async function pretiumOfframpCallback(
       body.status === "CANCELLED"
     ) {
       await prisma.pretiumTransaction.update({
-        where: {
-          transactionCode: body.transaction_code,
-        },
+        where: { id: transaction.id },
         data: {
+          transactionCode: body.transaction_code || transaction.transactionCode,
           status: body.status,
           message: body.message,
+          blockchainTxHash:
+            body.transaction_hash || transaction.blockchainTxHash,
         },
       });
 
@@ -600,14 +668,15 @@ export async function pretiumOfframpCallback(
       body.status === "COMPLETED"
     ) {
       await prisma.pretiumTransaction.update({
-        where: {
-          transactionCode: body.transaction_code,
-        },
+        where: { id: transaction.id },
         data: {
+          transactionCode: body.transaction_code || transaction.transactionCode,
           status: body.status,
           receiptNumber: body.receipt_number,
           message: body.message,
           isRealesed: true,
+          blockchainTxHash:
+            body.transaction_hash || transaction.blockchainTxHash,
         },
       });
 
@@ -629,7 +698,7 @@ export async function pretiumOfframpCallback(
           displayAmountUSDC,
           displayAmountKES,
           body.receipt_number,
-          transaction.account_number || "M-Pesa",
+          transaction.shortcode || transaction.account_number || "M-Pesa",
           timeStr
         );
       }
@@ -640,6 +709,30 @@ export async function pretiumOfframpCallback(
       error
     );
   }
+}
+
+async function findUserPretiumTxByCode(code: string, userId: number) {
+  const byCode = await prisma.pretiumTransaction.findUnique({
+    where: { transactionCode: code },
+  });
+  if (byCode && byCode.userId === userId) return byCode;
+
+  // After callback reconcile, pending_${txHash} is renamed to Pretium's UUID —
+  // still resolve via the embedded settlement hash so client polling works.
+  if (code.startsWith("pending_")) {
+    const hash = code.slice("pending_".length);
+    if (hash) {
+      return prisma.pretiumTransaction.findFirst({
+        where: {
+          userId,
+          isOnramp: false,
+          blockchainTxHash: hash,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    }
+  }
+  return null;
 }
 
 // checks the status of a tx from the database (no live Pretium API call)
@@ -654,11 +747,9 @@ export async function getPretiumDbStatus(req: Request, res: Response) {
       });
     }
 
-    const transaction = await prisma.pretiumTransaction.findUnique({
-      where: { transactionCode: code },
-    });
+    const transaction = await findUserPretiumTxByCode(code, userId);
 
-    if (!transaction || transaction.userId !== userId) {
+    if (!transaction) {
       return res.status(404).json({
         success: false,
         error: "Transaction not found",
@@ -697,11 +788,9 @@ export async function pretiumCheckTransaction(req: Request, res: Response) {
       });
     }
 
-    const transaction = await prisma.pretiumTransaction.findUnique({
-      where: { transactionCode },
-    });
+    const transaction = await findUserPretiumTxByCode(transactionCode, userId);
 
-    if (!transaction || transaction.userId !== userId) {
+    if (!transaction) {
       return res.status(404).json({
         success: false,
         error: "Transaction not found",
@@ -941,36 +1030,68 @@ export async function pretiumMobileTransfer(req: Request, res: Response) {
         error: "Failed to send USDC to pretium settlement address",
       });
     }
-    // for the offramp, the fee will be charged from the crypto
-    const result = await pretiumOfframp(shortCode, Number(amount), Number(amountFee), txHash);
-    console.log("the offramp pretium result", result);
-    if (!result) {
-      return res.status(400).json({
-        success: false,
-        error: result || "Failed to initiate pretium offramp.",
-      });
-    }
-    // Save offramp transaction to database
+
+    const pendingCode = `pending_${txHash}`;
     await prisma.pretiumTransaction.create({
       data: {
         userId,
-        transactionCode: result.transaction_code,
+        transactionCode: pendingCode,
         isOnramp: false,
+        pretiumType: "MOBILE",
         shortcode: shortCode,
         amount: amount,
-        status: result.status,
+        status: "PENDING",
         isRealesed: false,
         cusdAmount: usdcAmount,
         exchangeRate: exchangeRate,
         walletAddress: user.smartAddress,
+        blockchainTxHash: txHash,
+        message: "Awaiting Pretium confirmation",
       },
     });
+
+    // for the offramp, the fee will be charged from the crypto
+    const result = await pretiumOfframp(
+      shortCode,
+      Number(amount),
+      Number(amountFee),
+      txHash,
+      mobileNetwork || "Safaricom"
+    );
+    console.log("the offramp pretium result", result);
+
+    if (result?.transaction_code) {
+      await prisma.pretiumTransaction.update({
+        where: { transactionCode: pendingCode },
+        data: {
+          transactionCode: result.transaction_code,
+          status: result.status || "PENDING",
+          message: result.message,
+        },
+      });
+      return res.status(200).json({
+        success: true,
+        message: result.message,
+        status: result.status,
+        transactionCode: result.transaction_code,
+        result,
+      });
+    }
+
+    // USDC already sent; Pretium may still complete via callback. Keep PENDING row.
+    console.warn(
+      `Pretium mobile offramp sync response missing for ${txHash}; leaving ${pendingCode} for callback reconcile`
+    );
     return res.status(200).json({
       success: true,
-      message: result.message,
-      status: result.status,
-      transactionCode: result.transaction_code,
-      result,
+      message: "Withdrawal submitted. Confirming with payment provider...",
+      status: "PENDING",
+      transactionCode: pendingCode,
+      result: {
+        transaction_code: pendingCode,
+        status: "PENDING",
+        message: "Awaiting Pretium confirmation",
+      },
     });
   } catch (error) {
     console.log("error transferring to mobile", error);
