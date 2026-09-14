@@ -423,7 +423,7 @@ export default function Notifications() {
         </View>
         <View className="flex-1 items-center justify-center px-6 bg-gray-50">
           <LottieLoader
-            source="notifications"
+            source="wallet"
             label="Fetching notifications..."
             size={160}
           />
