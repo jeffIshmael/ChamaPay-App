@@ -51,3 +51,6 @@ Server/backups
 .agents
 .vscode
 another.json
+
+# Local-only product notes (do not push)
+docs/private/

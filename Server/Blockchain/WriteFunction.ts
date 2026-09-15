@@ -1,11 +1,22 @@
 import { parseUnits, encodeFunctionData, erc20Abi, maxUint256 } from "viem";
-import { contractABI, contractAddress, builderCodeDataSuffix, USDCAddress, moonwellUSDCAddress, ERC20_APPROVE_ABI, MOONWELL_MINT_ABI } from "./Constants";
+import {
+    contractABI,
+    contractAddress,
+    builderCodeDataSuffix,
+    USDCAddress,
+    moonwellUSDCAddress,
+    ERC20_APPROVE_ABI,
+    MOONWELL_MINT_ABI,
+    goalContractAddress,
+    goalContractABI,
+} from "./Constants";
 import { createEIP7702SmartAccount } from "./EIP7702Client";
 import {
     getBasePublicClient,
     withRpcRetry,
     isRpcRateLimitError,
 } from "./baseRpc";
+import { getTreasurySmartWallet } from "./AgentWallet";
 
 const publicClient = getBasePublicClient();
 
@@ -536,6 +547,262 @@ export const  bcAdminSetPayoutOrder = async (cdpWalletId: string, chamaBlockchai
         return transaction.transactionHash;
     } catch (error) {
         console.error("Error setting payout order:", error);
+        throw error;
+    }
+};
+
+// ---------------------------------------------------------------------------
+// ChamaPayGoal (Save for Goal)
+// ---------------------------------------------------------------------------
+
+export const bcCreateGoal = async (
+    cdpWalletId: string,
+    targetAmount: string,
+    endDateUnix: number,
+    yieldEnabled: boolean,
+    goalType: 0 | 1 | 2
+) => {
+    try {
+        const targetWei = parseUnits(targetAmount || "0", 6);
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
+        const hash = await smartAccountClient.writeContract({
+            address: goalContractAddress as `0x${string}`,
+            abi: goalContractABI,
+            functionName: "createGoal",
+            args: [targetWei, BigInt(endDateUnix), yieldEnabled, goalType],
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorization } : {}),
+        });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (!receipt) throw new Error("Unable to create goal onchain.");
+        return receipt.transactionHash;
+    } catch (error) {
+        console.error("Error creating goal:", error);
+        throw error;
+    }
+};
+
+export const bcGoalAddMember = async (
+    cdpWalletId: string,
+    goalId: bigint,
+    memberAddress: string
+) => {
+    try {
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
+        const hash = await smartAccountClient.writeContract({
+            address: goalContractAddress as `0x${string}`,
+            abi: goalContractABI,
+            functionName: "addMember",
+            args: [goalId, memberAddress as `0x${string}`],
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorization } : {}),
+        });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (!receipt) throw new Error("Unable to add goal member onchain.");
+        return receipt.transactionHash;
+    } catch (error) {
+        console.error("Error adding goal member:", error);
+        throw error;
+    }
+};
+
+export const bcGoalContribute = async (cdpWalletId: string, goalId: bigint, amount: string) => {
+    try {
+        const amountWei = parseUnits(amount, 6);
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
+        const hash = await smartAccountClient.sendTransaction({
+            calls: [
+                {
+                    to: USDCAddress as `0x${string}`,
+                    data: encodeFunctionData({
+                        abi: erc20Abi,
+                        functionName: "approve",
+                        args: [goalContractAddress as `0x${string}`, amountWei],
+                    }),
+                },
+                {
+                    to: goalContractAddress as `0x${string}`,
+                    data: encodeFunctionData({
+                        abi: goalContractABI,
+                        functionName: "contribute",
+                        args: [goalId, amountWei],
+                    }),
+                },
+            ],
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorization } : {}),
+        });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (!receipt) throw new Error("Unable to contribute to goal onchain.");
+        return receipt.transactionHash;
+    } catch (error) {
+        console.error("Error contributing to goal:", error);
+        throw error;
+    }
+};
+
+export const bcGoalContributeFor = async (
+    cdpWalletId: string,
+    goalId: bigint,
+    contributor: string,
+    amount: string
+) => {
+    try {
+        const amountWei = parseUnits(amount, 6);
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
+        const hash = await smartAccountClient.sendTransaction({
+            calls: [
+                {
+                    to: USDCAddress as `0x${string}`,
+                    data: encodeFunctionData({
+                        abi: erc20Abi,
+                        functionName: "approve",
+                        args: [goalContractAddress as `0x${string}`, amountWei],
+                    }),
+                },
+                {
+                    to: goalContractAddress as `0x${string}`,
+                    data: encodeFunctionData({
+                        abi: goalContractABI,
+                        functionName: "contributeFor",
+                        args: [goalId, contributor as `0x${string}`, amountWei],
+                    }),
+                },
+            ],
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorization } : {}),
+        });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (!receipt) throw new Error("Unable to contributeFor on goal.");
+        return receipt.transactionHash;
+    } catch (error) {
+        console.error("Error contributeFor on goal:", error);
+        throw error;
+    }
+};
+
+/** Guest / pay-link: treasury wallet pays into the goal (ledger shows treasury as payer). */
+export const bcTreasuryGoalContribute = async (goalId: bigint, amount: string) => {
+    try {
+        const amountWei = parseUnits(amount, 6);
+        const { smartAccountClient, authorization } = await getTreasurySmartWallet();
+        const hash = await smartAccountClient.sendTransaction({
+            calls: [
+                {
+                    to: USDCAddress as `0x${string}`,
+                    data: encodeFunctionData({
+                        abi: erc20Abi,
+                        functionName: "approve",
+                        args: [goalContractAddress as `0x${string}`, amountWei],
+                    }),
+                },
+                {
+                    to: goalContractAddress as `0x${string}`,
+                    data: encodeFunctionData({
+                        abi: goalContractABI,
+                        functionName: "contribute",
+                        args: [goalId, amountWei],
+                    }),
+                },
+            ],
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorization } : {}),
+        });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (!receipt) throw new Error("Unable for treasury to contribute to goal.");
+        return receipt.transactionHash;
+    } catch (error) {
+        console.error("Error treasury goal contribute:", error);
+        throw error;
+    }
+};
+
+/** Invite pay-link: treasury pays, credits a selected member. */
+export const bcTreasuryGoalContributeFor = async (
+    goalId: bigint,
+    memberContributor: string,
+    amount: string
+) => {
+    try {
+        const amountWei = parseUnits(amount, 6);
+        const { smartAccountClient, authorization } = await getTreasurySmartWallet();
+        const hash = await smartAccountClient.sendTransaction({
+            calls: [
+                {
+                    to: USDCAddress as `0x${string}`,
+                    data: encodeFunctionData({
+                        abi: erc20Abi,
+                        functionName: "approve",
+                        args: [goalContractAddress as `0x${string}`, amountWei],
+                    }),
+                },
+                {
+                    to: goalContractAddress as `0x${string}`,
+                    data: encodeFunctionData({
+                        abi: goalContractABI,
+                        functionName: "contributeFor",
+                        args: [goalId, memberContributor as `0x${string}`, amountWei],
+                    }),
+                },
+            ],
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorization } : {}),
+        });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (!receipt) throw new Error("Unable for treasury to contributeFor on goal.");
+        return receipt.transactionHash;
+    } catch (error) {
+        console.error("Error treasury goal contributeFor:", error);
+        throw error;
+    }
+};
+
+export const bcGoalSetYieldEnabled = async (
+    cdpWalletId: string,
+    goalId: bigint,
+    enabled: boolean
+) => {
+    try {
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
+        const hash = await smartAccountClient.writeContract({
+            address: goalContractAddress as `0x${string}`,
+            abi: goalContractABI,
+            functionName: "setYieldEnabled",
+            args: [goalId, enabled],
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorization } : {}),
+        });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (!receipt) throw new Error("Unable to toggle goal yield.");
+        return receipt.transactionHash;
+    } catch (error) {
+        console.error("Error toggling goal yield:", error);
+        throw error;
+    }
+};
+
+export const bcGoalWithdraw = async (
+    cdpWalletId: string,
+    goalId: bigint,
+    amount: string,
+    mode: 0 | 1 | 2 | 3
+) => {
+    try {
+        const amountWei = mode === 3 ? parseUnits(amount, 6) : 0n;
+        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
+        const hash = await smartAccountClient.writeContract({
+            address: goalContractAddress as `0x${string}`,
+            abi: goalContractABI,
+            functionName: "withdraw",
+            args: [goalId, amountWei, mode],
+            dataSuffix: builderCodeDataSuffix,
+            ...(authorization ? { authorization } : {}),
+        });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (!receipt) throw new Error("Unable to withdraw from goal.");
+        return receipt.transactionHash;
+    } catch (error) {
+        console.error("Error withdrawing from goal:", error);
         throw error;
     }
 };
