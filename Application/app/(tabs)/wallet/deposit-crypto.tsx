@@ -1,6 +1,11 @@
 import { useAuth } from "@/Contexts/AuthContext";
 import { pollPretiumPaymentStatus, pretiumOnramp } from "@/lib/pretiumService";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
+import {
+  formatAmountTyping,
+  parseAmountTyping,
+  sanitizeAmountInput,
+} from "@/Utils/helperFunctions";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { ArrowLeft, Check, Smartphone } from "lucide-react-native";
 import React, { useState, useCallback } from "react";
@@ -82,8 +87,8 @@ export default function DepositCryptoScreen() {
 
   // Calculate amounts
   const calculateAmounts = () => {
-    const cryptoAmount = parseFloat(amount) || 0;
-    const depositAmount = parseFloat(kesAmount) || 0;
+    const cryptoAmount = parseAmountTyping(amount);
+    const depositAmount = parseAmountTyping(kesAmount);
     return {
       depositAmount,
       cryptoAmount,
@@ -91,37 +96,35 @@ export default function DepositCryptoScreen() {
   };
 
   const handleKESChange = (text: string) => {
-    if (text === "" || /^\d*\.?\d*$/.test(text)) {
-      const decimalCount = (text.match(/\./g) || []).length;
-      if (decimalCount <= 1) {
-        setKesAmount(text);
-        if (text && onrampRate > 0) {
-          setAmount((parseFloat(text) / onrampRate).toFixed(3));
-        } else {
-          setAmount("");
-        }
+    const formatted = formatAmountTyping(text, true);
+    const raw = sanitizeAmountInput(formatted, true);
+    if (raw === "" || /^\d*\.?\d*$/.test(raw)) {
+      setKesAmount(formatted);
+      if (raw && raw !== "." && onrampRate > 0) {
+        setAmount(formatAmountTyping((parseFloat(raw) / onrampRate).toFixed(3)));
+      } else {
+        setAmount("");
       }
     }
   };
 
   const handleUSDCChange = (text: string) => {
-    if (text === "" || /^\d*\.?\d*$/.test(text)) {
-      const decimalCount = (text.match(/\./g) || []).length;
-      if (decimalCount <= 1) {
-        setAmount(text);
-        if (text && onrampRate > 0) {
-          setKesAmount((parseFloat(text) * onrampRate).toFixed(2));
-        } else {
-          setKesAmount("");
-        }
+    const formatted = formatAmountTyping(text, true);
+    const raw = sanitizeAmountInput(formatted, true);
+    if (raw === "" || /^\d*\.?\d*$/.test(raw)) {
+      setAmount(formatted);
+      if (raw && raw !== "." && onrampRate > 0) {
+        setKesAmount(formatAmountTyping((parseFloat(raw) * onrampRate).toFixed(2)));
+      } else {
+        setKesAmount("");
       }
     }
   };
 
   const handlePresetSelect = (presetUSDC: number) => {
-    setAmount(presetUSDC.toString());
+    setAmount(formatAmountTyping(presetUSDC.toString()));
     if (onrampRate > 0) {
-      setKesAmount((presetUSDC * onrampRate).toFixed(2));
+      setKesAmount(formatAmountTyping((presetUSDC * onrampRate).toFixed(2)));
     }
   };
 
@@ -452,7 +455,7 @@ export default function DepositCryptoScreen() {
                 </View>
               </View>
 
-              {parseFloat(amount) > 0 && (
+              {parseAmountTyping(amount) > 0 && (
                 <>
                   <View className="h-px bg-gray-200 my-4" />
                   <View className="flex-row justify-between items-center bg-blue-50 p-3 rounded-xl mt-2">
@@ -460,7 +463,7 @@ export default function DepositCryptoScreen() {
                       {isKESMode ? "USDC to receive" : "You will be deducted"}
                     </Text>
                     <Text className="text-lg font-bold text-blue-700">
-                      {isKESMode ? `${parseFloat(amount).toFixed(3)} USDC` : `${depositAmount.toFixed(2)} KES`}
+                      {isKESMode ? `${parseAmountTyping(amount).toFixed(3)} USDC` : `${depositAmount.toFixed(2)} KES`}
                     </Text>
                   </View>
                 </>

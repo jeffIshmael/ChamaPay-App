@@ -44,6 +44,25 @@ export async function generateUniqueSlug(baseName: string): Promise<string> {
   return uniqueSlug;
 }
 
+export async function generateUniqueGoalSlug(baseName: string): Promise<string> {
+  let slug = baseName
+    .replace(/\s+/g, "-")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "");
+  if (!slug) slug = "goal";
+  let counter = 1;
+  let uniqueSlug = slug;
+
+  while (true) {
+    const existing = await prisma.goal.findUnique({ where: { slug: uniqueSlug } });
+    if (!existing) break;
+    uniqueSlug = `${slug}-${counter}`;
+    counter++;
+  }
+
+  return uniqueSlug;
+}
+
 // function to get first payout chamas that still need a payout order set
 export async function getFirstPayoutChamas() {
   try {

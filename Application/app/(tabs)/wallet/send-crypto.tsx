@@ -1,11 +1,22 @@
+import { useAuth } from "@/Contexts/AuthContext";
+import SupportedWalletLogos from "@/components/SupportedWalletLogos";
+import { serverUrl } from "@/constants/serverUrl";
+import { getUserByAddress, searchUsers } from "@/lib/chamaService";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
+import {
+  formatAmountTyping,
+  parseAmountTyping,
+} from "@/Utils/helperFunctions";
+import { internalTransferFee } from "@/Utils/transactionFeeUtils";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
+  ArrowUpDown,
+  CheckCircle,
+  Info,
   User,
   X,
-  Info,
-  CheckCircle,
-  ArrowUpDown,
 } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -13,26 +24,18 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   ToastAndroid,
   TouchableOpacity,
   View,
-  Modal,
-  StyleSheet,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
-import { CameraView, useCameraPermissions } from "expo-camera";
-
-import { serverUrl } from "@/constants/serverUrl";
-import { useAuth } from "@/Contexts/AuthContext";
-import { searchUsers, getUserByAddress } from "@/lib/chamaService";
-import { internalTransferFee } from "@/Utils/transactionFeeUtils";
-import SupportedWalletLogos from "@/components/SupportedWalletLogos";
-import { useCurrencyStore } from "@/store/useCurrencyStore";
 
 export default function SendCryptoScreen() {
   const { currency, platformRate } = useCurrencyStore();
@@ -78,7 +81,7 @@ export default function SendCryptoScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleAmountChange = (text: string) => {
-    setAmount(text);
+    setAmount(formatAmountTyping(text, true));
   };
 
   const showToast = (message: string) => {
@@ -253,13 +256,13 @@ setSendMode("external");
   // Validate amount
   const isValidAmount = (amountStr: string): boolean => {
     if (!amountStr || !amountStr.trim()) return false;
-    const num = parseFloat(amountStr);
-    return !isNaN(num) && num > 0 && isFinite(num);
+    const num = parseAmountTyping(amountStr);
+    return num > 0 && isFinite(num);
   };
 
   const getUsdcAmount = (val: string) => {
-    const num = parseFloat(val);
-    if (isNaN(num)) return 0;
+    const num = parseAmountTyping(val);
+    if (!num) return 0;
     if (inputCurrency === "KES") {
       return num / platformRate;
     }
@@ -267,8 +270,8 @@ setSendMode("external");
   };
 
   const getKesAmount = (val: string) => {
-    const num = parseFloat(val);
-    if (isNaN(num)) return 0;
+    const num = parseAmountTyping(val);
+    if (!num) return 0;
     if (inputCurrency === "USDC") {
       return num * platformRate;
     }
@@ -813,7 +816,7 @@ showToast("Failed to send transaction");
                         Amount to Send
                       </Text>
                       <Text className="text-gray-800 font-semibold text-xs">
-                        {inputCurrency === "KES" ? parseFloat(amount).toFixed(2) + " KES" : getUsdcAmount(amount).toFixed(3) + " USDC"}
+                        {inputCurrency === "KES" ? parseAmountTyping(amount).toFixed(2) + " KES" : getUsdcAmount(amount).toFixed(3) + " USDC"}
                       </Text>
                     </View>
 

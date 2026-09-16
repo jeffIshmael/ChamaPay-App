@@ -72,7 +72,7 @@ const TabItem = ({ tab, idx, state, navigation, unReadNotificationCount }: any) 
         <Text className={cn(
           "text-xs mt-1",
           isActive ? "text-downy-700 font-semibold" : "text-gray-500"
-        )}>Create chama</Text>
+        )}>Create</Text>
         {isActive && (
           <View className="w-1.5 h-1.5 bg-white rounded-full mt-1.5" />
         )}

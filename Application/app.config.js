@@ -27,6 +27,7 @@ export default {
       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
+      "versionCode": 36,
       "backgroundColor": "#d1f6f1",
       "windowSoftInputMode": "adjustResize",
       "adaptiveIcon": {

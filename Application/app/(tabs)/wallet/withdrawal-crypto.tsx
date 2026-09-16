@@ -8,6 +8,11 @@ import {
 } from "@/lib/pretiumService";
 import { useExchangeRateStore } from "@/store/useExchangeRateStore";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
+import {
+  formatAmountTyping,
+  parseAmountTyping,
+  sanitizeAmountInput,
+} from "@/Utils/helperFunctions";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ArrowLeft, Check } from "lucide-react-native";
@@ -146,29 +151,31 @@ export default function WithdrawCryptoScreen() {
   const balanceInUSDC = parseFloat(USDCBalance as string) || 0;
 
   const handleKESChange = (text: string) => {
-    if (text === "" || /^\d*\.?\d*$/.test(text)) {
-      const decimalCount = (text.match(/\./g) || []).length;
-      if (decimalCount <= 1) {
-        setAmountKES(text);
-        if (text && currentExchangeRate > 0) {
-          setAmountUSDC((parseFloat(text) / currentExchangeRate).toFixed(6));
-        } else {
-          setAmountUSDC("");
-        }
+    const formatted = formatAmountTyping(text, true);
+    const raw = sanitizeAmountInput(formatted, true);
+    if (raw === "" || /^\d*\.?\d*$/.test(raw)) {
+      setAmountKES(formatted);
+      if (raw && raw !== "." && currentExchangeRate > 0) {
+        setAmountUSDC(
+          formatAmountTyping((parseFloat(raw) / currentExchangeRate).toFixed(6))
+        );
+      } else {
+        setAmountUSDC("");
       }
     }
   };
 
   const handleUSDCChange = (text: string) => {
-    if (text === "" || /^\d*\.?\d*$/.test(text)) {
-      const decimalCount = (text.match(/\./g) || []).length;
-      if (decimalCount <= 1) {
-        setAmountUSDC(text);
-        if (text && currentExchangeRate > 0) {
-          setAmountKES((parseFloat(text) * currentExchangeRate).toFixed(2));
-        } else {
-          setAmountKES("");
-        }
+    const formatted = formatAmountTyping(text, true);
+    const raw = sanitizeAmountInput(formatted, true);
+    if (raw === "" || /^\d*\.?\d*$/.test(raw)) {
+      setAmountUSDC(formatted);
+      if (raw && raw !== "." && currentExchangeRate > 0) {
+        setAmountKES(
+          formatAmountTyping((parseFloat(raw) * currentExchangeRate).toFixed(2))
+        );
+      } else {
+        setAmountKES("");
       }
     }
   };
@@ -178,13 +185,11 @@ export default function WithdrawCryptoScreen() {
   // const calculateFeeUSDC = () => parseFloat(amountUSDC || "0") * 0.005;
 
   const calculateTotalDeductionUSDC = () => {
-    const usdcAmountVal = parseFloat(amountUSDC) || 0;
-    return usdcAmountVal;
+    return parseAmountTyping(amountUSDC);
   };
 
   const calculatePayoutKES = () => {
-    const usdcVal = parseFloat(amountUSDC) || 0;
-    return usdcVal * currentExchangeRate;
+    return parseAmountTyping(amountUSDC) * currentExchangeRate;
   };
 
   const usdcAmount = calculateTotalDeductionUSDC().toFixed(6);
@@ -240,7 +245,7 @@ setVerificationError("An error occurred during verification");
     if (!amountUSDC.trim())
       return ToastAndroid.show( "Please enter an amount", ToastAndroid.SHORT);
 
-    const usdcAmountNum = parseFloat(amountUSDC);
+    const usdcAmountNum = parseAmountTyping(amountUSDC);
     const totalDeductionUSDC = calculateTotalDeductionUSDC();
     const payoutKES = calculatePayoutKES();
 
@@ -399,7 +404,7 @@ setProcessingStep("failed");
     !isVerifying && !verificationError && !!getMobileDetails(verifiedPhoneData);
 
   const isFormValid = () => {
-    const usdcAmountNum = parseFloat(amountUSDC);
+    const usdcAmountNum = parseAmountTyping(amountUSDC);
     const totalDeductionUSDC = calculateTotalDeductionUSDC();
     const payoutKES = calculatePayoutKES();
 
@@ -615,7 +620,7 @@ setProcessingStep("failed");
                 </View>
 
                 {/* Fee & Total */}
-                {parseFloat(amountUSDC) >= 105 / currentExchangeRate ? (
+                {parseAmountTyping(amountUSDC) >= 105 / currentExchangeRate ? (
                   <View className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-2 space-y-2">
                     <View className="flex-row justify-between">
                       <Text className="text-sm text-gray-600">
@@ -645,7 +650,7 @@ setProcessingStep("failed");
                       </Text>
                     </View>
                   </View>
-                ) : parseFloat(amountUSDC) < 105 / currentExchangeRate &&
+                ) : parseAmountTyping(amountUSDC) < 105 / currentExchangeRate &&
                   amountUSDC !== "" ? (
                   <View className=" p-2 rounded-xl border border-yellow-200 mb-2 space-y-2">
                     <Text className="text-xs text-yellow-600 text-center font-semibold">
