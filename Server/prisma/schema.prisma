@@ -52,6 +52,11 @@ model User {
   pretiumTransactions PretiumTransaction[]
   moonwellYields      MoonwellYield[]
   kycJobs             KycJob[]
+  createdGoals        Goal[]               @relation("GoalCreator")
+  goalMemberships     GoalMember[]
+  goalContributions   GoalContribution[]   @relation("GoalContributor")
+  goalContributionPays GoalContribution[]  @relation("GoalPayer")
+  goalWithdrawals     GoalWithdrawal[]
 }
 
 model KycJob {
@@ -228,6 +233,7 @@ model PretiumTransaction {
   isRealesed       Boolean
   message          String?
   chamaId          Int?
+  goalId           Int?
   memberForId      Int?
   cusdAmount       Decimal? @db.Decimal(18, 6)
   exchangeRate     Decimal? @db.Decimal(10, 2)
@@ -236,6 +242,7 @@ model PretiumTransaction {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   user             User     @relation(fields: [userId], references: [id])
+  goal             Goal?    @relation(fields: [goalId], references: [id])
 
   @@index([userId])
   @@index([transactionCode])
@@ -243,6 +250,7 @@ model PretiumTransaction {
   @@index([type])
   @@index([createdAt])
   @@index([userId, createdAt(sort: Desc)])
+  @@index([goalId])
 }
 
 model Refund {
@@ -252,4 +260,94 @@ model Refund {
   createdAt DateTime @default(now())
   chamaId   Int
   chama     Chama    @relation(fields: [chamaId], references: [id])
+}
+
+/// Save-for-Goal pot (mirrors on-chain ChamaPayGoal + off-chain metadata)
+model Goal {
+  id              Int                 @id @default(autoincrement())
+  name            String
+  slug            String              @unique
+  description     String?
+  /// personal | invite | public
+  goalType        String
+  /// Target in USDC (6-decimal string), "0" = open-ended
+  targetAmount    String              @default("0")
+  endDate         DateTime?
+  yieldEnabled    Boolean             @default(false)
+  /// On-chain goalId from ChamaPayGoal
+  blockchainId    String
+  createTxHash    String?
+  /// active | closed
+  status          String              @default("active")
+  /// WhatsApp E.164 for contribution updates (optional)
+  notifyPhone     String?
+  coverImageUrl   String?
+  creatorId       Int
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  creator         User                @relation("GoalCreator", fields: [creatorId], references: [id])
+  members         GoalMember[]
+  contributions   GoalContribution[]
+  withdrawals     GoalWithdrawal[]
+  pretiumTransactions PretiumTransaction[]
+
+  @@index([creatorId, createdAt(sort: Desc)])
+  @@index([status])
+  @@index([goalType])
+  @@index([blockchainId])
+}
+
+model GoalMember {
+  id        Int      @id @default(autoincrement())
+  goalId    Int
+  userId    Int
+  joinedAt  DateTime @default(now())
+  txHash    String?
+  goal      Goal     @relation(fields: [goalId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([goalId, userId])
+  @@index([userId])
+}
+
+model GoalContribution {
+  id                  Int      @id @default(autoincrement())
+  goalId              Int
+  amount              String
+  /// On-chain credited address (member or treasury for guests)
+  contributorAddress  String
+  /// On-chain payer (msg.sender)
+  payerAddress        String
+  contributorUserId   Int?
+  payerUserId         Int?
+  /// True when pay-link guest / treasury-funded stranger deposit
+  isGuest             Boolean  @default(false)
+  /// Display name from Pretium / form for guests
+  guestDisplayName    String?
+  txHash              String
+  pretiumTxCode       String?
+  createdAt           DateTime @default(now())
+  goal                Goal     @relation(fields: [goalId], references: [id])
+  contributorUser     User?    @relation("GoalContributor", fields: [contributorUserId], references: [id])
+  payerUser           User?    @relation("GoalPayer", fields: [payerUserId], references: [id])
+
+  @@index([goalId, createdAt(sort: Desc)])
+  @@index([contributorUserId])
+  @@index([txHash])
+}
+
+model GoalWithdrawal {
+  id        Int      @id @default(autoincrement())
+  goalId    Int
+  amount    String
+  /// all | yield | principal | amount
+  mode      String
+  txHash    String
+  creatorId Int
+  createdAt DateTime @default(now())
+  goal      Goal     @relation(fields: [goalId], references: [id])
+  creator   User     @relation(fields: [creatorId], references: [id])
+
+  @@index([goalId, createdAt(sort: Desc)])
+  @@index([creatorId])
 }

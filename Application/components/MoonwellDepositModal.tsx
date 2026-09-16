@@ -14,6 +14,10 @@ import { getAllBalances } from "@/constants/viem";
 import MobileMoneyPay from "./MobileMoneyPay";
 import { serverUrl } from "@/constants/serverUrl";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
+import {
+  formatAmountTyping,
+  parseAmountTyping,
+} from "@/Utils/helperFunctions";
 
 interface MoonwellDepositModalProps {
   visible: boolean;
@@ -42,7 +46,7 @@ const MoonwellDepositModal = ({
     ? `KSh ${Math.floor(Number(USDCBalance || 0) * platformRate).toLocaleString()}`
     : `${Number(USDCBalance || 0).toFixed(3)} USDC`;
 
-  const inputAmount = Number(amount) || 0;
+  const inputAmount = parseAmountTyping(amount);
   const actualUSDCAmount = currency === "KES" ? inputAmount / platformRate : inputAmount;
   const isAmountTooHigh = actualUSDCAmount > Number(USDCBalance);
   const displayError = error || (isAmountTooHigh ? `Insufficient balance. You have ${displayBalance} available` : "");
@@ -77,8 +81,8 @@ const MoonwellDepositModal = ({
     setError("");
 
     try {
-      const inputAmount = Number(amount);
-      if (!inputAmount || inputAmount <= 0 || isNaN(inputAmount)) {
+      const inputAmount = parseAmountTyping(amount);
+      if (!inputAmount || inputAmount <= 0) {
         setError("Please enter a valid amount");
         return;
       }
@@ -248,7 +252,7 @@ const MoonwellDepositModal = ({
                         keyboardType="numeric"
                         value={amount}
                         onChangeText={(t) => {
-                          setAmount(t);
+                          setAmount(formatAmountTyping(t, true));
                           setError("");
                         }}
                         autoFocus
@@ -293,7 +297,7 @@ const MoonwellDepositModal = ({
                 setIsSuccess(true);
                 onSuccess?.(data);
               }}
-              contributionAmount={Number(amount) || 0}
+              contributionAmount={parseAmountTyping(amount)}
               isMoonwellDeposit={true}
             />
           )}

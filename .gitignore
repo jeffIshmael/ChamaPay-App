@@ -54,3 +54,6 @@ another.json
 
 # Local-only product notes (do not push)
 docs/private/
+
+web
+chamapay-minipay

@@ -14,6 +14,10 @@ import {
 } from "react-native";
 import { serverUrl } from "../constants/serverUrl";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
+import {
+  formatAmountTyping,
+  parseAmountTyping,
+} from "@/Utils/helperFunctions";
 
 const USDCPay = ({
   visible,
@@ -57,8 +61,8 @@ const USDCPay = ({
     setError("");
 
     try {
-      const inputAmount = Number(amount);
-      if (!inputAmount || inputAmount <= 0 || isNaN(inputAmount)) {
+      const inputAmount = parseAmountTyping(amount);
+      if (!inputAmount || inputAmount <= 0) {
         setError("Please enter a valid amount");
         return;
       }
@@ -121,20 +125,22 @@ setError("Failed to process payment. Please try again.");
   };
 
   const handleAmountChange = (text: string) => {
-    setAmount(text);
+    setAmount(formatAmountTyping(text, true));
     setError("");
   };
 
   const fillRemainingAmount = () => {
     if (remainingAmount > 0) {
       if (currency === "KES") {
-        const kesAmount = (Math.ceil(remainingAmount * platformRate * 100) / 100).toFixed(2);
+        const kesAmount = formatAmountTyping(
+          (Math.ceil(remainingAmount * platformRate * 100) / 100).toFixed(2)
+        );
         setAmount(kesAmount);
-        handleAmountChange(kesAmount);
       } else {
-        const usdcAmt = (Math.ceil(remainingAmount * 1000) / 1000).toFixed(3);
+        const usdcAmt = formatAmountTyping(
+          (Math.ceil(remainingAmount * 1000) / 1000).toFixed(3)
+        );
         setAmount(usdcAmt);
-        handleAmountChange(usdcAmt);
       }
     }
   };
@@ -261,10 +267,10 @@ setError("Failed to process payment. Please try again.");
                   Available balance: {currency === "KES" ? `KSh ${Math.floor(Number(USDCBalance || 0) * platformRate).toLocaleString()}` : `${Number(USDCBalance || 0).toFixed(3)} USDC`}
                 </Text>
 
-                {Number(amount) > 0 && (
+                {parseAmountTyping(amount) > 0 && (
                   <View className="mb-6">
                     <Text className="text-black font-semibold text-base">
-                      Total: {currency === "KES" ? `KSh ${Number(amount).toLocaleString()}` : `${Number(amount).toFixed(3)} USDC`}
+                      Total: {currency === "KES" ? `KSh ${amount}` : `${parseAmountTyping(amount).toFixed(3)} USDC`}
                     </Text>
 
                     {/* Show if payment covers remaining amount */}

@@ -136,3 +136,49 @@ export const getRelativeTime = (dateString: string): string => {
     });
   };
 
+/** Remove commas / junk; keep digits and at most one decimal point. */
+export const sanitizeAmountInput = (
+  text: string,
+  allowDecimal = true
+): string => {
+  let cleaned = String(text ?? "").replace(/,/g, "");
+  if (!allowDecimal) {
+    return cleaned.replace(/[^\d]/g, "");
+  }
+  cleaned = cleaned.replace(/[^\d.]/g, "");
+  const firstDot = cleaned.indexOf(".");
+  if (firstDot === -1) return cleaned;
+  return (
+    cleaned.slice(0, firstDot + 1) +
+    cleaned.slice(firstDot + 1).replace(/\./g, "")
+  );
+};
+
+/**
+ * Format an amount as the user types (e.g. 1000 → 1,000, 1234.5 → 1,234.5).
+ * Pass allowDecimal=false for whole numbers only.
+ */
+export const formatAmountTyping = (
+  text: string,
+  allowDecimal = true
+): string => {
+  const cleaned = sanitizeAmountInput(text, allowDecimal);
+  if (cleaned === "") return "";
+  if (cleaned === ".") return allowDecimal ? "0." : "";
+
+  const hasDot = allowDecimal && cleaned.includes(".");
+  const [intRaw, decRaw = ""] = cleaned.split(".");
+  const intDigits = intRaw === "" ? "0" : intRaw;
+  const withCommas = intDigits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+  if (hasDot) return `${withCommas}.${decRaw}`;
+  return withCommas;
+};
+
+/** Parse a typed amount string (with optional commas) to a number. */
+export const parseAmountTyping = (text: string): number => {
+  const n = parseFloat(sanitizeAmountInput(text, true));
+  return Number.isFinite(n) ? n : 0;
+};
+
+

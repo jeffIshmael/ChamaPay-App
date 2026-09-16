@@ -12,6 +12,10 @@ import {
     View,
 } from "react-native";
 import { addLockedFundsToChama, withdrawFromChamaBalance } from "../lib/userService";
+import {
+  formatAmountTyping,
+  parseAmountTyping,
+} from "@/Utils/helperFunctions";
 
 interface WithdrawModalProps {
     visible: boolean;
@@ -48,8 +52,8 @@ export const WithdrawModal = ({
         setError("");
 
         try {
-            const withdrawAmount = Number(amount);
-            if (!withdrawAmount || withdrawAmount <= 0 || isNaN(withdrawAmount)) {
+            const withdrawAmount = parseAmountTyping(amount);
+            if (!withdrawAmount || withdrawAmount <= 0) {
                 setError("Please enter a valid amount");
                 setLoading(false);
                 return;
@@ -72,7 +76,7 @@ export const WithdrawModal = ({
                 ? balance.toString()
                 : (isKESActive
                     ? (withdrawAmount / kesRate).toFixed(6)
-                    : amount);
+                    : parseAmountTyping(amount).toString());
 
             const result = await withdrawFromChamaBalance(chamaId, amountToWithdraw, token!);
             if (result.success) {
@@ -160,13 +164,13 @@ setError("Failed to process withdrawal. Please try again.");
                                         keyboardType="numeric"
                                         value={amount}
                                         onChangeText={(text) => {
-                                            setAmount(text);
+                                            setAmount(formatAmountTyping(text, true));
                                             setError("");
                                         }}
                                     />
-                                    {isKESActive && amount && !isNaN(Number(amount)) ? (
+                                    {isKESActive && amount && parseAmountTyping(amount) > 0 ? (
                                         <Text className="text-xs text-gray-500 mt-1">
-                                            ≈ {(Number(amount) / kesRate).toFixed(3)} {currency}
+                                            ≈ {(parseAmountTyping(amount) / kesRate).toFixed(3)} {currency}
                                         </Text>
                                     ) : null}
                                     {error ? (
@@ -192,9 +196,9 @@ setError("Failed to process withdrawal. Please try again.");
                                     <TouchableOpacity
                                         onPress={() => {
                                             if (isKESActive) {
-                                                setAmount((balance * kesRate).toFixed(2));
+                                                setAmount(formatAmountTyping((balance * kesRate).toFixed(2)));
                                             } else {
-                                                setAmount(balance.toString());
+                                                setAmount(formatAmountTyping(balance.toString()));
                                             }
                                         }}
                                         className="self-end"
@@ -255,14 +259,19 @@ export const AddLockedFundsModal = ({
         setError("");
 
         try {
-            const lockAmount = Number(amount);
+            const lockAmount = parseAmountTyping(amount);
             if (!lockAmount || lockAmount <= 0 || isNaN(lockAmount)) {
                 setError("Please enter a valid amount");
                 setLoading(false);
                 return;
             }
 
-            const result = await addLockedFundsToChama(chamaId, amount, isOnramp, token!);
+            const result = await addLockedFundsToChama(
+                chamaId,
+                parseAmountTyping(amount).toString(),
+                isOnramp,
+                token!
+            );
             if (result.success) {
                 setIsSuccess(true);
             } else {
@@ -349,7 +358,7 @@ setError("Failed to add locked funds. Please try again.");
                                         keyboardType="numeric"
                                         value={amount}
                                         onChangeText={(text) => {
-                                            setAmount(text);
+                                            setAmount(formatAmountTyping(text, true));
                                             setError("");
                                         }}
                                     />

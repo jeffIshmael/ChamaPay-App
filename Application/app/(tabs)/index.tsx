@@ -6,6 +6,7 @@ import {
   getUserChamas,
   transformChamaData,
 } from "@/lib/chamaService";
+import { getMyGoals, goalTypeLabel, GoalRecord } from "@/lib/goalService";
 import { decryptChamaSlug, parseChamaShareUrl } from "@/lib/encryption";
 import { registerForPushNotificationsAsync } from "@/lib/notificationUtils";
 import { updateUserPushToken } from "@/lib/userService";
@@ -25,6 +26,7 @@ import {
   MessageCircleMore,
   Settings,
   Siren,
+  Target,
   Users,
   Plus
 } from "lucide-react-native";
@@ -51,6 +53,7 @@ export default function HomeScreen() {
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [pasteLink, setPasteLink] = useState("");
   const [isProcessingLink, setIsProcessingLink] = useState(false);
+  const [homeTab, setHomeTab] = useState<"chamas" | "goals">("chamas");
   const { currency } = useCurrencyStore();
   const { formatBalance } = useFormattedBalance();
   const hasInitialized = React.useRef(false);
@@ -79,6 +82,23 @@ export default function HomeScreen() {
     gcTime: 1000 * 60 * 30, // 30 minutes
   });
 
+  const {
+    data: goals = [],
+    isLoading: goalsLoading,
+    refetch: fetchGoals,
+  } = useQuery({
+    queryKey: ["userGoals", user?.id],
+    queryFn: async () => {
+      if (!token || !user) return [] as GoalRecord[];
+      const response = await getMyGoals(token);
+      if (response.success && response.goals) return response.goals;
+      return [] as GoalRecord[];
+    },
+    enabled: !!token && !!user,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+  });
+
   const error = queryError ? "Failed to fetch chamas" : null;
 
   // Update rates on component mount
@@ -101,12 +121,13 @@ await updateUserPushToken(pushToken, token);
     return () => clearTimeout(timer);
   }, [user, token]);
 
-  // Refresh chamas + KYC fields when screen comes into focus
+  // Refresh chamas, goals + KYC fields when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchChamas();
+      fetchGoals();
       void refreshUser();
-    }, [fetchChamas, refreshUser])
+    }, [fetchChamas, fetchGoals, refreshUser])
   );
 
   // Validate if the link matches ChamaPay format
@@ -246,274 +267,514 @@ Alert.alert(
       <StatusBar style="light" />
       {/* Header */}
       <View
-        className="bg-downy-800 rounded-b-3xl px-5 pb-5 flex-row items-center justify-between"
+        className="bg-downy-800 rounded-b-[28px] px-5 pb-5"
         style={{ paddingTop: insets.top + 10 }}
       >
-        <View className="flex-row items-center">
-          <TouchableOpacity
-            onPress={() => router.push("/profile-settings")}
-            className="mr-3"
-            activeOpacity={0.8}
-          >
-            <KycProfileAvatar
-              imageUrl={user?.profileImageUrl}
-              initials={user?.userName || "U"}
-              verified={identityVerified}
-              size="sm"
-              onDark
-            />
-          </TouchableOpacity>
-          <View>
-            <Text className="text-white/90 text-sm font-medium">
-              Welcome back 👋
-            </Text>
-            <Text className="text-white text-lg font-semibold">
-              {user?.userName || "User"}
-            </Text>
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <TouchableOpacity
+              onPress={() => router.push("/profile-settings")}
+              className="mr-3"
+              activeOpacity={0.8}
+            >
+              <KycProfileAvatar
+                imageUrl={user?.profileImageUrl}
+                initials={user?.userName || "U"}
+                verified={identityVerified}
+                size="sm"
+                onDark
+              />
+            </TouchableOpacity>
+            <View>
+              <Text className="text-white/90 text-sm font-medium">
+                Welcome back 👋
+              </Text>
+              <Text className="text-white text-lg font-semibold">
+                {user?.userName || "User"}
+              </Text>
+            </View>
+          </View>
+
+          <View className="flex-row">
+            <TouchableOpacity
+              onPress={() => router.push("/notifications")}
+              className="p-2 mr-2 relative"
+              activeOpacity={0.7}
+            >
+              <Bell color="white" size={22} />
+              {unReadNotificationCount > 0 && (
+                <View className="absolute top-1 right-1 bg-red-500 rounded-full w-4 h-4 items-center justify-center border border-downy-800">
+                  <Text className="text-white text-[9px] font-bold">
+                    {unReadNotificationCount > 9 ? "9+" : unReadNotificationCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/profile-settings")}
+              className="p-2"
+              activeOpacity={0.7}
+            >
+              <Settings color="white" size={22} />
+            </TouchableOpacity>
           </View>
         </View>
+      </View>
 
-        <View className="flex-row">
+      <View className="px-5 pt-4 pb-2">
+        <View className="flex-row bg-white border border-gray-100 rounded-2xl p-1 shadow-sm">
           <TouchableOpacity
-            onPress={() => router.push("/notifications")}
-            className="p-2 mr-2 relative"
-            activeOpacity={0.7}
+            onPress={() => setHomeTab("chamas")}
+            activeOpacity={0.9}
+            className={`flex-1 flex-row items-center justify-center py-3 rounded-xl ${
+              homeTab === "chamas" ? "bg-downy-600" : ""
+            }`}
           >
-            <Bell color="white" size={22} />
-            {unReadNotificationCount > 0 && (
-              <View className="absolute top-1 right-1 bg-red-500 rounded-full w-4 h-4 items-center justify-center border border-downy-800">
-                <Text className="text-white text-[9px] font-bold">
-                  {unReadNotificationCount > 9 ? "9+" : unReadNotificationCount}
-                </Text>
-              </View>
-            )}
+            <Users
+              size={16}
+              color={homeTab === "chamas" ? "#ffffff" : "#6b7280"}
+            />
+            <Text
+              className={`ml-2 font-semibold text-[15px] ${
+                homeTab === "chamas" ? "text-white" : "text-gray-600"
+              }`}
+            >
+              Chamas
+            </Text>
+            <View
+              className={`ml-2 min-w-[22px] h-[22px] rounded-full items-center justify-center px-1.5 ${
+                homeTab === "chamas" ? "bg-white/20" : "bg-gray-100"
+              }`}
+            >
+              <Text
+                className={`text-[11px] font-bold ${
+                  homeTab === "chamas" ? "text-white" : "text-gray-600"
+                }`}
+              >
+                {chamas.length}
+              </Text>
+            </View>
           </TouchableOpacity>
+
           <TouchableOpacity
-            onPress={() => router.push("/profile-settings")}
-            className="p-2"
-            activeOpacity={0.7}
+            onPress={() => setHomeTab("goals")}
+            activeOpacity={0.9}
+            className={`flex-1 flex-row items-center justify-center py-3 rounded-xl ${
+              homeTab === "goals" ? "bg-downy-600" : ""
+            }`}
           >
-            <Settings color="white" size={22} />
+            <Target
+              size={16}
+              color={homeTab === "goals" ? "#ffffff" : "#6b7280"}
+            />
+            <Text
+              className={`ml-2 font-semibold text-[15px] ${
+                homeTab === "goals" ? "text-white" : "text-gray-600"
+              }`}
+            >
+              Goals
+            </Text>
+            <View
+              className={`ml-2 min-w-[22px] h-[22px] rounded-full items-center justify-center px-1.5 ${
+                homeTab === "goals" ? "bg-white/20" : "bg-gray-100"
+              }`}
+            >
+              <Text
+                className={`text-[11px] font-bold ${
+                  homeTab === "goals" ? "text-white" : "text-gray-600"
+                }`}
+              >
+                {goals.length}
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* My Chamas */}
       <ScrollView
         className="flex-1 px-5"
         contentContainerStyle={{
-          paddingTop: 20,
+          paddingTop: 12,
           paddingBottom: insets.bottom + 100,
           flexGrow: 1,
         }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="flex-row items-center justify-between mb-5">
-          <View className="flex-1">
-            <View className="flex-row items-center gap-3 mb-1">
-              <Text className="text-2xl font-bold text-gray-900">
-                My Chamas
-              </Text>
-              <Badge color="#10b981" bg="#d1fae5">
-                {chamas.length}
-              </Badge>
+        {homeTab === "chamas" ? (
+          <>
+            <View className="flex-row items-center justify-between mb-5">
+              <View className="flex-1">
+                <Text className="text-2xl font-bold text-gray-900 mb-1">
+                  My Chamas
+                </Text>
+                <Text className="text-sm text-gray-500">
+                  Your active saving groups
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={handlePasteLink}
+                className="flex-row items-center bg-emerald-100 px-3 py-2 rounded-full shadow-sm"
+                activeOpacity={0.7}
+              >
+                <Text className="text-emerald-700 font-semibold text-sm mr-1">
+                  Join a Chama
+                </Text>
+                <Link color="#10b981" size={16} />
+              </TouchableOpacity>
             </View>
-            <Text className="text-sm text-gray-500">
-              Your active saving groups
-            </Text>
-          </View>
-          <TouchableOpacity
-            onPress={handlePasteLink}
-            className="flex-row items-center bg-emerald-100 px-3 py-2 rounded-full shadow-sm"
-            activeOpacity={0.7}
-          >
-            <Text className="text-emerald-700 font-semibold text-sm mr-1">Join a Chama</Text>
-            <Link color="#10b981" size={16} />
-          </TouchableOpacity>
-        </View>
 
-        {loading ? (
-          <View className="flex-1 w-full items-center justify-center">
-            <LottieLoader
-              source="home"
-              label="Fetching your chamas..."
-              size={140}
-              speed={0.45}
-            />
-          </View>
-        ) : error ? (
-          <View className="flex-1 items-center justify-center">
-            <Text className="text-red-500 font-medium mb-2">⚠️ {error}</Text>
-          </View>
-        ) : chamas.length > 0 ? (
-          chamas.map((chama, index) => (
-            <Card
-              key={chama.id || index}
-              onPress={() =>
-                router.push({
-                  pathname: "/(tabs)/joined-chama-details/[id]",
-                  params: {
-                    id: chama.slug,
-                  },
-                })
-              }
-            >
-              <View className="flex-row items-start justify-between mb-4">
-                <View className="flex-1 pr-3">
-                  <View className="flex-row items-center gap-2 mb-2">
-                    <Text className="text-xl font-bold text-gray-900">
-                      {chama.name}
-                    </Text>
-                    <View
-                      className={`px-2 py-1 rounded-full flex-row items-center gap-1 ${chama.isPublic ? "bg-emerald-100" : "bg-gray-100"
-                        }`}
-                    >
-                      <Text className="text-xs">
-                        {chama.isPublic ? "🌍" : "🔒"}
-                      </Text>
-                      <Text
-                        className={`text-xs font-semibold ${chama.isPublic ? "text-emerald-700" : "text-gray-700"
-                          }`}
-                      >
-                        {chama.isPublic ? "Public" : "Private"}
-                      </Text>
-                    </View>
-                  </View>
-                  <View className="flex-row items-center gap-4 mb-3">
-                    <View className="flex-row items-center bg-emerald-50 px-3 py-1.5 rounded-lg">
-                      <Users color="#10b981" size={16} />
-                      <Text className="text-sm font-semibold text-emerald-700 ml-1.5">
-                        {chama.totalMembers}/{chama.maxMembers}
-                      </Text>
-                    </View>
-                    <View className="flex-row items-center  px-3 py-1.5 rounded-lg">
-                      <HandCoins color="#3b82f6" size={20} />
-                      <Text className=" font-semibold text-blue-700 ml-1.5" numberOfLines={1}>
-                        <Text className="text-lg font-semibold text-blue-700 ml-1.5" numberOfLines={1}>
-                          {formatBalance(chama.contribution)}
-                          / {formatDays(Number(chama.duration))}
-                        </Text>
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Message Icon with Unread Indicator */}
-                <TouchableOpacity
+            {loading ? (
+              <View className="flex-1 w-full items-center justify-center">
+                <LottieLoader
+                  source="home"
+                  label="Fetching your chamas..."
+                  size={140}
+                  speed={0.45}
+                />
+              </View>
+            ) : error ? (
+              <View className="flex-1 items-center justify-center">
+                <Text className="text-red-500 font-medium mb-2">⚠️ {error}</Text>
+              </View>
+            ) : chamas.length > 0 ? (
+              chamas.map((chama, index) => (
+                <Card
+                  key={chama.id || index}
                   onPress={() =>
                     router.push({
                       pathname: "/(tabs)/joined-chama-details/[id]",
                       params: {
                         id: chama.slug,
-                        tab: "chat",
                       },
                     })
                   }
-                  className="relative mr-4"
-                  activeOpacity={0.7}
                 >
-                  <MessageCircleMore
-                    size={20}
-                    color={chama.unreadMessages > 0 ? "#10b981" : "#9ca3af"}
-                  />
-                  {chama.unreadMessages > 0 && (
-                    <View className="absolute -top-1 -right-1 bg-red-500 rounded-full min-w-[16px] h-4 items-center justify-center px-1">
-                      <Text className="text-[10px] font-bold text-white">
-                        {chama.unreadMessages > 99
-                          ? "99+"
-                          : chama.unreadMessages}
-                      </Text>
+                  <View className="flex-row items-start justify-between mb-4">
+                    <View className="flex-1 pr-3">
+                      <View className="flex-row items-center gap-2 mb-2">
+                        <Text className="text-xl font-bold text-gray-900">
+                          {chama.name}
+                        </Text>
+                        <View
+                          className={`px-2 py-1 rounded-full flex-row items-center gap-1 ${
+                            chama.isPublic ? "bg-emerald-100" : "bg-gray-100"
+                          }`}
+                        >
+                          <Text className="text-xs">
+                            {chama.isPublic ? "🌍" : "🔒"}
+                          </Text>
+                          <Text
+                            className={`text-xs font-semibold ${
+                              chama.isPublic
+                                ? "text-emerald-700"
+                                : "text-gray-700"
+                            }`}
+                          >
+                            {chama.isPublic ? "Public" : "Private"}
+                          </Text>
+                        </View>
+                      </View>
+                      <View className="flex-row items-center gap-4 mb-3">
+                        <View className="flex-row items-center bg-emerald-50 px-3 py-1.5 rounded-lg">
+                          <Users color="#10b981" size={16} />
+                          <Text className="text-sm font-semibold text-emerald-700 ml-1.5">
+                            {chama.totalMembers}/{chama.maxMembers}
+                          </Text>
+                        </View>
+                        <View className="flex-row items-center px-3 py-1.5 rounded-lg">
+                          <HandCoins color="#3b82f6" size={20} />
+                          <Text
+                            className="font-semibold text-blue-700 ml-1.5"
+                            numberOfLines={1}
+                          >
+                            <Text
+                              className="text-lg font-semibold text-blue-700 ml-1.5"
+                              numberOfLines={1}
+                            >
+                              {formatBalance(chama.contribution)}/{" "}
+                              {formatDays(Number(chama.duration))}
+                            </Text>
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Message Icon with Unread Indicator */}
+                    <TouchableOpacity
+                      onPress={() =>
+                        router.push({
+                          pathname: "/(tabs)/joined-chama-details/[id]",
+                          params: {
+                            id: chama.slug,
+                            tab: "chat",
+                          },
+                        })
+                      }
+                      className="relative mr-4"
+                      activeOpacity={0.7}
+                    >
+                      <MessageCircleMore
+                        size={20}
+                        color={chama.unreadMessages > 0 ? "#10b981" : "#9ca3af"}
+                      />
+                      {chama.unreadMessages > 0 && (
+                        <View className="absolute -top-1 -right-1 bg-red-500 rounded-full min-w-[16px] h-4 items-center justify-center px-1">
+                          <Text className="text-[10px] font-bold text-white">
+                            {chama.unreadMessages > 99
+                              ? "99+"
+                              : chama.unreadMessages}
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+
+                    <Badge
+                      color={chama.status === "active" ? "#047857" : "#9ca3af"}
+                      bg={
+                        chama.status === "active"
+                          ? "#d1fae5"
+                          : "rgba(156,163,175,0.2)"
+                      }
+                    >
+                      {chama.status}
+                    </Badge>
+                  </View>
+
+                  {/* Payment Due Alert */}
+                  {chama.hasOutstandingPayment && (
+                    <View className="border border-amber-200 rounded-lg px-3 py-2.5 mb-3 flex-row items-center gap-2">
+                      <View className="bg-amber-500 rounded-full p-1">
+                        <Siren color="white" size={14} />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-sm font-semibold text-amber-900">
+                          Payment Alert
+                        </Text>
+                        <Text className="text-xs text-amber-700">
+                          Make your payment before (
+                          {new Date(
+                            chama.contributionDueDate
+                          ).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                          )
+                        </Text>
+                      </View>
+                      <View className="bg-amber-500 rounded-full w-2 h-2" />
                     </View>
                   )}
-                </TouchableOpacity>
 
-                <Badge
-                  color={chama.status === "active" ? "#047857" : "#9ca3af"}
-                  bg={
-                    chama.status === "active"
-                      ? "#d1fae5"
-                      : "rgba(156,163,175,0.2)"
-                  }
+                  <View className="flex-row items-center justify-between pt-3 border-t border-gray-100">
+                    <View className="flex-row items-center flex-1">
+                      <Calendar color="#6b7280" size={16} />
+                      <Text className="text-sm font-medium text-gray-700 ml-2">
+                        {chama.payoutSchedule.length > 0
+                          ? `Next: ${chama.myTurn ? "#You" : chama.currentTurnMember} (${chama.nextPayoutDate})`
+                          : `Schedule in:  ${
+                              chama.nextPayout
+                                ? formatTimeRemaining(
+                                    new Date(
+                                      new Date(chama.nextPayout).getTime() -
+                                        3 * 60 * 60 * 1000
+                                    )
+                                  )
+                                : chama.nextPayoutDate
+                            }`}
+                      </Text>
+                    </View>
+
+                    {chama.myTurn && (
+                      <Badge bg="#059669" color="white">
+                        Your Turn
+                      </Badge>
+                    )}
+                    <ArrowRight color="#10b981" size={18} />
+                  </View>
+                </Card>
+              ))
+            ) : (
+              <View className="flex-1 items-center justify-center px-6 pb-8">
+                <Image
+                  source={require("@/assets/images/empty.png")}
+                  className="w-24 h-24 mb-3"
+                  resizeMode="contain"
+                />
+                <Text className="text-gray-900 font-semibold text-lg mb-1">
+                  No Chamas Yet
+                </Text>
+                <Text className="text-gray-600 text-sm text-center mb-5 px-2">
+                  Join or create your first chama to start saving with your
+                  community
+                </Text>
+                <TouchableOpacity
+                  onPress={() => router.push("/create-chama")}
+                  className="px-6 py-3 rounded-xl bg-downy-600 shadow-md"
+                  activeOpacity={0.9}
                 >
-                  {chama.status}
-                </Badge>
-              </View>
-
-              {/* Payment Due Alert */}
-              {chama.hasOutstandingPayment && (
-                <View className=" border border-amber-200 rounded-lg px-3 py-2.5 mb-3 flex-row items-center gap-2">
-                  <View className="bg-amber-500 rounded-full p-1">
-                    <Siren color="white" size={14} />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-sm font-semibold text-amber-900">
-                      Payment Alert
-                    </Text>
-                    <Text className="text-xs text-amber-700">
-                      Make your payment before (
-                      {new Date(chama.contributionDueDate).toLocaleDateString(
-                        "en-US",
-                        {
-                          month: "short",
-                          day: "numeric",
-                          // year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }
-                      )}
-                      )
-                    </Text>
-                  </View>
-                  <View className="bg-amber-500 rounded-full w-2 h-2" />
-                </View>
-              )}
-
-              <View className="flex-row items-center justify-between pt-3 border-t border-gray-100">
-                <View className="flex-row items-center flex-1">
-
-                  <Calendar color="#6b7280" size={16} />
-                  {/* schedule  comes 3 days t payout */}
-                  <Text className="text-sm font-medium text-gray-700 ml-2">
-                    {chama.payoutSchedule.length > 0
-                      ? `Next: ${chama.myTurn ? "#You" : chama.currentTurnMember} (${chama.nextPayoutDate})`
-                      : `Schedule in:  ${chama.nextPayout ? formatTimeRemaining(new Date(new Date(chama.nextPayout).getTime() - (3 * 60 * 60 * 1000))) : chama.nextPayoutDate}`} 
+                  <Text className="text-white font-semibold text-base">
+                    Create Chama
                   </Text>
-
-                </View>
-
-                {chama.myTurn && (
-                  <Badge bg="#059669" color="white">
-                    Your Turn
-                  </Badge>
-                )}
-                <ArrowRight color="#10b981" size={18} />
+                </TouchableOpacity>
               </View>
-            </Card>
-          ))
+            )}
+          </>
         ) : (
-          <View className="flex-1 items-center justify-center px-6 pb-8">
-            <Image
-              source={require("@/assets/images/empty.png")}
-              className="w-24 h-24 mb-3"
-              resizeMode="contain"
-            />
-            <Text className="text-gray-900 font-semibold text-lg mb-1">
-              No Chamas Yet
-            </Text>
-            <Text className="text-gray-600 text-sm text-center mb-5 px-2">
-              Join or create your first chama to start saving with your
-              community
-            </Text>
-            <TouchableOpacity
-              onPress={() => router.push("/create-chama")}
-              className="px-6 py-3 rounded-xl bg-downy-600 shadow-md"
-              activeOpacity={0.9}
-            >
-              <Text className="text-white font-semibold text-base">
-                Create Chama
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <>
+            <View className="flex-row items-center justify-between mb-5">
+              <View className="flex-1">
+                <Text className="text-2xl font-bold text-gray-900 mb-1">
+                  My Goals
+                </Text>
+                <Text className="text-sm text-gray-500">
+                  Save for Goal pots you created or joined
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() =>
+                  router.push({
+                    pathname: "/create-chama",
+                    params: { mode: "goal" },
+                  })
+                }
+                className="flex-row items-center bg-emerald-100 px-3 py-2 rounded-full shadow-sm"
+                activeOpacity={0.7}
+              >
+                <Text className="text-emerald-700 font-semibold text-sm mr-1">
+                  New goal
+                </Text>
+                <Plus color="#10b981" size={16} />
+              </TouchableOpacity>
+            </View>
+
+            {goalsLoading && goals.length === 0 ? (
+              <View className="py-12 items-center">
+                <ActivityIndicator size="small" color="#059669" />
+              </View>
+            ) : goals.length > 0 ? (
+              goals.map((goal) => {
+                const target = parseFloat(goal.targetAmount || "0") || 0;
+                return (
+                  <Card
+                    key={goal.id}
+                    onPress={() =>
+                      router.push(`/goal-details/${goal.slug}` as any)
+                    }
+                  >
+                    <View className="flex-row items-start justify-between mb-3">
+                      <View className="flex-1 pr-3">
+                        <View className="flex-row items-center gap-2 mb-2">
+                          <Target size={18} color="#059669" />
+                          <Text className="text-xl font-bold text-gray-900 flex-shrink">
+                            {goal.name}
+                          </Text>
+                        </View>
+                        <View className="flex-row flex-wrap items-center gap-2 mb-2">
+                          <Badge color="#047857" bg="#d1fae5">
+                            {goalTypeLabel(goal.goalType)}
+                          </Badge>
+                          {goal.yieldEnabled && (
+                            <Badge color="#065f46" bg="#a7f3d0">
+                              Yield
+                            </Badge>
+                          )}
+                          <Badge
+                            color={
+                              goal.status === "active" ? "#047857" : "#6b7280"
+                            }
+                            bg={
+                              goal.status === "active"
+                                ? "#d1fae5"
+                                : "rgba(156,163,175,0.2)"
+                            }
+                          >
+                            {goal.status}
+                          </Badge>
+                        </View>
+                        <Text className="text-sm text-gray-600" numberOfLines={2}>
+                          {goal.description || "No description"}
+                        </Text>
+                      </View>
+                      <ArrowRight color="#10b981" size={18} />
+                    </View>
+                    <View className="flex-row items-center justify-between pt-3 border-t border-gray-100">
+                      <View className="flex-row items-center">
+                        <HandCoins color="#3b82f6" size={18} />
+                        <Text className="text-sm font-semibold text-blue-700 ml-1.5">
+                          Target {formatBalance(target)}
+                        </Text>
+                      </View>
+                      {goal.endDate ? (
+                        <View className="flex-row items-center">
+                          <Calendar color="#6b7280" size={14} />
+                          <Text className="text-xs text-gray-500 ml-1">
+                            Ends {new Date(goal.endDate).toLocaleDateString()}
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text className="text-xs text-gray-400">
+                          {goal._count?.members ?? goal.members?.length ?? 1}{" "}
+                          member
+                          {(goal._count?.members ??
+                            goal.members?.length ??
+                            1) === 1
+                            ? ""
+                            : "s"}
+                        </Text>
+                      )}
+                    </View>
+                  </Card>
+                );
+              })
+            ) : (
+              <View className="bg-[#0a0a0a] rounded-3xl px-6 pt-6 pb-8 mb-4 mt-16 items-center overflow-hidden">
+                <Image
+                  source={require("@/assets/images/no-focus.png")}
+                  className="w-20 h-20 mb-3"
+                  resizeMode="contain"
+                />
+                <Text className="text-downy-100 font-semibold text-lg mb-1">
+                  No goals yet
+                </Text>
+                <Text className="text-gray-400 text-sm text-center mb-6 leading-5 px-3">
+                  Create a personal, invite, or public Save for Goal pot
+                </Text>
+                <TouchableOpacity
+                  onPress={() =>
+                    router.push({
+                      pathname: "/create-chama",
+                      params: { mode: "goal" },
+                    })
+                  }
+                  className="flex-row items-center bg-white rounded-full border-[1.5px] border-downy-500"
+                  style={{
+                    paddingLeft: 28,
+                    paddingRight: 10,
+                    paddingVertical: 10,
+                    gap: 14,
+                    shadowColor: "#26a6a2",
+                    shadowOffset: { width: 0, height: 6 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 10,
+                    elevation: 6,
+                  }}
+                  activeOpacity={0.88}
+                >
+                  <Text
+                    className="text-downy-700 text-[15px] font-bold"
+                    style={{ letterSpacing: 0.3 }}
+                  >
+                    New Goal
+                  </Text>
+                  <View className="w-9 h-9 rounded-full bg-downy-600 items-center justify-center">
+                    <Plus color="white" size={18} strokeWidth={2.5} />
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
 

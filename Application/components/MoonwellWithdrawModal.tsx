@@ -18,6 +18,10 @@ import {
   getMoonwellUsdcSnapshot,
 } from "@/lib/moonwellService";
 import { getTheUserTx } from "@/lib/walletServices";
+import {
+  formatAmountTyping,
+  parseAmountTyping,
+} from "@/Utils/helperFunctions";
 
 interface MoonwellWithdrawModalProps {
   visible: boolean;
@@ -134,12 +138,14 @@ const MoonwellWithdrawModal = ({
 
   const formatUsdcForInput = (usdc: number) => {
     if (currency === "KES") {
-      return getKesValue(usdc).toFixed(2);
+      return formatAmountTyping(getKesValue(usdc).toFixed(2));
     }
-    return roundUsdc6(usdc).toFixed(6).replace(/\.?0+$/, "") || "0";
+    return formatAmountTyping(
+      roundUsdc6(usdc).toFixed(6).replace(/\.?0+$/, "") || "0"
+    );
   };
 
-  const inputAmount = Number(amount) || 0;
+  const inputAmount = parseAmountTyping(amount);
 
   let actualUSDCAmount =
     lockedUsdcAmount != null
@@ -437,7 +443,7 @@ const MoonwellWithdrawModal = ({
                   <TextInput
                     value={amount}
                     onChangeText={(val: string) => {
-                      setAmount(val);
+                      setAmount(formatAmountTyping(val, true));
                       setIsMax(false);
                       setActivePreset(null);
                       setLockedUsdcAmount(null);

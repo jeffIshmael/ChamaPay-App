@@ -1,7 +1,7 @@
 // this file contains all the blockchain read functions
 import { createPublicClient, http } from 'viem'
 import { base } from 'viem/chains'
-import { contractABI, USDCAddress, contractAddress } from './Constants'
+import { contractABI, USDCAddress, contractAddress, goalContractAddress, goalContractABI } from './Constants'
 import { erc20Abi } from 'viem'
  
 const publicClient = createPublicClient({
@@ -63,6 +63,26 @@ export const bcGetTotalChamas = async () => {
     }) as bigint;
     return totalChamas.toString();
 }
+
+export const bcGetTotalGoals = async () => {
+    const totalGoals = await publicClient.readContract({
+        address: goalContractAddress as `0x${string}`,
+        abi: goalContractABI,
+        functionName: "totalGoals",
+        args: [],
+    }) as bigint;
+    return totalGoals.toString();
+};
+
+export const bcGetGoalFinance = async (goalId: bigint) => {
+    const finance = await publicClient.readContract({
+        address: goalContractAddress as `0x${string}`,
+        abi: goalContractABI,
+        functionName: "getGoalFinance",
+        args: [goalId],
+    });
+    return finance;
+};
 
 // function to get user balance
 export const getUserBalance = async (memberAddress: string) => {

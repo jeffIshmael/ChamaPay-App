@@ -134,6 +134,7 @@ return (
         <Stack.Screen name="lock-screen" />
         <Stack.Screen name="notification-trial" />
         <Stack.Screen name="chama/[encryptedSlug]" />
+        <Stack.Screen name="goal-details/[slug]" />
       </Stack>
     </SafeAreaProvider>
   );
