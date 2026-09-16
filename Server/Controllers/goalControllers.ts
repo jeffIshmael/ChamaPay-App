@@ -52,11 +52,12 @@ export const createGoal = async (req: Request, res: Response) => {
       });
     }
 
+    // Same pattern as createChama: load user CDP wallet, then EIP-7702 write
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user?.cdpWalletId || !user.smartAddress) {
+    if (!user || !user.cdpWalletId) {
       return res
-        .status(400)
-        .json({ success: false, error: "User wallet not ready" });
+        .status(401)
+        .json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
     const target = (targetAmount ?? "0").toString();
