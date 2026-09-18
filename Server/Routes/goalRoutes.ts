@@ -5,7 +5,10 @@ import {
   contributeToGoal,
   createGoal,
   getGoalBySlug,
+  getGoalPayStatus,
   getMyGoals,
+  getPublicGoalByPayToken,
+  initiateGoalPayOnramp,
   setGoalYieldEnabled,
   uploadGoalCover,
   withdrawFromGoal,
@@ -33,6 +36,12 @@ const upload = multer({
 router.post("/create", authenticate, createGoal);
 router.get("/my-goals", authenticate, getMyGoals);
 router.get("/slug/:slug", authenticate, getGoalBySlug);
+
+/** Public guest pay-link (obfuscated token) */
+router.get("/pay/status/:code", getGoalPayStatus);
+router.get("/pay/:token", getPublicGoalByPayToken);
+router.post("/pay/:token/onramp", initiateGoalPayOnramp);
+
 router.post(
   "/:id/cover",
   authenticate,

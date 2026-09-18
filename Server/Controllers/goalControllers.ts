@@ -5,6 +5,9 @@ import { GoalType, GoalWithdrawMode } from "../Blockchain/Constants";
 import { bcGetGoalFinance, bcGetTotalGoals } from "../Blockchain/ReadFunctions";
 import { bcCreateGoal, bcGoalAddMember, bcGoalContribute, bcGoalSetYieldEnabled, bcGoalWithdraw } from "../Blockchain/WriteFunction";
 import { generateUniqueGoalSlug } from "../Lib/HelperFunctions";
+import { decryptGoalSlug, generateGoalPayUrl } from "../Lib/goalPayLink";
+import { pretiumOnramp } from "../Lib/PretiumFunctions";
+import { isValidKenyaPhone, toKenyaLocal07 } from "../Lib/phoneUtils";
 import { uploadToPinata } from "../utils/PinataUtils";
 import { formatUnits } from "viem";
 
@@ -150,7 +153,7 @@ export const createGoal = async (req: Request, res: Response) => {
     return res.status(201).json({
       success: true,
       goal,
-      payLink: `https://chamapay.com/goal/${goal.slug}`,
+      payLink: generateGoalPayUrl(goal.slug),
     });
   } catch (error) {
     console.error("createGoal error:", error);
@@ -283,7 +286,7 @@ export const getGoalBySlug = async (req: Request, res: Response) => {
       finance,
       isMember,
       isCreator,
-      payLink: `https://chamapay.com/goal/${goal.slug}`,
+      payLink: generateGoalPayUrl(goal.slug),
     });
   } catch (error) {
     console.error("getGoalBySlug error:", error);
@@ -654,5 +657,208 @@ export const contributeToGoal = async (req: Request, res: Response) => {
     const msg =
       error instanceof Error ? error.message : "Failed to deposit";
     return res.status(400).json({ success: false, error: msg });
+  }
+};
+
+const MIN_GOAL_PAY_KES = 100;
+const MAX_GOAL_PAY_KES = 250000;
+
+async function resolveGoalFromPayToken(token: string) {
+  const raw = (token || "").trim();
+  if (!raw) return null;
+  const slug = decryptGoalSlug(raw) || raw;
+  const bySlug = await prisma.goal.findUnique({
+    where: { slug },
+    include: {
+      creator: {
+        select: {
+          id: true,
+          userName: true,
+          profileImageUrl: true,
+        },
+      },
+    },
+  });
+  if (bySlug) return bySlug;
+  return prisma.goal.findUnique({
+    where: { slug: raw },
+    include: {
+      creator: {
+        select: {
+          id: true,
+          userName: true,
+          profileImageUrl: true,
+        },
+      },
+    },
+  });
+}
+
+/** Public: resolve obfuscated pay token → goal preview for guests */
+export const getPublicGoalByPayToken = async (req: Request, res: Response) => {
+  try {
+    const goal = await resolveGoalFromPayToken(req.params.token);
+    if (!goal || goal.status !== "active") {
+      return res.status(404).json({ success: false, error: "Goal not found" });
+    }
+
+    let totalBalance = "0";
+    let progress = 0;
+    try {
+      const raw = (await bcGetGoalFinance(BigInt(goal.blockchainId))) as any;
+      totalBalance = formatUnits(raw.totalBalance ?? raw[2], 6);
+      const target = parseFloat(goal.targetAmount || "0") || 0;
+      const bal = parseFloat(totalBalance) || 0;
+      progress = target > 0 ? Math.min(100, (bal / target) * 100) : 0;
+    } catch {
+      /* finance optional for preview */
+    }
+
+    return res.status(200).json({
+      success: true,
+      goal: {
+        id: goal.id,
+        name: goal.name,
+        slug: goal.slug,
+        description: goal.description,
+        goalType: goal.goalType,
+        targetAmount: goal.targetAmount,
+        endDate: goal.endDate,
+        coverImageUrl: goal.coverImageUrl,
+        status: goal.status,
+        creator: goal.creator
+          ? {
+              userName: goal.creator.userName,
+              profileImageUrl: goal.creator.profileImageUrl,
+            }
+          : null,
+        totalBalance,
+        progress,
+      },
+    });
+  } catch (error) {
+    console.error("getPublicGoalByPayToken error:", error);
+    return res.status(500).json({ success: false, error: "Failed to load goal" });
+  }
+};
+
+/**
+ * Public guest M-Pesa contribute via pay link.
+ * Credits the goal pool via treasury after Pretium release (type = "goal").
+ */
+export const initiateGoalPayOnramp = async (req: Request, res: Response) => {
+  try {
+    const goal = await resolveGoalFromPayToken(req.params.token);
+    if (!goal || goal.status !== "active") {
+      return res.status(404).json({ success: false, error: "Goal not found" });
+    }
+
+    const { amount, phoneNo, guestDisplayName, exchangeRate } = req.body || {};
+    const kes = Number(amount);
+    if (!Number.isFinite(kes) || kes < MIN_GOAL_PAY_KES) {
+      return res.status(400).json({
+        success: false,
+        error: `Minimum contribution is KES ${MIN_GOAL_PAY_KES}`,
+      });
+    }
+    if (kes > MAX_GOAL_PAY_KES) {
+      return res.status(400).json({
+        success: false,
+        error: `Maximum contribution is KES ${MAX_GOAL_PAY_KES.toLocaleString()}`,
+      });
+    }
+    if (!phoneNo || !isValidKenyaPhone(String(phoneNo))) {
+      return res.status(400).json({
+        success: false,
+        error: "Enter a valid M-Pesa number",
+      });
+    }
+
+    const treasuryAddress = process.env.TREASURY_WALLET;
+    if (!treasuryAddress) {
+      return res.status(500).json({
+        success: false,
+        error: "Treasury not configured",
+      });
+    }
+
+    const platformRate = parseFloat(process.env.CHAMAPAY_RATE || "132");
+    const exactUsdcAmount = kes / platformRate;
+    const localPhone = toKenyaLocal07(String(phoneNo));
+
+    const result = await pretiumOnramp(localPhone, kes, treasuryAddress);
+    if (!result) {
+      return res.status(400).json({
+        success: false,
+        error: "Failed to initiate M-Pesa payment",
+      });
+    }
+
+    const display =
+      typeof guestDisplayName === "string" && guestDisplayName.trim()
+        ? guestDisplayName.trim().slice(0, 40)
+        : "Guest";
+
+    await prisma.pretiumTransaction.create({
+      data: {
+        userId: goal.creatorId,
+        transactionCode: result.transaction_code,
+        isOnramp: true,
+        shortcode: localPhone,
+        amount: kes,
+        type: "goal",
+        status: result.status,
+        isRealesed: false,
+        cusdAmount: exactUsdcAmount,
+        exchangeRate: exchangeRate ? Number(exchangeRate) : platformRate,
+        walletAddress: treasuryAddress,
+        goalId: goal.id,
+        message: `guest:${display}`,
+      } as any,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+      status: result.status,
+      transactionCode: result.transaction_code,
+    });
+  } catch (error: unknown) {
+    console.error("initiateGoalPayOnramp error:", error);
+    const msg =
+      error instanceof Error ? error.message : "Failed to start payment";
+    return res.status(500).json({ success: false, error: msg });
+  }
+};
+
+/** Public poll for guest goal pay status */
+export const getGoalPayStatus = async (req: Request, res: Response) => {
+  try {
+    const code = decodeURIComponent(req.params.code || "");
+    if (!code) {
+      return res.status(400).json({ success: false, error: "Missing code" });
+    }
+    const tx = await prisma.pretiumTransaction.findUnique({
+      where: { transactionCode: code },
+      select: {
+        type: true,
+        status: true,
+        isRealesed: true,
+        goalId: true,
+      },
+    });
+    if (!tx || tx.type !== "goal") {
+      return res.status(404).json({ success: false, error: "Not found" });
+    }
+    return res.status(200).json({
+      success: true,
+      status: tx.status,
+      isReleased: tx.isRealesed,
+      complete:
+        String(tx.status).toUpperCase() === "COMPLETE" || Boolean(tx.isRealesed),
+    });
+  } catch (error) {
+    console.error("getGoalPayStatus error:", error);
+    return res.status(500).json({ success: false, error: "Status check failed" });
   }
 };
