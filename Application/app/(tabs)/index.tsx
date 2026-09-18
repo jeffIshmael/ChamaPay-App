@@ -15,7 +15,7 @@ import { useFormattedBalance } from "@/hooks/useFormattedBalance";
 import { formatDays, formatTimeRemaining } from "@/Utils/helperFunctions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
   ArrowRight,
@@ -47,6 +47,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ tab?: string | string[] }>();
   const { user, token, unReadNotificationCount, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -58,6 +59,12 @@ export default function HomeScreen() {
   const { formatBalance } = useFormattedBalance();
   const hasInitialized = React.useRef(false);
   const identityVerified = isIdentityVerified(user);
+
+  useEffect(() => {
+    const tab = Array.isArray(params.tab) ? params.tab[0] : params.tab;
+    if (tab === "goals") setHomeTab("goals");
+    else if (tab === "chamas") setHomeTab("chamas");
+  }, [params.tab]);
 
   // Fetch user's chamas using React Query
   const {
@@ -478,7 +485,7 @@ Alert.alert(
                         <View className="flex-row items-center bg-emerald-50 px-3 py-1.5 rounded-lg">
                           <Users color="#10b981" size={16} />
                           <Text className="text-sm font-semibold text-emerald-700 ml-1.5">
-                            {chama.totalMembers}/{chama.maxMembers}
+                            {chama.totalMembers}
                           </Text>
                         </View>
                         <View className="flex-row items-center px-3 py-1.5 rounded-lg">
@@ -729,16 +736,16 @@ Alert.alert(
                 );
               })
             ) : (
-              <View className="bg-[#0a0a0a] rounded-3xl px-6 pt-6 pb-8 mb-4 mt-16 items-center overflow-hidden">
+              <View className="flex-1 items-center justify-center px-6 pb-8 -mt-2">
                 <Image
                   source={require("@/assets/images/no-focus.png")}
-                  className="w-20 h-20 mb-3"
+                  className="w-28 h-28 mb-4"
                   resizeMode="contain"
                 />
-                <Text className="text-downy-100 font-semibold text-lg mb-1">
+                <Text className="text-gray-900 font-semibold text-lg mb-1">
                   No goals yet
                 </Text>
-                <Text className="text-gray-400 text-sm text-center mb-6 leading-5 px-3">
+                <Text className="text-gray-600 text-sm text-center mb-6 px-2">
                   Create a personal, invite, or public Save for Goal pot
                 </Text>
                 <TouchableOpacity
