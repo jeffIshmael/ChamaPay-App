@@ -1,5 +1,9 @@
 import { Transaction } from "@/constants/mockData";
-import { formatTimeRemaining, getRelativeTime } from "@/Utils/helperFunctions";
+import {
+  formatTimeRemaining,
+  getRelativeTime,
+  isDueWithinDays,
+} from "@/Utils/helperFunctions";
 import { useRouter } from "expo-router";
 import {
   CalendarCog,
@@ -210,8 +214,9 @@ const ChamaOverviewTab: FC<Props> = ({
                       </Text>
                     </View>
 
-                    {/* Payment Warning */}
-                    {remainingAmount > 0 ? (
+                    {/* Payment Warning — outstanding only within 3 days of due */}
+                    {remainingAmount > 0 &&
+                    isDueWithinDays(contributionDueDate, 3) ? (
                       <View className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
                         <View className="flex-row items-start gap-2">
                           <View className="w-4 h-4 bg-orange-100 rounded-full items-center justify-center mt-0.5">
@@ -229,7 +234,7 @@ const ChamaOverviewTab: FC<Props> = ({
                           </View>
                         </View>
                       </View>
-                    ) : (
+                    ) : remainingAmount <= 0 ? (
                       <View className="bg-gray-100 border border-gray-200 rounded-lg p-3 mb-3">
                         <View className="flex-row items-start gap-2">
                           <View className="w-4 h-4 bg-gray-100 items-center justify-center mt-0.5">
@@ -245,7 +250,7 @@ const ChamaOverviewTab: FC<Props> = ({
                           </View>
                         </View>
                       </View>
-                    )}
+                    ) : null}
 
                     {/* Action Buttons */}
                     <View className="flex-row gap-2">
@@ -418,7 +423,8 @@ const ChamaOverviewTab: FC<Props> = ({
                   </Text>
                 </View>
 
-                {remainingAmount > 0 ? (
+                {remainingAmount > 0 &&
+                isDueWithinDays(contributionDueDate, 3) ? (
                   <View className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
                     <View className="flex-row items-start gap-2">
                       <View className="w-4 h-4 bg-orange-100 rounded-full items-center justify-center mt-0.5">
@@ -439,7 +445,7 @@ const ChamaOverviewTab: FC<Props> = ({
                       </View>
                     </View>
                   </View>
-                ) : (
+                ) : remainingAmount <= 0 ? (
                   <View className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-3">
                     <View className="flex-row items-start gap-2">
                       <View className="w-4 h-4 bg-emerald-100 rounded-full items-center justify-center mt-0.5">
@@ -455,7 +461,7 @@ const ChamaOverviewTab: FC<Props> = ({
                       </View>
                     </View>
                   </View>
-                )}
+                ) : null}
 
                 <View className="flex-row gap-2">
                   {remainingAmount > 0 ? (
@@ -611,8 +617,7 @@ const ChamaOverviewTab: FC<Props> = ({
           <Text className="text-lg font-semibold text-gray-900">
             Recent Transactions
           </Text>
-          {
-            recentTransactions.length > 3 && (
+          {recentTransactions.length > 0 && (
               <TouchableOpacity
                 className="bg-gray-100 px-3 py-1 rounded-full"
                 onPress={() => router.push({
@@ -623,10 +628,9 @@ const ChamaOverviewTab: FC<Props> = ({
                   }
                 })}
               >
-                <Text className="text-xs text-gray-600 font-medium">View All</Text>
+                <Text className="text-xs text-gray-600 font-medium">All</Text>
               </TouchableOpacity>
-            )
-          }
+            )}
         </View>
 
         <View className="h-px bg-gray-200 mb-4" />

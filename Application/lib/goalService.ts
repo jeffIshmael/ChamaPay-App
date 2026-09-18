@@ -310,3 +310,17 @@ export function goalTypeLabel(type: string): string {
   if (type === "public") return "Public / Harambee";
   return type;
 }
+
+/** Badge colors for goal-type tags on home / lists */
+export function goalTypeTagColors(type: string): { color: string; bg: string } {
+  switch (type) {
+    case "personal":
+      return { color: "#6d28d9", bg: "#f5f3ff" }; // violet
+    case "invite":
+      return { color: "#0369a1", bg: "#f0f9ff" }; // sky
+    case "public":
+      return { color: "#b45309", bg: "#fffbeb" }; // amber
+    default:
+      return { color: "#4b5563", bg: "#f3f4f6" };
+  }
+}
