@@ -22,6 +22,7 @@ import {
   Fingerprint,
   Info,
   LogOut,
+  MessageCircle,
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -661,23 +662,19 @@ const result = await updateUserNotificationSettings(token, undefined, setEmailNo
               </TouchableOpacity>
 
               <TouchableOpacity 
-                onPress={() => Linking.openURL('https://t.me/chamapay').catch(() => Alert.alert("Error", "Could not open link"))}
+                onPress={() => Linking.openURL('https://wa.me/2547571149628').catch(() => Alert.alert("Error", "Could not open WhatsApp"))}
                 className="w-full p-4 bg-gray-50 rounded-xl active:bg-gray-100 flex-row items-center justify-between"
               >
                 <View className="flex-row items-center gap-3">
-                  <View className="w-10 h-10 rounded-lg items-center justify-center overflow-hidden">
-                    <Image
-                      source={require("@/assets/images/telegram.jpg")}
-                      style={{ width: 40, height: 40 }}
-                      resizeMode="cover"
-                    />
+                  <View className="w-10 h-10 rounded-lg items-center justify-center bg-[#25D366]/20">
+                    <MessageCircle size={18} color="#25D366" />
                   </View>
                   <View>
                     <Text className="text-gray-900 font-semibold text-base">
                       Help & Support
                     </Text>
                     <Text className="text-sm text-gray-600 mt-1">
-                      Join our Telegram community
+                      Message us on WhatsApp
                     </Text>
                   </View>
                 </View>

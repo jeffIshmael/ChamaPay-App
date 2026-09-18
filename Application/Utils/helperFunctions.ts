@@ -116,6 +116,19 @@ export const formatDate = (dateString: string) => {
     return `${dayName}, ${day} ${month} , ${time}`;
   };
 
+/** True when due date is within `days` (including overdue). */
+export const isDueWithinDays = (
+  dueDate: string | Date | null | undefined,
+  days = 3
+): boolean => {
+  if (dueDate == null) return false;
+  const due = new Date(dueDate);
+  if (Number.isNaN(due.getTime()) || !Number.isFinite(days) || days < 0) {
+    return false;
+  }
+  return due.getTime() - Date.now() <= days * 24 * 60 * 60 * 1000;
+};
+
  // function that received date string and formats it as relative time
 export const getRelativeTime = (dateString: string): string => {
     const date = new Date(dateString);

@@ -4,7 +4,7 @@ import { Request, Response } from "express";
 
 import { parseUnits } from "viem";
 import { transferTx } from "../Blockchain/erc20Functions";
-import { bcMoonwellDeposit, bcDepositFundsToChama, bcDepositFundsForMember } from "../Blockchain/WriteFunction";
+import { bcMoonwellDeposit, bcDepositFundsToChama, bcDepositFundsForMember, bcTreasuryGoalContribute } from "../Blockchain/WriteFunction";
 import emailService from "../Lib/EmailService";
 import {
   checkPretiumTxStatus,
@@ -65,6 +65,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
     isMoonwellDeposit,
     chamaId,
     memberForId,
+    goalId,
   } = req.body;
   const userId = req.user?.userId;
   try {
@@ -133,6 +134,15 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
       });
     }
 
+    const parsedGoalId = goalId ? Number(goalId) : null;
+    const txType = parsedGoalId
+      ? "goal"
+      : isMoonwellDeposit
+        ? "moonwell"
+        : isDeposit
+          ? "deposit"
+          : "payment";
+
     // Save onramp transaction to database
     await prisma.pretiumTransaction.create({
       data: {
@@ -141,7 +151,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
         isOnramp: true,
         shortcode: phoneNo.toString(),
         amount: amount,
-        type: isMoonwellDeposit ? "moonwell" : (isDeposit ? "deposit" : "payment"),
+        type: txType,
         status: result.status,
         isRealesed: false,
         cusdAmount: exactUsdcAmount, // Store the exact amount we owe the user based on platform rate
@@ -149,6 +159,7 @@ export async function initiatePretiumOnramp(req: Request, res: Response) {
         walletAddress: user.smartAddress,
         chamaId: chamaId ? Number(chamaId) : null,
         memberForId: memberForId ? Number(memberForId) : null,
+        goalId: parsedGoalId && Number.isFinite(parsedGoalId) ? parsedGoalId : null,
       } as any,
     });
 
@@ -420,11 +431,54 @@ export async function pretiumCallback(req: Request, res: Response) {
             } else {
               throw new Error("No CDP Wallet found for user to deposit to Moonwell");
             }
+          } else if (transaction.type === "goal" && transaction.goalId) {
+            const goal = await prisma.goal.findUnique({
+              where: { id: transaction.goalId },
+            });
+            if (!goal) {
+              throw new Error("Goal not found for pay-link contribution");
+            }
+            const treasuryAddress = process.env.TREASURY_WALLET as string;
+            txResult = await bcTreasuryGoalContribute(
+              BigInt(goal.blockchainId),
+              usdcAmountToCredit.toString()
+            );
+            description = "Goal contribution via M-Pesa";
+
+            const msg =
+              typeof transaction.message === "string"
+                ? transaction.message
+                : "";
+            const isGuestPay = msg.startsWith("guest:");
+            const guestName = isGuestPay ? msg.slice(6) : null;
+            const payerAddr =
+              transaction.user?.smartAddress ||
+              transaction.walletAddress ||
+              treasuryAddress ||
+              "treasury";
+
+            await prisma.goalContribution.create({
+              data: {
+                goalId: goal.id,
+                amount: usdcAmountToCredit.toString(),
+                contributorAddress: payerAddr,
+                payerAddress: payerAddr,
+                contributorUserId: isGuestPay ? null : transaction.userId,
+                payerUserId: isGuestPay ? null : transaction.userId,
+                isGuest: isGuestPay,
+                guestDisplayName: guestName,
+                txHash:
+                  typeof txResult === "string" ? txResult : String(txResult),
+                pretiumTxCode: body.transaction_code,
+              },
+            });
           } else {
             txResult = await treasuryTransferToUser(targetAddress as `0x${string}`, bigintAmount);
           }
 
           if (txResult) {
+            // Guest goal pay-link: already recorded as GoalContribution — skip wallet Payment rows.
+            if (transaction.type !== "goal") {
             // Record against the payer (wallet that funded the payment).
             const payerUserId = transaction.userId;
             const payerDescription =
@@ -454,6 +508,7 @@ export async function pretiumCallback(req: Request, res: Response) {
                   userId: targetUserId,
                 },
               });
+            }
             }
 
             // Mark the PretiumTransaction as COMPLETELY done now!

@@ -6,7 +6,7 @@ import {
   getUserChamas,
   transformChamaData,
 } from "@/lib/chamaService";
-import { getMyGoals, goalTypeLabel, GoalRecord } from "@/lib/goalService";
+import { getMyGoals, goalTypeLabel, goalTypeTagColors, GoalRecord } from "@/lib/goalService";
 import { decryptChamaSlug, parseChamaShareUrl } from "@/lib/encryption";
 import { registerForPushNotificationsAsync } from "@/lib/notificationUtils";
 import { updateUserPushToken } from "@/lib/userService";
@@ -679,7 +679,7 @@ Alert.alert(
                           </Text>
                         </View>
                         <View className="flex-row flex-wrap items-center gap-2 mb-2">
-                          <Badge color="#047857" bg="#d1fae5">
+                          <Badge {...goalTypeTagColors(goal.goalType)}>
                             {goalTypeLabel(goal.goalType)}
                           </Badge>
                           {goal.yieldEnabled && (

@@ -7,7 +7,8 @@ export type LottieSource =
   | "notifications"
   | "history"
   | "schedule"
-  | "wallet";
+  | "wallet"
+  | "saving";
 
 const SOURCES: Record<LottieSource, ReturnType<typeof require>> = {
   home: require("@/assets/lottie/home-lottie.json"),
@@ -15,6 +16,7 @@ const SOURCES: Record<LottieSource, ReturnType<typeof require>> = {
   history: require("@/assets/lottie/history.json"),
   schedule: require("@/assets/lottie/chama-schedule.json"),
   wallet: require("@/assets/lottie/wallettxs-lotie.json"),
+  saving: require("@/assets/lottie/saving_lottie.json"),
 };
 
 type Props = {
