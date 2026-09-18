@@ -142,7 +142,7 @@ export default function CryptoWallet() {
     setTransactionError(null);
 
     try {
-      const result = await getTheUserTx(token, { limit: 5 });
+      const result = await getTheUserTx(token, { limit: 6 });
 
       if (result === null) {
         setTransactionError("Unable to load transaction history");
@@ -955,12 +955,12 @@ setTransactionError("Failed to load transactions");
                 </View>
               )}
 
-            {/* Transactions List - Show only first 3 */}
+            {/* Transactions List - Show only first 6 */}
             {!loadingTransactions &&
               !transactionError &&
               theTransaction.length > 0 && (
                 <View>
-                  {theTransaction.map((item: Transaction) => (
+                  {theTransaction.slice(0, 6).map((item: Transaction) => (
                     <TransactionCard key={`${item.id}-${item.date}`} tx={item} />
                   ))}
                 </View>

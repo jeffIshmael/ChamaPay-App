@@ -37,6 +37,7 @@ interface MobileMoneyPayProps {
   currency?: string;
   recipient?: { userId: number; userName: string } | null;
   isMoonwellDeposit?: boolean;
+  goalId?: number;
 }
 
 const MobileMoneyPay = ({
@@ -51,6 +52,7 @@ const MobileMoneyPay = ({
   currency = "USDC",
   recipient = null,
   isMoonwellDeposit = false,
+  goalId,
 }: MobileMoneyPayProps) => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [usdcAmount, setUsdcAmount] = useState("");
@@ -263,9 +265,10 @@ const MobileMoneyPay = ({
         parsedUSDC,
         false,
         token,
-        chamaId,
+        goalId != null ? undefined : chamaId,
         recipient?.userId,
-        isMoonwellDeposit
+        goalId != null ? undefined : isMoonwellDeposit,
+        goalId
       );
 
       if (!result.success) {
@@ -339,7 +342,13 @@ const MobileMoneyPay = ({
       ]).start();
 
       const displayedAmountStr = isKESMode ? `${formatCurrency(parseFloat(kesAmount), 0)} KES` : `${usdcAmount} USDC`;
-      ToastAndroid.show(`Successfully paid ${displayedAmountStr} to ${chamaName} chama${recipient ? ` on behalf of @${recipient.userName}` : ''}.`, ToastAndroid.SHORT);
+      const successMsg =
+        goalId != null
+          ? `Successfully paid ${displayedAmountStr} to ${chamaName}.`
+          : isMoonwellDeposit
+            ? `Successfully deposited ${displayedAmountStr} to Moonwell.`
+            : `Successfully paid ${displayedAmountStr} to ${chamaName} chama${recipient ? ` on behalf of @${recipient.userName}` : ""}.`;
+      ToastAndroid.show(successMsg, ToastAndroid.SHORT);
 
       setPhoneNumber("");
       setUsdcAmount("");

@@ -19,25 +19,32 @@ export async function pretiumOnramp(
   token: string,
   chamaId?: number,
   memberForId?: number,
-  isMoonwellDeposit?: boolean
+  isMoonwellDeposit?: boolean,
+  goalId?: number
 ) {
   try {
+    const body: Record<string, unknown> = {
+      amount,
+      phoneNo,
+      exchangeRate,
+      usdcAmount,
+      isDeposit,
+      memberForId,
+    };
+    if (goalId != null && Number.isFinite(goalId)) {
+      body.goalId = goalId;
+    } else {
+      body.chamaId = chamaId;
+      body.isMoonwellDeposit = isMoonwellDeposit;
+    }
+
     const response = await fetch(`${serverUrl}/pretium/onramp`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        amount,
-        phoneNo,
-        exchangeRate,
-        usdcAmount,
-        isDeposit,
-        chamaId,
-        memberForId,
-        isMoonwellDeposit,
-      }),
+      body: JSON.stringify(body),
     });
     const data = await response.json();
     if (!response.ok) {
