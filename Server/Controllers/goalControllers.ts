@@ -1,12 +1,18 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-import { GoalType } from "../Blockchain/Constants";
+import "multer";
+import { GoalType, GoalWithdrawMode } from "../Blockchain/Constants";
 import { bcGetGoalFinance, bcGetTotalGoals } from "../Blockchain/ReadFunctions";
-import { bcCreateGoal } from "../Blockchain/WriteFunction";
+import { bcCreateGoal, bcGoalAddMember, bcGoalContribute, bcGoalSetYieldEnabled, bcGoalWithdraw } from "../Blockchain/WriteFunction";
 import { generateUniqueGoalSlug } from "../Lib/HelperFunctions";
+import { uploadToPinata } from "../utils/PinataUtils";
 import { formatUnits } from "viem";
 
 const prisma = new PrismaClient();
+
+interface MulterRequest extends Request {
+  file?: Express.Multer.File;
+}
 
 const GOAL_TYPE_MAP: Record<string, 0 | 1 | 2> = {
   personal: GoalType.Personal,
@@ -267,9 +273,9 @@ export const getGoalBySlug = async (req: Request, res: Response) => {
     }
 
     const isMember = userId
-      ? goal.members.some((m) => m.userId === userId)
+      ? goal.members.some((m) => m.userId === Number(userId))
       : false;
-    const isCreator = userId === goal.creatorId;
+    const isCreator = Number(userId) === Number(goal.creatorId);
 
     return res.status(200).json({
       success: true,
@@ -282,5 +288,371 @@ export const getGoalBySlug = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("getGoalBySlug error:", error);
     return res.status(500).json({ success: false, error: "Failed to fetch goal" });
+  }
+};
+
+/** Upload / replace a goal cover (profile) image — creator only */
+export const uploadGoalCover = async (
+  req: MulterRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ success: false, error: "No image provided" });
+      return;
+    }
+
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Unauthorized" });
+      return;
+    }
+
+    const goalId = Number(req.params.id);
+    if (!Number.isFinite(goalId) || goalId <= 0) {
+      res.status(400).json({ success: false, error: "Invalid goal id" });
+      return;
+    }
+
+    const goal = await prisma.goal.findUnique({
+      where: { id: goalId },
+      select: { id: true, creatorId: true },
+    });
+
+    if (!goal) {
+      res.status(404).json({ success: false, error: "Goal not found" });
+      return;
+    }
+
+    if (goal.creatorId !== userId) {
+      res.status(403).json({
+        success: false,
+        error: "Only the goal creator can change the cover photo",
+      });
+      return;
+    }
+
+    const ext = req.file.mimetype.split("/")[1] || "jpg";
+    const fileName = `goal_cover_${goalId}_${Date.now()}.${ext}`;
+    const ipfsUrl = await uploadToPinata(
+      req.file.buffer,
+      fileName,
+      req.file.mimetype
+    );
+
+    const updated = await prisma.goal.update({
+      where: { id: goalId },
+      data: { coverImageUrl: ipfsUrl },
+      select: {
+        id: true,
+        slug: true,
+        coverImageUrl: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      coverImageUrl: ipfsUrl,
+      goal: updated,
+      message: "Goal cover updated",
+    });
+  } catch (error) {
+    console.error("uploadGoalCover error:", error);
+    res.status(500).json({ success: false, error: "Failed to upload cover" });
+  }
+};
+
+/** Creator toggles Moonwell yield — “put money to work” */
+export const setGoalYieldEnabled = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
+    const goalId = Number(req.params.id);
+    const enabled = Boolean(req.body?.enabled);
+
+    if (!Number.isFinite(goalId) || goalId <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid goal id" });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.cdpWalletId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Unable to get user CDP wallet." });
+    }
+
+    const goal = await prisma.goal.findUnique({ where: { id: goalId } });
+    if (!goal) {
+      return res.status(404).json({ success: false, error: "Goal not found" });
+    }
+    if (goal.creatorId !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: "Only the goal creator can toggle yield",
+      });
+    }
+
+    const txHash = await bcGoalSetYieldEnabled(
+      user.cdpWalletId,
+      BigInt(goal.blockchainId),
+      enabled
+    );
+
+    await prisma.goal.update({
+      where: { id: goalId },
+      data: { yieldEnabled: enabled },
+    });
+
+    return res.status(200).json({
+      success: true,
+      yieldEnabled: enabled,
+      txHash,
+    });
+  } catch (error: unknown) {
+    console.error("setGoalYieldEnabled error:", error);
+    const msg =
+      error instanceof Error ? error.message : "Failed to toggle yield";
+    return res.status(400).json({ success: false, error: msg });
+  }
+};
+
+const WITHDRAW_MODE_LABEL: Record<number, string> = {
+  [GoalWithdrawMode.All]: "all",
+  [GoalWithdrawMode.YieldOnly]: "yield",
+  [GoalWithdrawMode.PrincipalOnly]: "principal",
+  [GoalWithdrawMode.Amount]: "amount",
+};
+
+/** Creator adds an existing Chamapay user as a goal member */
+export const addGoalMember = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
+    const goalId = Number(req.params.id);
+    const memberId = Number(req.body?.memberId);
+
+    if (!Number.isFinite(goalId) || goalId <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid goal id" });
+    }
+    if (!Number.isFinite(memberId) || memberId <= 0) {
+      return res.status(400).json({ success: false, error: "memberId is required" });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.cdpWalletId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Unable to get user CDP wallet." });
+    }
+
+    const goal = await prisma.goal.findUnique({
+      where: { id: goalId },
+      include: { members: true },
+    });
+    if (!goal) {
+      return res.status(404).json({ success: false, error: "Goal not found" });
+    }
+    if (goal.creatorId !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: "Only the goal creator can add members",
+      });
+    }
+    if (goal.goalType === "personal") {
+      return res.status(400).json({
+        success: false,
+        error: "Personal goals do not support adding members — share the pay link instead",
+      });
+    }
+
+    if (goal.members.some((m) => m.userId === memberId)) {
+      return res.status(400).json({ success: false, error: "Already a member" });
+    }
+
+    const member = await prisma.user.findUnique({ where: { id: memberId } });
+    if (!member?.smartAddress) {
+      return res.status(400).json({
+        success: false,
+        error: "Member wallet not found",
+      });
+    }
+
+    const txHash = await bcGoalAddMember(
+      user.cdpWalletId,
+      BigInt(goal.blockchainId),
+      member.smartAddress
+    );
+
+    await prisma.goalMember.create({
+      data: {
+        goalId,
+        userId: memberId,
+        txHash: typeof txHash === "string" ? txHash : String(txHash),
+      },
+    });
+
+    return res.status(200).json({ success: true, txHash });
+  } catch (error: unknown) {
+    console.error("addGoalMember error:", error);
+    const msg =
+      error instanceof Error ? error.message : "Failed to add member";
+    return res.status(400).json({ success: false, error: msg });
+  }
+};
+
+/** Creator withdraws from the goal pot */
+export const withdrawFromGoal = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
+    const goalId = Number(req.params.id);
+    const modeRaw = String(req.body?.mode || "amount").toLowerCase();
+    const amount = (req.body?.amount ?? "0").toString();
+
+    if (!Number.isFinite(goalId) || goalId <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid goal id" });
+    }
+
+    const modeMap: Record<string, 0 | 1 | 2 | 3> = {
+      all: GoalWithdrawMode.All,
+      yield: GoalWithdrawMode.YieldOnly,
+      principal: GoalWithdrawMode.PrincipalOnly,
+      amount: GoalWithdrawMode.Amount,
+    };
+    const mode = modeMap[modeRaw];
+    if (mode === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: "mode must be all, yield, principal, or amount",
+      });
+    }
+
+    if (mode === GoalWithdrawMode.Amount) {
+      const n = parseFloat(amount);
+      if (!Number.isFinite(n) || n <= 0) {
+        return res.status(400).json({ success: false, error: "Invalid amount" });
+      }
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.cdpWalletId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Unable to get user CDP wallet." });
+    }
+
+    const goal = await prisma.goal.findUnique({ where: { id: goalId } });
+    if (!goal) {
+      return res.status(404).json({ success: false, error: "Goal not found" });
+    }
+    if (goal.creatorId !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: "Only the goal creator can withdraw",
+      });
+    }
+
+    const txHash = await bcGoalWithdraw(
+      user.cdpWalletId,
+      BigInt(goal.blockchainId),
+      amount,
+      mode
+    );
+
+    await prisma.goalWithdrawal.create({
+      data: {
+        goalId,
+        amount: mode === GoalWithdrawMode.Amount ? amount : amount || "0",
+        mode: WITHDRAW_MODE_LABEL[mode] || modeRaw,
+        txHash: typeof txHash === "string" ? txHash : String(txHash),
+        creatorId: userId,
+      },
+    });
+
+    if (mode === GoalWithdrawMode.All) {
+      await prisma.goal.update({
+        where: { id: goalId },
+        data: { status: "closed", yieldEnabled: false },
+      });
+    }
+
+    return res.status(200).json({ success: true, txHash });
+  } catch (error: unknown) {
+    console.error("withdrawFromGoal error:", error);
+    const msg =
+      error instanceof Error ? error.message : "Failed to withdraw";
+    return res.status(400).json({ success: false, error: msg });
+  }
+};
+
+/** Member (or any signed-in user) deposits USDC from their wallet into the goal */
+export const contributeToGoal = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
+    const goalId = Number(req.params.id);
+    const amount = (req.body?.amount ?? "").toString();
+    const amountNum = parseFloat(amount);
+
+    if (!Number.isFinite(goalId) || goalId <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid goal id" });
+    }
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid amount" });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.cdpWalletId || !user.smartAddress) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Unable to get user CDP wallet." });
+    }
+
+    const goal = await prisma.goal.findUnique({ where: { id: goalId } });
+    if (!goal) {
+      return res.status(404).json({ success: false, error: "Goal not found" });
+    }
+    if (goal.status !== "active") {
+      return res.status(400).json({ success: false, error: "Goal is not active" });
+    }
+
+    const amountStr = amountNum.toFixed(6);
+    const txHash = await bcGoalContribute(
+      user.cdpWalletId,
+      BigInt(goal.blockchainId),
+      amountStr
+    );
+
+    await prisma.goalContribution.create({
+      data: {
+        goalId,
+        amount: amountStr,
+        contributorAddress: user.smartAddress,
+        payerAddress: user.smartAddress,
+        contributorUserId: userId,
+        payerUserId: userId,
+        isGuest: false,
+        txHash: typeof txHash === "string" ? txHash : String(txHash),
+      },
+    });
+
+    return res.status(200).json({ success: true, txHash });
+  } catch (error: unknown) {
+    console.error("contributeToGoal error:", error);
+    const msg =
+      error instanceof Error ? error.message : "Failed to deposit";
+    return res.status(400).json({ success: false, error: msg });
   }
 };

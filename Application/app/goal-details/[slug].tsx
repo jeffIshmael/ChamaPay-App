@@ -60,6 +60,13 @@ export default function GoalDetailsScreen() {
     }
   }, [token, slug]);
 
+  const handleBack = () => {
+    router.replace({
+      pathname: "/(tabs)",
+      params: { tab: "goals" },
+    });
+  };
+
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
@@ -89,7 +96,7 @@ export default function GoalDetailsScreen() {
     return (
       <View className="flex-1 bg-gray-50 items-center justify-center px-6">
         <Text className="text-gray-600 mb-4">Goal not found</Text>
-        <TouchableOpacity onPress={() => router.back()} className="bg-downy-600 px-4 py-2 rounded-xl">
+        <TouchableOpacity onPress={handleBack} className="bg-downy-600 px-4 py-2 rounded-xl">
           <Text className="text-white font-semibold">Go back</Text>
         </TouchableOpacity>
       </View>
@@ -105,7 +112,7 @@ export default function GoalDetailsScreen() {
       >
         <View className="flex-row items-center justify-between mb-4">
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={handleBack}
             className="w-10 h-10 rounded-full bg-white/20 items-center justify-center"
           >
             <ArrowLeft size={20} color="white" />

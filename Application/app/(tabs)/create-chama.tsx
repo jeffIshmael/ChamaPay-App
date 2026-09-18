@@ -6,10 +6,10 @@ import { DEFAULT_PHONE_COUNTRY } from "@/Utils/phoneCountries";
 import { formatPhoneNumber, type Country } from "@/Utils/pretiumUtils";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useQueryClient } from "@tanstack/react-query";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Calendar, Check, ChevronDown, Clock, Info, Sparkles, Target, AlertTriangle, TrendingUp, Users } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Keyboard,
@@ -110,7 +110,7 @@ export default function CreateScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [goalEndDate, setGoalEndDate] = useState(new Date(Date.now() + 30 * 86400000));
 
-  const [chamaForm, setChamaForm] = useState<ChamaForm>({
+  const emptyChamaForm = (): ChamaForm => ({
     name: "",
     contribution: "",
     contributionKES: "",
@@ -119,7 +119,7 @@ export default function CreateScreen() {
     startTime: "",
   });
 
-  const [goalForm, setGoalForm] = useState<GoalForm>({
+  const emptyGoalForm = (): GoalForm => ({
     name: "",
     description: "",
     goalType: "personal",
@@ -129,6 +129,33 @@ export default function CreateScreen() {
     yieldEnabled: false,
     notifyPhone: "",
   });
+
+  const [chamaForm, setChamaForm] = useState<ChamaForm>(emptyChamaForm);
+  const [goalForm, setGoalForm] = useState<GoalForm>(emptyGoalForm);
+
+  const resetForms = useCallback(() => {
+    setChamaForm(emptyChamaForm());
+    setGoalForm(emptyGoalForm());
+    setPhoneCountry(DEFAULT_PHONE_COUNTRY);
+    setSelectedDate(new Date());
+    setGoalEndDate(new Date(Date.now() + 30 * 86400000));
+    setLoading(false);
+    setShowDatePicker(false);
+    setShowTimePicker(false);
+    setShowGoalDatePicker(false);
+    setShowGoalTypePicker(false);
+    setShowYieldInfoModal(false);
+    setShowPhoneCountryPicker(false);
+  }, []);
+
+  // Clear inputs when leaving the create screen
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        resetForms();
+      };
+    }, [resetForms])
+  );
 
   useEffect(() => {
     if (user?.location === "KE") setIsKESMode(true);
@@ -258,6 +285,7 @@ export default function CreateScreen() {
       }
       ok = true;
       Keyboard.dismiss();
+      resetForms();
       if (Platform.OS === "android") ToastAndroid.show("Chama created successfully", ToastAndroid.SHORT);
       else Alert.alert("Success", "Chama created successfully");
       router.push("/(tabs)");
@@ -298,9 +326,13 @@ export default function CreateScreen() {
       }
       ok = true;
       Keyboard.dismiss();
+      resetForms();
       if (Platform.OS === "android") ToastAndroid.show("Goal created successfully", ToastAndroid.SHORT);
       queryClient.invalidateQueries({ queryKey: ["userGoals"] });
-      router.replace(`/goal-details/${response.goal.slug}` as any);
+      router.replace({
+        pathname: "/(tabs)",
+        params: { tab: "goals" },
+      });
     } catch {
       Alert.alert("Error", "Unable to create goal.");
     } finally {
