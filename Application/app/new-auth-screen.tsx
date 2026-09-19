@@ -318,7 +318,7 @@ export default function AuthScreen() {
 
           const storedPin = await SecureStore.getItemAsync("user_pin");
           if (storedPin) {
-            router.replace("/(tabs)");
+            router.replace("/(tabs)/index");
           } else {
             router.replace("/pin-setup");
           }
@@ -414,7 +414,7 @@ export default function AuthScreen() {
           // Check if PIN is set
           const storedPin = await SecureStore.getItemAsync("user_pin");
           if (storedPin) {
-            router.replace("/(tabs)");
+            router.replace("/(tabs)/index");
           } else {
             router.replace("/pin-setup");
           }

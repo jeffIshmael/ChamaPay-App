@@ -104,7 +104,7 @@ Alert.alert("Error", "Failed to save secure PIN");
 
     const finishSetup = () => {
         ToastAndroid.show("Security setup complete!", ToastAndroid.SHORT);
-        router.replace("/(tabs)");
+        router.replace("/(tabs)/index");
     };
 
     return (

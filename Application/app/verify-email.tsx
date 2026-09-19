@@ -106,7 +106,7 @@ export default function VerifyEmailScreen() {
           // Check if PIN is set
           const storedPin = await SecureStore.getItemAsync("user_pin");
           if (storedPin) {
-            router.replace("/(tabs)");
+            router.replace("/(tabs)/index");
           } else {
             router.replace("/pin-setup");
           }

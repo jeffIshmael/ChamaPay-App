@@ -16,7 +16,7 @@ export default function ChamaRedirect() {
   useEffect(() => {
     const handleRedirect = async () => {
       if (!encryptedSlug || typeof encryptedSlug !== "string" || !token) {
-        router.replace("/(tabs)");
+        router.replace("/(tabs)/index");
         return;
       }
 
@@ -25,7 +25,7 @@ export default function ChamaRedirect() {
 
         const originalSlug = decryptChamaSlug(encryptedSlug);
         if (!originalSlug) {
-          router.replace("/(tabs)");
+          router.replace("/(tabs)/index");
           return;
         }
 
@@ -52,10 +52,10 @@ export default function ChamaRedirect() {
             });
           }
         } else {
-          router.replace("/(tabs)");
+          router.replace("/(tabs)/index");
         }
       } catch (error) {
-router.replace("/(tabs)");
+router.replace("/(tabs)/index");
       } finally {
         setIsProcessing(false);
       }

@@ -1,23 +1,7 @@
-import GoalDepositModal from "@/components/GoalDepositModal";
-import GoalWithdrawModal from "@/components/GoalWithdrawModal";
-import { useAuth } from "@/Contexts/AuthContext";
-import { useFormattedBalance } from "@/hooks/useFormattedBalance";
-import {
-  getGoalBySlug,
-  GoalContribution,
-  GoalFinance,
-  GoalRecord,
-  GoalWithdrawal,
-  goalTypeLabel,
-  setGoalYieldEnabled,
-  uploadGoalCover,
-} from "@/lib/goalService";
-import { getMoonwellUsdcSnapshot } from "@/lib/moonwellService";
-import { useCurrencyStore } from "@/store/useCurrencyStore";
-import * as Clipboard from "expo-clipboard";
-import * as ImagePicker from "expo-image-picker";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocalSearchParams, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import * as SystemUI from "expo-system-ui";
 import {
   AlertTriangle,
   ArrowDownCircle,
@@ -32,7 +16,6 @@ import {
   X,
   Zap,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -51,6 +34,28 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import GoalDepositModal from "@/components/GoalDepositModal";
+import GoalWithdrawModal from "@/components/GoalWithdrawModal";
+import { useAuth } from "@/Contexts/AuthContext";
+import { useFormattedBalance } from "@/hooks/useFormattedBalance";
+import {
+  getGoalBySlug,
+  GoalContribution,
+  GoalFinance,
+  GoalRecord,
+  GoalWithdrawal,
+  goalTypeLabel,
+  goalTypeTagColors,
+  setGoalYieldEnabled,
+  uploadGoalCover,
+} from "@/lib/goalService";
+import { getMoonwellUsdcSnapshot } from "@/lib/moonwellService";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
+import * as Clipboard from "expo-clipboard";
+import * as ImagePicker from "expo-image-picker";
+
+/** Matches other app headers (notifications, home, settings). */
+const HEADER_TEAL = "#1a6b6b";
 
 type TabId = "members" | "history";
 
@@ -111,6 +116,21 @@ function relativeDay(d: Date) {
   });
 }
 
+function formatGoalCreatedAt(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const date = d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  const time = d.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${date}, ${time}`;
+}
+
 function ContributorAvatar({
   name,
   imageUrl,
@@ -137,9 +157,8 @@ function ContributorAvatar({
 export default function GoalDetailsScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const { token, user } = useAuth();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { formatBalance } = useFormattedBalance();
+  const { formatBalance, formatUsdc, showUsdcPeek } = useFormattedBalance();
   const { platformRate } = useCurrencyStore();
 
   const [goal, setGoal] = useState<GoalRecord | null>(null);
@@ -185,11 +204,17 @@ export default function GoalDetailsScreen() {
     [token, slug, user?.id]
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load])
-  );
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  // Solid downy status-bar chrome while this screen is open (same as other headers).
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(HEADER_TEAL);
+    return () => {
+      void SystemUI.setBackgroundColorAsync("#d1f6f1");
+    };
+  }, []);
 
   useEffect(() => {
     if (!token) {
@@ -212,8 +237,17 @@ export default function GoalDetailsScreen() {
   }, [token, user?.smartAddress, platformRate]);
 
   const handleBack = () => {
+    // Pushed from Home — prefer history. Avoid throwing if nav ref is unset.
+    try {
+      if (router.canGoBack()) {
+        router.back();
+        return;
+      }
+    } catch {
+      // fall through
+    }
     router.replace({
-      pathname: "/(tabs)",
+      pathname: "/(tabs)/index",
       params: { tab: "goals" },
     });
   };
@@ -342,9 +376,15 @@ export default function GoalDetailsScreen() {
     };
 
     for (const m of goal.members || []) {
+      const isMe =
+        user?.id != null && Number(m.userId) === Number(user.id);
       ensure(
         `u-${m.userId}`,
-        m.user?.userName ? `@${m.user.userName}` : "Member",
+        isMe
+          ? "You"
+          : m.user?.userName
+            ? `@${m.user.userName}`
+            : "Member",
         "member",
         m.user?.profileImageUrl
       );
@@ -366,11 +406,16 @@ export default function GoalDetailsScreen() {
         row.amount += amt;
       } else if (c.contributorUser?.id != null) {
         const isOfficial = memberIdSet.has(c.contributorUser.id);
+        const isMe =
+          user?.id != null &&
+          Number(c.contributorUser.id) === Number(user.id);
         const row = ensure(
           `u-${c.contributorUser.id}`,
-          c.contributorUser.userName
-            ? `@${c.contributorUser.userName}`
-            : "Contributor",
+          isMe
+            ? "You"
+            : c.contributorUser.userName
+              ? `@${c.contributorUser.userName}`
+              : "Contributor",
           isOfficial ? "member" : "contributor",
           c.contributorUser.profileImageUrl
         );
@@ -387,16 +432,28 @@ export default function GoalDetailsScreen() {
     }
 
     if (map.size === 0 && goal.creator) {
+      const isMe =
+        user?.id != null && Number(goal.creatorId) === Number(user.id);
       ensure(
         `u-${goal.creatorId}`,
-        goal.creator.userName ? `@${goal.creator.userName}` : "You",
+        isMe
+          ? "You"
+          : goal.creator.userName
+            ? `@${goal.creator.userName}`
+            : "You",
         "member",
         goal.creator.profileImageUrl
       );
     }
 
-    return Array.from(map.values()).sort((a, b) => b.amount - a.amount);
-  }, [goal, memberIds]);
+    return Array.from(map.values())
+      .map((row) =>
+        user?.id != null && row.key === `u-${user.id}`
+          ? { ...row, name: "You" }
+          : row
+      )
+      .sort((a, b) => b.amount - a.amount);
+  }, [goal, memberIds, user?.id]);
 
   const history = useMemo((): HistoryItem[] => {
     if (!goal) return [];
@@ -432,8 +489,55 @@ export default function GoalDetailsScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 bg-gray-50 items-center justify-center">
-        <ActivityIndicator size="large" color="#059669" />
+      <View className="flex-1 bg-gray-50">
+        <StatusBar style="light" />
+        {/* Status-bar strip only */}
+        <View style={{ height: insets.top, backgroundColor: HEADER_TEAL }} />
+        <View
+          className="relative overflow-hidden"
+          style={{ height: 168 }}
+        >
+          <LinearGradient
+            colors={["#0f4f4f", "#1a6b6b", "#2a9a8a"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
+          />
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,0.45)", "rgba(0,0,0,0.8)"]}
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: "58%",
+            }}
+          />
+          <View className="flex-1 px-4 pt-1.5 pb-3 justify-between">
+            <View className="flex-row items-center justify-between min-h-[36px]">
+              <TouchableOpacity
+                onPress={handleBack}
+                className="h-9 w-9 rounded-full bg-black/40 items-center justify-center border border-white/15"
+              >
+                <ArrowLeft size={16} color="white" />
+              </TouchableOpacity>
+              <View className="w-9" />
+            </View>
+            <View style={{ gap: 8 }}>
+              <View className="h-4 w-16 rounded-md bg-white/25" />
+              <View className="h-6 w-48 rounded-md bg-white/35" />
+            </View>
+          </View>
+        </View>
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#059669" />
+        </View>
       </View>
     );
   }
@@ -441,6 +545,7 @@ export default function GoalDetailsScreen() {
   if (!goal) {
     return (
       <View className="flex-1 bg-gray-50 items-center justify-center px-6">
+        <StatusBar style="light" />
         <Text className="text-gray-600 mb-4">Goal not found</Text>
         <TouchableOpacity
           onPress={handleBack}
@@ -466,16 +571,17 @@ export default function GoalDetailsScreen() {
   const canInviteMembers =
     goal.goalType === "invite" || goal.goalType === "public";
   const hasContributions = memberSlices.some((m) => m.amount > 0);
+  const typeTag = goalTypeTagColors(goal.goalType);
 
   return (
     <View className="flex-1 bg-gray-50">
       <StatusBar style="light" />
 
-      {/* Cover hero */}
-      <View
-        className="relative overflow-hidden"
-        style={{ height: 168 + insets.top }}
-      >
+      {/* Only the system status bar strip is downy — cover + controls sit below */}
+      <View style={{ height: insets.top, backgroundColor: HEADER_TEAL }} />
+
+      {/* Cover hero with back / camera overlaid on the image */}
+      <View className="relative overflow-hidden" style={{ height: 168 }}>
         {goal.coverImageUrl ? (
           <Image
             source={{ uri: goal.coverImageUrl }}
@@ -501,10 +607,7 @@ export default function GoalDetailsScreen() {
           }}
         />
 
-        <View
-          className="flex-1 px-4 pb-3 justify-between"
-          style={{ paddingTop: insets.top + 6 }}
-        >
+        <View className="flex-1 px-4 pt-1.5 pb-3 justify-between">
           <View className="flex-row items-center justify-between min-h-[36px]">
             <TouchableOpacity
               onPress={handleBack}
@@ -512,7 +615,7 @@ export default function GoalDetailsScreen() {
             >
               <ArrowLeft size={16} color="white" />
             </TouchableOpacity>
-            <View className="flex-row items-center gap-1.5">
+            <View className="flex-row items-center" style={{ gap: 6 }}>
               {isCreator && canInviteMembers ? (
                 <TouchableOpacity
                   onPress={() => void shareInvite()}
@@ -538,9 +641,18 @@ export default function GoalDetailsScreen() {
           </View>
 
           <View>
-            <View className="flex-row flex-wrap gap-1 mb-1.5">
-              <View className="bg-black/40 px-2 py-0.5 rounded-md border border-white/10">
-                <Text className="text-white text-[9px] font-semibold">
+            <View className="flex-row flex-wrap mb-1.5" style={{ gap: 4 }}>
+              <View
+                className="px-2 py-0.5 rounded-md border"
+                style={{
+                  backgroundColor: typeTag.bg,
+                  borderColor: typeTag.bg,
+                }}
+              >
+                <Text
+                  className="text-[9px] font-semibold"
+                  style={{ color: typeTag.color }}
+                >
                   {goalTypeLabel(goal.goalType)}
                 </Text>
               </View>
@@ -573,7 +685,16 @@ export default function GoalDetailsScreen() {
 
       {/* Fixed: balance + actions + yield */}
       <View className="px-4 z-10" style={{ marginTop: -12 }}>
-        <View className="bg-white rounded-2xl border border-downy-100 px-4 py-3.5 mb-2.5 shadow-sm">
+        <View
+          className="bg-white rounded-2xl border border-downy-100 px-4 py-3.5 mb-2.5"
+          style={{
+            shadowColor: "#0f172a",
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.14,
+            shadowRadius: 12,
+            elevation: 10,
+          }}
+        >
           <View className="flex-row items-end justify-between gap-3 mb-1">
             <View className="flex-1">
               <Text className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
@@ -586,9 +707,20 @@ export default function GoalDetailsScreen() {
                   / {formatBalance(target)}
                 </Text>
               </Text>
+              {showUsdcPeek ? (
+                <Text className="text-[11px] text-gray-400 mt-0.5">
+                  ≈ {formatUsdc(balance)} / {formatUsdc(target)}
+                </Text>
+              ) : null}
               {yieldOn ? (
                 <Text className="text-[12px] font-semibold text-downy-600 mt-0.5">
                   Yield +{formatBalance(yieldEarned)}
+                  {showUsdcPeek ? (
+                    <Text className="text-gray-400 font-medium">
+                      {" "}
+                      (≈ {formatUsdc(yieldEarned)})
+                    </Text>
+                  ) : null}
                   {supplyApy != null
                     ? ` · ${supplyApy.toFixed(2)}% APY`
                     : ""}
@@ -654,9 +786,16 @@ export default function GoalDetailsScreen() {
               >
                 {activeSlice.name}
               </Text>
-              <Text className="text-[12px] font-bold text-white">
-                {formatBalance(activeSlice.amount)}
-              </Text>
+              <View className="items-end shrink-0">
+                <Text className="text-[12px] font-bold text-white">
+                  {formatBalance(activeSlice.amount)}
+                </Text>
+                {showUsdcPeek ? (
+                  <Text className="text-[10px] text-white/55">
+                    ≈ {formatUsdc(activeSlice.amount)}
+                  </Text>
+                ) : null}
+              </View>
               <TouchableOpacity onPress={() => setSelectedSlice(null)}>
                 <X size={14} color="rgba(255,255,255,0.6)" />
               </TouchableOpacity>
@@ -756,6 +895,11 @@ export default function GoalDetailsScreen() {
                 <Text className="text-[13px] font-extrabold text-gray-900 mt-0.5">
                   {formatBalance(inMw)}
                 </Text>
+                {showUsdcPeek ? (
+                  <Text className="text-[10px] text-gray-400 mt-0.5">
+                    ≈ {formatUsdc(inMw)}
+                  </Text>
+                ) : null}
               </View>
               <View className="flex-1 rounded-lg bg-emerald-50 px-2.5 py-2 border border-emerald-100">
                 <Text className="text-[9px] font-semibold text-gray-400 uppercase">
@@ -764,6 +908,11 @@ export default function GoalDetailsScreen() {
                 <Text className="text-[13px] font-extrabold text-emerald-600 mt-0.5">
                   +{formatBalance(yieldEarned)}
                 </Text>
+                {showUsdcPeek ? (
+                  <Text className="text-[10px] text-gray-400 mt-0.5">
+                    ≈ {formatUsdc(yieldEarned)}
+                  </Text>
+                ) : null}
               </View>
             </View>
           ) : null}
@@ -869,6 +1018,11 @@ export default function GoalDetailsScreen() {
                     <Text className="text-[13px] font-extrabold text-gray-900">
                       {formatBalance(m.amount)}
                     </Text>
+                    {showUsdcPeek ? (
+                      <Text className="text-[10px] text-gray-400">
+                        ≈ {formatUsdc(m.amount)}
+                      </Text>
+                    ) : null}
                     <Text className="text-[10px] text-gray-400">
                       {pct.toFixed(0)}%
                     </Text>
@@ -929,6 +1083,11 @@ export default function GoalDetailsScreen() {
                       {item.kind === "in" ? "+" : "−"}
                       {formatBalance(item.amount)}
                     </Text>
+                    {showUsdcPeek ? (
+                      <Text className="text-[10px] text-gray-400">
+                        ≈ {formatUsdc(item.amount)}
+                      </Text>
+                    ) : null}
                     {item.txHash ? (
                       <TouchableOpacity
                         onPress={() =>
@@ -951,9 +1110,17 @@ export default function GoalDetailsScreen() {
           </View>
         )}
 
-        {goal.creator?.userName ? (
+        {goal.createdAt || goal.creator ? (
           <Text className="text-center text-[11px] text-gray-400 pb-2 pt-3">
-            Created by @{goal.creator.userName}
+            Created by{" "}
+            {user?.id != null && Number(goal.creatorId) === Number(user.id)
+              ? "You"
+              : goal.creator?.userName
+                ? `@${goal.creator.userName}`
+                : "someone"}
+            {goal.createdAt
+              ? ` · ${formatGoalCreatedAt(goal.createdAt)}`
+              : ""}
           </Text>
         ) : null}
       </ScrollView>
