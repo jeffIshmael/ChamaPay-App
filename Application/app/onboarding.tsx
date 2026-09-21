@@ -42,7 +42,20 @@ const onboardingSlides: OnboardingSlide[] = [
   },
   {
     id: "2",
-    title: "Grow Your Savings",
+    title: "Save for a goal",
+    description:
+      "Open a pot for something real and share a pay link so anyone can chip in.",
+    features: [
+      "Personal, invite, or public pots",
+      "Share an encrypted pay link",
+      "Track progress with supporters",
+    ],
+    cardColor: "#0F7A6E",
+    imageSource: require("@/assets/images/screen-goal.png"),
+  },
+  {
+    id: "3",
+    title: "Save & earn",
     description:
       "Supply idle money to earn variable interest. Withdraw when the pool has free cash.",
     features: [
@@ -52,19 +65,6 @@ const onboardingSlides: OnboardingSlide[] = [
     ],
     cardColor: "#0F7A6E",
     imageSource: require("@/assets/images/screen2.png"),
-  },
-  {
-    id: "3",
-    title: "Cash In & Cash Out",
-    description:
-      "Move money between M-Pesa and your ChamaPay wallet in just a few taps.",
-    features: [
-      "Instant M-Pesa deposits",
-      "Fast M-Pesa withdrawals",
-      "Low transaction fees",
-    ],
-    cardColor: "#0F7A6E",
-    imageSource: require("@/assets/images/screen3.png"),
   },
 ];
 
