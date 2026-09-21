@@ -142,7 +142,7 @@ await updateUserPushToken(pushToken, token);
     if (!link.trim()) return false;
 
     // Check if link matches the format: https://chamapay.com/chama/[slug]
-    const chamaLinkRegex = /^https?:\/\/(www\.)?chamapay\.com\/chama\/[a-zA-Z0-9_-]+$/;
+    const chamaLinkRegex = /^https?:\/\/(?:www\.|app\.)?chamapay\.(?:com|xyz)\/(?:chama|invite)\/[a-zA-Z0-9_-]+$/i;
     return chamaLinkRegex.test(link.trim());
   };
 

@@ -7,6 +7,7 @@ import { makeRedirectUri } from "expo-auth-session";
 import * as Google from "expo-auth-session/providers/google";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
+import { redirectAfterAuth } from "@/lib/pendingInvite";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
 import { Mail, Shield, ChevronLeft, KeyRound, ChevronDown, Check, Phone, MessageCircle } from "lucide-react-native";
@@ -318,7 +319,7 @@ export default function AuthScreen() {
 
           const storedPin = await SecureStore.getItemAsync("user_pin");
           if (storedPin) {
-            router.replace("/(tabs)/index");
+            await redirectAfterAuth(router, "/(tabs)/index");
           } else {
             router.replace("/pin-setup");
           }
@@ -414,7 +415,7 @@ export default function AuthScreen() {
           // Check if PIN is set
           const storedPin = await SecureStore.getItemAsync("user_pin");
           if (storedPin) {
-            router.replace("/(tabs)/index");
+            await redirectAfterAuth(router, "/(tabs)/index");
           } else {
             router.replace("/pin-setup");
           }

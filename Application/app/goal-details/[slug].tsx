@@ -37,6 +37,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import GoalDepositModal from "@/components/GoalDepositModal";
 import GoalWithdrawModal from "@/components/GoalWithdrawModal";
 import { useAuth } from "@/Contexts/AuthContext";
+import { generateGoalPayUrl } from "@/lib/encryption";
 import { useFormattedBalance } from "@/hooks/useFormattedBalance";
 import {
   getGoalBySlug,
@@ -186,7 +187,7 @@ export default function GoalDetailsScreen() {
           setGoal(res.goal);
           setFinance(res.finance ?? null);
           setPayLink(
-            res.payLink || `https://chamapay.com/goal/${res.goal.slug}`
+            res.payLink || generateGoalPayUrl(res.goal.slug)
           );
           const creatorMatch =
             Boolean(res.isCreator) ||

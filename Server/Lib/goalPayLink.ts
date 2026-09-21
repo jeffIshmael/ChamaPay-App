@@ -4,6 +4,9 @@ const ENCRYPTION_KEY = "chamapay-share-key-2025";
 const CHARSET =
   "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
+/** Canonical web app host for invite + pay links */
+export const APP_WEB_ORIGIN = "https://app.chamapay.xyz";
+
 function simpleEncrypt(text: string, key: string): string {
   let result = "";
   for (let i = 0; i < text.length; i++) {
@@ -49,5 +52,9 @@ export function decryptGoalSlug(token: string): string {
 }
 
 export function generateGoalPayUrl(slug: string): string {
-  return `https://chamapay.com/goal/pay/${encryptGoalSlug(slug)}`;
+  return `${APP_WEB_ORIGIN}/Goal/pay/${encryptGoalSlug(slug)}`;
+}
+
+export function generateChamaShareUrl(slug: string): string {
+  return `${APP_WEB_ORIGIN}/invite/${encryptGoalSlug(slug)}`;
 }
