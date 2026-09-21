@@ -91,7 +91,7 @@ Alert.alert("Error", "Could not verify PIN");
         if (router.canGoBack()) {
             router.back();
         } else {
-            router.replace("/(tabs)");
+            router.replace("/(tabs)/index");
         }
     };
 

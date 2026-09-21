@@ -5,7 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Image, StyleSheet, View, Text } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "./global.css";
 
@@ -19,17 +19,12 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      // Prevent crashes from failed queries
       throwOnError: false,
     },
   },
 });
 
-// Keep splash screen visible - CRITICAL for preventing crashes
-SplashScreen.preventAutoHideAsync().catch((error) => {
-});
-
-
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootLayoutNav() {
   const { isLoading, isAuthenticated } = useAuth();
@@ -38,80 +33,57 @@ function RootLayoutNav() {
   const hydrateRates = useExchangeRateStore((state) => state.hydrate);
   const setPlatformRate = useCurrencyStore((state) => state.setPlatformRate);
   const { setCurrency, hasSetCurrency } = useCurrencyStore();
+  const { user } = useAuth();
 
-  // Initialize app resources
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Set system UI background IMMEDIATELY
         await SystemUI.setBackgroundColorAsync("#d1f6f1");
-        
-        // Hydrate exchange rates (don't await - do it in background)
         hydrateRates();
-        
-        // Fetch platform rate from backend (non-blocking)
         fetch(`${serverUrl}/api/rates`)
           .then((res) => res.json())
           .then((data) => {
-            if (data && data.rate) {
-              setPlatformRate(data.rate);
-            }
+            if (data?.rate) setPlatformRate(data.rate);
           })
-          .catch((err) => console.log("Failed to fetch platform rate:", err));
-        
-        // Log app open
+          .catch(() => {});
         logAppOpen();
-
-        // Small delay to ensure everything is painted
-        await new Promise(resolve => setTimeout(resolve, 100));
-
+        await new Promise((resolve) => setTimeout(resolve, 100));
         setIsReady(true);
-      } catch (error) {
-        // ALWAYS set ready to prevent app from hanging
+      } catch {
         setIsReady(true);
       }
     };
-
-    initializeApp();
+    void initializeApp();
   }, [hydrateRates, setPlatformRate]);
 
-  // Hide native splash - with robust error handling
   useEffect(() => {
     const hideSplash = async () => {
-      // Only hide when auth is initialized AND custom resources are ready
       if (!isLoading && isReady && !hasSplashHidden) {
-try {
-          // Double check if we're really ready to paint
-          // This prevents a white flash on some devices
-          await new Promise(resolve => setTimeout(resolve, 200));
-
+        try {
+          await new Promise((resolve) => setTimeout(resolve, 200));
           await SplashScreen.hideAsync();
+        } catch {
+          // ignore
+        } finally {
           setHasSplashHidden(true);
-} catch (error) {
-setHasSplashHidden(true);
         }
       }
     };
-
-    hideSplash();
+    void hideSplash();
   }, [isLoading, isReady, hasSplashHidden]);
 
-  // Set default currency if not set
-  const { user } = useAuth();
   useEffect(() => {
     if (isAuthenticated && user?.location === "KE" && !hasSetCurrency) {
       setCurrency("KES");
     }
   }, [isAuthenticated, user?.location, hasSetCurrency, setCurrency]);
 
-  // Keep returning null while initializing. 
-  // The native splash screen will remain visible because of SplashScreen.preventAutoHideAsync()
   if (isLoading || !isReady) {
     return null;
   }
 
-return (
-    <SafeAreaProvider style={{ flex: 1, backgroundColor: "#d1f6f1" }}>
+  return (
+    <>
       <StatusBar style="dark" translucent backgroundColor="transparent" />
       <PushNotificationRouter />
       <Stack
@@ -136,33 +108,68 @@ return (
         <Stack.Screen name="chama/[encryptedSlug]" />
         <Stack.Screen name="goal-details/[slug]" />
       </Stack>
-    </SafeAreaProvider>
+    </>
   );
 }
 
 export default function RootLayout() {
-  // Catch any errors at the root level
-  useEffect(() => {
-    const errorHandler = (error: any, isFatal?: boolean) => {
-if (isFatal) {
-}
-    };
-
-    // This helps catch errors but won't prevent all crashes
-    const subscription = ErrorUtils?.setGlobalHandler?.(errorHandler);
-
-    return () => {
-      // Cleanup if possible
-    };
-  }, []);
-
   return (
-    <View style={{ flex: 1, backgroundColor: "#d1f6f1" }}>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <RootLayoutNav />
-        </AuthProvider>
-      </QueryClientProvider>
+    <SafeAreaProvider style={{ flex: 1, backgroundColor: "#d1f6f1" }}>
+      <View style={{ flex: 1, backgroundColor: "#d1f6f1" }}>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <RootLayoutNav />
+          </AuthProvider>
+        </QueryClientProvider>
+      </View>
+    </SafeAreaProvider>
+  );
+}
+
+export function ErrorBoundary({
+  error,
+  retry,
+}: {
+  error: Error;
+  retry: () => void;
+}) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "#d1f6f1",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+      }}
+    >
+      <Text
+        style={{
+          color: "#dc2626",
+          fontWeight: "600",
+          fontSize: 18,
+          marginBottom: 8,
+        }}
+      >
+        Root Error
+      </Text>
+      <Text
+        style={{ color: "#6b7280", textAlign: "center", marginBottom: 24 }}
+      >
+        {error.message}
+      </Text>
+      <View
+        style={{
+          backgroundColor: "#059669",
+          paddingHorizontal: 24,
+          paddingVertical: 12,
+          borderRadius: 12,
+        }}
+      >
+        <Text style={{ color: "white", fontWeight: "500" }} onPress={retry}>
+          Try again
+        </Text>
+      </View>
     </View>
   );
 }
@@ -170,34 +177,6 @@ if (isFatal) {
 const styles = StyleSheet.create({
   splashContainer: {
     flex: 1,
-    backgroundColor: '#d1f6f1',
-    // Remove center alignment from container so we can separate top/bottom
-  },
-  centerContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logo: {
-    width: 200,
-    height: 200,
-  },
-  bottomLoaderContainer: {
-    height: 100, // Fixed height area at bottom
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 40,
+    backgroundColor: "#d1f6f1",
   },
 });
-
-export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void }) {
-  return (
-    <View style={{ flex: 1, backgroundColor: "#d1f6f1", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <Text style={{ color: "#dc2626", fontWeight: "600", fontSize: 18, marginBottom: 8 }}>Root Error</Text>
-      <Text style={{ color: "#6b7280", textAlign: "center", marginBottom: 24 }}>{error.message}</Text>
-      <View style={{ backgroundColor: "#059669", paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}>
-        <Text style={{ color: "white", fontWeight: "500" }} onPress={retry}>Try again</Text>
-      </View>
-    </View>
-  );
-}

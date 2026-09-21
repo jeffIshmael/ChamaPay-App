@@ -1,6 +1,7 @@
 import { useAuth } from "@/Contexts/AuthContext";
 import { getChamaBySlug } from "@/lib/chamaService";
 import { decryptChamaSlug } from "@/lib/encryption";
+import { setPendingChamaInvite } from "@/lib/pendingInvite";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import { ActivityIndicator, SafeAreaView, Text } from "react-native";
@@ -15,8 +16,14 @@ export default function ChamaRedirect() {
 
   useEffect(() => {
     const handleRedirect = async () => {
-      if (!encryptedSlug || typeof encryptedSlug !== "string" || !token) {
-        router.replace("/(tabs)");
+      if (!encryptedSlug || typeof encryptedSlug !== "string") {
+        router.replace("/(tabs)/index");
+        return;
+      }
+
+      if (!token) {
+        await setPendingChamaInvite(encryptedSlug);
+        router.replace("/new-auth-screen");
         return;
       }
 
@@ -25,43 +32,40 @@ export default function ChamaRedirect() {
 
         const originalSlug = decryptChamaSlug(encryptedSlug);
         if (!originalSlug) {
-          router.replace("/(tabs)");
+          router.replace("/(tabs)/index");
           return;
         }
 
-        // Check if chama exists and get membership info
         const response = await getChamaBySlug(originalSlug, token);
         if (response.success && response.chama) {
           const chama = response.chama;
 
-          // Check if user is already a member of this chama
-          const isMember = chama.members?.some(member =>
-            member.user?.id === user?.id ||
-            member.user?.email === user?.email ||
-            member.user?.userName === user?.userName
+          const isMember = chama.members?.some(
+            (member) =>
+              member.user?.id === user?.id ||
+              member.user?.email === user?.email ||
+              member.user?.userName === user?.userName
           );
 
           if (isMember) {
-            // User is already a member - route to joined chama details
             router.replace(`/(tabs)/joined-chama-details/${originalSlug}`);
           } else {
-            // User is not a member - route to chama details (join page)
             router.replace({
               pathname: "/chama-details/[slug]",
               params: { slug: originalSlug },
             });
           }
         } else {
-          router.replace("/(tabs)");
+          router.replace("/(tabs)/index");
         }
-      } catch (error) {
-router.replace("/(tabs)");
+      } catch {
+        router.replace("/(tabs)/index");
       } finally {
         setIsProcessing(false);
       }
     };
 
-    handleRedirect();
+    void handleRedirect();
   }, [encryptedSlug, token, user, router]);
 
   return (

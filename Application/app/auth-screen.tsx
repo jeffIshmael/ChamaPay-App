@@ -195,7 +195,7 @@ export default function AuthScreen() {
             await setAuth(data.token, data.user, data.refreshToken || null);
           }
   
-          router.replace("/(tabs)");
+          router.replace("/(tabs)/index");
         } else {
           router.replace({
             pathname: "/wallet-setup",

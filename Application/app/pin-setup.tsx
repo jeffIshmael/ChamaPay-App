@@ -1,5 +1,6 @@
 import * as LocalAuthentication from "expo-local-authentication";
 import { useRouter } from "expo-router";
+import { redirectAfterAuth } from "@/lib/pendingInvite";
 import * as SecureStore from "expo-secure-store";
 import { ArrowLeft, ArrowRight, Delete, Fingerprint, ShieldCheck } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
@@ -104,7 +105,7 @@ Alert.alert("Error", "Failed to save secure PIN");
 
     const finishSetup = () => {
         ToastAndroid.show("Security setup complete!", ToastAndroid.SHORT);
-        router.replace("/(tabs)");
+        void redirectAfterAuth(router, "/(tabs)/index");
     };
 
     return (

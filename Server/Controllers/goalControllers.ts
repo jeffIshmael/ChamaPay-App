@@ -714,6 +714,45 @@ export const getPublicGoalByPayToken = async (req: Request, res: Response) => {
       /* finance optional for preview */
     }
 
+    const contributions = await prisma.goalContribution.findMany({
+      where: { goalId: goal.id },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        amount: true,
+        isGuest: true,
+        guestDisplayName: true,
+        createdAt: true,
+        contributorUser: {
+          select: { userName: true, profileImageUrl: true },
+        },
+      },
+    });
+
+    const publicContributions = contributions.map((c) => {
+      const rawName = (c.guestDisplayName || "").trim();
+      const isAnonymous =
+        !rawName ||
+        /^anonymous$/i.test(rawName) ||
+        /^guest$/i.test(rawName);
+      const displayName = c.isGuest
+        ? isAnonymous
+          ? "Anonymous"
+          : rawName
+        : c.contributorUser?.userName || "Member";
+      return {
+        id: c.id,
+        amount: c.amount,
+        displayName,
+        isAnonymous: c.isGuest ? isAnonymous : false,
+        profileImageUrl: c.isGuest
+          ? null
+          : c.contributorUser?.profileImageUrl || null,
+        createdAt: c.createdAt,
+      };
+    });
+
     return res.status(200).json({
       success: true,
       goal: {
@@ -734,6 +773,8 @@ export const getPublicGoalByPayToken = async (req: Request, res: Response) => {
           : null,
         totalBalance,
         progress,
+        contributions: publicContributions,
+        contributorCount: publicContributions.length,
       },
     });
   } catch (error) {
@@ -860,5 +901,67 @@ export const getGoalPayStatus = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("getGoalPayStatus error:", error);
     return res.status(500).json({ success: false, error: "Status check failed" });
+  }
+};
+
+/**
+ * After a successful guest pay, set whether the supporter shows as Anonymous or a name.
+ */
+export const setGoalPayIdentity = async (req: Request, res: Response) => {
+  try {
+    const goal = await resolveGoalFromPayToken(req.params.token);
+    if (!goal) {
+      return res.status(404).json({ success: false, error: "Goal not found" });
+    }
+
+    const code = String(req.body?.transactionCode || "").trim();
+    const anonymous = Boolean(req.body?.anonymous);
+    const displayNameRaw =
+      typeof req.body?.displayName === "string"
+        ? req.body.displayName.trim().slice(0, 40)
+        : "";
+
+    if (!code) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Missing transaction code" });
+    }
+
+    const tx = await prisma.pretiumTransaction.findUnique({
+      where: { transactionCode: code },
+    });
+    if (!tx || tx.type !== "goal" || tx.goalId !== goal.id) {
+      return res.status(404).json({ success: false, error: "Payment not found" });
+    }
+
+    const label = anonymous
+      ? "Anonymous"
+      : displayNameRaw || "Anonymous";
+
+    await prisma.pretiumTransaction.update({
+      where: { transactionCode: code },
+      data: { message: `guest:${label}` },
+    });
+
+    const contribution = await prisma.goalContribution.findFirst({
+      where: { pretiumTxCode: code, goalId: goal.id },
+    });
+    if (contribution) {
+      await prisma.goalContribution.update({
+        where: { id: contribution.id },
+        data: { guestDisplayName: label, isGuest: true },
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      displayName: label,
+      anonymous: /^anonymous$/i.test(label),
+    });
+  } catch (error) {
+    console.error("setGoalPayIdentity error:", error);
+    return res
+      .status(500)
+      .json({ success: false, error: "Could not update visibility" });
   }
 };

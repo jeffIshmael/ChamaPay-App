@@ -9,6 +9,7 @@ import {
   getMyGoals,
   getPublicGoalByPayToken,
   initiateGoalPayOnramp,
+  setGoalPayIdentity,
   setGoalYieldEnabled,
   uploadGoalCover,
   withdrawFromGoal,
@@ -41,6 +42,7 @@ router.get("/slug/:slug", authenticate, getGoalBySlug);
 router.get("/pay/status/:code", getGoalPayStatus);
 router.get("/pay/:token", getPublicGoalByPayToken);
 router.post("/pay/:token/onramp", initiateGoalPayOnramp);
+router.post("/pay/:token/identity", setGoalPayIdentity);
 
 router.post(
   "/:id/cover",

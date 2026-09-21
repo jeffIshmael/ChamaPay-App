@@ -142,7 +142,7 @@ await updateUserPushToken(pushToken, token);
     if (!link.trim()) return false;
 
     // Check if link matches the format: https://chamapay.com/chama/[slug]
-    const chamaLinkRegex = /^https?:\/\/(www\.)?chamapay\.com\/chama\/[a-zA-Z0-9_-]+$/;
+    const chamaLinkRegex = /^https?:\/\/(?:www\.|app\.)?chamapay\.(?:com|xyz)\/(?:chama|invite)\/[a-zA-Z0-9_-]+$/i;
     return chamaLinkRegex.test(link.trim());
   };
 
@@ -249,13 +249,19 @@ Alert.alert(
   const Card = ({
     children,
     onPress,
+    className = "",
+    noPadding = false,
   }: {
     children: React.ReactNode;
     onPress?: () => void;
+    className?: string;
+    noPadding?: boolean;
   }) => (
     <TouchableOpacity
       onPress={onPress}
-      className="bg-white rounded-3xl p-5 mb-4 border border-gray-100"
+      className={`bg-white rounded-3xl mb-4 border border-gray-100 overflow-hidden ${
+        noPadding ? "" : "p-5"
+      } ${className}`}
       style={{
         shadowColor: "#10b981",
         shadowOffset: { width: 0, height: 4 },
@@ -663,74 +669,91 @@ Alert.alert(
             ) : goals.length > 0 ? (
               goals.map((goal) => {
                 const target = parseFloat(goal.targetAmount || "0") || 0;
+                const balance = parseFloat(goal.totalBalance || "0") || 0;
+                const progressPct =
+                  target > 0
+                    ? Math.min(100, Math.max(0, (balance / target) * 100))
+                    : 0;
                 return (
                   <Card
                     key={goal.id}
+                    noPadding
                     onPress={() =>
                       router.push(`/goal-details/${goal.slug}` as any)
                     }
                   >
-                    <View className="flex-row items-start justify-between mb-3">
-                      <View className="flex-1 pr-3">
-                        <View className="flex-row items-center gap-2 mb-2">
-                          <Target size={18} color="#059669" />
-                          <Text className="text-xl font-bold text-gray-900 flex-shrink">
-                            {goal.name}
-                          </Text>
-                        </View>
-                        <View className="flex-row flex-wrap items-center gap-2 mb-2">
-                          <Badge {...goalTypeTagColors(goal.goalType)}>
-                            {goalTypeLabel(goal.goalType)}
-                          </Badge>
-                          {goal.yieldEnabled && (
-                            <Badge color="#065f46" bg="#a7f3d0">
-                              Yield
+                    <View className="p-4 pb-3">
+                      <View className="flex-row items-start justify-between mb-3">
+                        <View className="flex-1 pr-3">
+                          <View className="flex-row items-center gap-2 mb-2">
+                            <Target size={18} color="#059669" />
+                            <Text className="text-xl font-bold text-gray-900 flex-shrink">
+                              {goal.name}
+                            </Text>
+                          </View>
+                          <View className="flex-row flex-wrap items-center gap-2 mb-2">
+                            <Badge {...goalTypeTagColors(goal.goalType)}>
+                              {goalTypeLabel(goal.goalType)}
                             </Badge>
-                          )}
-                          <Badge
-                            color={
-                              goal.status === "active" ? "#047857" : "#6b7280"
-                            }
-                            bg={
-                              goal.status === "active"
-                                ? "#d1fae5"
-                                : "rgba(156,163,175,0.2)"
-                            }
+                            {goal.yieldEnabled && (
+                              <Badge color="#065f46" bg="#a7f3d0">
+                                Yield
+                              </Badge>
+                            )}
+                            <Badge
+                              color={
+                                goal.status === "active" ? "#047857" : "#6b7280"
+                              }
+                              bg={
+                                goal.status === "active"
+                                  ? "#d1fae5"
+                                  : "rgba(156,163,175,0.2)"
+                              }
+                            >
+                              {goal.status}
+                            </Badge>
+                          </View>
+                          <Text
+                            className="text-sm text-gray-600"
+                            numberOfLines={2}
                           >
-                            {goal.status}
-                          </Badge>
-                        </View>
-                        <Text className="text-sm text-gray-600" numberOfLines={2}>
-                          {goal.description || "No description"}
-                        </Text>
-                      </View>
-                      <ArrowRight color="#10b981" size={18} />
-                    </View>
-                    <View className="flex-row items-center justify-between pt-3 border-t border-gray-100">
-                      <View className="flex-row items-center">
-                        <HandCoins color="#3b82f6" size={18} />
-                        <Text className="text-sm font-semibold text-blue-700 ml-1.5">
-                          Target {formatBalance(target)}
-                        </Text>
-                      </View>
-                      {goal.endDate ? (
-                        <View className="flex-row items-center">
-                          <Calendar color="#6b7280" size={14} />
-                          <Text className="text-xs text-gray-500 ml-1">
-                            Ends {new Date(goal.endDate).toLocaleDateString()}
+                            {goal.description || "No description"}
                           </Text>
                         </View>
-                      ) : (
-                        <Text className="text-xs text-gray-400">
-                          {goal._count?.members ?? goal.members?.length ?? 1}{" "}
-                          member
-                          {(goal._count?.members ??
-                            goal.members?.length ??
-                            1) === 1
-                            ? ""
-                            : "s"}
-                        </Text>
-                      )}
+                        <ArrowRight color="#10b981" size={18} />
+                      </View>
+                    </View>
+                    {/* Footer = amber progress fill behind Target / Ends */}
+                    <View className="relative overflow-hidden border-t border-gray-100">
+                      <View
+                        pointerEvents="none"
+                        className="absolute top-0 bottom-0 left-0"
+                        style={{
+                          width: `${progressPct}%`,
+                          backgroundColor: "rgba(245, 158, 11, 0.38)",
+                        }}
+                      />
+                      <View className="relative z-[1] flex-row items-center justify-between px-4 py-2.5">
+                        <View className="flex-row items-center">
+                          <HandCoins color="#3b82f6" size={18} />
+                          <Text className="text-sm font-semibold text-blue-700 ml-1.5">
+                            Target {formatBalance(target)}
+                          </Text>
+                        </View>
+                        {goal.endDate ? (
+                          <View className="flex-row items-center">
+                            <Calendar color="#6b7280" size={14} />
+                            <Text className="text-xs text-gray-500 ml-1">
+                              Ends{" "}
+                              {new Date(goal.endDate).toLocaleDateString()}
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text className="text-xs text-gray-400">
+                            {progressPct.toFixed(0)}%
+                          </Text>
+                        )}
+                      </View>
                     </View>
                   </Card>
                 );

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useRouter } from "expo-router";
+import { router } from "expo-router";
 import * as Notifications from "expo-notifications";
 import { useAuth } from "@/Contexts/AuthContext";
 
@@ -10,18 +10,11 @@ type PushData = {
   tab?: string;
 };
 
-function routeFromPushData(
-  router: ReturnType<typeof useRouter>,
-  data: PushData | undefined
-) {
-  if (!data) return;
+/** Only deep-link into a chama when the push carries a slug. Never auto-open the inbox. */
+function routeFromPushData(data: PushData | undefined) {
+  if (!data?.chamaSlug) return;
 
   const slug = data.chamaSlug;
-  if (!slug) {
-    router.push("/notifications");
-    return;
-  }
-
   const tab = data.tab;
   if (tab === "chat") {
     router.push({
@@ -44,11 +37,19 @@ function routeFromPushData(
   });
 }
 
+function responseAgeMs(response: Notifications.NotificationResponse): number {
+  const raw = response.notification.date;
+  const ts = typeof raw === "number" ? raw : new Date(raw).getTime();
+  const ms = ts < 1e12 ? ts * 1000 : ts;
+  return Date.now() - ms;
+}
+
 /**
- * Listens for notification taps and opens the matching chama / inbox.
+ * Listens for notification taps.
+ * Uses the imperative `router` API (no useRouter / useNavigation) so it can
+ * safely sit in the root layout without NavigationContainer timing issues.
  */
 export default function PushNotificationRouter() {
-  const router = useRouter();
   const { isAuthenticated } = useAuth();
   const handledResponse = useRef(false);
 
@@ -58,20 +59,29 @@ export default function PushNotificationRouter() {
     const sub = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         const data = response.notification.request.content.data as PushData;
-        routeFromPushData(router, data);
+        routeFromPushData(data);
+        void Notifications.clearLastNotificationResponseAsync();
       }
     );
 
-    // Cold start: app opened from a notification
-    Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (!response || handledResponse.current) return;
-      handledResponse.current = true;
-      const data = response.notification.request.content.data as PushData;
-      routeFromPushData(router, data);
-    });
+    void Notifications.getLastNotificationResponseAsync().then(
+      async (response) => {
+        if (!response || handledResponse.current) {
+          await Notifications.clearLastNotificationResponseAsync();
+          return;
+        }
+        handledResponse.current = true;
+        const data = response.notification.request.content.data as PushData;
+        const fresh = responseAgeMs(response) < 20_000;
+        if (fresh && data?.chamaSlug) {
+          routeFromPushData(data);
+        }
+        await Notifications.clearLastNotificationResponseAsync();
+      }
+    );
 
     return () => sub.remove();
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated]);
 
   return null;
 }
