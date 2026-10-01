@@ -448,79 +448,76 @@ async function readDocumentNumber(encrypted: string | null): Promise<string> {
 }
 
 async function loadCustomerProfile(userId: number): Promise<CustomerProfile> {
-  const u = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      email: true,
-      address: true,
-      kycStatus: true,
-      kycDocumentType: true,
-      kycFirstName: true,
-      kycLastName: true,
-      kycFullName: true,
-      kycDateOfBirth: true,
-      kycDocumentNumber: true,
-    },
-  });
-  console.log("the kyc user", u);
-  if (!u) throw new ElementPayError(400, "User not found");
-
-  const approved = u.kycStatus === "approved";
-
-  let first = (u.kycFirstName ?? "").trim();
-  let last = (u.kycLastName ?? "").trim();
-  if ((!first || !last) && u.kycFullName) {
-    const parts = u.kycFullName.trim().split(/\s+/);
-    if (parts.length >= 2) {
-      first = first || parts[0];
-      last = last || parts.slice(1).join(" ");
+    const u = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        address: true,
+        kycStatus: true,
+        kycDocumentType: true,
+        kycFirstName: true,
+        kycLastName: true,
+        kycFullName: true,
+        kycDateOfBirth: true,
+        kycDocumentNumber: true,
+      },
+    });
+    if (!u) throw new ElementPayError(400, "User not found");
+   
+    const approved = u.kycStatus === "approved";
+   
+    let first = (u.kycFirstName ?? "").trim();
+    let last = (u.kycLastName ?? "").trim();
+    if ((!first || !last) && u.kycFullName) {
+      const parts = u.kycFullName.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        first = first || parts[0];
+        last = last || parts.slice(1).join(" ");
+      }
     }
-  }
-  const dob = toEpDob(u.kycDateOfBirth);
-  const idNumber = approved ? await readDocumentNumber(u.kycDocumentNumber) : "";
-  const idTypeRaw = (u.kycDocumentType ?? "").trim();
-  const email = (u.email ?? "").trim();
-  // No city column exists. `address` is used when it is a real address (not a wallet), else "Nairobi".
-  const addr = (u.address ?? "").trim();
-  const address = addr && !/^0x[0-9a-fA-F]{40}$/.test(addr) ? addr : "Nairobi";
-
-  const missing: string[] = [];
-  if (!first) missing.push("first name");
-  if (!last) missing.push("last name");
-  if (!dob) missing.push("date of birth");
-  if (!idNumber) missing.push("ID number");
-  if (!idTypeRaw) missing.push("ID type");
-  if (!email) missing.push("email");
-
-  if (!approved || missing.length > 0) {
-    if (!IS_PRODUCTION) {
-      console.warn(`[elementpay] user ${userId} has no approved KYC data; using sandbox placeholder`);
-      return SANDBOX_PROFILE;
-    }
-    // Element Pay needs real identity details; never fabricate them in production.
-    if (!approved) {
+    const dob = toEpDob(u.kycDateOfBirth);
+    const idNumber = approved ? await readDocumentNumber(u.kycDocumentNumber) : "";
+    const idTypeRaw = (u.kycDocumentType ?? "").trim();
+    const email = (u.email ?? "").trim();
+    const address =  "Nairobi";
+   
+    const missing: string[] = [];
+    if (!first) missing.push("first name");
+    if (!last) missing.push("last name");
+    if (!dob) missing.push("date of birth");
+    if (!idNumber) missing.push("ID number");
+    if (!idTypeRaw) missing.push("ID type");
+    if (!email) missing.push("email");
+   
+    if (!approved || missing.length > 0) {
+      if (!IS_PRODUCTION) {
+        console.warn(`[elementpay] user ${userId} has no approved KYC data; using sandbox placeholder`);
+        return SANDBOX_PROFILE;
+      }
+      // Element Pay needs real identity details; never fabricate them in production.
+      if (!approved) {
+        throw new ElementPayError(
+          403,
+          "Verify your identity to deposit or withdraw with M-Pesa.",
+          { code: KYC_REQUIRED_CODE }
+        );
+      }
       throw new ElementPayError(
-        403,
-        "Verify your identity to deposit or withdraw with M-Pesa.",
-        { code: KYC_REQUIRED_CODE }
+        400,
+        `Your verified details are incomplete (${missing.join(", ")}). Please redo identity verification.`,
+        { code: "PROFILE_INCOMPLETE", missing }
       );
     }
-    throw new ElementPayError(
-      400,
-      `Your verified details are incomplete (${missing.join(", ")}). Please redo identity verification.`,
-      { code: "PROFILE_INCOMPLETE", missing }
-    );
+   
+    return {
+      name: `${first} ${last}`,
+      email,
+      address,
+      dob: dob as string,
+      idNumber,
+      idType: toEpIdType(idTypeRaw),
+    };
   }
-
-  return {
-    name: `${first} ${last}`,
-    email,
-    address,
-    dob: dob as string,
-    idNumber,
-    idType: toEpIdType(idTypeRaw),
-  };
-}
 
 async function buildQuoteCustomer(
   userId: number,
