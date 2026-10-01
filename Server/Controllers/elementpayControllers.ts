@@ -1123,17 +1123,20 @@ export async function elementPayWebhook(req: Request, res: Response) {
   // Ack fast (Element Pay wants a quick 2xx), process afterwards.
   res.status(200).json({ received: true });
 
-  const event = req.header("x-webhook-event") || "";
-  const webhookId = req.header("x-webhook-id") || "";
-  console.log(`[elementpay] webhook ${event} id=${webhookId} order=${body?.order_id}`);
+   // Ack fast (Element Pay wants a quick 2xx), process afterwards.
+   const ack = res.status(200).json({ received: true });
 
-  try {
-    await handleOrderEvent(event, body);
-    return res.status(200).json({ received: true });
-  } catch (err) {
-    console.error("[elementpay] error processing webhook", err);
-    return res.status(500).json({ received: false, error: "Error processing webhook" });
-  }
+   const event = req.header("x-webhook-event") || "";
+   const webhookId = req.header("x-webhook-id") || "";
+   console.log(`[elementpay] webhook ${event} id=${webhookId} order=${body?.order_id}`);
+ 
+   try {
+     await handleOrderEvent(event, body);
+   } catch (err) {
+     console.error("[elementpay] error processing webhook", err);
+   }
+ 
+   return ack; // same Response object that was already sent, so no second write
 }
 
 // The webhook can beat our DB insert by a few ms, so retry the lookup briefly.
