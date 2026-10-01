@@ -609,17 +609,11 @@ contract ChamaPay is
                 chama.balances[member] = 0;
                 emit RefundIssued(_chamaId, member, refundAmount);
             }
-        }
-        
+        }      
         for (uint i = 0; i < chama.members.length; i++) {
             chama.hasSent[chama.members[i]] = false;
-        }
-        
-        if (chama.cycle + 1 > chama.members.length) {
-            chama.round += 1;
-        }
+        }   
         chama.payDate += chama.duration * 24 * 60 * 60;
-        chama.cycle++;
         emit RefundUpdated(_chamaId);
     }
 

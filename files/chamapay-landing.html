@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chamapay — save together on M-Pesa</title>
+<meta name="description" content="Chamapay runs chamas, savings goals and pay links on M-Pesa, with balances held in USDC on Base.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --canvas:#f1fcfa;
+  --surface:#ffffff;
+  --ink:#10403f;
+  --ink-soft:#4f7370;
+  --primary:#1a6b6b;
+  --primary-text:#1a6b6b;
+  --deep:#195556;
+  --deep-2:#123f40;
+  --mint-100:#d1f6f1;
+  --mint-200:#a3ece4;
+  --line:#cbe8e3;
+  --on-deep:#e7fbf7;
+  --on-deep-soft:#a9d4ce;
+
+  --display:"Bricolage Grotesque",Georgia,serif;
+  --body:"Instrument Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+
+  --measure:34rem;
+  --gap:clamp(3.5rem,7vw,7rem);
+
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --canvas:#0a2322;
+    --surface:#0f2f2e;
+    --ink:#e4f6f3;
+    --ink-soft:#9ac3be;
+    --primary-text:#77d6c9;
+    --mint-100:#17403e;
+    --mint-200:#1d4f4c;
+    --line:#1d4744;
+    --deep:#0f2f2e;
+    --deep-2:#0a2322;
+  }
+}
+:root[data-theme="dark"]{
+  --canvas:#0a2322; --surface:#0f2f2e; --ink:#e4f6f3; --ink-soft:#9ac3be;
+  --primary-text:#77d6c9; --mint-100:#17403e; --mint-200:#1d4f4c; --line:#1d4744;
+  --deep:#0f2f2e; --deep-2:#0a2322;
+}
+html{scroll-padding-top:calc(5rem + env(safe-area-inset-top,0px));-webkit-text-size-adjust:100%}
+*,*::before,*::after{box-sizing:border-box}
+body{
+  margin:0;background:var(--canvas);color:var(--ink);
+  font-family:var(--body);font-size:1.0625rem;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+img{max-width:100%;display:block}
+a{color:var(--primary-text);text-underline-offset:3px}
+:focus-visible{outline:2.5px solid var(--primary-text);outline-offset:3px;border-radius:4px}
+
+h1,h2,h3,.wordmark{font-family:var(--display);font-weight:600;letter-spacing:-.022em;line-height:1.08;margin:0}
+h2{font-size:clamp(1.95rem,4.1vw,3rem)}
+h3{font-size:1.2rem;letter-spacing:-.01em;line-height:1.25}
+p{margin:0}
+
+.wrap{width:min(100% - 2.5rem,72rem);margin-inline:auto}
+section{padding-block:var(--gap)}
+.lede{color:var(--ink-soft);max-width:var(--measure);font-size:1.1rem}
+
+/* ---------- buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+  font-family:var(--body);font-weight:600;font-size:1rem;
+  padding:.8rem 1.4rem;border-radius:999px;border:1.5px solid transparent;
+  text-decoration:none;cursor:pointer;transition:background-color .18s,color .18s,border-color .18s;
+}
+.btn-primary{background:#1a6b6b;color:#fff}
+.btn-primary:hover{background:#155757}
+.btn-ghost{border-color:var(--line);color:var(--ink);background:transparent}
+.btn-ghost:hover{background:var(--mint-100);border-color:var(--mint-200)}
+.btn-on-deep{background:#fff;color:#16514f}
+.btn-on-deep:hover{background:var(--mint-100)}
+.btn-sm{padding:.55rem 1rem;font-size:.9375rem}
+
+/* ---------- header ---------- */
+.site-head{
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:40;
+  background:color-mix(in srgb,var(--canvas) 88%,transparent);
+  backdrop-filter:blur(10px);border-bottom:1px solid transparent;
+}
+.site-head.is-stuck{border-bottom-color:var(--line)}
+.head-row{display:flex;align-items:center;gap:1.5rem;height:4.25rem}
+.wordmark{font-size:1.4rem;letter-spacing:-.03em;color:var(--ink);text-decoration:none}
+.wordmark b{color:var(--primary-text);font-weight:600}
+.nav{margin-left:auto;display:flex;gap:1.75rem;font-size:.95rem}
+.nav a{color:var(--ink-soft);text-decoration:none}
+.nav a:hover{color:var(--primary-text)}
+@media (max-width:820px){.nav{display:none}.head-row{gap:.75rem}}
+
+/* ---------- hero ---------- */
+.hero{padding-top:clamp(2.5rem,5vw,4.5rem)}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(2rem,5vw,4.5rem);align-items:center}
+.hero-brand{font-size:clamp(3.2rem,8.5vw,5.75rem);letter-spacing:-.04em;line-height:.95;color:var(--primary-text)}
+.hero h1{font-size:clamp(1.65rem,3.3vw,2.4rem);font-weight:500;margin-top:1.1rem;max-width:18ch}
+.hero .lede{margin-top:1.1rem}
+.hero-cta{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1.9rem}
+.hero-note{margin-top:1.4rem;display:flex;align-items:center;gap:.6rem;font-size:.9rem;color:var(--ink-soft)}
+.dot{width:.45rem;height:.45rem;border-radius:50%;background:var(--primary-text);flex:none}
+@media (max-width:860px){
+  .hero-grid{grid-template-columns:1fr;gap:2.75rem}
+  .hero h1{max-width:none}
+}
+
+/* ---------- phone ---------- */
+.phone{
+  width:min(100%,19.5rem);margin-inline:auto;background:var(--surface);
+  border:1px solid var(--line);border-radius:2rem;padding:1.05rem;
+  box-shadow:0 1.5rem 3.5rem -1.5rem rgba(16,64,63,.35);
+}
+.phone-top{display:flex;justify-content:space-between;align-items:center;font-size:.72rem;color:var(--ink-soft);margin-bottom:.9rem;padding-inline:.25rem}
+.p-card{background:var(--mint-100);border-radius:1.15rem;padding:1rem}
+.p-label{font-size:.75rem;color:var(--ink-soft)}
+.p-amount{font-family:var(--display);font-size:1.85rem;letter-spacing:-.03em;margin-top:.1rem}
+.p-sub{font-size:.78rem;color:var(--ink-soft);margin-top:.15rem}
+.p-row{display:flex;align-items:center;gap:.7rem;padding:.6rem 0}
+.p-row + .p-row{border-top:1px solid var(--line)}
+.avatar{width:2rem;height:2rem;border-radius:50%;flex:none;display:grid;place-items:center;font-size:.72rem;font-weight:600;color:#fff;background:#1a6b6b;font-family:var(--body)}
+.avatar.b{background:#2f8a86}.avatar.c{background:#5aa9a2}.avatar.d{background:#86c3bc;color:#12403f}
+.p-name{font-size:.88rem;font-weight:500}
+.p-meta{font-size:.74rem;color:var(--ink-soft)}
+.p-tag{margin-left:auto;font-size:.7rem;font-weight:600;padding:.2rem .55rem;border-radius:999px;background:#1a6b6b;color:#fff}
+.p-tag.quiet{background:var(--mint-200);color:#12403f}
+.p-section{margin-top:.9rem}
+.bar{height:.45rem;border-radius:999px;background:var(--mint-200);overflow:hidden;margin-top:.6rem}
+.bar span{display:block;height:100%;background:#1a6b6b;border-radius:999px}
+
+/* ---------- section heading ---------- */
+.sec-head{max-width:44rem;margin-bottom:clamp(2rem,4vw,3.25rem)}
+.sec-head .lede{margin-top:.9rem}
+
+/* ---------- products ---------- */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:clamp(2rem,5vw,4.5rem);align-items:center}
+.split.flip .split-visual{order:-1}
+@media (max-width:860px){.split{grid-template-columns:1fr;gap:2.5rem}.split.flip .split-visual{order:0}}
+.feature-list{margin:1.6rem 0 0;padding:0;list-style:none;display:grid;gap:.85rem;max-width:var(--measure)}
+.feature-list li{display:grid;grid-template-columns:auto 1fr;gap:.7rem;align-items:start;font-size:1rem;color:var(--ink-soft)}
+.tick{width:1.25rem;height:1.25rem;border-radius:50%;background:var(--mint-200);color:#12403f;display:grid;place-items:center;font-size:.7rem;font-weight:700;margin-top:.22rem;flex:none;font-family:var(--body)}
+
+/* modes */
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:1.25rem;overflow:hidden;margin-top:2.25rem}
+.mode{background:var(--surface);padding:1.5rem 1.35rem}
+.mode h3{color:var(--primary-text)}
+.mode p{font-size:.95rem;color:var(--ink-soft);margin-top:.5rem}
+.mode dl{margin:1.1rem 0 0;font-size:.85rem;display:grid;grid-template-columns:auto 1fr;gap:.35rem .7rem}
+.mode dt{color:var(--ink-soft)}
+.mode dd{margin:0;font-weight:500}
+@media (max-width:760px){.modes{grid-template-columns:1fr}}
+
+/* ---------- pay link band ---------- */
+.band{background:#195556;color:#e7fbf7}
+.band h2{color:#fff}
+.band .lede{color:#a9d4ce}
+.band-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(2rem,5vw,4.5rem);align-items:center}
+@media (max-width:860px){.band-grid{grid-template-columns:1fr;gap:2.75rem}}
+.linkbox{display:flex;align-items:center;gap:.6rem;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:.45rem .45rem .45rem 1.1rem;margin-top:1.8rem;max-width:30rem}
+.linkbox code{font-family:var(--body);font-size:.92rem;color:#e7fbf7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.linkbox .btn{margin-left:auto;flex:none}
+.uses{list-style:none;margin:1.9rem 0 0;padding:0;display:flex;flex-wrap:wrap;gap:.55rem}
+.uses li{font-size:.9rem;padding:.4rem .9rem;border-radius:999px;background:rgba(255,255,255,.1);color:#d7f2ee}
+.band .phone{background:#fff;border-color:rgba(255,255,255,.2);color:#10403f;box-shadow:0 2rem 4rem -1.5rem rgba(0,0,0,.45)}
+.band .phone .p-card{background:#f1fcfa}
+.band .phone .p-label,.band .phone .p-sub,.band .phone .p-meta,.band .phone .phone-top{color:#4f7370}
+.band .phone .bar{background:#d1f6f1}
+.band .phone .p-row + .p-row{border-top-color:#dff3ef}
+.chip-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-top:.9rem}
+.chip{border:1.5px solid #cbe8e3;border-radius:.75rem;padding:.5rem;text-align:center;font-size:.85rem;font-weight:500;color:#10403f}
+.chip.on{background:#1a6b6b;border-color:#1a6b6b;color:#fff}
+.pay-btn{margin-top:.9rem;width:100%;background:#1a6b6b;color:#fff;border:0;border-radius:.85rem;padding:.8rem;font-family:var(--body);font-weight:600;font-size:.95rem}
+
+/* ---------- how it works ---------- */
+.steps{counter-reset:s;display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(1.5rem,3vw,2.75rem)}
+.step{position:relative;padding-top:2.9rem}
+.step::before{
+  counter-increment:s;content:counter(s);
+  position:absolute;top:0;left:0;width:2.1rem;height:2.1rem;border-radius:50%;
+  background:#1a6b6b;color:#fff;display:grid;place-items:center;
+  font-family:var(--display);font-size:1rem;font-weight:600;
+}
+.step p{color:var(--ink-soft);margin-top:.6rem;font-size:.98rem}
+@media (max-width:760px){.steps{grid-template-columns:1fr;gap:2rem}}
+
+.rail{margin-top:clamp(2.5rem,5vw,3.5rem);border:1px solid var(--line);border-radius:1.25rem;padding:1.6rem 1.75rem;background:var(--surface);display:grid;grid-template-columns:auto 1fr;gap:1.25rem;align-items:center}
+.rail strong{font-family:var(--display);font-size:1.05rem;font-weight:600;display:block}
+.rail p{color:var(--ink-soft);font-size:.95rem;margin-top:.3rem;max-width:48rem}
+.rail-badge{font-size:.78rem;font-weight:600;color:#fff;background:#1a6b6b;padding:.35rem .75rem;border-radius:999px;white-space:nowrap}
+@media (max-width:600px){.rail{grid-template-columns:1fr}}
+
+/* ---------- fees ---------- */
+.fee-card{border:1px solid var(--line);border-radius:1.5rem;background:var(--surface);padding:clamp(1.25rem,3vw,2rem);max-width:44rem}
+.tabs{display:inline-flex;background:var(--mint-100);border-radius:999px;padding:.3rem;gap:.25rem}
+.tab{border:0;background:transparent;font-family:var(--body);font-weight:600;font-size:.9375rem;color:var(--ink-soft);padding:.55rem 1.15rem;border-radius:999px;cursor:pointer;transition:background-color .18s,color .18s}
+.tab[aria-selected="true"]{background:#1a6b6b;color:#fff}
+.fee-rows{margin-top:1.6rem;display:grid;gap:0}
+.fee-row{display:flex;justify-content:space-between;align-items:baseline;gap:1.5rem;padding:.9rem 0;border-top:1px solid var(--line)}
+.fee-row:first-child{border-top:0}
+.fee-row span:first-child{color:var(--ink-soft);font-size:.98rem}
+.fee-row span:last-child{font-family:var(--display);font-size:1.15rem;font-weight:600;white-space:nowrap}
+.fee-foot{margin-top:1.3rem;font-size:.86rem;color:var(--ink-soft)}
+
+/* ---------- faq ---------- */
+.faq{max-width:48rem}
+details{border-top:1px solid var(--line)}
+details:last-of-type{border-bottom:1px solid var(--line)}
+summary{
+  list-style:none;cursor:pointer;padding:1.15rem 2.5rem 1.15rem 0;position:relative;
+  font-family:var(--display);font-size:1.08rem;font-weight:500;letter-spacing:-.01em;
+}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"";position:absolute;right:.5rem;top:1.55rem;width:.6rem;height:.6rem;border-right:2px solid var(--primary-text);border-bottom:2px solid var(--primary-text);transform:rotate(45deg);transition:transform .2s}
+details[open] summary::after{transform:rotate(225deg)}
+details p{color:var(--ink-soft);padding-bottom:1.25rem;max-width:var(--measure);font-size:.99rem}
+
+/* ---------- launch ---------- */
+.launch{text-align:center}
+.launch h2{max-width:20ch;margin-inline:auto}
+.launch .lede{margin:1.1rem auto 0}
+.launch .btn{margin-top:1.9rem}
+
+/* ---------- footer ---------- */
+footer{background:#195556;color:#a9d4ce;padding-block:3rem 3.5rem;font-size:.92rem}
+.foot-row{display:flex;flex-wrap:wrap;gap:1.5rem;align-items:center;justify-content:space-between}
+footer .wordmark{color:#fff;font-size:1.25rem}
+footer a{color:#cfeee9;text-decoration:none}
+footer a:hover{text-decoration:underline}
+.foot-links{display:flex;gap:1.5rem;flex-wrap:wrap}
+.foot-fine{margin-top:2rem;padding-top:1.5rem;border-top:1px solid rgba(255,255,255,.14);color:#8fc0ba;font-size:.85rem}
+
+/* ---------- entrance (single orchestrated moment) ---------- */
+@media (prefers-reduced-motion:no-preference){
+  .rise{opacity:0;transform:translateY(12px);animation:rise .7s cubic-bezier(.2,.7,.3,1) forwards}
+  .rise:nth-child(1){animation-delay:.05s}
+  .hero .lede{animation-delay:.16s}
+  .hero-cta{animation-delay:.24s}
+  .hero-note{animation-delay:.32s}
+  .hero-visual{animation-delay:.2s}
+}
+@keyframes rise{to{opacity:1;transform:none}}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:-999px}
+.skip:focus{left:1rem;top:1rem;z-index:99;background:#fff;color:#1a6b6b;padding:.6rem 1rem;border-radius:.5rem}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-head" id="head">
+  <div class="wrap head-row">
+    <a class="wordmark" href="#top">Chama<b>pay</b></a>
+    <nav class="nav">
+      <a href="#chamas">Chamas</a>
+      <a href="#goals">Goals</a>
+      <a href="#paylink">Pay links</a>
+      <a href="#how">How it works</a>
+      <a href="#fees">Fees</a>
+    </nav>
+    <a class="btn btn-primary btn-sm" href="https://app.chamapay.xyz">Launch app</a>
+  </div>
+</header>
+
+<main id="main">
+<section class="hero" id="top">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="wordmark hero-brand rise">Chamapay</p>
+      <h1 class="rise">Save together, the way chamas already work.</h1>
+      <p class="lede rise">Run your chama, save toward a goal, or raise money for someone who needs it — all on M-Pesa. Balances are held in USDC on Base, so what the group saves holds its value.</p>
+      <div class="hero-cta rise">
+        <a class="btn btn-primary" href="https://app.chamapay.xyz">Launch app</a>
+        <a class="btn btn-ghost" href="#how">See how it works</a>
+      </div>
+      <p class="hero-note rise"><span class="dot" aria-hidden="true"></span> Deposit and withdraw with M-Pesa. No crypto wallet to set up.</p>
+    </div>
+
+    <div class="hero-visual rise">
+      <div class="phone">
+        <div class="phone-top"><span>Kilimani Investors</span><span>12 members</span></div>
+        <div class="p-card">
+          <p class="p-label">Pool this round</p>
+          <p class="p-amount">KES 60,000</p>
+          <p class="p-sub">Turn 3 of 12 · closes Friday</p>
+        </div>
+        <div class="p-section">
+          <div class="p-row">
+            <span class="avatar" aria-hidden="true">GW</span>
+            <span><span class="p-name">Grace W.</span><br><span class="p-meta">Receives this round</span></span>
+            <span class="p-tag">Her turn</span>
+          </div>
+          <div class="p-row">
+            <span class="avatar b" aria-hidden="true">JM</span>
+            <span><span class="p-name">Joseph M.</span><br><span class="p-meta">KES 5,000 · 2 days ago</span></span>
+            <span class="p-tag quiet">Paid</span>
+          </div>
+          <div class="p-row">
+            <span class="avatar c" aria-hidden="true">AK</span>
+            <span><span class="p-name">Amina K.</span><br><span class="p-meta">KES 5,000 · yesterday</span></span>
+            <span class="p-tag quiet">Paid</span>
+          </div>
+          <div class="p-row">
+            <span class="avatar d" aria-hidden="true">PO</span>
+            <span><span class="p-name">Peter O.</span><br><span class="p-meta">Due Friday</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="chamas">
+  <div class="wrap split">
+    <div>
+      <h2>Your chama, with the arguments taken out</h2>
+      <p class="lede">Invite-only rotating savings, exactly as the group already runs it — but everyone can see the schedule, the contributions and whose turn it is.</p>
+      <ul class="feature-list">
+        <li><span class="tick" aria-hidden="true">✓</span> Invite members and set the contribution amount and schedule.</li>
+        <li><span class="tick" aria-hidden="true">✓</span> Everyone sees whose turn it is and who has paid, in the same ledger.</li>
+        <li><span class="tick" aria-hidden="true">✓</span> Contributions come in by M-Pesa and payouts go straight back out to M-Pesa.</li>
+        <li><span class="tick" aria-hidden="true">✓</span> Between rounds, the pool sits in USDC rather than in one person's account.</li>
+      </ul>
+    </div>
+    <div class="split-visual">
+      <div class="phone">
+        <div class="phone-top"><span>Schedule</span><span>Monthly</span></div>
+        <div class="p-row"><span class="avatar" aria-hidden="true">GW</span><span><span class="p-name">Grace W.</span><br><span class="p-meta">March round</span></span><span class="p-tag">Now</span></div>
+        <div class="p-row"><span class="avatar b" aria-hidden="true">JM</span><span><span class="p-name">Joseph M.</span><br><span class="p-meta">April round</span></span><span class="p-tag quiet">Next</span></div>
+        <div class="p-row"><span class="avatar c" aria-hidden="true">AK</span><span><span class="p-name">Amina K.</span><br><span class="p-meta">May round</span></span></div>
+        <div class="p-row"><span class="avatar d" aria-hidden="true">PO</span><span><span class="p-name">Peter O.</span><br><span class="p-meta">June round</span></span></div>
+        <div class="p-card p-section">
+          <p class="p-label">Collected this round</p>
+          <p class="p-amount">KES 45,000</p>
+          <div class="bar"><span style="width:75%"></span></div>
+          <p class="p-sub">9 of 12 members have paid</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="goals">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Save toward something specific</h2>
+      <p class="lede">School fees, stock for the shop, a trip, a deposit. Create a pot, set the target, and decide who saves into it.</p>
+    </div>
+    <div class="modes">
+      <div class="mode">
+        <h3>Individual</h3>
+        <p>Just you, putting money aside toward a target you set.</p>
+        <dl>
+          <dt>Who saves</dt><dd>One person</dd>
+          <dt>Sharing</dt><dd>Pay link for top-ups</dd>
+        </dl>
+      </div>
+      <div class="mode">
+        <h3>Circle</h3>
+        <p>Friends or family saving toward one shared target, in private.</p>
+        <dl>
+          <dt>Who saves</dt><dd>Invited members</dd>
+          <dt>Sharing</dt><dd>Private group</dd>
+        </dl>
+      </div>
+      <div class="mode">
+        <h3>Public</h3>
+        <p>Anyone with the link can contribute. Open fundraising.</p>
+        <dl>
+          <dt>Who saves</dt><dd>Anyone</dd>
+          <dt>Sharing</dt><dd>Open pay link</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="paylink">
+  <div class="wrap band-grid">
+    <div>
+      <h2>Every goal comes with a pay link</h2>
+      <p class="lede">Share it on WhatsApp and people can send money in seconds. They open the link, see what it's for, and pay with M-Pesa. No app to install, no account to create.</p>
+      <div class="linkbox">
+        <code id="paylinkUrl">chamapay.xyz/pay/grace-school-fees</code>
+        <button class="btn btn-on-deep btn-sm" id="copyBtn" type="button">Copy link</button>
+      </div>
+      <p class="sr" role="status" id="copyStatus"></p>
+      <ul class="uses">
+        <li>Funeral contributions</li>
+        <li>Weddings</li>
+        <li>Medical emergencies</li>
+        <li>Fees and rent</li>
+        <li>Everyday help</li>
+      </ul>
+    </div>
+    <div>
+      <div class="phone">
+        <div class="phone-top"><span>Contribute</span><span>Secure</span></div>
+        <div class="p-card">
+          <p class="p-label">Grace's school fees</p>
+          <p class="p-amount">KES 34,500</p>
+          <div class="bar"><span style="width:69%"></span></div>
+          <p class="p-sub">of KES 50,000 · 23 people have given</p>
+        </div>
+        <div class="chip-row">
+          <span class="chip">KES 200</span>
+          <span class="chip on">KES 500</span>
+          <span class="chip">KES 1,000</span>
+        </div>
+        <button class="pay-btn" type="button" disabled>Pay KES 500 with M-Pesa</button>
+        <p class="p-sub" style="text-align:center;margin-top:.7rem">You'll get an M-Pesa prompt on 07•• ••• 418</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>How the money moves</h2>
+      <p class="lede">You think in shillings. Chamapay handles the rest.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <h3>Pay in with M-Pesa</h3>
+        <p>Send your contribution the way you already send money. You get the usual M-Pesa prompt on your phone.</p>
+      </div>
+      <div class="step">
+        <h3>It's held as USDC</h3>
+        <p>The group's balance sits in USDC on Base — a dollar-backed stablecoin — so it isn't quietly losing value while it waits.</p>
+      </div>
+      <div class="step">
+        <h3>Withdraw to M-Pesa</h3>
+        <p>When it's your turn or your goal is met, the money comes back out to your M-Pesa in shillings.</p>
+      </div>
+    </div>
+    <div class="rail">
+      <span class="rail-badge">USDC on Base</span>
+      <div>
+        <strong>Why a stablecoin, in plain terms</strong>
+        <p>Chamas often save for months. Holding that money as USDC keeps it pegged to the dollar instead of drifting, and Base settles transfers in seconds for a fraction of a cent. Every movement is recorded on-chain, so the group's ledger isn't something anyone can quietly edit.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="fees">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Fees, stated up front</h2>
+      <p class="lede">Nothing is taken out of a contribution without showing you first.</p>
+    </div>
+    <div class="fee-card">
+      <div class="tabs" role="tablist" aria-label="Fee type">
+        <button class="tab" id="tab-internal" role="tab" aria-selected="true" aria-controls="panel-internal" type="button">Internal transfers</button>
+        <button class="tab" id="tab-mpesa" role="tab" aria-selected="false" aria-controls="panel-mpesa" type="button">M-Pesa</button>
+      </div>
+
+      <div class="fee-rows" id="panel-internal" role="tabpanel" aria-labelledby="tab-internal">
+        <div class="fee-row"><span>Contributing to a chama</span><span>Free</span></div>
+        <div class="fee-row"><span>Sending to another Chamapay user</span><span>Free</span></div>
+        <div class="fee-row"><span>Moving money between your goals</span><span>Free</span></div>
+        <div class="fee-row"><span>Receiving a payout</span><span>Free</span></div>
+      </div>
+
+      <div class="fee-rows" id="panel-mpesa" role="tabpanel" aria-labelledby="tab-mpesa" hidden>
+        <div class="fee-row"><span>Deposit from M-Pesa</span><span>1.5%</span></div>
+        <div class="fee-row"><span>Withdraw to M-Pesa</span><span>2.0%</span></div>
+        <div class="fee-row"><span>Pay link contribution</span><span>1.5%</span></div>
+        <div class="fee-row"><span>Safaricom charges</span><span>At cost</span></div>
+      </div>
+
+      <p class="fee-foot">The exact amount is shown on the confirmation screen before you approve anything.</p>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <div class="sec-head"><h2>Questions people ask</h2></div>
+    <div class="faq">
+      <details>
+        <summary>Do I need to understand crypto to use this?</summary>
+        <p>No. You send and receive money with M-Pesa in shillings. USDC on Base is what Chamapay uses underneath to hold and settle the balance — you never have to touch it.</p>
+      </details>
+      <details>
+        <summary>Who holds the chama's money between rounds?</summary>
+        <p>The pool is held as USDC on Base against the group's chama, not in one member's personal account. Every contribution and payout is recorded, and all members see the same ledger.</p>
+      </details>
+      <details>
+        <summary>Can someone contribute without joining Chamapay?</summary>
+        <p>Yes. That's what pay links are for. They open the link, see what the money is for, and pay with M-Pesa. No sign-up.</p>
+      </details>
+      <details>
+        <summary>What happens if someone misses a contribution?</summary>
+        <p>The group sees it in the ledger and the member gets a reminder. Chamapay shows what's outstanding; how the group handles it stays the group's decision.</p>
+      </details>
+      <details>
+        <summary>Is my balance affected by the shilling moving?</summary>
+        <p>Your balance is held in USDC, which tracks the US dollar. When you withdraw, it converts back to shillings at the rate at that moment, which is shown to you before you confirm.</p>
+      </details>
+      <details>
+        <summary>What can I use a pay link for?</summary>
+        <p>Funerals, weddings, medical emergencies, school fees, helping a friend hit a goal — anything a group of people would normally pool money for.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="launch">
+  <div class="wrap">
+    <h2>Start a chama, or a goal, today</h2>
+    <p class="lede">It takes a few minutes and your first contribution can come straight from M-Pesa.</p>
+    <a class="btn btn-primary" href="https://app.chamapay.xyz">Launch app</a>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-row">
+      <span class="wordmark">Chamapay</span>
+      <nav class="foot-links">
+        <a href="#chamas">Chamas</a>
+        <a href="#goals">Goals</a>
+        <a href="#paylink">Pay links</a>
+        <a href="#fees">Fees</a>
+        <a href="https://app.chamapay.xyz">Launch app</a>
+      </nav>
+    </div>
+    <p class="foot-fine">Chamapay · Savings and contributions on M-Pesa, held in USDC on Base.</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var head = document.getElementById('head');
+  var onScroll = function(){ head.classList.toggle('is-stuck', window.scrollY > 8); };
+  onScroll(); window.addEventListener('scroll', onScroll, {passive:true});
+
+  var tabs = [document.getElementById('tab-internal'), document.getElementById('tab-mpesa')];
+  var panels = [document.getElementById('panel-internal'), document.getElementById('panel-mpesa')];
+  tabs.forEach(function(tab, i){
+    tab.addEventListener('click', function(){
+      tabs.forEach(function(t, j){
+        t.setAttribute('aria-selected', String(i === j));
+        panels[j].hidden = i !== j;
+      });
+    });
+    tab.addEventListener('keydown', function(e){
+      if(e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      var next = tabs[(i + 1) % tabs.length];
+      next.focus(); next.click();
+    });
+  });
+
+  var btn = document.getElementById('copyBtn');
+  var status = document.getElementById('copyStatus');
+  btn.addEventListener('click', function(){
+    var text = 'https://' + document.getElementById('paylinkUrl').textContent.trim();
+    var done = function(){
+      btn.textContent = 'Copied';
+      status.textContent = 'Pay link copied to clipboard';
+      setTimeout(function(){ btn.textContent = 'Copy link'; status.textContent = ''; }, 2000);
+    };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done, function(){ status.textContent = 'Copy failed — select the link and copy it manually.'; });
+    } else { done(); }
+  });
+})();
+</script>
+</body>
+</html>

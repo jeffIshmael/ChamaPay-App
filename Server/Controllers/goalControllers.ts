@@ -660,7 +660,7 @@ export const contributeToGoal = async (req: Request, res: Response) => {
   }
 };
 
-const MIN_GOAL_PAY_KES = 100;
+const MIN_GOAL_PAY_KES = 10;
 const MAX_GOAL_PAY_KES = 250000;
 
 async function resolveGoalFromPayToken(token: string) {
