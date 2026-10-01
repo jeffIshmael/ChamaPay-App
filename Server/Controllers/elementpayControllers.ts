@@ -1125,8 +1125,10 @@ export async function elementPayWebhook(req: Request, res: Response) {
 
   try {
     await handleOrderEvent(event, body);
+    return res.status(200).json({ received: true });
   } catch (err) {
     console.error("[elementpay] error processing webhook", err);
+    return res.status(500).json({ received: false, error: "Error processing webhook" });
   }
 }
 
