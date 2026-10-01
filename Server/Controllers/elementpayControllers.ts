@@ -475,7 +475,7 @@ async function loadCustomerProfile(userId: number): Promise<CustomerProfile> {
         last = last || parts.slice(1).join(" ");
       }
     }
-    const dob = toEpDob(u.kycDateOfBirth);
+    const dob = u.kycDateOfBirth;
     const idNumber = approved ? await readDocumentNumber(u.kycDocumentNumber) : "";
     const idTypeRaw = (u.kycDocumentType ?? "").trim();
     const email = (u.email ?? "").trim();
