@@ -697,12 +697,14 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
     let quotedAt: number;
     let treasuryUnits: bigint | null;
     const reuse = takeReusableQuote(clientQuoteId, userId, "onramp", String(requestedKes), payPhone);
+    console.log("reuse", reuse);
     if (reuse) {
       quoteId = clientQuoteId;
       quotedAt = reuse.createdAt;
       treasuryUnits = reuse.usdcToTreasuryUnits === null ? null : BigInt(reuse.usdcToTreasuryUnits);
     } else {
       const q = await createQuote(onrampQuoteBody(userId, user, payPhone, requestedKes, provider.id, treasury));
+      console.log("q", q);
       quoteId = q.quote_id;
       quotedAt = Date.now();
       treasuryUnits = receivesUnits(q);
@@ -1095,6 +1097,8 @@ function verifyWebhookSignature(
 }
 
 export async function elementPayWebhook(req: Request, res: Response) {
+  console.log("elementPayWebhook has been triggered.");
+  console.log("req.body", req.body);
   const secret = process.env.ELEMENT_PAY_WEBHOOK_SECRET;
   if (!secret) {
     console.error("[elementpay] ELEMENT_PAY_WEBHOOK_SECRET is not set; rejecting webhook");
