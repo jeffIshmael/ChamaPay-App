@@ -27,15 +27,14 @@
 //   ELEMENT_PAY_WEBHOOK_SECRET      must match the webhook_secret configured on your Element Pay key
 // ENV (optional):
 //   ELEMENTPAY_SANDBOX_TEST_PHONE        sandbox only. Default +2541111111111 (forces success). +2540000000000 forces failure.
-//   ELEMENTPAY_SANDBOX_CUSTOMER_ID       approved vault customer (pcus_...). If unset in sandbox, an inline customer is sent.
 //   ELEMENTPAY_SANDBOX_OFFRAMP_OUTCOME   "Successful" (default) | "Failure": sandbox off-ramp outcome is driven by customer.name
 //                                        (only works with the inline customer, not a vault customer_id)
-//   ELEMENTPAY_MPESA_NETWORK_ID          pin the on-ramp M-Pesa network_id (skips catalog lookup)
-//   ELEMENTPAY_MPESA_OFFRAMP_NETWORK_ID  pin the off-ramp M-Pesa network_id (on/off-ramp ids differ, never reuse one for the other)
 //   ELEMENTPAY_OFFRAMP_ASSET_TOKEN / _CURRENCY / _NETWORK   default Base USDC. See the warning at OFFRAMP_ASSET.
 //   ELEMENTPAY_OFFRAMP_FEE_BPS           explicit withdrawal fee in basis points. Default 150 (= 1.5%)
 //   ELEMENTPAY_OFFRAMP_ONCHAIN=true      run the on-chain legs in sandbox too (they always run in production)
-//   ELEMENTPAY_ENV=production            switches to ELEMENTPAY_URL / ELEMENTPAY_API_KEY (production is NOT ready, see buildQuoteCustomer)
+//   ELEMENTPAY_ENV=production            LIVE: uses ELEMENTPAY_URL (default https://api.elementpay.net) / ELEMENTPAY_API_KEY and the live key's webhook secret
+//   ELEMENTPAY_REFERENCE_USDC            sample size for the page-load off-ramp rate quote. Default 10
+// network_id is NEVER configured: it is read from GET /partner/catalog for the quote's country + order_type.
 //   CHAMAPAY_RATE, TREASURY_WALLET       already used by the Pretium flow
 
 import { PrismaClient } from "@prisma/client";
@@ -53,6 +52,8 @@ import emailService from "../Lib/EmailService";
 import { getCached, setCache } from "../Lib/cache";
 import { treasuryTransferToUser } from "../Lib/pimlicoAgent";
 import { checkOnrampKesAllowed, KYC_REQUIRED_CODE } from "../Lib/kycService";
+// kycDocumentNumber is AES-encrypted at rest. CONFIRM this export name in Lib/kycPii.ts.
+import { decryptKycDocumentNumber } from "../Lib/kycPii";
 
 const prisma = new PrismaClient();
 
@@ -69,14 +70,14 @@ const BASE_USDC_ASSET = {
   network: "BASE",
 };
 
-// WARNING: Element Pay's Kenya corridor page says KE OffRamp uses Polygon USDT, while their sandbox
+
 // test payloads use Base USDC for KE OffRamp. Confirm with Element Pay which asset your live key is
 // enabled for. If it is not Base, the on-chain leg below (treasuryTransferToUser) cannot be used as-is,
 // and initiateElementPayOfframp refuses to run it.
 const OFFRAMP_ASSET = {
-  token: process.env.ELEMENTPAY_OFFRAMP_ASSET_TOKEN || BASE_USDC_ASSET.token,
-  currency: process.env.ELEMENTPAY_OFFRAMP_ASSET_CURRENCY || BASE_USDC_ASSET.currency,
-  network: process.env.ELEMENTPAY_OFFRAMP_ASSET_NETWORK || BASE_USDC_ASSET.network,
+  token:  BASE_USDC_ASSET.token,
+  currency: BASE_USDC_ASSET.currency,
+  network:  BASE_USDC_ASSET.network,
 };
 
 // In sandbox, Element Pay auto-settles off-ramp orders via the "Successful" name trigger and expects NO
@@ -106,7 +107,7 @@ class ElementPayError extends Error {
 
 function epConfig() {
   const rawUrl = IS_PRODUCTION
-    ? process.env.ELEMENTPAY_URL
+    ? process.env.ELEMENTPAY_URL || "https://api.elementpay.net"
     : process.env.ELEMENTPAY_SANDBOX_URL;
   const apiKey = IS_PRODUCTION
     ? process.env.ELEMENTPAY_API_KEY
@@ -175,8 +176,14 @@ function sendEpError(res: Response, err: unknown, fallback: string) {
     }
     const clientError = [400, 409, 410, 422].includes(err.status);
     return res
-      .status(clientError ? 400 : err.status >= 500 ? 503 : 502)
-      .json({ success: false, error: err.message });
+      .status(err.status === 403 ? 403 : clientError ? 400 : err.status >= 500 ? 503 : 502)
+      .json({
+        success: false,
+        error: err.message,
+        ...(typeof (err.data as any)?.code === "string"
+          ? { code: (err.data as any).code, missing: (err.data as any).missing }
+          : {}),
+      });
   }
   console.error(fallback, err);
   return res.status(500).json({ success: false, error: fallback });
@@ -291,28 +298,48 @@ function resolvePayPhone(phone: string | null): string {
 type OrderType = "OnRamp" | "OffRamp";
 type Provider = { id: string; min?: number; max?: number };
 
-// network_id must come from the catalog (never hardcode across environments).
-// On-ramp and off-ramp provider ids are different, so they are looked up and cached separately.
-async function getMpesaProvider(orderType: OrderType): Promise<Provider> {
-  const pinned =
-    orderType === "OnRamp"
-      ? process.env.ELEMENTPAY_MPESA_NETWORK_ID
-      : process.env.ELEMENTPAY_MPESA_OFFRAMP_NETWORK_ID;
-  if (pinned) return { id: pinned };
+// network_id always comes from GET /partner/catalog for the SAME country + order_type as the quote
+// (provider ids differ between OnRamp and OffRamp, and between sandbox and production), so nothing
+// is configured in .env. Cached for 10 minutes.
+function findKenyaProviders(data: any, orderType: OrderType): any[] {
+  const dir = orderType.toLowerCase(); // "onramp" | "offramp"
+  // docs show the tree under data.african_markets; accept it at the top level too
+  const node = data?.african_markets?.[dir] ?? data?.[dir];
+  const countries = node?.countries;
+  const ke = Array.isArray(countries)
+    ? countries.find((c: any) =>
+        [c?.code, c?.country, c?.iso, c?.iso2].some((v) => String(v ?? "").toUpperCase() === "KE")
+      )
+    : countries?.KE ?? countries?.ke;
 
+  const direct = ke?.payment_methods?.mobile_money?.providers;
+  if (Array.isArray(direct)) return direct;
+
+  // fallback: any `providers` list under the Kenya node
+  const found: any[] = [];
+  const walk = (n: any, depth = 0) => {
+    if (!n || typeof n !== "object" || depth > 8) return;
+    if (Array.isArray(n.providers)) found.push(...n.providers);
+    for (const v of Object.values(n)) walk(v, depth + 1);
+  };
+  walk(ke);
+  return found;
+}
+
+async function getMpesaProvider(orderType: OrderType): Promise<Provider> {
   const cacheKey = `elementpay:ke-mpesa-provider:${orderType}`;
   const cached = getCached<Provider>(cacheKey);
   if (cached) return cached;
 
   const res = await epRequest("GET", `/partner/catalog?country=KE&order_type=${orderType}`);
-  // response is keyed by direction: data.onramp / data.offramp
-  const section = res?.data?.[orderType.toLowerCase()];
-  const providers: any[] =
-    section?.countries?.KE?.payment_methods?.mobile_money?.providers ?? [];
+  const providers = findKenyaProviders(res?.data, orderType);
   const mpesa = providers.find(
-    (p) => p?.enabled !== false && /m[\s_-]?pesa/i.test(`${p?.code} ${p?.name}`)
+    (p) => p?.enabled !== false && /m[\s_-]?pesa/i.test(`${p?.code} ${p?.name} ${p?.network_name ?? ""}`)
   );
   if (!mpesa?.id) {
+    console.error(
+      `[elementpay] no M-Pesa ${orderType} provider in catalog. data keys: ${Object.keys(res?.data ?? {}).join(", ")}; providers seen: ${providers.length}`
+    );
     throw new ElementPayError(
       503,
       orderType === "OnRamp"
@@ -338,51 +365,194 @@ function assertWithinLimits(provider: Provider, kes: number) {
   }
 }
 
-// Quote needs either a vault `customer_id` (preferred, requires KYC with Element Pay)
-// or the deprecated inline `customer`. Inline is only used for sandbox testing.
-function buildQuoteCustomer(
-  userId: number,
-  user: { email?: string | null },
-  phone: string,
-  orderType: OrderType
-): Record<string, unknown> {
-  const vaultId = process.env.ELEMENTPAY_SANDBOX_CUSTOMER_ID;
-  if (!IS_PRODUCTION && vaultId) return { customer_id: vaultId };
+// ---------------------------------------------------------------------------
+// Customer details: sent inline as `customer` on every quote (no Element Pay vault customer needed).
+// Source: the user's Didit-verified KYC fields on the User row.
+//   kycFirstName + kycLastName   -> customer.name (Element Pay needs two or more words)
+//   kycDateOfBirth (YYYY-MM-DD)  -> customer.dob  (mm/dd/yyyy)
+//   kycDocumentNumber (encrypted)-> customer.id_number
+//   kycDocumentType              -> customer.id_type
+//   address                      -> customer.address (the schema has no city field; see below)
+//   email, country = KE
+// ---------------------------------------------------------------------------
 
-  if (IS_PRODUCTION) {
-    // TODO(production): create/approve an Element Pay vault customer per Chamapay user
-    // (POST /partner/customers -> documents -> submit), store the pcus_* id, send it here.
+interface CustomerProfile {
+  name: string;
+  email: string;
+  address: string;
+  dob: string; // mm/dd/yyyy, as Element Pay expects
+  idNumber: string;
+  idType: string;
+}
+
+// Sandbox only: used when a dev account has no approved KYC.
+const SANDBOX_PROFILE: CustomerProfile = {
+  name: "Chamapay User",
+  email: "sandbox@example.com",
+  address: "Nairobi",
+  dob: "01/01/1990",
+  idNumber: "A1234567",
+  idType: "passport",
+};
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+// "YYYY-MM-DD" (or a Date) -> "mm/dd/yyyy". Anything else is rejected, never guessed.
+function toEpDob(value: unknown): string | null {
+  let y: number, m: number, d: number;
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    y = value.getUTCFullYear();
+    m = value.getUTCMonth() + 1;
+    d = value.getUTCDate();
+  } else {
+    const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value ?? "").trim());
+    if (!iso) return null;
+    y = Number(iso[1]);
+    m = Number(iso[2]);
+    d = Number(iso[3]);
+  }
+  if (y < 1900 || m < 1 || m > 12 || d < 1 || d > 31) return null;
+  return `${pad2(m)}/${pad2(d)}/${y}`;
+}
+
+// Didit document types ("Identity Card", "Passport", "Driver's License", ...) -> Element Pay id_type.
+// CONFIRM the accepted values with GET /partner/order-requirements?country=KE&currency=KES&order_type=OnRamp.
+function toEpIdType(raw: string): string {
+  const s = raw.trim().toLowerCase().replace(/['’]/g, "").replace(/[\s\-/]+/g, "_");
+  const map: Record<string, string> = {
+    identity_card: "national_id",
+    id_card: "national_id",
+    national_id: "national_id",
+    national_id_card: "national_id",
+    id: "national_id",
+    passport: "passport",
+    drivers_license: "driving_license",
+    drivers_licence: "driving_license",
+    driving_license: "driving_license",
+    driving_licence: "driving_license",
+    residence_permit: "alien_id",
+    alien_card: "alien_id",
+    alien_id: "alien_id",
+  };
+  return map[s] ?? s;
+}
+
+async function readDocumentNumber(encrypted: string | null): Promise<string> {
+  if (!encrypted) return "";
+  try {
+    return String((await decryptKycDocumentNumber(encrypted)) ?? "").trim();
+  } catch (err) {
+    console.error("[elementpay] could not decrypt kycDocumentNumber", err);
+    throw new ElementPayError(500, "We couldn't read your verified ID details. Please contact support.");
+  }
+}
+
+async function loadCustomerProfile(userId: number): Promise<CustomerProfile> {
+  const u = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      email: true,
+      address: true,
+      kycStatus: true,
+      kycDocumentType: true,
+      kycFirstName: true,
+      kycLastName: true,
+      kycFullName: true,
+      kycDateOfBirth: true,
+      kycDocumentNumber: true,
+    },
+  });
+  if (!u) throw new ElementPayError(400, "User not found");
+
+  const approved = u.kycStatus === "approved";
+
+  let first = (u.kycFirstName ?? "").trim();
+  let last = (u.kycLastName ?? "").trim();
+  if ((!first || !last) && u.kycFullName) {
+    const parts = u.kycFullName.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      first = first || parts[0];
+      last = last || parts.slice(1).join(" ");
+    }
+  }
+  const dob = toEpDob(u.kycDateOfBirth);
+  const idNumber = approved ? await readDocumentNumber(u.kycDocumentNumber) : "";
+  const idTypeRaw = (u.kycDocumentType ?? "").trim();
+  const email = (u.email ?? "").trim();
+  // No city column exists. `address` is used when it is a real address (not a wallet), else "Nairobi".
+  const addr = (u.address ?? "").trim();
+  const address = addr && !/^0x[0-9a-fA-F]{40}$/.test(addr) ? addr : "Nairobi";
+
+  const missing: string[] = [];
+  if (!first) missing.push("first name");
+  if (!last) missing.push("last name");
+  if (!dob) missing.push("date of birth");
+  if (!idNumber) missing.push("ID number");
+  if (!idTypeRaw) missing.push("ID type");
+  if (!email) missing.push("email");
+
+  if (!approved || missing.length > 0) {
+    if (!IS_PRODUCTION) {
+      console.warn(`[elementpay] user ${userId} has no approved KYC data; using sandbox placeholder`);
+      return SANDBOX_PROFILE;
+    }
+    // Element Pay needs real identity details; never fabricate them in production.
+    if (!approved) {
+      throw new ElementPayError(
+        403,
+        "Verify your identity to deposit or withdraw with M-Pesa.",
+        { code: KYC_REQUIRED_CODE }
+      );
+    }
     throw new ElementPayError(
-      501,
-      "Production requires an approved Element Pay customer (not implemented yet)"
+      400,
+      `Your verified details are incomplete (${missing.join(", ")}). Please redo identity verification.`,
+      { code: "PROFILE_INCOMPLETE", missing }
     );
   }
 
-  // Sandbox off-ramp: the word in customer.name ("Successful" / "Failure") drives the auto-settle outcome.
+  return {
+    name: `${first} ${last}`,
+    email,
+    address,
+    dob: dob as string,
+    idNumber,
+    idType: toEpIdType(idTypeRaw),
+  };
+}
+
+async function buildQuoteCustomer(
+  userId: number,
+  phone: string,
+  orderType: OrderType
+): Promise<{ customer: Record<string, unknown> }> {
+  const p = await loadCustomerProfile(userId);
+
+  // Sandbox off-ramp only: the word in customer.name ("Successful" / "Failure") decides the auto outcome.
   const name =
-    orderType === "OffRamp"
-      ? `${process.env.ELEMENTPAY_SANDBOX_OFFRAMP_OUTCOME || "Successful"} Chamapay User`
-      : "Chamapay User"; // must be two+ words
+    !IS_PRODUCTION && orderType === "OffRamp"
+      ? `${process.env.ELEMENTPAY_SANDBOX_OFFRAMP_OUTCOME || "Successful"} ${p.name}`
+      : p.name;
 
   return {
     customer: {
-      uid: `chamapay-${userId}-${Date.now()}`, // sandbox: new uid per run
+      // production: one stable uid per user. sandbox: docs ask for a fresh uid per run.
+      uid: IS_PRODUCTION ? `chamapay-${userId}` : `chamapay-${userId}-${Date.now()}`,
       type: "user",
       name,
       country: "KE",
-      phone,
-      address: "Nairobi",
-      dob: "01/01/1990", // mm/dd/yyyy
-      email: user.email || `user${userId}@example.com`,
-      id_number: "A1234567",
-      id_type: "passport",
+      phone, // same MSISDN as payment_method.phone_number
+      address: p.address,
+      dob: p.dob,
+      email: p.email,
+      id_number: p.idNumber,
+      id_type: p.idType,
     },
   };
 }
 
-function onrampQuoteBody(
+async function onrampQuoteBody(
   userId: number,
-  user: { email?: string | null },
   payPhone: string,
   kes: number,
   networkId: string,
@@ -393,16 +563,15 @@ function onrampQuoteBody(
     currency: "KES",
     country: "KE",
     local_amount: kes,
-    ...buildQuoteCustomer(userId, user, payPhone, "OnRamp"),
+    ...(await buildQuoteCustomer(userId, payPhone, "OnRamp")),
     asset: BASE_USDC_ASSET,
     payment_method: { type: "mobile_money", phone_number: payPhone, network_id: networkId },
     wallet_address: treasury, // USDC lands in the treasury; the user is credited from it
   };
 }
 
-function offrampQuoteBody(
+async function offrampQuoteBody(
   userId: number,
-  user: { email?: string | null },
   payPhone: string,
   netUsdc: bigint,
   networkId: string,
@@ -413,11 +582,47 @@ function offrampQuoteBody(
     currency: "KES",
     country: "KE",
     crypto_amount: Number(formatUnits(netUsdc, USDC_DECIMALS)),
-    ...buildQuoteCustomer(userId, user, payPhone, "OffRamp"),
+    ...(await buildQuoteCustomer(userId, payPhone, "OffRamp")),
     asset: OFFRAMP_ASSET,
     payment_method: { type: "mobile_money", phone_number: payPhone, network_id: networkId },
     refund_address: treasury, // failed payouts come back to the treasury; we refund the user from there
   };
+}
+
+// OffRamp accept returns a per-order deposit address in payment_instructions.crypto_deposit.
+// The exact field names are not published, so read the documented object first, then fall back to the
+// first address-looking value (never the token contract or our treasury).
+function extractDeposit(
+  acceptRes: any,
+  treasury: string
+): { address: string | null; cryptoDeposit: any; instructions: any } {
+  const instructions =
+    acceptRes?.data?.accepted?.payment_instructions ?? acceptRes?.data?.payment_instructions;
+  const cryptoDeposit = instructions?.crypto_deposit;
+  const excluded = new Set(
+    [OFFRAMP_ASSET.token, BASE_USDC_ASSET.token, treasury].map((a) => String(a).toLowerCase())
+  );
+  const isAddr = (v: unknown): v is string =>
+    typeof v === "string" && /^0x[0-9a-fA-F]{40}$/.test(v) && !excluded.has(v.toLowerCase());
+
+  const src = cryptoDeposit ?? instructions;
+  for (const c of [src?.address, src?.wallet_address, src?.deposit_address, src?.to]) {
+    if (isAddr(c)) return { address: c, cryptoDeposit, instructions };
+  }
+
+  let found: string | null = null;
+  const walk = (n: any, depth = 0) => {
+    if (found || !n || typeof n !== "object" || depth > 6) return;
+    for (const v of Object.values(n)) {
+      if (isAddr(v)) {
+        found = v;
+        return;
+      }
+      walk(v, depth + 1);
+    }
+  };
+  walk(instructions);
+  return { address: found, cryptoDeposit, instructions };
 }
 
 async function createQuote(body: Record<string, unknown>): Promise<any> {
@@ -509,14 +714,18 @@ export async function getElementPayQuote(req: Request, res: Response) {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { smartAddress: true, email: true },
+      select: { smartAddress: true, email: true, phoneE164: true },
     });
     if (!user || !user.smartAddress) {
       return res.status(400).json({ success: false, error: "User wallet address not found" });
     }
 
     // A binding quote is tied to the payer's number, so production needs a valid phoneNo.
-    const payPhone = resolvePayPhone(toKenyaE164(String(req.body?.phoneNo ?? "")));
+    // phoneNo may be missing (e.g. a page-load rate quote): fall back to the account's own number.
+    // That quote is only for pricing and is never accepted.
+    const typedPhone = toKenyaE164(String(req.body?.phoneNo ?? ""));
+    const accountPhone = user.phoneE164 ? toKenyaE164(user.phoneE164) : null;
+    const payPhone = resolvePayPhone(typedPhone ?? accountPhone);
     const treasury = treasuryAddress();
 
     if (type === "onramp") {
@@ -527,7 +736,7 @@ export async function getElementPayQuote(req: Request, res: Response) {
       const provider = await getMpesaProvider("OnRamp");
       assertWithinLimits(provider, kes);
 
-      const q = await createQuote(onrampQuoteBody(userId, user, payPhone, kes, provider.id, treasury));
+      const q = await createQuote(await onrampQuoteBody(userId, payPhone, kes, provider.id, treasury));
       const treasuryUnits = receivesUnits(q);
       const expiresAt = rememberQuote(q, {
         userId,
@@ -563,8 +772,17 @@ export async function getElementPayQuote(req: Request, res: Response) {
       });
     }
 
-    // off-ramp
-    const gross = parseUsdcInput(req.body?.amount);
+    // off-ramp. `amount` is optional: without it we price a reference size, so the page can show the
+    // real, fee-inclusive rate before the user types anything. With an amount you get a binding quote
+    // whose quoteId can be sent to /elementpay/offramp.
+    const hasAmount = String(req.body?.amount ?? "").trim() !== "";
+    const refKey = "elementpay:ref:offramp";
+    if (!hasAmount) {
+      const cachedRef = getCached<Record<string, unknown>>(refKey);
+      if (cachedRef) return res.status(200).json(cachedRef); // same for every user, so share it for 30s
+    }
+
+    const gross = parseUsdcInput(hasAmount ? req.body?.amount : process.env.ELEMENTPAY_REFERENCE_USDC || "10");
     if (!gross) {
       return res
         .status(400)
@@ -576,34 +794,46 @@ export async function getElementPayQuote(req: Request, res: Response) {
     }
 
     const provider = await getMpesaProvider("OffRamp");
-    const q = await createQuote(offrampQuoteBody(userId, user, payPhone, net, provider.id, treasury));
-    const expiresAt = rememberQuote(q, {
-      userId,
-      type: "offramp",
-      amountKey: gross.toString(),
-      phone: payPhone,
-      usdcToTreasuryUnits: null,
-    });
+    const q = await createQuote(await offrampQuoteBody(userId, payPhone, net, provider.id, treasury));
+    const expiresAt = hasAmount
+      ? rememberQuote(q, {
+          userId,
+          type: "offramp",
+          amountKey: gross.toString(),
+          phone: payPhone,
+          usdcToTreasuryUnits: null,
+        })
+      : Date.parse(q?.expires_at) || Date.now() + QUOTE_FALLBACK_TTL_MS;
     const payout = q?.amounts?.user_receives; // KES the user is paid
+    const grossStr = formatUnits(gross, USDC_DECIMALS);
+    const netStr = formatUnits(net, USDC_DECIMALS);
 
-    return res.status(200).json({
+    const payload = {
       success: true,
       type: "offramp",
-      quoteId: q.quote_id,
+      mode: hasAmount ? "exact" : "reference",
+      quoteId: hasAmount ? q.quote_id : null,
       expiresAt: new Date(expiresAt).toISOString(),
       usdc: {
-        gross: formatUnits(gross, USDC_DECIMALS),
+        gross: grossStr,
         fee: formatUnits(fee, USDC_DECIMALS),
-        net: formatUnits(net, USDC_DECIMALS),
+        net: netStr,
         feePercent: (Number(OFFRAMP_FEE_BPS) / 100).toString(),
       },
       elementPay: {
         listedRate: q?.amounts?.rate ?? null,
-        payout: payout ?? null,
-        effectiveRate: payout ? ratioString(payout.amount, formatUnits(net, USDC_DECIMALS), 4) : null,
+        payout: payout ?? null, // KES the user would receive for this amount
+        // KES per USDC that reaches Element Pay (after their fees)
+        effectiveRate: payout ? ratioString(payout.amount, netStr, 4) : null,
         fees: q?.amounts?.fees ?? null,
       },
-    });
+      user: {
+        // KES per 1 USDC the user withdraws, after Element Pay's fees AND our fee
+        effectiveRate: payout ? ratioString(payout.amount, grossStr, 4) : null,
+      },
+    };
+    if (!hasAmount) setCache(refKey, payload, 30_000);
+    return res.status(200).json(payload);
   } catch (error) {
     return sendEpError(res, error, "Failed to get Element Pay quote");
   }
@@ -703,7 +933,7 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
       quotedAt = reuse.createdAt;
       treasuryUnits = reuse.usdcToTreasuryUnits === null ? null : BigInt(reuse.usdcToTreasuryUnits);
     } else {
-      const q = await createQuote(onrampQuoteBody(userId, user, payPhone, requestedKes, provider.id, treasury));
+      const q = await createQuote(await onrampQuoteBody(userId, payPhone, requestedKes, provider.id, treasury));
       console.log("q", q);
       quoteId = q.quote_id;
       quotedAt = Date.now();
@@ -853,7 +1083,7 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
       quoteId = clientQuoteId;
       quotedAt = reuse.createdAt;
     } else {
-      const q = await createQuote(offrampQuoteBody(userId, user, payPhone, net, provider.id, treasury));
+      const q = await createQuote(await offrampQuoteBody(userId, payPhone, net, provider.id, treasury));
       quoteId = q.quote_id;
       quotedAt = Date.now();
     }
@@ -866,12 +1096,8 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
       throw new ElementPayError(502, "Element Pay did not return an order");
     }
 
-    const deposit =
-      acceptRes?.data?.accepted?.payment_instructions?.crypto_deposit ??
-      acceptRes?.data?.payment_instructions?.crypto_deposit;
-    const candidate = deposit?.address ?? deposit?.wallet_address ?? deposit?.deposit_address ?? deposit;
-    const depositAddress =
-      typeof candidate === "string" && /^0x[0-9a-fA-F]{40}$/.test(candidate) ? candidate : null;
+    const { address: depositAddress, cryptoDeposit: deposit, instructions } = extractDeposit(acceptRes, treasury);
+    console.log(`[elementpay] off-ramp ${orderId} payment_instructions:`, JSON.stringify(instructions ?? null));
 
     if (OFFRAMP_ONCHAIN) {
       if (!depositAddress) {
@@ -1514,5 +1740,83 @@ async function fulfillOnramp(transaction: any, body: any) {
     }
   } catch (emailErr) {
     console.error("[elementpay] email notification failed", emailErr);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// GET /elementpay/rate   (public)
+// The rate deposits are credited at (CHAMAPAY_RATE), so the UI preview always matches the credit.
+//
+// GET /elementpay/status/:transactionCode   (auth)
+// DB-backed status for the polling UI. Webhooks keep the row up to date, so no call to Element Pay.
+// Response shape matches what the existing poller reads: { success, details: { status, message, ... } }
+//   status: "pending" (waiting for PIN) | "processing" | "completed" | "failed"
+// ---------------------------------------------------------------------------
+
+export async function getElementPayRate(_req: Request, res: Response) {
+  try {
+    return res.status(200).json({ success: true, currency: "KES", rate: Number(platformRate()) });
+  } catch (error) {
+    return sendEpError(res, error, "Failed to get rate");
+  }
+}
+
+function clientStatus(tx: any): { status: string; message: string } {
+  const isOnramp = !!tx.isOnramp;
+  const noun = isOnramp ? "Payment" : "Withdrawal";
+  switch (tx.status) {
+    case "COMPLETE":
+      return { status: "completed", message: isOnramp ? "Deposit complete" : "Withdrawal complete" };
+    case "FAILED":
+      return {
+        status: "failed",
+        message: /refund/i.test(String(tx.message ?? "")) ? `${noun} refunded` : `${noun} failed`,
+      };
+    case "processing":
+      return {
+        status: "processing",
+        message: isOnramp ? "Payment received. Crediting your wallet" : "Withdrawal in progress",
+      };
+    default:
+      return {
+        status: "pending",
+        message: isOnramp ? "Waiting for your M-Pesa PIN" : "Starting withdrawal",
+      };
+  }
+}
+
+export async function getElementPayStatus(req: Request, res: Response) {
+  const userId = req.user?.userId;
+  const transactionCode = String(req.params.transactionCode ?? "");
+
+  try {
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Authentication required" });
+    }
+    if (!transactionCode) {
+      return res.status(400).json({ success: false, error: "transactionCode is required" });
+    }
+
+    const tx: any = await prisma.pretiumTransaction.findUnique({ where: { transactionCode } });
+    // same 404 for "not yours" and "doesn't exist", so order ids can't be probed
+    if (!tx || tx.userId !== userId) {
+      return res.status(404).json({ success: false, error: "Transaction not found" });
+    }
+
+    const { status, message } = clientStatus(tx);
+    return res.status(200).json({
+      success: true,
+      details: {
+        transactionCode,
+        status,
+        message, // never expose tx.message: it can hold internal notes (quote ids, ONCHAIN_FAILED, ...)
+        type: tx.type,
+        isOnramp: !!tx.isOnramp,
+        amountKes: Number(tx.amount),
+        usdcAmount: tx.cusdAmount != null ? String(tx.cusdAmount) : null,
+      },
+    });
+  } catch (error) {
+    return sendEpError(res, error, "Failed to get transaction status");
   }
 }
