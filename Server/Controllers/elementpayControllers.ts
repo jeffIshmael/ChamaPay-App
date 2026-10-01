@@ -1097,47 +1097,46 @@ function verifyWebhookSignature(
 }
 
 export async function elementPayWebhook(req: Request, res: Response) {
-  console.log("elementPayWebhook has been triggered.");
-  console.log("req.body", req.body);
-  const secret = process.env.ELEMENT_PAY_WEBHOOK_SECRET;
-  if (!secret) {
-    console.error("[elementpay] ELEMENT_PAY_WEBHOOK_SECRET is not set; rejecting webhook");
-    return res.status(500).json({ received: false });
+    console.log("elementPayWebhook has been triggered.");
+    console.log("req.body", req.body);
+  
+    const secret = process.env.ELEMENT_PAY_WEBHOOK_SECRET;
+    if (!secret) {
+      console.error("[elementpay] ELEMENT_PAY_WEBHOOK_SECRET is not set; rejecting webhook");
+      return res.status(500).json({ received: false });
+    }
+  
+    const raw = getRawBody(req);
+    if (!raw) return res.status(400).json({ received: false, error: "Empty body" });
+  
+    if (!verifyWebhookSignature(raw, req.header("x-webhook-signature"), secret)) {
+      console.warn("[elementpay] invalid webhook signature");
+      return res.status(401).json({ received: false, error: "Invalid signature" });
+    }
+  
+    let body: any;
+    try {
+      body = JSON.parse(raw.toString("utf8"));
+    } catch {
+      return res.status(400).json({ received: false, error: "Invalid JSON" });
+    }
+  
+    // Ack fast (Element Pay wants a quick 2xx), process afterwards.
+    // This is the ONLY place we write a response on the happy path.
+    const ack = res.status(200).json({ received: true });
+  
+    const event = req.header("x-webhook-event") || "";
+    const webhookId = req.header("x-webhook-id") || "";
+    console.log(`[elementpay] webhook ${event} id=${webhookId} order=${body?.order_id}`);
+  
+    try {
+      await handleOrderEvent(event, body);
+    } catch (err) {
+      console.error("[elementpay] error processing webhook", err);
+    }
+  
+    return ack; // already sent above; returned only to satisfy the return type
   }
-
-  const raw = getRawBody(req);
-  if (!raw) return res.status(400).json({ received: false, error: "Empty body" });
-
-  if (!verifyWebhookSignature(raw, req.header("x-webhook-signature"), secret)) {
-    console.warn("[elementpay] invalid webhook signature");
-    return res.status(401).json({ received: false, error: "Invalid signature" });
-  }
-
-  let body: any;
-  try {
-    body = JSON.parse(raw.toString("utf8"));
-  } catch {
-    return res.status(400).json({ received: false, error: "Invalid JSON" });
-  }
-
-  // Ack fast (Element Pay wants a quick 2xx), process afterwards.
-  res.status(200).json({ received: true });
-
-   // Ack fast (Element Pay wants a quick 2xx), process afterwards.
-   const ack = res.status(200).json({ received: true });
-
-   const event = req.header("x-webhook-event") || "";
-   const webhookId = req.header("x-webhook-id") || "";
-   console.log(`[elementpay] webhook ${event} id=${webhookId} order=${body?.order_id}`);
- 
-   try {
-     await handleOrderEvent(event, body);
-   } catch (err) {
-     console.error("[elementpay] error processing webhook", err);
-   }
- 
-   return ack; // same Response object that was already sent, so no second write
-}
 
 // The webhook can beat our DB insert by a few ms, so retry the lookup briefly.
 async function findTxWithRetry(orderId: string, attempts = 6, delayMs = 1500) {
