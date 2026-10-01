@@ -462,6 +462,7 @@ async function loadCustomerProfile(userId: number): Promise<CustomerProfile> {
       kycDocumentNumber: true,
     },
   });
+  console.log("the kyc user", u);
   if (!u) throw new ElementPayError(400, "User not found");
 
   const approved = u.kycStatus === "approved";
