@@ -61,6 +61,8 @@ router.get("/:chamaId/messages", authenticate, getChamaMessages);
 router.get("/:chamaId/payments", authenticate, getChamaPayments);
 router.get("/:chamaId/payouts", authenticate, getChamaPayouts);
 
-export default router; 
 // leave chama
 router.post("/leave", authenticate, leaveChamaController);
+
+export default router; 
+
