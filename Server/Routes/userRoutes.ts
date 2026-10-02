@@ -22,7 +22,8 @@ import {
   updatePhoneNumber,
   updateUserNotificationSettings,
   updateUserPushToken,
-  uploadProfileImage
+  uploadProfileImage,
+  updateKycDetails
 } from "../Controllers/userController";
 import authenticate from "../Middlewares/authMiddleware";
 
@@ -51,6 +52,7 @@ router.post('/profile/image', authenticate, upload.single('image'), uploadProfil
 router.post("/updatePushToken", authenticate, updateUserPushToken);
 router.post("/updateNotificationSettings", authenticate, updateUserNotificationSettings);
 router.post("/notifications/mark-read", authenticate, markNotificationsRead);
+router.post("/updateKyc", authenticate, updateKycDetails);
 
 
 // get routes functions
