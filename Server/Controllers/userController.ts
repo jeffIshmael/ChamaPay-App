@@ -17,7 +17,7 @@ import {
 } from "../Lib/prismaFunctions";
 import { uploadToPinata } from "../utils/PinataUtils";
 import { getCached, setCache } from "../Lib/cache";
-import { decryptKycDocumentNumber } from "../Lib/kycPii";
+import { decryptKycDocumentNumber, encryptKycDocumentNumber } from "../Lib/kycPii";
 
 const prisma = new PrismaClient();
 
@@ -50,6 +50,15 @@ interface MulterRequest extends Request {
     userName?: string;
   };
 }
+
+const DOCUMENT_TYPE_MAP: Record<string, string> = {
+  national_id: "Identity Card",
+  passport: "Passport",
+  driving_license: "Driver's License",
+};
+
+const NETWORKS = ["safaricom", "airtel"];
+
 
 // Function to get a user
 export const getUser = async (req: Request, res: Response): Promise<void> => {
@@ -1253,5 +1262,122 @@ export const getUserByAddress = async (
   } catch (error) {
     console.error("Error fetching user by address:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};
+
+
+// update kyc details
+export const updateKycDetails = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const userId = req.user?.userId as number | undefined;
+    if (!userId) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+
+    const {
+      firstName,
+      lastName,
+      dateOfBirth,
+      phoneNumber,
+      network,
+      documentType,
+      documentNumber,
+    } = req.body ?? {};
+
+    // ---- validation (never trust the client) ----
+    const first = typeof firstName === "string" ? firstName.trim() : "";
+    const last = typeof lastName === "string" ? lastName.trim() : "";
+    if (first.length < 2 || last.length < 2) {
+      res.status(400).json({ error: "First and last name are required" });
+      return;
+    }
+
+    if (typeof dateOfBirth !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
+      res.status(400).json({ error: "Invalid date of birth" });
+      return;
+    }
+    const dob = new Date(`${dateOfBirth}T00:00:00Z`);
+    if (Number.isNaN(dob.getTime())) {
+      res.status(400).json({ error: "Invalid date of birth" });
+      return;
+    }
+    const cutoff = new Date();
+    cutoff.setUTCFullYear(cutoff.getUTCFullYear() - 18);
+    if (dob > cutoff) {
+      res.status(400).json({ error: "You must be 18 or older" });
+      return;
+    }
+
+    const phoneE164 = typeof phoneNumber === "string" ? phoneNumber.trim() : "";
+    if (!/^254[17]\d{8}$/.test(phoneE164)) {
+      res.status(400).json({ error: "Invalid phone number" });
+      return;
+    }
+
+    if (!NETWORKS.includes(network)) {
+      res.status(400).json({ error: "Invalid network" });
+      return;
+    }
+
+    const kycDocumentType = DOCUMENT_TYPE_MAP[documentType];
+    if (!kycDocumentType) {
+      res.status(400).json({ error: "Invalid document type" });
+      return;
+    }
+
+    const docNumber =
+      typeof documentNumber === "string" ? documentNumber.trim().toUpperCase() : "";
+
+    // ---- state check: only allow submit when not already in review/approved ----
+    const existing = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { kycStatus: true },
+    });
+    if (!existing) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    if (existing.kycStatus === "approved") {
+      res.status(409).json({ error: "Your identity is already verified" });
+      return;
+    }
+    if (existing.kycStatus === "pending_review") {
+      res.status(409).json({ error: "Your details are already under review" });
+      return;
+    }
+
+    // ---- save ----
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        kycFirstName: first,
+        kycLastName: last,
+        kycFullName: `${first} ${last}`,
+        kycDateOfBirth: dateOfBirth,
+        kycDocumentType,
+        kycDocumentNumber: encryptKycDocumentNumber(docNumber),
+        phoneE164,
+        kycStatus: "approved",
+      },
+      select: {
+        id: true,
+        kycStatus: true,
+        kycTier: true,
+        phoneE164: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      user: updatedUser,
+      message: "KYC details submitted for review",
+    });
+  } catch (error) {
+    console.error("Update KYC error:", error);
+    res.status(500).json({ error: "Failed to submit KYC details" });
   }
 };
