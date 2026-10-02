@@ -1,5 +1,5 @@
 export const WITHDRAWAL_FEE_BRACKETS = [
-    { min: 100, max: 500, fee: 5 }, // +5 from floor
+    { min: 60, max: 500, fee: 5 }, // +5 from floor
     { min: 501, max: 1000, fee: 10 }, // +5
     { min: 1001, max: 2500, fee: 20 }, // +10
     { min: 2501, max: 5000, fee: 35 }, // +15
