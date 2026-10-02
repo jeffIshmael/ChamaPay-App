@@ -5,7 +5,10 @@ import "multer";
 import { formatUnits, isAddress } from "viem";
 import { transferTx, transferWithFeeTx } from "../Blockchain/erc20Functions";
 import { getUserBalance } from "../Blockchain/ReadFunctions";
-import { bcAddMemberToPrivateChama, bcAdminSetPayoutOrder } from "../Blockchain/WriteFunction";
+import {
+  bcAddMemberToPrivateChama,
+  bcAdminSetPayoutOrder,
+} from "../Blockchain/WriteFunction";
 import { sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
 import { generateUniqueSlug } from "../Lib/HelperFunctions";
 import {
@@ -17,7 +20,10 @@ import {
 } from "../Lib/prismaFunctions";
 import { uploadToPinata } from "../utils/PinataUtils";
 import { getCached, setCache } from "../Lib/cache";
-import { decryptKycDocumentNumber, encryptKycDocumentNumber } from "../Lib/kycPii";
+import {
+  decryptKycDocumentNumber,
+  encryptKycDocumentNumber,
+} from "../Lib/kycPii";
 
 const prisma = new PrismaClient();
 
@@ -58,7 +64,6 @@ const DOCUMENT_TYPE_MAP: Record<string, string> = {
 };
 
 const NETWORKS = ["safaricom", "airtel"];
-
 
 // Function to get a user
 export const getUser = async (req: Request, res: Response): Promise<void> => {
@@ -154,7 +159,9 @@ export const getUserDetails = async (
     const { hashedPrivkey, hashedPassphrase, ...safeUserResults } = userResults;
     const user = {
       ...safeUserResults,
-      kycDocumentNumber: decryptKycDocumentNumber(safeUserResults.kycDocumentNumber),
+      kycDocumentNumber: decryptKycDocumentNumber(
+        safeUserResults.kycDocumentNumber,
+      ),
       sentRequests,
     };
 
@@ -194,7 +201,7 @@ export const getUserTransactions = async (
     const userId = req.user.userId;
     const limit = Math.min(
       Math.max(parseInt(req.query.limit as string, 10) || 20, 1),
-      50
+      50,
     );
     const cursor = req.query.cursor as string | undefined;
     const cursorDate = cursor ? new Date(cursor) : undefined;
@@ -233,10 +240,7 @@ export const getUserTransactions = async (
           userId,
           chamaId: null,
           status: "COMPLETE",
-          OR: [
-            { isRealesed: true },
-            { isOnramp: false }
-          ],
+          OR: [{ isRealesed: true }, { isOnramp: false }],
           ...(dateFilter ? { updatedAt: dateFilter } : {}),
         },
         orderBy: { updatedAt: "desc" },
@@ -281,7 +285,7 @@ export const getUserTransactions = async (
     ];
 
     unified.sort(
-      (a, b) => new Date(b.doneAt).getTime() - new Date(a.doneAt).getTime()
+      (a, b) => new Date(b.doneAt).getTime() - new Date(a.doneAt).getTime(),
     );
 
     const transactions = unified.slice(0, limit);
@@ -707,12 +711,10 @@ export const confirmJoinRequest = async (
     // if approved add the member onchain
     if (isApproved) {
       if (chama.round !== 1) {
-        res
-          .status(400)
-          .json({
-            success: false,
-            error: `Cannot add user in the middle of cycle.`,
-          });
+        res.status(400).json({
+          success: false,
+          error: `Cannot add user in the middle of cycle.`,
+        });
         return;
       }
       // get the requesting User
@@ -743,16 +745,12 @@ export const confirmJoinRequest = async (
         requestingUser.smartAddress,
       );
       if (!addingMemberTx) {
-        res
-          .status(400)
-          .json({
-            success: false,
-            error: `unable to add ${userName} to ${chama.name} onchain.`,
-          });
+        res.status(400).json({
+          success: false,
+          error: `unable to add ${userName} to ${chama.name} onchain.`,
+        });
         return;
       }
-
-
     }
 
     const result = await handleRequest(
@@ -1265,7 +1263,6 @@ export const getUserByAddress = async (
   }
 };
 
-
 // update kyc details
 export const updateKycDetails = async (
   req: Request,
@@ -1296,7 +1293,10 @@ export const updateKycDetails = async (
       return;
     }
 
-    if (typeof dateOfBirth !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
+    if (
+      typeof dateOfBirth !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)
+    ) {
       res.status(400).json({ error: "Invalid date of birth" });
       return;
     }
@@ -1330,17 +1330,37 @@ export const updateKycDetails = async (
     }
 
     const docNumber =
-      typeof documentNumber === "string" ? documentNumber.trim().toUpperCase() : "";
+      typeof documentNumber === "string"
+        ? documentNumber.trim().toUpperCase()
+        : "";
 
     // ---- state check: only allow submit when not already in review/approved ----
     const existing = await prisma.user.findUnique({
       where: { id: userId },
       select: { kycStatus: true },
     });
+
     if (!existing) {
       res.status(404).json({ error: "User not found" });
       return;
     }
+
+    const existingPhoneUser = await prisma.user.findFirst({
+      where: {
+        phoneE164,
+        NOT: {
+          id: userId,
+        },
+      },
+    });
+
+    if (existingPhoneUser) {
+      res.status(409).json({
+        error: "This phone number is already registered to another account",
+      });
+      return;
+    }
+
     if (existing.kycStatus === "approved") {
       res.status(409).json({ error: "Your identity is already verified" });
       return;
