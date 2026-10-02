@@ -47,7 +47,7 @@ import {
   bcDepositFundsForMember,
   bcTreasuryGoalContribute,
 } from "../Blockchain/WriteFunction";
-import { transferTx } from "../Blockchain/erc20Functions";
+import { transferTx, transferWithFeeTx } from "../Blockchain/erc20Functions";
 // KES fee table. ADJUST THIS PATH to wherever WITHDRAWAL_FEE_BRACKETS lives in your backend.
 import { WITHDRAWAL_FEE_BRACKETS } from "../Lib/transactionFees";
 import emailService from "../Lib/EmailService";
@@ -172,12 +172,10 @@ function sendEpError(res: Response, err: unknown, fallback: string) {
     );
     if (err.status === 401) {
       // our credentials problem, not the user's
-      return res
-        .status(502)
-        .json({
-          success: false,
-          error: "Payment provider authentication failed",
-        });
+      return res.status(502).json({
+        success: false,
+        error: "Payment provider authentication failed",
+      });
     }
     const clientError = [400, 409, 410, 422].includes(err.status);
     return res
@@ -383,7 +381,9 @@ async function referenceOfframpRate(
   const cached = getCached<RefRate>(OFFRAMP_REF_KEY);
   if (cached) return cached;
 
-  const refUnits = parseUsdcInput(process.env.ELEMENTPAY_REFERENCE_USDC || "10");
+  const refUnits = parseUsdcInput(
+    process.env.ELEMENTPAY_REFERENCE_USDC || "10",
+  );
   if (!refUnits) throw new Error("ELEMENTPAY_REFERENCE_USDC is invalid");
   const q = await createQuote(
     await offrampQuoteBody(userId, payPhone, refUnits, provider.id, treasury),
@@ -458,7 +458,10 @@ async function priceOfframp(
   }
 
   // our fee is a KES amount; collect it in USDC at the same effective rate, rounded up
-  const feeUnits = kesCentsToUsdcUnitsCeil(BigInt(feeKes) * 100n, effectiveRate);
+  const feeUnits = kesCentsToUsdcUnitsCeil(
+    BigInt(feeKes) * 100n,
+    effectiveRate,
+  );
   const plan: OfframpPlan = {
     kesCents: kesCents.toString(),
     feeKes,
@@ -718,7 +721,7 @@ async function loadCustomerProfile(userId: number): Promise<CustomerProfile> {
       last = last || parts.slice(1).join(" ");
     }
   }
-  const dob = toEpDob( u.kycDateOfBirth);
+  const dob = toEpDob(u.kycDateOfBirth);
   console.log("the right date of birth", dob);
   const idNumber = approved
     ? await readDocumentNumber(u.kycDocumentNumber)
@@ -827,7 +830,7 @@ async function offrampQuoteBody(
   payPhone: string,
   netUsdc: bigint,
   networkId: string,
-  treasury: string,
+  refundAddress: string,
 ) {
   return {
     order_type: "OffRamp",
@@ -841,7 +844,7 @@ async function offrampQuoteBody(
       phone_number: payPhone,
       network_id: networkId,
     },
-    refund_address: treasury, // failed payouts come back to the treasury; we refund the user from there
+    refund_address: refundAddress, // failed payouts refunds to the user
   };
 }
 
@@ -1013,12 +1016,10 @@ export async function getElementPayQuote(req: Request, res: Response) {
     if (type === "onramp") {
       const kes = Number(req.body?.amount);
       if (!Number.isInteger(kes) || kes < 1) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error: "Amount must be a whole number of KES",
-          });
+        return res.status(400).json({
+          success: false,
+          error: "Amount must be a whole number of KES",
+        });
       }
       const provider = await getMpesaProvider("OnRamp");
       assertWithinLimits(provider, kes);
@@ -1070,7 +1071,12 @@ export async function getElementPayQuote(req: Request, res: Response) {
     const hasAmount = String(req.body?.kesAmount ?? "").trim() !== "";
 
     if (!hasAmount) {
-      const ref = await referenceOfframpRate(userId, payPhone, provider, treasury);
+      const ref = await referenceOfframpRate(
+        userId,
+        payPhone,
+        provider,
+        treasury,
+      );
       return res.status(200).json({
         success: true,
         type: "offramp",
@@ -1149,32 +1155,26 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
     }
 
     if (!amount || !phoneNo) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Amount and phone number are required",
-        });
+      return res.status(400).json({
+        success: false,
+        error: "Amount and phone number are required",
+      });
     }
 
     const requestedKes = Number(amount);
     if (!Number.isInteger(requestedKes) || requestedKes < 1) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Amount must be a whole number of KES",
-        });
+      return res.status(400).json({
+        success: false,
+        error: "Amount must be a whole number of KES",
+      });
     }
 
     const phone = toKenyaE164(phoneNo);
     if (!phone) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Enter a valid Safaricom number (e.g. 0712345678)",
-        });
+      return res.status(400).json({
+        success: false,
+        error: "Enter a valid Safaricom number (e.g. 0712345678)",
+      });
     }
 
     // Same KYC / monthly limit gate as Pretium
@@ -1355,6 +1355,46 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
 // If the quote the user confirmed has expired we re-price, and refuse (409 RATE_CHANGED) when that
 // would cost the user more than 0.5% extra USDC than the amount they confirmed (`expectedUsdc`).
 // ---------------------------------------------------------------------------
+// charging directly from the user's address
+async function fundOfframpOrder(
+  t: any,
+  cdpWalletId: string,
+  depositAddress: string,
+  net: bigint,
+  fee: bigint,
+) {
+  let txHash: string;
+  try {
+    txHash = await transferWithFeeTx(
+      cdpWalletId,
+      formatUnits(net, USDC_DECIMALS),
+      depositAddress as `0x${string}`,
+      formatUnits(fee, USDC_DECIMALS),
+    );
+  } catch (err) {
+    // Atomic batch: if it threw, nothing moved (but see the timeout caveat below)
+    await prisma.pretiumTransaction.updateMany({
+      where: { id: t.id, status: "PENDING" },
+      data: { status: "FAILED", message: "Could not send funds" },
+    });
+    throw new ElementPayError(
+      400,
+      "Could not debit your wallet. Check your balance and try again.",
+    );
+  }
+
+  const claim = await prisma.pretiumTransaction.updateMany({
+    where: { id: t.id, status: "PENDING", isRealesed: false },
+    data: {
+      status: "processing",
+      blockchainTxHash: txHash,
+      message: "Sent to Element Pay. Waiting for M-Pesa payout",
+    },
+  });
+  // A failure webhook closed the order before we recorded the send: funds did move
+  if (claim.count === 0)
+    await refundOfframpFee(t, "Order closed before funding");
+}
 
 export async function initiateElementPayOfframp(req: Request, res: Response) {
   const { kesAmount, phoneNo, quoteId: clientQuoteId, expectedUsdc } = req.body;
@@ -1457,6 +1497,9 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
     const fee = BigInt(plan.feeUnits);
 
     console.log("accepting the quote...");
+    console.log("The gross USDC is", Number(gross) + "USDC");
+    console.log("The net USDC is", Number(net) + "USDC");
+    console.log("The fee USDC is", Number(fee) + "USDC");
 
     // 2) Accept -> creates the order and (live) returns the per-order crypto deposit address
     const acceptRes = await acceptQuote(quoteId, quotedAt);
@@ -1479,7 +1522,9 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
       `[elementpay] off-ramp ${orderId} payment_instructions:`,
       JSON.stringify(instructions ?? null),
     );
-    console.log(`The deposit address ${depositAddress} and amount is ${deposit}`);
+    console.log(
+      `The deposit address ${depositAddress} and amount is ${deposit}`,
+    );
 
     if (OFFRAMP_ONCHAIN) {
       if (!depositAddress) {
@@ -1546,10 +1591,9 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
       await fundOfframpOrder(
         row,
         user.cdpWalletId,
-        treasury,
         depositAddress as string,
-        gross,
         net,
+        fee,
       );
     } else {
       console.log(
@@ -1579,84 +1623,49 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
   }
 }
 
-// Debit user -> treasury, then treasury -> Element Pay deposit address (NET). Every failure after the
-// debit refunds the user in full. State: PENDING (nothing debited) -> processing (funds in flight).
-async function fundOfframpOrder(
-  t: any,
-  cdpWalletId: string,
-  treasury: string,
-  depositAddress: string,
-  gross: bigint,
-  net: bigint,
-) {
-  let debitTx: string;
+async function refundOfframpFee(t: any, reason: string): Promise<boolean> {
+  const claim = await prisma.pretiumTransaction.updateMany({
+    where: { id: t.id, isRealesed: false },
+    data: {
+      isRealesed: true,
+      status: "FAILED",
+      message: `Refunding fee: ${reason}`.slice(0, 250),
+    },
+  });
+  if (claim.count === 0) return false; // already refunded, never twice
+
   try {
-    debitTx = await transferTx(
-      cdpWalletId,
-      formatUnits(gross, USDC_DECIMALS),
-      treasury as `0x${string}`,
+    const tx = await treasuryTransferToUser(
+      t.walletAddress as `0x${string}`,
+      toUnits(String(t.feeUsdc)), // new column, see below
     );
-    if (!debitTx) throw new Error("Debit returned no result");
+    if (!tx) throw new Error("Fee refund returned no result");
+    await prisma.pretiumTransaction.update({
+      where: { id: t.id },
+      data: {
+        message:
+          `Fee refunded. Element Pay is returning your USDC: ${reason}`.slice(
+            0,
+            250,
+          ),
+      },
+    });
+    return true;
   } catch (err) {
     console.error(
-      `[elementpay] off-ramp ${t.transactionCode}: could not debit user wallet`,
+      `[elementpay] CRITICAL: fee refund failed for ${t.transactionCode}`,
       err,
     );
     await prisma.pretiumTransaction
-      .updateMany({
-        where: { id: t.id, status: "PENDING" },
-        data: { status: "FAILED", message: "Could not debit wallet" },
+      .update({
+        where: { id: t.id },
+        data: {
+          message: `REFUND_FAILED: ${(err as Error)?.message}`.slice(0, 250),
+        },
       })
       .catch(() => {});
-    throw new ElementPayError(
-      400,
-      "Could not debit your wallet. Check your balance and try again.",
-    );
+    return false;
   }
-
-  await sleep(5000); // let RPC/CDP nodes see the new treasury balance
-
-  // Claim "funds in flight". If a failure webhook already closed the order, give the money back.
-  const claim = await prisma.pretiumTransaction.updateMany({
-    where: { id: t.id, status: "PENDING", isRealesed: false },
-    data: {
-      status: "processing",
-      blockchainTxHash: String(debitTx),
-      message: "Wallet debited. Sending to Element Pay",
-    } as any,
-  });
-  if (claim.count === 0) {
-    await refundOfframpUser(t, "Order closed before funding");
-    throw new ElementPayError(
-      409,
-      "This withdrawal is no longer active. Your funds were returned.",
-    );
-  }
-
-  try {
-    const sendTx = await treasuryTransferToUser(
-      depositAddress as `0x${string}`,
-      net,
-    );
-    if (!sendTx) throw new Error("Transfer returned no result");
-  } catch (err) {
-    console.error(
-      `[elementpay] off-ramp ${t.transactionCode}: treasury -> Element Pay failed`,
-      err,
-    );
-    await refundOfframpUser(t, "Could not forward funds to Element Pay");
-    throw new ElementPayError(
-      502,
-      "Withdrawal could not be completed. Your funds were returned.",
-    );
-  }
-
-  await prisma.pretiumTransaction
-    .update({
-      where: { id: t.id },
-      data: { message: "Sent to Element Pay. Waiting for M-Pesa payout" },
-    })
-    .catch(() => {});
 }
 
 // Refund the full gross amount from the treasury. Guarded by an atomic claim so a retry or a duplicate

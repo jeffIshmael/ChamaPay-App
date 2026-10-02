@@ -88,6 +88,15 @@ export const transferWithFeeTx = async (
   try {
     const amountInWei = parseUnits(amount, 6);
     const feeInWei = parseUnits(fee, 6);
+    if (amountInWei <= 0n) throw new Error("Invalid amount");
+  
+    const balance = await publicClient.readContract({
+      address: USDCAddress,
+      abi: erc20Abi,
+      functionName: "balanceOf",
+      args: [cdpWalletId as `0x${string}`],
+    });
+    if (balance < amountInWei + feeInWei) throw new Error("INSUFFICIENT_BALANCE");
     const { smartAccountClient, authorization } =
       await createEIP7702SmartAccount(cdpWalletId);
 
