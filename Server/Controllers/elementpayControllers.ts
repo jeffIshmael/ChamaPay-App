@@ -47,7 +47,7 @@ import {
   bcDepositFundsForMember,
   bcTreasuryGoalContribute,
 } from "../Blockchain/WriteFunction";
-import {transferTx} from "../Blockchain/erc20Functions";
+import { transferTx } from "../Blockchain/erc20Functions";
 import emailService from "../Lib/EmailService";
 import { getCached, setCache } from "../Lib/cache";
 import { treasuryTransferToUser } from "../Lib/pimlicoAgent";
@@ -70,19 +70,19 @@ const BASE_USDC_ASSET = {
   network: "BASE",
 };
 
-
 // test payloads use Base USDC for KE OffRamp. Confirm with Element Pay which asset your live key is
 // enabled for. If it is not Base, the on-chain leg below (treasuryTransferToUser) cannot be used as-is,
 // and initiateElementPayOfframp refuses to run it.
 const OFFRAMP_ASSET = {
-  token:  BASE_USDC_ASSET.token,
+  token: BASE_USDC_ASSET.token,
   currency: BASE_USDC_ASSET.currency,
-  network:  BASE_USDC_ASSET.network,
+  network: BASE_USDC_ASSET.network,
 };
 
 // In sandbox, Element Pay auto-settles off-ramp orders via the "Successful" name trigger and expects NO
 // on-chain deposit, so by default we skip debiting the user / sending crypto outside production.
-const OFFRAMP_ONCHAIN = IS_PRODUCTION || process.env.ELEMENTPAY_OFFRAMP_ONCHAIN === "true";
+const OFFRAMP_ONCHAIN =
+  IS_PRODUCTION || process.env.ELEMENTPAY_OFFRAMP_ONCHAIN === "true";
 
 const OFFRAMP_FEE_BPS: bigint = (() => {
   const n = Number(process.env.ELEMENTPAY_OFFRAMP_FEE_BPS ?? "150");
@@ -123,7 +123,7 @@ function epConfig() {
 async function epRequest<T = any>(
   method: "GET" | "POST",
   path: string,
-  body?: unknown
+  body?: unknown,
 ): Promise<T> {
   const { baseUrl, apiKey } = epConfig();
   const controller = new AbortController();
@@ -150,7 +150,7 @@ async function epRequest<T = any>(
       throw new ElementPayError(
         resp.status,
         json?.message || `Element Pay request failed (${resp.status})`,
-        json?.data
+        json?.data,
       );
     }
     return json as T;
@@ -167,16 +167,32 @@ async function epRequest<T = any>(
 
 function sendEpError(res: Response, err: unknown, fallback: string) {
   if (err instanceof ElementPayError) {
-    console.error("Element Pay error:", err.status, err.message, err.data ?? "");
+    console.error(
+      "Element Pay error:",
+      err.status,
+      err.message,
+      err.data ?? "",
+    );
     if (err.status === 401) {
       // our credentials problem, not the user's
       return res
         .status(502)
-        .json({ success: false, error: "Payment provider authentication failed" });
+        .json({
+          success: false,
+          error: "Payment provider authentication failed",
+        });
     }
     const clientError = [400, 409, 410, 422].includes(err.status);
     return res
-      .status(err.status === 403 ? 403 : clientError ? 400 : err.status >= 500 ? 503 : 502)
+      .status(
+        err.status === 403
+          ? 403
+          : clientError
+            ? 400
+            : err.status >= 500
+              ? 503
+              : 502,
+      )
       .json({
         success: false,
         error: err.message,
@@ -203,14 +219,17 @@ const USDC_DECIMALS = 6;
 type Dec = { n: bigint; scale: number }; // value = n / 10^scale
 
 function numberToPlain(n: number): string {
-  if (!Number.isFinite(n) || n < 0) throw new Error(`Invalid decimal value: ${n}`);
+  if (!Number.isFinite(n) || n < 0)
+    throw new Error(`Invalid decimal value: ${n}`);
   const s = String(n);
   return /e/i.test(s) ? n.toFixed(20).replace(/\.?0+$/, "") : s;
 }
 
 function parseDec(value: string | number): Dec {
-  const s = typeof value === "number" ? numberToPlain(value) : String(value).trim();
-  if (!/^\d+(\.\d+)?$/.test(s)) throw new Error(`Invalid decimal value: ${value}`);
+  const s =
+    typeof value === "number" ? numberToPlain(value) : String(value).trim();
+  if (!/^\d+(\.\d+)?$/.test(s))
+    throw new Error(`Invalid decimal value: ${value}`);
   const [int, frac = ""] = s.split(".");
   return { n: BigInt(int + frac), scale: frac.length };
 }
@@ -226,15 +245,25 @@ function toUnits(value: string | number, decimals = USDC_DECIMALS): bigint {
 // floor((a / b) * 10^decimals)
 function divDec(a: Dec, b: Dec, decimals: number): bigint {
   if (b.n === 0n) throw new Error("Division by zero");
-  return (a.n * 10n ** BigInt(b.scale + decimals)) / (b.n * 10n ** BigInt(a.scale));
+  return (
+    (a.n * 10n ** BigInt(b.scale + decimals)) / (b.n * 10n ** BigInt(a.scale))
+  );
 }
 
 // KES / rate -> USDC, exact, floored to `decimals` (6 = what can actually be sent on-chain)
-function kesToUsdc(kes: number, rate: string, decimals = USDC_DECIMALS): bigint {
+function kesToUsdc(
+  kes: number,
+  rate: string,
+  decimals = USDC_DECIMALS,
+): bigint {
   return divDec({ n: BigInt(kes), scale: 0 }, parseDec(rate), decimals);
 }
 
-function ratioString(a: string | number, b: string | number, decimals: number): string | null {
+function ratioString(
+  a: string | number,
+  b: string | number,
+  decimals: number,
+): string | null {
   try {
     const d = parseDec(b);
     if (d.n === 0n) return null;
@@ -246,7 +275,8 @@ function ratioString(a: string | number, b: string | number, decimals: number): 
 
 function platformRate(): string {
   const raw = (process.env.CHAMAPAY_RATE || "132").trim();
-  if (parseDec(raw).n === 0n) throw new Error("CHAMAPAY_RATE must be greater than zero");
+  if (parseDec(raw).n === 0n)
+    throw new Error("CHAMAPAY_RATE must be greater than zero");
   return raw;
 }
 
@@ -258,7 +288,12 @@ function treasuryAddress(): string {
 
 // "25" | "25.5" | "25.123456" -> units. Rejects >6 decimals instead of silently rounding.
 function parseUsdcInput(input: unknown): bigint | null {
-  const s = typeof input === "number" ? (Number.isFinite(input) ? String(input) : "") : String(input ?? "").trim();
+  const s =
+    typeof input === "number"
+      ? Number.isFinite(input)
+        ? String(input)
+        : ""
+      : String(input ?? "").trim();
   if (!/^\d+(\.\d{1,6})?$/.test(s)) return null;
   const units = toUnits(s);
   return units > 0n ? units : null;
@@ -288,7 +323,10 @@ export function toKenyaE164(input: string): string | null {
 function resolvePayPhone(phone: string | null): string {
   if (IS_PRODUCTION) {
     if (!phone) {
-      throw new ElementPayError(400, "Enter a valid Safaricom number (e.g. 0712345678)");
+      throw new ElementPayError(
+        400,
+        "Enter a valid Safaricom number (e.g. 0712345678)",
+      );
     }
     return phone;
   }
@@ -308,9 +346,11 @@ function findKenyaProviders(data: any, orderType: OrderType): any[] {
   const countries = node?.countries;
   const ke = Array.isArray(countries)
     ? countries.find((c: any) =>
-        [c?.code, c?.country, c?.iso, c?.iso2].some((v) => String(v ?? "").toUpperCase() === "KE")
+        [c?.code, c?.country, c?.iso, c?.iso2].some(
+          (v) => String(v ?? "").toUpperCase() === "KE",
+        ),
       )
-    : countries?.KE ?? countries?.ke;
+    : (countries?.KE ?? countries?.ke);
 
   const direct = ke?.payment_methods?.mobile_money?.providers;
   if (Array.isArray(direct)) return direct;
@@ -331,20 +371,25 @@ async function getMpesaProvider(orderType: OrderType): Promise<Provider> {
   const cached = getCached<Provider>(cacheKey);
   if (cached) return cached;
 
-  const res = await epRequest("GET", `/partner/catalog?country=KE&order_type=${orderType}`);
+  const res = await epRequest(
+    "GET",
+    `/partner/catalog?country=KE&order_type=${orderType}`,
+  );
   const providers = findKenyaProviders(res?.data, orderType);
   const mpesa = providers.find(
-    (p) => p?.enabled !== false && /m[\s_-]?pesa/i.test(`${p?.code} ${p?.name} ${p?.network_name ?? ""}`)
+    (p) =>
+      p?.enabled !== false &&
+      /m[\s_-]?pesa/i.test(`${p?.code} ${p?.name} ${p?.network_name ?? ""}`),
   );
   if (!mpesa?.id) {
     console.error(
-      `[elementpay] no M-Pesa ${orderType} provider in catalog. data keys: ${Object.keys(res?.data ?? {}).join(", ")}; providers seen: ${providers.length}`
+      `[elementpay] no M-Pesa ${orderType} provider in catalog. data keys: ${Object.keys(res?.data ?? {}).join(", ")}; providers seen: ${providers.length}`,
     );
     throw new ElementPayError(
       503,
       orderType === "OnRamp"
         ? "M-Pesa deposits are not available right now"
-        : "M-Pesa withdrawals are not available right now"
+        : "M-Pesa withdrawals are not available right now",
     );
   }
   const provider: Provider = {
@@ -418,7 +463,11 @@ function toEpDob(value: unknown): string | null {
 // Didit document types ("Identity Card", "Passport", "Driver's License", ...) -> Element Pay id_type.
 // CONFIRM the accepted values with GET /partner/order-requirements?country=KE&currency=KES&order_type=OnRamp.
 function toEpIdType(raw: string): string {
-  const s = raw.trim().toLowerCase().replace(/['’]/g, "").replace(/[\s\-/]+/g, "_");
+  const s = raw
+    .trim()
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[\s\-/]+/g, "_");
   const map: Record<string, string> = {
     identity_card: "national_id",
     id_card: "national_id",
@@ -443,86 +492,93 @@ async function readDocumentNumber(encrypted: string | null): Promise<string> {
     return String((await decryptKycDocumentNumber(encrypted)) ?? "").trim();
   } catch (err) {
     console.error("[elementpay] could not decrypt kycDocumentNumber", err);
-    throw new ElementPayError(500, "We couldn't read your verified ID details. Please contact support.");
+    throw new ElementPayError(
+      500,
+      "We couldn't read your verified ID details. Please contact support.",
+    );
   }
 }
 
 async function loadCustomerProfile(userId: number): Promise<CustomerProfile> {
-    const u = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        email: true,
-        address: true,
-        kycStatus: true,
-        kycDocumentType: true,
-        kycFirstName: true,
-        kycLastName: true,
-        kycFullName: true,
-        kycDateOfBirth: true,
-        kycDocumentNumber: true,
-      },
-    });
-    if (!u) throw new ElementPayError(400, "User not found");
-   
-    const approved = u.kycStatus === "approved";
-   
-    let first = (u.kycFirstName ?? "").trim();
-    let last = (u.kycLastName ?? "").trim();
-    if ((!first || !last) && u.kycFullName) {
-      const parts = u.kycFullName.trim().split(/\s+/);
-      if (parts.length >= 2) {
-        first = first || parts[0];
-        last = last || parts.slice(1).join(" ");
-      }
+  const u = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      email: true,
+      address: true,
+      kycStatus: true,
+      kycDocumentType: true,
+      kycFirstName: true,
+      kycLastName: true,
+      kycFullName: true,
+      kycDateOfBirth: true,
+      kycDocumentNumber: true,
+    },
+  });
+  if (!u) throw new ElementPayError(400, "User not found");
+
+  const approved = u.kycStatus === "approved";
+
+  let first = (u.kycFirstName ?? "").trim();
+  let last = (u.kycLastName ?? "").trim();
+  if ((!first || !last) && u.kycFullName) {
+    const parts = u.kycFullName.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      first = first || parts[0];
+      last = last || parts.slice(1).join(" ");
     }
-    const dob = u.kycDateOfBirth;
-    const idNumber = approved ? await readDocumentNumber(u.kycDocumentNumber) : "";
-    const idTypeRaw = (u.kycDocumentType ?? "").trim();
-    const email = (u.email ?? "").trim();
-    const address =  "Nairobi";
-   
-    const missing: string[] = [];
-    if (!first) missing.push("first name");
-    if (!last) missing.push("last name");
-    if (!dob) missing.push("date of birth");
-    if (!idNumber) missing.push("ID number");
-    if (!idTypeRaw) missing.push("ID type");
-    if (!email) missing.push("email");
-   
-    if (!approved || missing.length > 0) {
-      if (!IS_PRODUCTION) {
-        console.warn(`[elementpay] user ${userId} has no approved KYC data; using sandbox placeholder`);
-        return SANDBOX_PROFILE;
-      }
-      // Element Pay needs real identity details; never fabricate them in production.
-      if (!approved) {
-        throw new ElementPayError(
-          403,
-          "Verify your identity to deposit or withdraw with M-Pesa.",
-          { code: KYC_REQUIRED_CODE }
-        );
-      }
+  }
+  const dob = u.kycDateOfBirth;
+  const idNumber = approved
+    ? await readDocumentNumber(u.kycDocumentNumber)
+    : "";
+  const idTypeRaw = (u.kycDocumentType ?? "").trim();
+  const email = (u.email ?? "").trim();
+  const address = "Nairobi";
+
+  const missing: string[] = [];
+  if (!first) missing.push("first name");
+  if (!last) missing.push("last name");
+  if (!dob) missing.push("date of birth");
+  if (!idNumber) missing.push("ID number");
+  if (!idTypeRaw) missing.push("ID type");
+  if (!email) missing.push("email");
+
+  if (!approved || missing.length > 0) {
+    if (!IS_PRODUCTION) {
+      console.warn(
+        `[elementpay] user ${userId} has no approved KYC data; using sandbox placeholder`,
+      );
+      return SANDBOX_PROFILE;
+    }
+    // Element Pay needs real identity details; never fabricate them in production.
+    if (!approved) {
       throw new ElementPayError(
-        400,
-        `Your verified details are incomplete (${missing.join(", ")}). Please redo identity verification.`,
-        { code: "PROFILE_INCOMPLETE", missing }
+        403,
+        "Verify your identity to deposit or withdraw with M-Pesa.",
+        { code: KYC_REQUIRED_CODE },
       );
     }
-   
-    return {
-      name: `${first} ${last}`,
-      email,
-      address,
-      dob: dob as string,
-      idNumber,
-      idType: toEpIdType(idTypeRaw),
-    };
+    throw new ElementPayError(
+      400,
+      `Your verified details are incomplete (${missing.join(", ")}). Please redo identity verification.`,
+      { code: "PROFILE_INCOMPLETE", missing },
+    );
   }
+
+  return {
+    name: `${first} ${last}`,
+    email,
+    address,
+    dob: dob as string,
+    idNumber,
+    idType: toEpIdType(idTypeRaw),
+  };
+}
 
 async function buildQuoteCustomer(
   userId: number,
   phone: string,
-  orderType: OrderType
+  orderType: OrderType,
 ): Promise<{ customer: Record<string, unknown> }> {
   const p = await loadCustomerProfile(userId);
 
@@ -535,7 +591,9 @@ async function buildQuoteCustomer(
   return {
     customer: {
       // production: one stable uid per user. sandbox: docs ask for a fresh uid per run.
-      uid: IS_PRODUCTION ? `chamapay-${userId}` : `chamapay-${userId}-${Date.now()}`,
+      uid: IS_PRODUCTION
+        ? `chamapay-${userId}`
+        : `chamapay-${userId}-${Date.now()}`,
       type: "user",
       name,
       country: "KE",
@@ -554,7 +612,7 @@ async function onrampQuoteBody(
   payPhone: string,
   kes: number,
   networkId: string,
-  treasury: string
+  treasury: string,
 ) {
   return {
     order_type: "OnRamp",
@@ -563,7 +621,11 @@ async function onrampQuoteBody(
     local_amount: kes,
     ...(await buildQuoteCustomer(userId, payPhone, "OnRamp")),
     asset: BASE_USDC_ASSET,
-    payment_method: { type: "mobile_money", phone_number: payPhone, network_id: networkId },
+    payment_method: {
+      type: "mobile_money",
+      phone_number: payPhone,
+      network_id: networkId,
+    },
     wallet_address: treasury, // USDC lands in the treasury; the user is credited from it
   };
 }
@@ -573,7 +635,7 @@ async function offrampQuoteBody(
   payPhone: string,
   netUsdc: bigint,
   networkId: string,
-  treasury: string
+  treasury: string,
 ) {
   return {
     order_type: "OffRamp",
@@ -582,7 +644,11 @@ async function offrampQuoteBody(
     crypto_amount: Number(formatUnits(netUsdc, USDC_DECIMALS)),
     ...(await buildQuoteCustomer(userId, payPhone, "OffRamp")),
     asset: OFFRAMP_ASSET,
-    payment_method: { type: "mobile_money", phone_number: payPhone, network_id: networkId },
+    payment_method: {
+      type: "mobile_money",
+      phone_number: payPhone,
+      network_id: networkId,
+    },
     refund_address: treasury, // failed payouts come back to the treasury; we refund the user from there
   };
 }
@@ -592,19 +658,29 @@ async function offrampQuoteBody(
 // first address-looking value (never the token contract or our treasury).
 function extractDeposit(
   acceptRes: any,
-  treasury: string
+  treasury: string,
 ): { address: string | null; cryptoDeposit: any; instructions: any } {
   const instructions =
-    acceptRes?.data?.accepted?.payment_instructions ?? acceptRes?.data?.payment_instructions;
+    acceptRes?.data?.accepted?.payment_instructions ??
+    acceptRes?.data?.payment_instructions;
   const cryptoDeposit = instructions?.crypto_deposit;
   const excluded = new Set(
-    [OFFRAMP_ASSET.token, BASE_USDC_ASSET.token, treasury].map((a) => String(a).toLowerCase())
+    [OFFRAMP_ASSET.token, BASE_USDC_ASSET.token, treasury].map((a) =>
+      String(a).toLowerCase(),
+    ),
   );
   const isAddr = (v: unknown): v is string =>
-    typeof v === "string" && /^0x[0-9a-fA-F]{40}$/.test(v) && !excluded.has(v.toLowerCase());
+    typeof v === "string" &&
+    /^0x[0-9a-fA-F]{40}$/.test(v) &&
+    !excluded.has(v.toLowerCase());
 
   const src = cryptoDeposit ?? instructions;
-  for (const c of [src?.address, src?.wallet_address, src?.deposit_address, src?.to]) {
+  for (const c of [
+    src?.address,
+    src?.wallet_address,
+    src?.deposit_address,
+    src?.to,
+  ]) {
     if (isAddr(c)) return { address: c, cryptoDeposit, instructions };
   }
 
@@ -654,10 +730,19 @@ interface CachedQuote {
 
 const quoteKey = (id: string) => `elementpay:quote:${id}`;
 
-function rememberQuote(q: any, meta: Omit<CachedQuote, "createdAt" | "expiresAt">): number {
-  const expiresAt = Date.parse(q?.expires_at) || Date.now() + QUOTE_FALLBACK_TTL_MS;
+function rememberQuote(
+  q: any,
+  meta: Omit<CachedQuote, "createdAt" | "expiresAt">,
+): number {
+  const expiresAt =
+    Date.parse(q?.expires_at) || Date.now() + QUOTE_FALLBACK_TTL_MS;
   const ttl = expiresAt - Date.now();
-  if (ttl > 0) setCache(quoteKey(q.quote_id), { ...meta, createdAt: Date.now(), expiresAt }, ttl);
+  if (ttl > 0)
+    setCache(
+      quoteKey(q.quote_id),
+      { ...meta, createdAt: Date.now(), expiresAt },
+      ttl,
+    );
   return expiresAt;
 }
 
@@ -666,7 +751,7 @@ function takeReusableQuote(
   userId: number,
   type: "onramp" | "offramp",
   amountKey: string,
-  phone: string
+  phone: string,
 ): CachedQuote | null {
   if (typeof quoteId !== "string" || !quoteId) return null;
   const c = getCached<CachedQuote>(quoteKey(quoteId));
@@ -704,10 +789,14 @@ export async function getElementPayQuote(req: Request, res: Response) {
 
   try {
     if (!userId) {
-      return res.status(401).json({ success: false, error: "Authentication required" });
+      return res
+        .status(401)
+        .json({ success: false, error: "Authentication required" });
     }
     if (type !== "onramp" && type !== "offramp") {
-      return res.status(400).json({ success: false, error: 'type must be "onramp" or "offramp"' });
+      return res
+        .status(400)
+        .json({ success: false, error: 'type must be "onramp" or "offramp"' });
     }
 
     const user = await prisma.user.findUnique({
@@ -715,7 +804,9 @@ export async function getElementPayQuote(req: Request, res: Response) {
       select: { smartAddress: true, email: true, phoneE164: true },
     });
     if (!user || !user.smartAddress) {
-      return res.status(400).json({ success: false, error: "User wallet address not found" });
+      return res
+        .status(400)
+        .json({ success: false, error: "User wallet address not found" });
     }
 
     // A binding quote is tied to the payer's number, so production needs a valid phoneNo.
@@ -729,19 +820,27 @@ export async function getElementPayQuote(req: Request, res: Response) {
     if (type === "onramp") {
       const kes = Number(req.body?.amount);
       if (!Number.isInteger(kes) || kes < 1) {
-        return res.status(400).json({ success: false, error: "Amount must be a whole number of KES" });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            error: "Amount must be a whole number of KES",
+          });
       }
       const provider = await getMpesaProvider("OnRamp");
       assertWithinLimits(provider, kes);
 
-      const q = await createQuote(await onrampQuoteBody(userId, payPhone, kes, provider.id, treasury));
+      const q = await createQuote(
+        await onrampQuoteBody(userId, payPhone, kes, provider.id, treasury),
+      );
       const treasuryUnits = receivesUnits(q);
       const expiresAt = rememberQuote(q, {
         userId,
         type: "onramp",
         amountKey: String(kes),
         phone: payPhone,
-        usdcToTreasuryUnits: treasuryUnits === null ? null : treasuryUnits.toString(),
+        usdcToTreasuryUnits:
+          treasuryUnits === null ? null : treasuryUnits.toString(),
       });
 
       const rate = platformRate();
@@ -758,7 +857,8 @@ export async function getElementPayQuote(req: Request, res: Response) {
           listedRate: q?.amounts?.rate ?? null, // the headline rate, before fees
           // KES per USDC you actually pay once Element Pay's fees are taken out
           effectiveRate: ratioString(kes, receivesRaw, 4),
-          usdcToTreasury: receivesRaw === undefined ? null : String(receivesRaw),
+          usdcToTreasury:
+            receivesRaw === undefined ? null : String(receivesRaw),
           fees: q?.amounts?.fees ?? null,
         },
         platform: {
@@ -780,19 +880,30 @@ export async function getElementPayQuote(req: Request, res: Response) {
       if (cachedRef) return res.status(200).json(cachedRef); // same for every user, so share it for 30s
     }
 
-    const gross = parseUsdcInput(hasAmount ? req.body?.amount : process.env.ELEMENTPAY_REFERENCE_USDC || "10");
+    const gross = parseUsdcInput(
+      hasAmount
+        ? req.body?.amount
+        : process.env.ELEMENTPAY_REFERENCE_USDC || "10",
+    );
     if (!gross) {
       return res
         .status(400)
-        .json({ success: false, error: "Enter a USDC amount with at most 6 decimals" });
+        .json({
+          success: false,
+          error: "Enter a USDC amount with at most 6 decimals",
+        });
     }
     const { fee, net } = splitOfframpAmount(gross);
     if (net <= 0n) {
-      return res.status(400).json({ success: false, error: "Amount is too small to withdraw" });
+      return res
+        .status(400)
+        .json({ success: false, error: "Amount is too small to withdraw" });
     }
 
     const provider = await getMpesaProvider("OffRamp");
-    const q = await createQuote(await offrampQuoteBody(userId, payPhone, net, provider.id, treasury));
+    const q = await createQuote(
+      await offrampQuoteBody(userId, payPhone, net, provider.id, treasury),
+    );
     const expiresAt = hasAmount
       ? rememberQuote(q, {
           userId,
@@ -857,7 +968,9 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
 
   try {
     if (!userId) {
-      return res.status(401).json({ success: false, error: "Authentication required" });
+      return res
+        .status(401)
+        .json({ success: false, error: "Authentication required" });
     }
 
     const user = await prisma.user.findUnique({
@@ -873,21 +986,30 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
     if (!amount || !phoneNo) {
       return res
         .status(400)
-        .json({ success: false, error: "Amount and phone number are required" });
+        .json({
+          success: false,
+          error: "Amount and phone number are required",
+        });
     }
 
     const requestedKes = Number(amount);
     if (!Number.isInteger(requestedKes) || requestedKes < 1) {
       return res
         .status(400)
-        .json({ success: false, error: "Amount must be a whole number of KES" });
+        .json({
+          success: false,
+          error: "Amount must be a whole number of KES",
+        });
     }
 
     const phone = toKenyaE164(phoneNo);
     if (!phone) {
       return res
         .status(400)
-        .json({ success: false, error: "Enter a valid Safaricom number (e.g. 0712345678)" });
+        .json({
+          success: false,
+          error: "Enter a valid Safaricom number (e.g. 0712345678)",
+        });
     }
 
     // Same KYC / monthly limit gate as Pretium
@@ -910,10 +1032,11 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
     const rate = platformRate();
     const usdcUnits = kesToUsdc(requestedKes, rate);
     if (usdcUnits <= 0n) {
-      return res.status(400).json({ success: false, error: "Amount is too small" });
+      return res
+        .status(400)
+        .json({ success: false, error: "Amount is too small" });
     }
     const usdcToCredit = formatUnits(usdcUnits, USDC_DECIMALS);
-   
 
     const treasury = treasuryAddress();
     const provider = await getMpesaProvider("OnRamp");
@@ -924,16 +1047,33 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
     let quoteId: string;
     let quotedAt: number;
     let elementpayRate: number;
-    let amountElementpayGives:number;
+    let amountElementpayGives: number;
     let treasuryUnits: bigint | null;
-    const reuse = takeReusableQuote(clientQuoteId, userId, "onramp", String(requestedKes), payPhone);
+    const reuse = takeReusableQuote(
+      clientQuoteId,
+      userId,
+      "onramp",
+      String(requestedKes),
+      payPhone,
+    );
 
     if (reuse) {
       quoteId = clientQuoteId;
       quotedAt = reuse.createdAt;
-      treasuryUnits = reuse.usdcToTreasuryUnits === null ? null : BigInt(reuse.usdcToTreasuryUnits);
+      treasuryUnits =
+        reuse.usdcToTreasuryUnits === null
+          ? null
+          : BigInt(reuse.usdcToTreasuryUnits);
     } else {
-      const q = await createQuote(await onrampQuoteBody(userId, payPhone, requestedKes, provider.id, treasury));
+      const q = await createQuote(
+        await onrampQuoteBody(
+          userId,
+          payPhone,
+          requestedKes,
+          provider.id,
+          treasury,
+        ),
+      );
       console.log("q", q);
       quoteId = q.quote_id;
       quotedAt = Date.now();
@@ -943,19 +1083,22 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
     }
 
     console.log("elementpay rate is", elementpayRate!);
-    console.log(`amount user needs: ${usdcToCredit} USDC. Elelemntpay gives: ${amountElementpayGives!} USDC.`)
-    if (Number(amountElementpayGives!) < Number(usdcToCredit)){
-        console.log(`we are about to add this ${Number(usdcToCredit) - Number(amountElementpayGives!)} USDC`)
+    console.log(
+      `amount user needs: ${usdcToCredit} USDC. Elelemntpay gives: ${amountElementpayGives!} USDC.`,
+    );
+    if (Number(amountElementpayGives!) < Number(usdcToCredit)) {
+      console.log(
+        `we are about to add this ${Number(usdcToCredit) - Number(amountElementpayGives!)} USDC`,
+      );
     }
-
 
     // Visibility into FX-reserve exposure: what the treasury receives vs. what we owe the user
     if (treasuryUnits !== null && treasuryUnits < usdcUnits) {
       console.warn(
         `[elementpay] treasury shortfall on quote ${quoteId}: receives ${formatUnits(
           treasuryUnits,
-          USDC_DECIMALS
-        )} USDC, owes ${usdcToCredit} USDC (CHAMAPAY_RATE=${rate})`
+          USDC_DECIMALS,
+        )} USDC, owes ${usdcToCredit} USDC (CHAMAPAY_RATE=${rate})`,
       );
     }
 
@@ -970,9 +1113,12 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
       acceptRes?.data?.accepted?.creation_tx_hash ||
       acceptRes?.data?.order?.creation_transaction_hash ||
       undefined;
-    
+
     if (!orderId) {
-      console.error(`[elementpay] CRITICAL: accepted quote ${quoteId} but no usable id`, acceptRes);
+      console.error(
+        `[elementpay] CRITICAL: accepted quote ${quoteId} but no usable id`,
+        acceptRes,
+      );
       throw new ElementPayError(502, "Element Pay did not return an order");
     }
 
@@ -1003,7 +1149,8 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
           walletAddress: user.smartAddress,
           chamaId: chamaId ? Number(chamaId) : null,
           memberForId: memberForId ? Number(memberForId) : null,
-          goalId: parsedGoalId && Number.isFinite(parsedGoalId) ? parsedGoalId : null,
+          goalId:
+            parsedGoalId && Number.isFinite(parsedGoalId) ? parsedGoalId : null,
           message: `elementpay quote ${quoteId}`,
         } as any,
       });
@@ -1011,21 +1158,23 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
       // The STK push is already on its way, so make this impossible to miss in logs.
       console.error(
         `[elementpay] CRITICAL: order ${orderId} (quote ${quoteId}) accepted but DB insert failed for user ${userId}`,
-        dbErr
+        dbErr,
       );
       throw dbErr;
     }
     console.log(
-      `[elementpay] on-ramp ${orderId}: KES ${requestedKes} @ ${rate} -> ${usdcToCredit} USDC`
+      `[elementpay] on-ramp ${orderId}: KES ${requestedKes} @ ${rate} -> ${usdcToCredit} USDC`,
     );
 
     return res.status(200).json({
       success: true,
-      message: "M-Pesa prompt sent. Enter your PIN on your phone to complete the deposit.",
+      message:
+        "M-Pesa prompt sent. Enter your PIN on your phone to complete the deposit.",
       status: "PENDING",
       transactionCode: orderId,
       usdcAmount: usdcToCredit,
-      transactionMessage: "M-Pesa prompt sent. Enter your PIN on your phone to complete the deposit.",
+      transactionMessage:
+        "M-Pesa prompt sent. Enter your PIN on your phone to complete the deposit.",
     });
   } catch (error) {
     return sendEpError(res, error, "Failed to initiate Element Pay on-ramp");
@@ -1045,7 +1194,9 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
 
   try {
     if (!userId) {
-      return res.status(401).json({ success: false, error: "Authentication required" });
+      return res
+        .status(401)
+        .json({ success: false, error: "Authentication required" });
     }
 
     const user = await prisma.user.findUnique({
@@ -1053,37 +1204,50 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
       select: { smartAddress: true, cdpWalletId: true, email: true },
     });
     if (!user || !user.smartAddress || !user.cdpWalletId) {
-      return res.status(400).json({ success: false, error: "User wallet not found" });
+      return res
+        .status(400)
+        .json({ success: false, error: "User wallet not found" });
     }
 
     if (!usdcAmount || !phoneNo) {
       return res
         .status(400)
-        .json({ success: false, error: "Amount and phone number are required" });
+        .json({
+          success: false,
+          error: "Amount and phone number are required",
+        });
     }
 
     const gross = parseUsdcInput(usdcAmount);
     if (!gross) {
       return res
         .status(400)
-        .json({ success: false, error: "Enter a USDC amount with at most 6 decimals" });
+        .json({
+          success: false,
+          error: "Enter a USDC amount with at most 6 decimals",
+        });
     }
     const { fee, net } = splitOfframpAmount(gross);
     if (net <= 0n) {
-      return res.status(400).json({ success: false, error: "Amount is too small to withdraw" });
+      return res
+        .status(400)
+        .json({ success: false, error: "Amount is too small to withdraw" });
     }
 
     const phone = toKenyaE164(phoneNo);
     if (!phone) {
       return res
         .status(400)
-        .json({ success: false, error: "Enter a valid Safaricom number (e.g. 0712345678)" });
+        .json({
+          success: false,
+          error: "Enter a valid Safaricom number (e.g. 0712345678)",
+        });
     }
 
     if (OFFRAMP_ONCHAIN && OFFRAMP_ASSET.network.toUpperCase() !== "BASE") {
       throw new ElementPayError(
         501,
-        `Off-ramp on ${OFFRAMP_ASSET.network} is not supported by the treasury transfer yet`
+        `Off-ramp on ${OFFRAMP_ASSET.network} is not supported by the treasury transfer yet`,
       );
     }
 
@@ -1096,12 +1260,20 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
     // 1) Quote (reuse the one the user was shown if it is still valid)
     let quoteId: string;
     let quotedAt: number;
-    const reuse = takeReusableQuote(clientQuoteId, userId, "offramp", gross.toString(), payPhone);
+    const reuse = takeReusableQuote(
+      clientQuoteId,
+      userId,
+      "offramp",
+      gross.toString(),
+      payPhone,
+    );
     if (reuse) {
       quoteId = clientQuoteId;
       quotedAt = reuse.createdAt;
     } else {
-      const q = await createQuote(await offrampQuoteBody(userId, payPhone, net, provider.id, treasury));
+      const q = await createQuote(
+        await offrampQuoteBody(userId, payPhone, net, provider.id, treasury),
+      );
       quoteId = q.quote_id;
       quotedAt = Date.now();
     }
@@ -1110,17 +1282,33 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
     const acceptRes = await acceptQuote(quoteId, quotedAt);
     const orderId: string | undefined = acceptRes?.data?.order?.order_id;
     if (!orderId) {
-      console.error(`[elementpay] off-ramp accept returned no order_id for quote ${quoteId}`, acceptRes);
+      console.error(
+        `[elementpay] off-ramp accept returned no order_id for quote ${quoteId}`,
+        acceptRes,
+      );
       throw new ElementPayError(502, "Element Pay did not return an order");
     }
 
-    const { address: depositAddress, cryptoDeposit: deposit, instructions } = extractDeposit(acceptRes, treasury);
-    console.log(`[elementpay] off-ramp ${orderId} payment_instructions:`, JSON.stringify(instructions ?? null));
+    const {
+      address: depositAddress,
+      cryptoDeposit: deposit,
+      instructions,
+    } = extractDeposit(acceptRes, treasury);
+    console.log(
+      `[elementpay] off-ramp ${orderId} payment_instructions:`,
+      JSON.stringify(instructions ?? null),
+    );
 
     if (OFFRAMP_ONCHAIN) {
       if (!depositAddress) {
-        console.error(`[elementpay] off-ramp ${orderId}: no crypto_deposit address in accept response`, acceptRes);
-        throw new ElementPayError(502, "Element Pay did not return a deposit address");
+        console.error(
+          `[elementpay] off-ramp ${orderId}: no crypto_deposit address in accept response`,
+          acceptRes,
+        );
+        throw new ElementPayError(
+          502,
+          "Element Pay did not return a deposit address",
+        );
       }
       // Element Pay expects the exact amount. If it states one and it is not what we quoted, do not send.
       if (deposit?.amount !== undefined) {
@@ -1132,9 +1320,12 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
         }
         if (expected !== null && expected !== net) {
           console.error(
-            `[elementpay] CRITICAL: off-ramp ${orderId} deposit amount mismatch: expects ${deposit.amount}, we would send ${formatUnits(net, USDC_DECIMALS)}`
+            `[elementpay] CRITICAL: off-ramp ${orderId} deposit amount mismatch: expects ${deposit.amount}, we would send ${formatUnits(net, USDC_DECIMALS)}`,
           );
-          throw new ElementPayError(502, "Withdrawal amount mismatch. Nothing was debited.");
+          throw new ElementPayError(
+            502,
+            "Withdrawal amount mismatch. Nothing was debited.",
+          );
         }
       }
     }
@@ -1163,21 +1354,31 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
     } catch (dbErr) {
       console.error(
         `[elementpay] CRITICAL: off-ramp order ${orderId} (quote ${quoteId}) accepted but DB insert failed for user ${userId}. Nothing was debited; the order will expire.`,
-        dbErr
+        dbErr,
       );
       throw dbErr;
     }
 
     // 4) Move the money (production). Sandbox auto-settles from the "Successful" name trigger.
     if (OFFRAMP_ONCHAIN) {
-      await fundOfframpOrder(row, user.cdpWalletId, treasury, depositAddress as string, gross, net);
+      await fundOfframpOrder(
+        row,
+        user.cdpWalletId,
+        treasury,
+        depositAddress as string,
+        gross,
+        net,
+      );
     } else {
-      console.log(`[elementpay] sandbox off-ramp ${orderId}: on-chain legs skipped`);
+      console.log(
+        `[elementpay] sandbox off-ramp ${orderId}: on-chain legs skipped`,
+      );
     }
 
     return res.status(200).json({
       success: true,
-      message: "Withdrawal started. You will receive the money on M-Pesa shortly.",
+      message:
+        "Withdrawal started. You will receive the money on M-Pesa shortly.",
       status: "PENDING",
       transactionCode: orderId,
       usdc: {
@@ -1200,21 +1401,31 @@ async function fundOfframpOrder(
   treasury: string,
   depositAddress: string,
   gross: bigint,
-  net: bigint
+  net: bigint,
 ) {
   let debitTx: string;
   try {
-    debitTx = await transferTx(cdpWalletId, formatUnits(gross, USDC_DECIMALS), treasury as `0x${string}`);
+    debitTx = await transferTx(
+      cdpWalletId,
+      formatUnits(gross, USDC_DECIMALS),
+      treasury as `0x${string}`,
+    );
     if (!debitTx) throw new Error("Debit returned no result");
   } catch (err) {
-    console.error(`[elementpay] off-ramp ${t.transactionCode}: could not debit user wallet`, err);
+    console.error(
+      `[elementpay] off-ramp ${t.transactionCode}: could not debit user wallet`,
+      err,
+    );
     await prisma.pretiumTransaction
       .updateMany({
         where: { id: t.id, status: "PENDING" },
         data: { status: "FAILED", message: "Could not debit wallet" },
       })
       .catch(() => {});
-    throw new ElementPayError(400, "Could not debit your wallet. Check your balance and try again.");
+    throw new ElementPayError(
+      400,
+      "Could not debit your wallet. Check your balance and try again.",
+    );
   }
 
   await sleep(5000); // let RPC/CDP nodes see the new treasury balance
@@ -1230,16 +1441,28 @@ async function fundOfframpOrder(
   });
   if (claim.count === 0) {
     await refundOfframpUser(t, "Order closed before funding");
-    throw new ElementPayError(409, "This withdrawal is no longer active. Your funds were returned.");
+    throw new ElementPayError(
+      409,
+      "This withdrawal is no longer active. Your funds were returned.",
+    );
   }
 
   try {
-    const sendTx = await treasuryTransferToUser(depositAddress as `0x${string}`, net);
+    const sendTx = await treasuryTransferToUser(
+      depositAddress as `0x${string}`,
+      net,
+    );
     if (!sendTx) throw new Error("Transfer returned no result");
   } catch (err) {
-    console.error(`[elementpay] off-ramp ${t.transactionCode}: treasury -> Element Pay failed`, err);
+    console.error(
+      `[elementpay] off-ramp ${t.transactionCode}: treasury -> Element Pay failed`,
+      err,
+    );
     await refundOfframpUser(t, "Could not forward funds to Element Pay");
-    throw new ElementPayError(502, "Withdrawal could not be completed. Your funds were returned.");
+    throw new ElementPayError(
+      502,
+      "Withdrawal could not be completed. Your funds were returned.",
+    );
   }
 
   await prisma.pretiumTransaction
@@ -1255,35 +1478,47 @@ async function fundOfframpOrder(
 async function refundOfframpUser(t: any, reason: string): Promise<boolean> {
   const claim = await prisma.pretiumTransaction.updateMany({
     where: { id: t.id, isRealesed: false },
-    data: { isRealesed: true, status: "FAILED", message: `Refunding: ${reason}`.slice(0, 250) },
+    data: {
+      isRealesed: true,
+      status: "FAILED",
+      message: `Refunding: ${reason}`.slice(0, 250),
+    },
   });
   if (claim.count === 0) {
-    console.warn(`[elementpay] refund skipped for ${t.transactionCode}: already finalised`);
+    console.warn(
+      `[elementpay] refund skipped for ${t.transactionCode}: already finalised`,
+    );
     return false;
   }
 
   try {
     const refundTx = await treasuryTransferToUser(
       t.walletAddress as `0x${string}`,
-      toUnits(usdcOwed(t))
+      toUnits(usdcOwed(t)),
     );
     if (!refundTx) throw new Error("Refund transfer returned no result");
     await prisma.pretiumTransaction.update({
       where: { id: t.id },
       data: { message: `Refunded: ${reason}`.slice(0, 250) },
     });
-    console.log(`↩️ Off-ramp ${t.transactionCode} refunded to user (${reason})`);
+    console.log(
+      `↩️ Off-ramp ${t.transactionCode} refunded to user (${reason})`,
+    );
     return true;
   } catch (err) {
     console.error(
       `[elementpay] CRITICAL: refund failed for off-ramp ${t.transactionCode}; needs manual refund`,
-      err
+      err,
     );
     await prisma.pretiumTransaction
       .update({
         where: { id: t.id },
         data: {
-          message: `REFUND_FAILED: ${(err as Error)?.message || "unknown error"}`.slice(0, 250),
+          message:
+            `REFUND_FAILED: ${(err as Error)?.message || "unknown error"}`.slice(
+              0,
+              250,
+            ),
         },
       })
       .catch(() => {});
@@ -1308,7 +1543,7 @@ function getRawBody(req: Request): Buffer | null {
   if (Buffer.isBuffer(req.body)) return req.body; // express.raw()
   if (req.body && typeof req.body === "object") {
     console.warn(
-      "[elementpay] raw body unavailable; re-serialising parsed JSON (signature may fail). Add captureRawBody to express.json({ verify })."
+      "[elementpay] raw body unavailable; re-serialising parsed JSON (signature may fail). Add captureRawBody to express.json({ verify }).",
     );
     return Buffer.from(JSON.stringify(req.body));
   }
@@ -1319,7 +1554,7 @@ function getRawBody(req: Request): Buffer | null {
 function verifyWebhookSignature(
   raw: Buffer,
   header: string | undefined,
-  secret: string
+  secret: string,
 ): boolean {
   if (!header) return false;
   const parts: Record<string, string> = {};
@@ -1333,60 +1568,84 @@ function verifyWebhookSignature(
 
   const ts = Number(t);
   if (!Number.isFinite(ts)) return false;
-  if (Math.abs(Date.now() / 1000 - ts) > WEBHOOK_TOLERANCE_SECONDS) return false;
+  if (Math.abs(Date.now() / 1000 - ts) > WEBHOOK_TOLERANCE_SECONDS)
+    return false;
 
-  const expected = createHmac("sha256", secret).update(`${t}.`).update(raw).digest();
+  const expected = createHmac("sha256", secret)
+    .update(`${t}.`)
+    .update(raw)
+    .digest();
   const given = Buffer.from(v1, "base64");
   return given.length === expected.length && timingSafeEqual(given, expected);
 }
 
 export async function elementPayWebhook(req: Request, res: Response) {
-    console.log("elementPayWebhook has been triggered.");
-    console.log("req.body", req.body);
-  
-    const secret = process.env.ELEMENT_PAY_WEBHOOK_SECRET;
-    if (!secret) {
-      console.error("[elementpay] ELEMENT_PAY_WEBHOOK_SECRET is not set; rejecting webhook");
-      return res.status(500).json({ received: false });
-    }
-  
-    const raw = getRawBody(req);
-    if (!raw) return res.status(400).json({ received: false, error: "Empty body" });
-  
-    if (!verifyWebhookSignature(raw, req.header("x-webhook-signature"), secret)) {
-      console.warn("[elementpay] invalid webhook signature");
-      return res.status(401).json({ received: false, error: "Invalid signature" });
-    }
-  
-    let body: any;
-    try {
-      body = JSON.parse(raw.toString("utf8"));
-    } catch {
-      return res.status(400).json({ received: false, error: "Invalid JSON" });
-    }
-  
-    // Ack fast (Element Pay wants a quick 2xx), process afterwards.
-    // This is the ONLY place we write a response on the happy path.
-    const ack = res.status(200).json({ received: true });
-  
-    const event = req.header("x-webhook-event") || "";
-    const webhookId = req.header("x-webhook-id") || "";
-    console.log(`[elementpay] webhook ${event} id=${webhookId} order=${body?.order_id}`);
-  
-    try {
-      await handleOrderEvent(event, body);
-    } catch (err) {
-      console.error("[elementpay] error processing webhook", err);
-    }
-  
-    return ack; // already sent above; returned only to satisfy the return type
+  console.log("elementPayWebhook has been triggered.");
+  console.log("req.body", req.body);
+
+  const secret = process.env.ELEMENT_PAY_WEBHOOK_SECRET;
+  if (!secret) {
+    console.error(
+      "[elementpay] ELEMENT_PAY_WEBHOOK_SECRET is not set; rejecting webhook",
+    );
+    return res.status(500).json({ received: false });
   }
 
-// The webhook can beat our DB insert by a few ms, so retry the lookup briefly.
-async function findTxWithRetry(orderId: string, attempts = 6, delayMs = 1500) {
+  const raw = getRawBody(req);
+  if (!raw)
+    return res.status(400).json({ received: false, error: "Empty body" });
+
+  if (!verifyWebhookSignature(raw, req.header("x-webhook-signature"), secret)) {
+    console.warn("[elementpay] invalid webhook signature");
+    return res
+      .status(401)
+      .json({ received: false, error: "Invalid signature" });
+  }
+
+  let body: any;
+  try {
+    body = JSON.parse(raw.toString("utf8"));
+  } catch {
+    return res.status(400).json({ received: false, error: "Invalid JSON" });
+  }
+
+  // Ack fast (Element Pay wants a quick 2xx), process afterwards.
+  // This is the ONLY place we write a response on the happy path.
+  const ack = res.status(200).json({ received: true });
+
+  const event = req.header("x-webhook-event") || "";
+  const webhookId = req.header("x-webhook-id") || "";
+  console.log(
+    `[elementpay] webhook ${event} id=${webhookId} order=${body?.order_id}`,
+  );
+
+  try {
+    await handleOrderEvent(event, body);
+  } catch (err) {
+    console.error("[elementpay] error processing webhook", err);
+  }
+
+  return ack; // already sent above; returned only to satisfy the return type
+}
+
+function webhookCodes(body: any): string[] {
+  const ref =
+    typeof body?.client_ref === "string" &&
+    body.client_ref.startsWith("epartner:")
+      ? `EPQ-${body.client_ref.slice("epartner:".length)}` // = the code we saved
+      : null;
+  return [
+    body?.order_id,
+    ref,
+    body?.creation_transaction_hash,
+    body?.invoice_id,
+  ].filter((c): c is string => typeof c === "string" && c.length > 0);
+}
+
+async function findTxWithRetry(codes: string[], attempts = 6, delayMs = 1500) {
   for (let i = 0; i < attempts; i++) {
-    const tx = await prisma.pretiumTransaction.findUnique({
-      where: { transactionCode: orderId },
+    const tx = await prisma.pretiumTransaction.findFirst({
+      where: { transactionCode: { in: codes } },
       include: { user: true },
     });
     if (tx) return tx;
@@ -1396,22 +1655,26 @@ async function findTxWithRetry(orderId: string, attempts = 6, delayMs = 1500) {
 }
 
 async function handleOrderEvent(event: string, body: any) {
-  if (!event.startsWith("order.")) return; // customer.* / account.* not used yet
+  if (!event.startsWith("order.")) return;
 
-  const orderId: string | undefined = body?.order_id;
-  if (!orderId) return;
+  const codes = webhookCodes(body);
+  if (codes.length === 0) return;
+  const orderId = body?.order_id ?? codes[0]; // only used in the log messages below
 
-  const transaction = await findTxWithRetry(orderId);
+  const transaction = await findTxWithRetry(codes);
   if (!transaction) {
-    console.error(`[elementpay] no transaction found for order ${orderId}`);
+    console.error(`[elementpay] no transaction found for ${codes.join(" | ")}`);
     return;
   }
 
   // The row decides the direction; make sure the payload agrees before touching any money.
   const isOnramp = !!transaction.isOnramp;
-  if (body.order_type && (String(body.order_type).toLowerCase() === "onramp") !== isOnramp) {
+  if (
+    body.order_type &&
+    (String(body.order_type).toLowerCase() === "onramp") !== isOnramp
+  ) {
     console.error(
-      `[elementpay] CRITICAL: order ${orderId} direction mismatch (payload ${body.order_type}, row isOnramp=${isOnramp}); ignoring`
+      `[elementpay] CRITICAL: order ${orderId} direction mismatch (payload ${body.order_type}, row isOnramp=${isOnramp}); ignoring`,
     );
     return;
   }
@@ -1438,12 +1701,16 @@ async function handleOrderEvent(event: string, body: any) {
       const label = event === "order.refunded" ? "refunded" : "failed";
       const result = await prisma.pretiumTransaction.updateMany({
         // never touch a row we've already started crediting
-        where: { id: transaction.id, isRealesed: false, status: { not: "COMPLETE" } },
+        where: {
+          id: transaction.id,
+          isRealesed: false,
+          status: { not: "COMPLETE" },
+        },
         data: { status: "FAILED", message: `Payment ${label}` },
       });
       if (result.count === 0) {
         console.error(
-          `[elementpay] CRITICAL: ${event} for order ${orderId} but the transaction was already released/complete. Manual review needed.`
+          `[elementpay] CRITICAL: ${event} for order ${orderId} but the transaction was already released/complete. Manual review needed.`,
         );
       } else {
         console.log(`❌ Element Pay order ${orderId} ${label}`);
@@ -1459,11 +1726,21 @@ async function handleOrderEvent(event: string, body: any) {
 
 async function completeOfframp(t: any) {
   const claim = await prisma.pretiumTransaction.updateMany({
-    where: { id: t.id, isRealesed: false, status: { in: ["PENDING", "processing"] } },
-    data: { isRealesed: true, status: "COMPLETE", message: "Withdrawal complete" },
+    where: {
+      id: t.id,
+      isRealesed: false,
+      status: { in: ["PENDING", "processing"] },
+    },
+    data: {
+      isRealesed: true,
+      status: "COMPLETE",
+      message: "Withdrawal complete",
+    },
   });
   if (claim.count === 0) {
-    console.log(`⚠️ Element Pay off-ramp already processed: ${t.transactionCode}`);
+    console.log(
+      `⚠️ Element Pay off-ramp already processed: ${t.transactionCode}`,
+    );
     return;
   }
   console.log(`✅ Off-ramp settled ${t.transactionCode}: M-Pesa paid`);
@@ -1481,7 +1758,10 @@ async function completeOfframp(t: any) {
       },
     });
   } catch (err) {
-    console.error(`[elementpay] could not record payment for off-ramp ${t.transactionCode}`, err);
+    console.error(
+      `[elementpay] could not record payment for off-ramp ${t.transactionCode}`,
+      err,
+    );
   }
 }
 
@@ -1499,20 +1779,26 @@ async function failOfframp(t: any, event: string) {
     data: { status: "FAILED", message: `Payout ${label}` },
   });
   if (result.count > 0) {
-    console.log(`❌ Element Pay off-ramp ${t.transactionCode} ${label} (nothing had been debited)`);
+    console.log(
+      `❌ Element Pay off-ramp ${t.transactionCode} ${label} (nothing had been debited)`,
+    );
     return;
   }
 
   // Status moved while we were reading it: re-check once.
-  const fresh = await prisma.pretiumTransaction.findUnique({ where: { id: t.id } });
+  const fresh = await prisma.pretiumTransaction.findUnique({
+    where: { id: t.id },
+  });
   if (fresh?.status === "processing") {
     await refundOfframpUser(fresh, `Payout ${label}`);
   } else if (fresh?.status === "COMPLETE") {
     console.error(
-      `[elementpay] CRITICAL: ${event} for off-ramp ${t.transactionCode} but it is already COMPLETE. Manual review needed.`
+      `[elementpay] CRITICAL: ${event} for off-ramp ${t.transactionCode} but it is already COMPLETE. Manual review needed.`,
     );
   } else {
-    console.log(`[elementpay] ${event} for off-ramp ${t.transactionCode}: already ${fresh?.status}, no action`);
+    console.log(
+      `[elementpay] ${event} for off-ramp ${t.transactionCode}: already ${fresh?.status}, no action`,
+    );
   }
 }
 
@@ -1530,7 +1816,10 @@ function usdcOwed(t: any): string {
     if (units > 0n) return formatUnits(units, USDC_DECIMALS);
   }
   if (t.isOnramp) {
-    return formatUnits(kesToUsdc(Math.trunc(Number(t.amount)), platformRate()), USDC_DECIMALS);
+    return formatUnits(
+      kesToUsdc(Math.trunc(Number(t.amount)), platformRate()),
+      USDC_DECIMALS,
+    );
   }
   throw new Error(`No stored USDC amount for ${t.transactionCode}`);
 }
@@ -1553,7 +1842,9 @@ async function fulfillOnramp(transaction: any, body: any) {
     return;
   }
 
-  console.log(`Element Pay settled ${t.type} ${t.transactionCode}. Initiating onchain transfer...`);
+  console.log(
+    `Element Pay settled ${t.type} ${t.transactionCode}. Initiating onchain transfer...`,
+  );
 
   const memberForId = t.memberForId as number | null;
   let targetUserId = t.userId;
@@ -1574,7 +1865,9 @@ async function fulfillOnramp(transaction: any, body: any) {
 
   const usdcAmountToCredit = usdcOwed(t);
   if (!targetAddress) {
-    console.error(`[elementpay] CRITICAL: no target address for ${t.transactionCode}`);
+    console.error(
+      `[elementpay] CRITICAL: no target address for ${t.transactionCode}`,
+    );
     return;
   }
 
@@ -1584,7 +1877,7 @@ async function fulfillOnramp(transaction: any, body: any) {
     const delivered = toUnits(body.amount_crypto);
     if (delivered < bigintAmount) {
       console.warn(
-        `[elementpay] treasury shortfall on ${t.transactionCode}: received ${body.amount_crypto} USDC, crediting ${usdcAmountToCredit} USDC`
+        `[elementpay] treasury shortfall on ${t.transactionCode}: received ${body.amount_crypto} USDC, crediting ${usdcAmountToCredit} USDC`,
       );
     }
   } catch {
@@ -1597,11 +1890,16 @@ async function fulfillOnramp(transaction: any, body: any) {
     if (t.type === "payment") {
       let actualBlockchainId = t.chamaId ? Number(t.chamaId) : 0;
       if (t.chamaId) {
-        const chama = await prisma.chama.findUnique({ where: { id: t.chamaId } });
+        const chama = await prisma.chama.findUnique({
+          where: { id: t.chamaId },
+        });
         if (chama) actualBlockchainId = Number(chama.blockchainId);
       }
       // Treasury -> payer, then payer -> chama contract
-      await treasuryTransferToUser(t.user.smartAddress as `0x${string}`, bigintAmount);
+      await treasuryTransferToUser(
+        t.user.smartAddress as `0x${string}`,
+        bigintAmount,
+      );
       await sleep(5000); // let RPC/CDP nodes see the new balance
 
       if (!t.user.cdpWalletId) {
@@ -1613,32 +1911,44 @@ async function fulfillOnramp(transaction: any, body: any) {
               t.user.cdpWalletId,
               BigInt(actualBlockchainId),
               targetAddress,
-              usdcAmountToCredit
+              usdcAmountToCredit,
             )
           : await bcDepositFundsToChama(
               t.user.cdpWalletId,
               BigInt(actualBlockchainId),
-              usdcAmountToCredit
+              usdcAmountToCredit,
             );
     } else if (t.type === "moonwell") {
-      await treasuryTransferToUser(targetAddress as `0x${string}`, bigintAmount);
+      await treasuryTransferToUser(
+        targetAddress as `0x${string}`,
+        bigintAmount,
+      );
       await sleep(5000);
       if (!t.user.cdpWalletId) {
         throw new Error("No CDP Wallet found for user to deposit to Moonwell");
       }
-      txResult = await bcMoonwellDeposit(t.user.cdpWalletId, usdcAmountToCredit);
+      txResult = await bcMoonwellDeposit(
+        t.user.cdpWalletId,
+        usdcAmountToCredit,
+      );
       description = "Moonwell Deposit via M-Pesa";
     } else if (t.type === "goal" && t.goalId) {
       const goal = await prisma.goal.findUnique({ where: { id: t.goalId } });
       if (!goal) throw new Error("Goal not found for pay-link contribution");
 
-      txResult = await bcTreasuryGoalContribute(BigInt(goal.blockchainId), usdcAmountToCredit);
+      txResult = await bcTreasuryGoalContribute(
+        BigInt(goal.blockchainId),
+        usdcAmountToCredit,
+      );
       description = "Goal contribution via M-Pesa";
 
       const msg = typeof t.message === "string" ? t.message : "";
       const isGuestPay = msg.startsWith("guest:");
       const payerAddr =
-        t.user?.smartAddress || t.walletAddress || process.env.TREASURY_WALLET || "treasury";
+        t.user?.smartAddress ||
+        t.walletAddress ||
+        process.env.TREASURY_WALLET ||
+        "treasury";
 
       await prisma.goalContribution.create({
         data: {
@@ -1656,7 +1966,10 @@ async function fulfillOnramp(transaction: any, body: any) {
       });
     } else {
       // plain wallet deposit
-      txResult = await treasuryTransferToUser(targetAddress as `0x${string}`, bigintAmount);
+      txResult = await treasuryTransferToUser(
+        targetAddress as `0x${string}`,
+        bigintAmount,
+      );
     }
 
     if (!txResult) throw new Error("Onchain transfer returned no result");
@@ -1667,7 +1980,9 @@ async function fulfillOnramp(transaction: any, body: any) {
         memberForId && description.includes("on behalf of")
           ? `Deposited for @${description.split("on behalf of @")[1] || "member"}`
           : description;
-      const displayUsdc = t.cusdAmount ? t.cusdAmount.toString() : t.amount.toString();
+      const displayUsdc = t.cusdAmount
+        ? t.cusdAmount.toString()
+        : t.amount.toString();
 
       await prisma.payment.create({
         data: {
@@ -1702,14 +2017,18 @@ async function fulfillOnramp(transaction: any, body: any) {
     // Keep isRealesed=true on purpose: a retry could double-pay if the treasury leg already went through.
     console.error(
       `[elementpay] CRITICAL: onchain credit failed for ${t.transactionCode}; needs manual review`,
-      err
+      err,
     );
     await prisma.pretiumTransaction
       .update({
         where: { id: t.id },
         data: {
           status: "processing",
-          message: `ONCHAIN_FAILED: ${(err as Error)?.message || "unknown error"}`.slice(0, 250),
+          message:
+            `ONCHAIN_FAILED: ${(err as Error)?.message || "unknown error"}`.slice(
+              0,
+              250,
+            ),
         },
       })
       .catch(() => {});
@@ -1723,7 +2042,9 @@ async function fulfillOnramp(transaction: any, body: any) {
       dateStyle: "medium",
       timeStyle: "short",
     });
-    const amountUsdc = t.cusdAmount ? t.cusdAmount.toString() : t.amount.toString();
+    const amountUsdc = t.cusdAmount
+      ? t.cusdAmount.toString()
+      : t.amount.toString();
 
     if (t.user.emailNotify && t.type === "deposit") {
       await emailService.sendMpesaDepositEmail(
@@ -1732,7 +2053,7 @@ async function fulfillOnramp(transaction: any, body: any) {
         t.user.location === "KE" ? t.amount.toString() : null,
         t.transactionCode, // Element Pay doesn't return an M-Pesa receipt; use the order id
         t.shortcode || "M-Pesa",
-        timeStr
+        timeStr,
       );
     }
 
@@ -1744,7 +2065,9 @@ async function fulfillOnramp(transaction: any, body: any) {
       if (targetUser?.emailNotify) {
         let chamaName = "Chama";
         if (t.chamaId) {
-          const chama = await prisma.chama.findUnique({ where: { id: t.chamaId } });
+          const chama = await prisma.chama.findUnique({
+            where: { id: t.chamaId },
+          });
           if (chama) chamaName = chama.name;
         }
         await emailService.sendPaidForSomeoneEmail(
@@ -1752,7 +2075,7 @@ async function fulfillOnramp(transaction: any, body: any) {
           t.user.userName || "Someone",
           amountUsdc,
           targetUser.location === "KE" ? t.amount.toString() : null,
-          chamaName
+          chamaName,
         );
       }
     }
@@ -1773,7 +2096,9 @@ async function fulfillOnramp(transaction: any, body: any) {
 
 export async function getElementPayRate(_req: Request, res: Response) {
   try {
-    return res.status(200).json({ success: true, currency: "KES", rate: Number(platformRate()) });
+    return res
+      .status(200)
+      .json({ success: true, currency: "KES", rate: Number(platformRate()) });
   } catch (error) {
     return sendEpError(res, error, "Failed to get rate");
   }
@@ -1784,21 +2109,30 @@ function clientStatus(tx: any): { status: string; message: string } {
   const noun = isOnramp ? "Payment" : "Withdrawal";
   switch (tx.status) {
     case "COMPLETE":
-      return { status: "completed", message: isOnramp ? "Deposit complete" : "Withdrawal complete" };
+      return {
+        status: "completed",
+        message: isOnramp ? "Deposit complete" : "Withdrawal complete",
+      };
     case "FAILED":
       return {
         status: "failed",
-        message: /refund/i.test(String(tx.message ?? "")) ? `${noun} refunded` : `${noun} failed`,
+        message: /refund/i.test(String(tx.message ?? ""))
+          ? `${noun} refunded`
+          : `${noun} failed`,
       };
     case "processing":
       return {
         status: "processing",
-        message: isOnramp ? "Payment received. Crediting your wallet" : "Withdrawal in progress",
+        message: isOnramp
+          ? "Payment received. Crediting your wallet"
+          : "Withdrawal in progress",
       };
     default:
       return {
         status: "pending",
-        message: isOnramp ? "Waiting for your M-Pesa PIN" : "Starting withdrawal",
+        message: isOnramp
+          ? "Waiting for your M-Pesa PIN"
+          : "Starting withdrawal",
       };
   }
 }
@@ -1809,16 +2143,24 @@ export async function getElementPayStatus(req: Request, res: Response) {
 
   try {
     if (!userId) {
-      return res.status(401).json({ success: false, error: "Authentication required" });
+      return res
+        .status(401)
+        .json({ success: false, error: "Authentication required" });
     }
     if (!transactionCode) {
-      return res.status(400).json({ success: false, error: "transactionCode is required" });
+      return res
+        .status(400)
+        .json({ success: false, error: "transactionCode is required" });
     }
 
-    const tx: any = await prisma.pretiumTransaction.findUnique({ where: { transactionCode } });
+    const tx: any = await prisma.pretiumTransaction.findUnique({
+      where: { transactionCode },
+    });
     // same 404 for "not yours" and "doesn't exist", so order ids can't be probed
     if (!tx || tx.userId !== userId) {
-      return res.status(404).json({ success: false, error: "Transaction not found" });
+      return res
+        .status(404)
+        .json({ success: false, error: "Transaction not found" });
     }
 
     const { status, message } = clientStatus(tx);
