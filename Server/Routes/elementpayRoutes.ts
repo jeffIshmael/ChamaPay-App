@@ -10,8 +10,8 @@ router.post("/onramp", authenticate, initiateElementPayOnramp);
 router.post("/offramp", authenticate, initiateElementPayOfframp);
 router.post("/webhook", elementPayWebhook);
 
-router.get("/elementpay/status/:transactionCode", authenticate, getElementPayStatus);
-router.get("/elementpay/rate", getElementPayRate);
+router.get("/status/:transactionCode", authenticate, getElementPayStatus);
+router.get("/rate", getElementPayRate);
 
 export default router; 
 
