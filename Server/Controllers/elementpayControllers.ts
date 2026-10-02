@@ -913,7 +913,7 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
       return res.status(400).json({ success: false, error: "Amount is too small" });
     }
     const usdcToCredit = formatUnits(usdcUnits, USDC_DECIMALS);
-    const fullPrecision = formatUnits(kesToUsdc(requestedKes, rate, 18), 18);
+   
 
     const treasury = treasuryAddress();
     const provider = await getMpesaProvider("OnRamp");
@@ -923,9 +923,11 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
     // 1) Quote (reuse the one the user was shown if it is still valid)
     let quoteId: string;
     let quotedAt: number;
+    let elementpayRate: number;
+    let amountElementpayGives:number;
     let treasuryUnits: bigint | null;
     const reuse = takeReusableQuote(clientQuoteId, userId, "onramp", String(requestedKes), payPhone);
-    console.log("reuse", reuse);
+
     if (reuse) {
       quoteId = clientQuoteId;
       quotedAt = reuse.createdAt;
@@ -935,8 +937,17 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
       console.log("q", q);
       quoteId = q.quote_id;
       quotedAt = Date.now();
+      elementpayRate = q.amounts.rate;
+      amountElementpayGives = q.amounts.user_receives.amount;
       treasuryUnits = receivesUnits(q);
     }
+
+    console.log("elementpay rate is", elementpayRate!);
+    console.log(`amount user needs: ${usdcToCredit} USDC. Elelemntpay gives: ${amountElementpayGives!} USDC.`)
+    if (Number(amountElementpayGives!) < Number(usdcToCredit)){
+        console.log(`we are about to add this ${Number(usdcToCredit) - Number(amountElementpayGives!)} USDC`)
+    }
+
 
     // Visibility into FX-reserve exposure: what the treasury receives vs. what we owe the user
     if (treasuryUnits !== null && treasuryUnits < usdcUnits) {
@@ -950,9 +961,18 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
 
     // 2) Accept -> triggers the M-Pesa STK push
     const acceptRes = await acceptQuote(quoteId, quotedAt);
-    const orderId: string | undefined = acceptRes?.data?.order?.order_id;
+
+    // native rail: order_id is null until the on-chain order is created; fall back to
+    // identifiers that the webhook also carries (invoice_id / creation_transaction_hash)
+    const orderId: string | undefined =
+      acceptRes?.data?.order?.order_id ||
+      acceptRes?.data?.audit?.partner_quote_invoice_id ||
+      acceptRes?.data?.accepted?.creation_tx_hash ||
+      acceptRes?.data?.order?.creation_transaction_hash ||
+      undefined;
+    
     if (!orderId) {
-      console.error(`[elementpay] accept returned no order_id for quote ${quoteId}`, acceptRes);
+      console.error(`[elementpay] CRITICAL: accepted quote ${quoteId} but no usable id`, acceptRes);
       throw new ElementPayError(502, "Element Pay did not return an order");
     }
 
@@ -996,7 +1016,7 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
       throw dbErr;
     }
     console.log(
-      `[elementpay] on-ramp ${orderId}: KES ${requestedKes} @ ${rate} -> ${usdcToCredit} USDC (full precision ${fullPrecision})`
+      `[elementpay] on-ramp ${orderId}: KES ${requestedKes} @ ${rate} -> ${usdcToCredit} USDC`
     );
 
     return res.status(200).json({

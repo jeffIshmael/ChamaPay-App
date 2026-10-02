@@ -22,3 +22,6 @@ async function measure() {
   console.timeEnd("getChamaBySlug-2");
 }
 measure().catch(console.error).finally(() => process.exit(0));
+
+const message = " Confirmed. You have <dynamic value e.g withdrawn, deposited> <dynamic value i.e amount> KES (<amount> USDC) to <dynamic value i.e chama or chamapay account>. <dynamic "
+
