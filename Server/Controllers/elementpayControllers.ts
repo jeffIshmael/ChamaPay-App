@@ -30,7 +30,7 @@
 //   ELEMENTPAY_SANDBOX_OFFRAMP_OUTCOME   "Successful" (default) | "Failure": sandbox off-ramp outcome is driven by customer.name
 //                                        (only works with the inline customer, not a vault customer_id)
 //   ELEMENTPAY_OFFRAMP_ASSET_TOKEN / _CURRENCY / _NETWORK   default Base USDC. See the warning at OFFRAMP_ASSET.
-//   ELEMENTPAY_OFFRAMP_FEE_BPS           explicit withdrawal fee in basis points. Default 150 (= 1.5%)
+//   (off-ramp fee now comes from WITHDRAWAL_FEE_BRACKETS, in KES; ELEMENTPAY_OFFRAMP_FEE_BPS is no longer used)
 //   ELEMENTPAY_OFFRAMP_ONCHAIN=true      run the on-chain legs in sandbox too (they always run in production)
 //   ELEMENTPAY_ENV=production            LIVE: uses ELEMENTPAY_URL (default https://api.elementpay.net) / ELEMENTPAY_API_KEY and the live key's webhook secret
 //   ELEMENTPAY_REFERENCE_USDC            sample size for the page-load off-ramp rate quote. Default 10
@@ -48,6 +48,8 @@ import {
   bcTreasuryGoalContribute,
 } from "../Blockchain/WriteFunction";
 import { transferTx } from "../Blockchain/erc20Functions";
+// KES fee table. ADJUST THIS PATH to wherever WITHDRAWAL_FEE_BRACKETS lives in your backend.
+import { WITHDRAWAL_FEE_BRACKETS } from "../Lib/transactionFees";
 import emailService from "../Lib/EmailService";
 import { getCached, setCache } from "../Lib/cache";
 import { treasuryTransferToUser } from "../Lib/pimlicoAgent";
@@ -83,11 +85,6 @@ const OFFRAMP_ASSET = {
 // on-chain deposit, so by default we skip debiting the user / sending crypto outside production.
 const OFFRAMP_ONCHAIN =
   IS_PRODUCTION || process.env.ELEMENTPAY_OFFRAMP_ONCHAIN === "true";
-
-const OFFRAMP_FEE_BPS: bigint = (() => {
-  const n = Number(process.env.ELEMENTPAY_OFFRAMP_FEE_BPS ?? "150");
-  return Number.isInteger(n) && n >= 0 && n < 10_000 ? BigInt(n) : 150n;
-})();
 
 const SANDBOX_SUCCESS_PHONE = "+2541111111111";
 const WEBHOOK_TOLERANCE_SECONDS = 300; // Element Pay: reject signatures older than 5 minutes
@@ -299,10 +296,204 @@ function parseUsdcInput(input: unknown): bigint | null {
   return units > 0n ? units : null;
 }
 
-// Explicit withdrawal fee, rounded UP in the platform's favour. net is what is sent through Element Pay.
-function splitOfframpAmount(gross: bigint) {
-  const fee = (gross * OFFRAMP_FEE_BPS + 9_999n) / 10_000n;
-  return { gross, fee, net: gross - fee };
+// ---------------------------------------------------------------------------
+// Withdrawal pricing: the user types KES, our fee comes from WITHDRAWAL_FEE_BRACKETS (KES), Element Pay
+// pays (KES - fee) to M-Pesa at its real rate, and we work out the USDC that has to leave the wallet.
+// ---------------------------------------------------------------------------
+
+const OFFRAMP_MIN_KES: number = WITHDRAWAL_FEE_BRACKETS[0].min;
+const OFFRAMP_MAX_KES: number =
+  WITHDRAWAL_FEE_BRACKETS[WITHDRAWAL_FEE_BRACKETS.length - 1].max;
+const OFFRAMP_REF_KEY = "elementpay:ref:offramp";
+
+interface OfframpPlan {
+  kesCents: string; // what the user typed, in cents
+  feeKes: number; // our fee (from the bracket table)
+  receiveKes: number; // what Element Pay pays to M-Pesa (from the binding quote)
+  netUnits: string; // USDC sent to Element Pay
+  feeUnits: string; // USDC the treasury keeps
+  grossUnits: string; // USDC debited from the user (net + fee)
+  effectiveRate: string; // KES per USDC that reaches Element Pay, after their fees
+}
+
+// "500" | "500.5" | 500.25 -> cents. At most 2 decimals.
+function parseKesInput(input: unknown): bigint | null {
+  const s =
+    typeof input === "number"
+      ? Number.isFinite(input)
+        ? String(input)
+        : ""
+      : String(input ?? "").trim();
+  if (!/^\d+(\.\d{1,2})?$/.test(s)) return null;
+  const [i, f = ""] = s.split(".");
+  const cents = BigInt(i) * 100n + BigInt(f.padEnd(2, "0"));
+  return cents > 0n ? cents : null;
+}
+
+function kesToCents(amount: unknown): bigint {
+  const n = Number(amount);
+  if (!Number.isFinite(n) || n < 0) {
+    throw new ElementPayError(502, "Element Pay returned an invalid amount");
+  }
+  return BigInt(Math.round(n * 100));
+}
+
+// Integer division rounded toward +infinity (b > 0). BigInt division truncates toward zero,
+// which already is the ceiling for negative numerators.
+function ceilDiv(a: bigint, b: bigint): bigint {
+  return a >= 0n ? (a + b - 1n) / b : a / b;
+}
+
+// KES (in cents) / rate -> USDC units, rounded UP so we never under-send.
+function kesCentsToUsdcUnitsCeil(kesCents: bigint, rate: string): bigint {
+  const { n, scale } = parseDec(rate);
+  if (n === 0n) throw new Error("Rate must be greater than zero");
+  return ceilDiv(kesCents * 10_000n * 10n ** BigInt(scale), n);
+}
+
+// Our fee for paying out `kesCents` (the whole amount the user typed).
+function withdrawalFeeKes(kesCents: bigint): number {
+  const kes = Math.ceil(Number(kesCents) / 100); // brackets have gaps like 500 -> 501
+  const bracket = WITHDRAWAL_FEE_BRACKETS.find(
+    (b) => kes >= b.min && kes <= b.max,
+  );
+  if (!bracket) {
+    throw new ElementPayError(
+      400,
+      `Withdrawals must be between KES ${OFFRAMP_MIN_KES.toLocaleString()} and KES ${OFFRAMP_MAX_KES.toLocaleString()}`,
+    );
+  }
+  return bracket.fee;
+}
+
+interface RefRate {
+  effectiveRate: string;
+  listedRate: unknown;
+  expiresAt: number;
+}
+
+// Effective KES per USDC (after Element Pay's fees) from a reference-size quote. Same for every user,
+// so it is shared for 30s. Only used to size the real quote and to show the page rate.
+async function referenceOfframpRate(
+  userId: number,
+  payPhone: string,
+  provider: Provider,
+  treasury: string,
+): Promise<RefRate> {
+  const cached = getCached<RefRate>(OFFRAMP_REF_KEY);
+  if (cached) return cached;
+
+  const refUnits = parseUsdcInput(process.env.ELEMENTPAY_REFERENCE_USDC || "10");
+  if (!refUnits) throw new Error("ELEMENTPAY_REFERENCE_USDC is invalid");
+  const q = await createQuote(
+    await offrampQuoteBody(userId, payPhone, refUnits, provider.id, treasury),
+  );
+  const payout = q?.amounts?.user_receives?.amount;
+  const effectiveRate = payout
+    ? ratioString(payout, formatUnits(refUnits, USDC_DECIMALS), 6)
+    : null;
+  if (!effectiveRate) {
+    throw new ElementPayError(502, "Element Pay did not return a rate");
+  }
+  const out: RefRate = {
+    effectiveRate,
+    listedRate: q?.amounts?.rate ?? null,
+    expiresAt: Date.parse(q?.expires_at) || Date.now() + QUOTE_FALLBACK_TTL_MS,
+  };
+  setCache(OFFRAMP_REF_KEY, out, 30_000);
+  return out;
+}
+
+// Binding price for a withdrawal. Sizes the USDC so Element Pay pays exactly (kes - fee) to M-Pesa
+// (never less, at most KES 1 more), re-quoting up to 3 times because their fee/rate may not be linear.
+async function priceOfframp(
+  userId: number,
+  payPhone: string,
+  provider: Provider,
+  treasury: string,
+  kesCents: bigint,
+): Promise<{ q: any; plan: OfframpPlan }> {
+  const feeKes = withdrawalFeeKes(kesCents);
+  const targetCents = kesCents - BigInt(feeKes) * 100n; // what M-Pesa must receive
+  if (targetCents <= 0n) {
+    throw new ElementPayError(400, "Amount is too small to withdraw");
+  }
+
+  const ref = await referenceOfframpRate(userId, payPhone, provider, treasury);
+  let net = kesCentsToUsdcUnitsCeil(targetCents, ref.effectiveRate);
+
+  let q: any;
+  let payoutCents = 0n;
+  let ok = false;
+  for (let i = 0; i < 3; i++) {
+    q = await createQuote(
+      await offrampQuoteBody(userId, payPhone, net, provider.id, treasury),
+    );
+    payoutCents = kesToCents(q?.amounts?.user_receives?.amount);
+    const diff = targetCents - payoutCents; // > 0: they would pay us too little
+    if (diff <= 0n && diff > -100n) {
+      ok = true; // payout is within [target, target + KES 1)
+      break;
+    }
+    if (i === 2) break;
+    // payout moves by `listed rate` KES per USDC, so shift the USDC by diff / rate
+    const { n, scale } = parseDec(q?.amounts?.rate);
+    net += ceilDiv(diff * 10_000n * 10n ** BigInt(scale), n);
+    if (net <= 0n) {
+      throw new ElementPayError(400, "Amount is too small to withdraw");
+    }
+  }
+  if (!ok) {
+    throw new ElementPayError(
+      502,
+      "Could not price this withdrawal. Please try again.",
+    );
+  }
+
+  const netStr = formatUnits(net, USDC_DECIMALS);
+  const payoutKes = Number(payoutCents) / 100;
+  const effectiveRate = ratioString(payoutKes, netStr, 6);
+  if (!effectiveRate) {
+    throw new ElementPayError(502, "Element Pay did not return a rate");
+  }
+
+  // our fee is a KES amount; collect it in USDC at the same effective rate, rounded up
+  const feeUnits = kesCentsToUsdcUnitsCeil(BigInt(feeKes) * 100n, effectiveRate);
+  const plan: OfframpPlan = {
+    kesCents: kesCents.toString(),
+    feeKes,
+    receiveKes: payoutKes,
+    netUnits: net.toString(),
+    feeUnits: feeUnits.toString(),
+    grossUnits: (net + feeUnits).toString(),
+    effectiveRate,
+  };
+  return { q, plan };
+}
+
+function offrampPayload(
+  quoteId: string | null,
+  expiresAt: number,
+  plan: OfframpPlan,
+) {
+  return {
+    success: true,
+    type: "offramp",
+    mode: "exact",
+    quoteId,
+    expiresAt: new Date(expiresAt).toISOString(),
+    kes: {
+      amount: Number(plan.kesCents) / 100, // what the user typed
+      fee: plan.feeKes, // our fee
+      receive: plan.receiveKes, // what lands in M-Pesa
+    },
+    usdc: {
+      gross: formatUnits(BigInt(plan.grossUnits), USDC_DECIMALS), // leaves the wallet
+      fee: formatUnits(BigInt(plan.feeUnits), USDC_DECIMALS),
+      net: formatUnits(BigInt(plan.netUnits), USDC_DECIMALS),
+    },
+    rate: plan.effectiveRate,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -403,10 +594,10 @@ async function getMpesaProvider(orderType: OrderType): Promise<Provider> {
 
 function assertWithinLimits(provider: Provider, kes: number) {
   if (provider.min && kes < provider.min) {
-    throw new ElementPayError(400, `Minimum deposit is KES ${provider.min}`);
+    throw new ElementPayError(400, `Minimum amount is KES ${provider.min}`);
   }
   if (provider.max && kes > provider.max) {
-    throw new ElementPayError(400, `Maximum deposit is KES ${provider.max}`);
+    throw new ElementPayError(400, `Maximum amount is KES ${provider.max}`);
   }
 }
 
@@ -527,7 +718,8 @@ async function loadCustomerProfile(userId: number): Promise<CustomerProfile> {
       last = last || parts.slice(1).join(" ");
     }
   }
-  const dob = u.kycDateOfBirth;
+  const dob = toEpDob( u.kycDateOfBirth);
+  console.log("the right date of birth", dob);
   const idNumber = approved
     ? await readDocumentNumber(u.kycDocumentNumber)
     : "";
@@ -726,6 +918,7 @@ interface CachedQuote {
   createdAt: number;
   expiresAt: number;
   usdcToTreasuryUnits: string | null; // on-ramp only, for the FX-reserve check
+  plan?: OfframpPlan; // off-ramp only: the priced withdrawal the user was shown
 }
 
 const quoteKey = (id: string) => `elementpay:quote:${id}`;
@@ -774,7 +967,7 @@ function receivesUnits(q: any): bigint | null {
 //
 //   body: { type: "onramp" | "offramp", amount, phoneNo }
 //     onramp : amount = KES (whole number)
-//     offramp: amount = USDC to withdraw, before our fee (max 6 decimals)
+//     offramp: kesAmount = KES the user types (our fee is taken out of it); omit for the page rate
 //
 // This calls POST /partner/orders/quote and does NOT accept it, so nothing is charged. The returned
 // quoteId can be sent back to the on/off-ramp endpoint to accept exactly this quote until `expiresAt`.
@@ -870,79 +1063,51 @@ export async function getElementPayQuote(req: Request, res: Response) {
       });
     }
 
-    // off-ramp. `amount` is optional: without it we price a reference size, so the page can show the
-    // real, fee-inclusive rate before the user types anything. With an amount you get a binding quote
-    // whose quoteId can be sent to /elementpay/offramp.
-    const hasAmount = String(req.body?.amount ?? "").trim() !== "";
-    const refKey = "elementpay:ref:offramp";
-    if (!hasAmount) {
-      const cachedRef = getCached<Record<string, unknown>>(refKey);
-      if (cachedRef) return res.status(200).json(cachedRef); // same for every user, so share it for 30s
-    }
-
-    const gross = parseUsdcInput(
-      hasAmount
-        ? req.body?.amount
-        : process.env.ELEMENTPAY_REFERENCE_USDC || "10",
-    );
-    if (!gross) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Enter a USDC amount with at most 6 decimals",
-        });
-    }
-    const { fee, net } = splitOfframpAmount(gross);
-    if (net <= 0n) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Amount is too small to withdraw" });
-    }
-
+    // off-ramp (KES in). Without `kesAmount` we return the reference effective rate, so the page can show
+    // "1 USDC = X KES" and the withdrawable balance. With `kesAmount` we return a BINDING quote: our fee
+    // from the bracket table, the KES the user receives and the exact USDC that will leave the wallet.
     const provider = await getMpesaProvider("OffRamp");
-    const q = await createQuote(
-      await offrampQuoteBody(userId, payPhone, net, provider.id, treasury),
-    );
-    const expiresAt = hasAmount
-      ? rememberQuote(q, {
-          userId,
-          type: "offramp",
-          amountKey: gross.toString(),
-          phone: payPhone,
-          usdcToTreasuryUnits: null,
-        })
-      : Date.parse(q?.expires_at) || Date.now() + QUOTE_FALLBACK_TTL_MS;
-    const payout = q?.amounts?.user_receives; // KES the user is paid
-    const grossStr = formatUnits(gross, USDC_DECIMALS);
-    const netStr = formatUnits(net, USDC_DECIMALS);
+    const hasAmount = String(req.body?.kesAmount ?? "").trim() !== "";
 
-    const payload = {
-      success: true,
+    if (!hasAmount) {
+      const ref = await referenceOfframpRate(userId, payPhone, provider, treasury);
+      return res.status(200).json({
+        success: true,
+        type: "offramp",
+        mode: "reference",
+        effectiveRate: ref.effectiveRate, // KES per 1 USDC, after Element Pay's fees
+        listedRate: ref.listedRate,
+        expiresAt: new Date(ref.expiresAt).toISOString(),
+        minKes: OFFRAMP_MIN_KES,
+        maxKes: OFFRAMP_MAX_KES,
+      });
+    }
+
+    const kesCents = parseKesInput(req.body?.kesAmount);
+    if (!kesCents) {
+      return res.status(400).json({
+        success: false,
+        error: "Enter a KES amount with at most 2 decimals",
+      });
+    }
+    assertWithinLimits(provider, Math.ceil(Number(kesCents) / 100));
+
+    const { q, plan } = await priceOfframp(
+      userId,
+      payPhone,
+      provider,
+      treasury,
+      kesCents,
+    );
+    const expiresAt = rememberQuote(q, {
+      userId,
       type: "offramp",
-      mode: hasAmount ? "exact" : "reference",
-      quoteId: hasAmount ? q.quote_id : null,
-      expiresAt: new Date(expiresAt).toISOString(),
-      usdc: {
-        gross: grossStr,
-        fee: formatUnits(fee, USDC_DECIMALS),
-        net: netStr,
-        feePercent: (Number(OFFRAMP_FEE_BPS) / 100).toString(),
-      },
-      elementPay: {
-        listedRate: q?.amounts?.rate ?? null,
-        payout: payout ?? null, // KES the user would receive for this amount
-        // KES per USDC that reaches Element Pay (after their fees)
-        effectiveRate: payout ? ratioString(payout.amount, netStr, 4) : null,
-        fees: q?.amounts?.fees ?? null,
-      },
-      user: {
-        // KES per 1 USDC the user withdraws, after Element Pay's fees AND our fee
-        effectiveRate: payout ? ratioString(payout.amount, grossStr, 4) : null,
-      },
-    };
-    if (!hasAmount) setCache(refKey, payload, 30_000);
-    return res.status(200).json(payload);
+      amountKey: kesCents.toString(),
+      phone: payPhone,
+      usdcToTreasuryUnits: null,
+      plan,
+    });
+    return res.status(200).json(offrampPayload(q.quote_id, expiresAt, plan));
   } catch (error) {
     return sendEpError(res, error, "Failed to get Element Pay quote");
   }
@@ -1182,14 +1347,17 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
 }
 
 // ---------------------------------------------------------------------------
-// POST  off-ramp initiate   body: { usdcAmount, phoneNo, quoteId? }
+// POST  off-ramp initiate   body: { kesAmount, phoneNo, quoteId?, expectedUsdc? }
 //
-// usdcAmount is what leaves the user's wallet (gross). We keep OFFRAMP_FEE_BPS and send the rest
-// through Element Pay at its real rate, so the user sees an honest rate plus an explicit fee.
+// kesAmount is what the user typed. Our fee comes from WITHDRAWAL_FEE_BRACKETS, Element Pay pays
+// (kesAmount - fee) to M-Pesa, and the USDC leaves the user's wallet in ONE transfer to the treasury.
+// The treasury keeps the fee and forwards the net to Element Pay's per-order deposit address.
+// If the quote the user confirmed has expired we re-price, and refuse (409 RATE_CHANGED) when that
+// would cost the user more than 0.5% extra USDC than the amount they confirmed (`expectedUsdc`).
 // ---------------------------------------------------------------------------
 
 export async function initiateElementPayOfframp(req: Request, res: Response) {
-  const { usdcAmount, phoneNo, quoteId: clientQuoteId } = req.body;
+  const { kesAmount, phoneNo, quoteId: clientQuoteId, expectedUsdc } = req.body;
   const userId = req.user?.userId;
 
   try {
@@ -1209,39 +1377,27 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
         .json({ success: false, error: "User wallet not found" });
     }
 
-    if (!usdcAmount || !phoneNo) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Amount and phone number are required",
-        });
+    if (!kesAmount || !phoneNo) {
+      return res.status(400).json({
+        success: false,
+        error: "Amount and phone number are required",
+      });
     }
 
-    const gross = parseUsdcInput(usdcAmount);
-    if (!gross) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Enter a USDC amount with at most 6 decimals",
-        });
-    }
-    const { fee, net } = splitOfframpAmount(gross);
-    if (net <= 0n) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Amount is too small to withdraw" });
+    const kesCents = parseKesInput(kesAmount);
+    if (!kesCents) {
+      return res.status(400).json({
+        success: false,
+        error: "Enter a KES amount with at most 2 decimals",
+      });
     }
 
     const phone = toKenyaE164(phoneNo);
     if (!phone) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Enter a valid Safaricom number (e.g. 0712345678)",
-        });
+      return res.status(400).json({
+        success: false,
+        error: "Enter a valid Safaricom number (e.g. 0712345678)",
+      });
     }
 
     if (OFFRAMP_ONCHAIN && OFFRAMP_ASSET.network.toUpperCase() !== "BASE") {
@@ -1251,35 +1407,60 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
       );
     }
 
-    // TODO: apply your KYC / withdrawal-limit gate here (the on-ramp uses checkOnrampKesAllowed).
-
     const treasury = treasuryAddress();
     const provider = await getMpesaProvider("OffRamp");
+    assertWithinLimits(provider, Math.ceil(Number(kesCents) / 100));
     const payPhone = resolvePayPhone(phone);
 
-    // 1) Quote (reuse the one the user was shown if it is still valid)
+    // 1) Price it: reuse the quote the user confirmed if it is still valid, otherwise re-price
     let quoteId: string;
     let quotedAt: number;
+    let plan: OfframpPlan;
     const reuse = takeReusableQuote(
       clientQuoteId,
       userId,
       "offramp",
-      gross.toString(),
+      kesCents.toString(),
       payPhone,
     );
-    if (reuse) {
+    if (reuse?.plan) {
       quoteId = clientQuoteId;
       quotedAt = reuse.createdAt;
+      plan = reuse.plan;
     } else {
-      const q = await createQuote(
-        await offrampQuoteBody(userId, payPhone, net, provider.id, treasury),
+      const priced = await priceOfframp(
+        userId,
+        payPhone,
+        provider,
+        treasury,
+        kesCents,
       );
-      quoteId = q.quote_id;
+      quoteId = priced.q.quote_id;
       quotedAt = Date.now();
+      plan = priced.plan;
+      console.log("The offramp plan", plan);
+
+      // The confirmed quote is gone. Never silently charge noticeably more than what the user agreed to.
+      const confirmed = parseUsdcInput(expectedUsdc);
+      if (confirmed && BigInt(plan.grossUnits) > confirmed + confirmed / 200n) {
+        return res.status(409).json({
+          ...offrampPayload(null, Date.now(), plan),
+          success: false,
+          code: "RATE_CHANGED",
+          error: "The rate changed. Please review the new amount.",
+        });
+      }
     }
+
+    const gross = BigInt(plan.grossUnits);
+    const net = BigInt(plan.netUnits);
+    const fee = BigInt(plan.feeUnits);
+
+    console.log("accepting the quote...");
 
     // 2) Accept -> creates the order and (live) returns the per-order crypto deposit address
     const acceptRes = await acceptQuote(quoteId, quotedAt);
+    console.log("the accepted quote", acceptRes);
     const orderId: string | undefined = acceptRes?.data?.order?.order_id;
     if (!orderId) {
       console.error(
@@ -1298,6 +1479,7 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
       `[elementpay] off-ramp ${orderId} payment_instructions:`,
       JSON.stringify(instructions ?? null),
     );
+    console.log(`The deposit address ${depositAddress} and amount is ${deposit}`);
 
     if (OFFRAMP_ONCHAIN) {
       if (!depositAddress) {
@@ -1341,14 +1523,14 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
           transactionCode: orderId,
           isOnramp: false,
           shortcode: String(phoneNo),
-          amount: Number.isFinite(fiatAmount) ? fiatAmount : 0, // KES the user will receive
+          amount: Number.isFinite(fiatAmount) ? fiatAmount : plan.receiveKes, // KES the user will receive
           type: "offramp",
           status: "PENDING",
           isRealesed: false,
-          cusdAmount: Number(formatUnits(gross, USDC_DECIMALS)), // gross USDC debited from the user
+          cusdAmount: Number(formatUnits(gross, USDC_DECIMALS)), // gross USDC debited from the user (fee included)
           exchangeRate: Number.isFinite(epRate) ? epRate : undefined, // real Element Pay rate
           walletAddress: user.smartAddress,
-          message: `elementpay quote ${quoteId}; fee ${formatUnits(fee, USDC_DECIMALS)} USDC`,
+          message: `elementpay quote ${quoteId}; fee KES ${plan.feeKes} (${formatUnits(fee, USDC_DECIMALS)} USDC)`,
         } as any,
       });
     } catch (dbErr) {
@@ -1381,12 +1563,16 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
         "Withdrawal started. You will receive the money on M-Pesa shortly.",
       status: "PENDING",
       transactionCode: orderId,
+      kes: {
+        amount: Number(plan.kesCents) / 100,
+        fee: plan.feeKes,
+        receive: plan.receiveKes,
+      },
       usdc: {
         gross: formatUnits(gross, USDC_DECIMALS),
         fee: formatUnits(fee, USDC_DECIMALS),
         net: formatUnits(net, USDC_DECIMALS),
       },
-      kesAmount: Number.isFinite(fiatAmount) ? fiatAmount : null,
     });
   } catch (error) {
     return sendEpError(res, error, "Failed to initiate Element Pay off-ramp");
