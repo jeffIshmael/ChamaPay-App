@@ -2,6 +2,7 @@ import { createServer } from "http";
 import { initialiseSocket } from "./Socket/socket";
 import app from "./app";
 import { initCronJobs } from "./Lib/cronService";
+import { startOfframpSweeper } from "./Controllers/elementpayControllers"; // adjust the path
 
 const PORT: number = parseInt(process.env.PORT || "3000", 10);
 const server = createServer(app);
@@ -18,6 +19,8 @@ async function startServer(): Promise<void> {
 
     // Initialise scheduled cron jobs
     initCronJobs();
+
+    startOfframpSweeper();
 
     // Handle graceful shutdown
     process.on("SIGTERM", (): void => {
