@@ -1560,7 +1560,6 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
     }
 
     // 3) Persist
-    const fiatAmount = Number(acceptRes?.data?.order?.amount_fiat);
     const epRate = Number(acceptRes?.data?.order?.exchange_rate);
     let row: any;
     try {
@@ -1570,7 +1569,9 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
           transactionCode: orderId,
           isOnramp: false,
           shortcode: String(phoneNo),
-          amount: Number.isFinite(fiatAmount) ? fiatAmount : plan.receiveKes, // KES the user will receive
+          // KES the user typed (fee included), e.g. 60. This is what the activity list shows;
+          // the fee (e.g. KES 5) is kept in `message` and what lands in M-Pesa is plan.receiveKes.
+          amount: Number(plan.kesCents) / 100,
           type: "offramp",
           status: "PENDING",
           isRealesed: false,
@@ -1870,14 +1871,7 @@ async function findTxWithRetry(
         OR: [
           { transactionCode: { in: codes } },
           ...(uuid
-            ? [
-                {
-                  transactionCode: {
-                    endsWith: uuid,
-                    mode: "insensitive" as const,
-                  },
-                },
-              ]
+            ? [{ transactionCode: { endsWith: uuid, mode: "insensitive" as const } }]
             : []),
         ],
       },
@@ -1990,10 +1984,7 @@ export async function reconcileOrder(row: any): Promise<void> {
 
   // assumes the model has createdAt; without it the age check is skipped
   const createdAt = row.createdAt ? new Date(row.createdAt).getTime() : NaN;
-  if (
-    Number.isFinite(createdAt) &&
-    Date.now() - createdAt < RECONCILE_MIN_AGE_MS
-  ) {
+  if (Number.isFinite(createdAt) && Date.now() - createdAt < RECONCILE_MIN_AGE_MS) {
     return;
   }
 
@@ -2088,24 +2079,8 @@ async function completeOfframp(t: any) {
   }
   console.log(`✅ Off-ramp settled ${t.transactionCode}: M-Pesa paid`);
 
-  // blockchainTxHash is only set when we really debited the user (not in sandbox with on-chain skipped)
-  if (!t.blockchainTxHash) return;
-  try {
-    await prisma.payment.create({
-      data: {
-        amount: usdcOwed(t),
-        description: "M-Pesa withdrawal",
-        txHash: t.blockchainTxHash,
-        userId: t.userId,
-        receiver: "M-Pesa",
-      },
-    });
-  } catch (err) {
-    console.error(
-      `[elementpay] could not record payment for off-ramp ${t.transactionCode}`,
-      err,
-    );
-  }
+  // No Payment row here on purpose. The pretiumTransaction row IS the withdrawal in the activity list
+  // (shown as "Withdraw"); a second Payment row showed up as a duplicate "Sent to M-Pesa".
 }
 
 async function failOfframp(t: any, event: string) {
