@@ -858,7 +858,9 @@ function extractDeposit(
   const instructions =
     acceptRes?.data?.accepted?.payment_instructions ??
     acceptRes?.data?.payment_instructions;
-  const cryptoDeposit = instructions?.crypto_deposit;
+  const cryptoDeposit =
+    instructions?.crypto_deposit ??
+    (instructions?.type === "crypto_deposit" ? instructions : undefined);
   const excluded = new Set(
     [OFFRAMP_ASSET.token, BASE_USDC_ASSET.token, treasury].map((a) =>
       String(a).toLowerCase(),
@@ -1523,7 +1525,7 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
       JSON.stringify(instructions ?? null),
     );
     console.log(
-      `The deposit address ${depositAddress} and amount is ${deposit}`,
+      `The deposit address ${depositAddress} and amount is ${deposit?.amount}`,
     );
 
     if (OFFRAMP_ONCHAIN) {
@@ -1837,10 +1839,48 @@ function webhookCodes(body: any): string[] {
   ].filter((c): c is string => typeof c === "string" && c.length > 0);
 }
 
-async function findTxWithRetry(codes: string[], attempts = 6, delayMs = 1500) {
+// Element Pay names the SAME order differently from event to event, but every name embeds one UUID:
+//   accept response / order.processing  order_id = EP-BANK-<uuid>   (this is what we store)
+//   order.settled                       order_id = <on-chain hash>, invoice_id/file_id/psp_transaction_id = EPB-<uuid>
+// So match on the UUID as well, otherwise the settled webhook never finds its row.
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+function webhookOrderUuid(body: any): string | null {
+  for (const v of [
+    body?.order_id,
+    body?.invoice_id,
+    body?.file_id,
+    body?.psp_transaction_id,
+  ]) {
+    const m = typeof v === "string" ? UUID_RE.exec(v) : null;
+    if (m) return m[0].toLowerCase();
+  }
+  return null;
+}
+
+async function findTxWithRetry(
+  codes: string[],
+  uuid: string | null = null,
+  attempts = 6,
+  delayMs = 1500,
+) {
   for (let i = 0; i < attempts; i++) {
     const tx = await prisma.pretiumTransaction.findFirst({
-      where: { transactionCode: { in: codes } },
+      where: {
+        OR: [
+          { transactionCode: { in: codes } },
+          ...(uuid
+            ? [
+                {
+                  transactionCode: {
+                    endsWith: uuid,
+                    mode: "insensitive" as const,
+                  },
+                },
+              ]
+            : []),
+        ],
+      },
       include: { user: true },
     });
     if (tx) return tx;
@@ -1853,14 +1893,24 @@ async function handleOrderEvent(event: string, body: any) {
   if (!event.startsWith("order.")) return;
 
   const codes = webhookCodes(body);
-  if (codes.length === 0) return;
-  const orderId = body?.order_id ?? codes[0]; // only used in the log messages below
+  const uuid = webhookOrderUuid(body);
+  if (codes.length === 0 && !uuid) return;
 
-  const transaction = await findTxWithRetry(codes);
+  const transaction = await findTxWithRetry(codes, uuid);
   if (!transaction) {
-    console.error(`[elementpay] no transaction found for ${codes.join(" | ")}`);
+    console.error(
+      `[elementpay] no transaction found for ${[...codes, uuid].filter(Boolean).join(" | ")}`,
+    );
     return;
   }
+
+  await applyOrderEvent(transaction, event, body);
+}
+
+// The ONE place an Element Pay state change is applied to a row. Called by the webhook and by
+// reconcileOrder (polling), so both paths share the same atomic claims and can never double-apply.
+async function applyOrderEvent(transaction: any, event: string, body: any) {
+  const orderId = body?.order_id ?? transaction.transactionCode; // only used in the log messages below
 
   // The row decides the direction; make sure the payload agrees before touching any money.
   const isOnramp = !!transaction.isOnramp;
@@ -1913,6 +1963,104 @@ async function handleOrderEvent(event: string, body: any) {
       return;
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Reconciliation: webhooks are the source of truth, polling Element Pay is the safety net.
+// Docs: GET /partner/orders/{order_id}, at most once per 10s per order. It runs
+//   - from the status endpoint, while the user is watching the modal, and
+//   - from a sweeper, for orders nobody is watching any more (app closed, phone died).
+// Both feed applyOrderEvent. Off-ramp only: on-ramp stays webhook-driven.
+// ---------------------------------------------------------------------------
+
+const RECONCILE_MIN_AGE_MS = 30_000; // give the webhook (and fundOfframpOrder) a head start
+const RECONCILE_MIN_INTERVAL_MS = 10_000; // per order, as Element Pay asks
+const EP_OFFRAMP_CODE_PREFIX = "EP-"; // Element Pay off-ramp ids (EP-BANK-<uuid>); keeps Pretium rows out
+
+// Only terminal states are acted on; anything else just means "keep waiting".
+const RECONCILE_EVENTS: Record<string, string> = {
+  settled: "order.settled",
+  failed: "order.failed",
+  refunded: "order.refunded",
+};
+
+export async function reconcileOrder(row: any): Promise<void> {
+  if (!row || row.isOnramp || row.isRealesed) return;
+  if (!["PENDING", "processing"].includes(row.status)) return;
+
+  // assumes the model has createdAt; without it the age check is skipped
+  const createdAt = row.createdAt ? new Date(row.createdAt).getTime() : NaN;
+  if (
+    Number.isFinite(createdAt) &&
+    Date.now() - createdAt < RECONCILE_MIN_AGE_MS
+  ) {
+    return;
+  }
+
+  const key = `elementpay:reconcile:${row.transactionCode}`;
+  if (getCached(key)) return;
+  setCache(key, true, RECONCILE_MIN_INTERVAL_MS);
+
+  let order: any;
+  try {
+    const res = await epRequest(
+      "GET",
+      `/partner/orders/${encodeURIComponent(row.transactionCode)}`,
+    );
+    order = res?.data?.order;
+  } catch (err) {
+    console.warn(
+      `[elementpay] reconcile ${row.transactionCode}: lookup failed:`,
+      (err as Error)?.message,
+    );
+    return;
+  }
+
+  const event = RECONCILE_EVENTS[String(order?.status ?? "").toLowerCase()];
+  if (!event) return;
+
+  // applyOrderEvent expects the row with its user, like the webhook lookup returns
+  const tx = await prisma.pretiumTransaction.findUnique({
+    where: { id: row.id },
+    include: { user: true },
+  });
+  if (!tx) return;
+  console.log(
+    `[elementpay] reconcile ${tx.transactionCode}: Element Pay says ${order.status}`,
+  );
+  await applyOrderEvent(tx, event, order);
+}
+
+let sweeping = false;
+
+// Orders still open after their webhook should have arrived. Safe to run on several instances at once:
+// every transition is an atomic claim.
+export async function reconcileStuckOfframps(): Promise<void> {
+  if (sweeping) return;
+  sweeping = true;
+  try {
+    const rows = await prisma.pretiumTransaction.findMany({
+      where: {
+        isOnramp: false,
+        isRealesed: false,
+        status: { in: ["PENDING", "processing"] },
+        transactionCode: { startsWith: EP_OFFRAMP_CODE_PREFIX },
+      },
+      take: 25,
+    });
+    for (const row of rows) await reconcileOrder(row);
+  } catch (err) {
+    console.error("[elementpay] off-ramp sweep failed", err);
+  } finally {
+    sweeping = false;
+  }
+}
+
+// Call once at server start, e.g. startOfframpSweeper() in index.ts
+export function startOfframpSweeper(intervalMs = 60_000) {
+  const timer = setInterval(() => void reconcileStuckOfframps(), intervalMs);
+  timer.unref?.();
+  return timer;
 }
 
 // ---------------------------------------------------------------------------
@@ -2357,6 +2505,10 @@ export async function getElementPayStatus(req: Request, res: Response) {
         .status(404)
         .json({ success: false, error: "Transaction not found" });
     }
+
+    // Safety net for a missed or unmatched webhook. Throttled per order and not awaited, so polling
+    // stays fast; the next poll sees whatever this finds.
+    if (!tx.isOnramp) void reconcileOrder(tx).catch(() => {});
 
     const { status, message } = clientStatus(tx);
     return res.status(200).json({

@@ -293,7 +293,6 @@ export async function initiatePretiumOfframp(req: Request, res: Response) {
 
 export async function pretiumVerifyNumber(req: Request, res: Response) {
   const { phoneNo } = req.query;
-  console.log("the phone number", phoneNo);
   try {
     // Note: the phone number should be '07....'
     if (!phoneNo) {
@@ -302,7 +301,6 @@ export async function pretiumVerifyNumber(req: Request, res: Response) {
         error: "phone number is required",
       });
     }
-
     const numberDetails = await verifyPhoneNo(phoneNo as string);
     return res.status(200).json({
       success: true,
