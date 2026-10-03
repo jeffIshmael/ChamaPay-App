@@ -206,8 +206,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // Exact decimal math (BigInt). No floats anywhere on the money path.
 //
 // USDC has 6 decimals on-chain, so 1 micro-USDC (0.000001) is the smallest amount that can ever be
-// sent. We therefore work in exact integer "units", FLOOR to 6 decimals (never round up, so we can
-// never credit more than the rate allows), and keep the full-precision value for logs.
+// sent. We therefore work in exact integer "units" and keep the full-precision value for logs.
+// Off-ramp math FLOORs to 6 decimals. What we CREDIT on an on-ramp deposit is rounded UP to 6
+// decimals (kesToUsdcCeil), so a deposit is never 1 micro-USDC short of the KES the user paid
+// (e.g. KES 1000 / 132 = 7.5757575... must be 7.575758, not 7.575757, or a chama sees a part-payment).
 // ---------------------------------------------------------------------------
 
 const USDC_DECIMALS = 6;
@@ -252,6 +254,19 @@ function kesToUsdc(
   decimals = USDC_DECIMALS,
 ): bigint {
   return divDec({ n: BigInt(kes), scale: 0 }, parseDec(rate), decimals);
+}
+
+// KES / rate -> USDC, exact, rounded UP to `decimals`. Same as kesToUsdc but never lands below the
+// true value, so (credited USDC x rate) is always >= the KES paid. Costs at most 1 micro-USDC.
+function kesToUsdcCeil(
+  kes: number,
+  rate: string,
+  decimals = USDC_DECIMALS,
+): bigint {
+  const b = parseDec(rate);
+  if (b.n === 0n) throw new Error("Division by zero");
+  const num = BigInt(kes) * 10n ** BigInt(b.scale + decimals);
+  return (num + b.n - 1n) / b.n; // ceil(num / b.n)
 }
 
 function ratioString(
@@ -1040,7 +1055,7 @@ export async function getElementPayQuote(req: Request, res: Response) {
       });
 
       const rate = platformRate();
-      const userUnits = kesToUsdc(kes, rate);
+      const userUnits = kesToUsdcCeil(kes, rate);
       const receivesRaw = q?.amounts?.user_receives?.amount;
 
       return res.status(200).json({
@@ -1195,9 +1210,10 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
       });
     }
 
-    // What we credit the user: exact integer math at CHAMAPAY_RATE, floored to the 6 decimals USDC supports.
+    // What we credit the user: exact integer math at CHAMAPAY_RATE, rounded UP to the 6 decimals USDC
+    // supports, so the credit is never below requestedKes / rate (chama payments need the full amount).
     const rate = platformRate();
-    const usdcUnits = kesToUsdc(requestedKes, rate);
+    const usdcUnits = kesToUsdcCeil(requestedKes, rate);
     if (usdcUnits <= 0n) {
       return res
         .status(400)
@@ -2135,7 +2151,7 @@ function usdcOwed(t: any): string {
   }
   if (t.isOnramp) {
     return formatUnits(
-      kesToUsdc(Math.trunc(Number(t.amount)), platformRate()),
+      kesToUsdcCeil(Math.trunc(Number(t.amount)), platformRate()),
       USDC_DECIMALS,
     );
   }
