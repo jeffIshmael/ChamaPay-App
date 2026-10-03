@@ -1944,7 +1944,7 @@ async function applyOrderEvent(transaction: any, event: string, body: any) {
 
     case "order.settled":
       if (isOnramp) await fulfillOnramp(transaction, body);
-      else await completeOfframp(transaction);
+      else await completeOfframp(transaction, body);
       return;
 
     case "order.failed":
@@ -2074,7 +2074,7 @@ export function startOfframpSweeper(intervalMs = 60_000) {
 // Off-ramp settlement
 // ---------------------------------------------------------------------------
 
-async function completeOfframp(t: any) {
+async function completeOfframp(t: any, body?: any) {
   const claim = await prisma.pretiumTransaction.updateMany({
     where: {
       id: t.id,
@@ -2094,6 +2094,31 @@ async function completeOfframp(t: any) {
     return;
   }
   console.log(`✅ Off-ramp settled ${t.transactionCode}: M-Pesa paid`);
+
+  // Best-effort email, same as the deposit path. Only the call that won the atomic claim above
+  // reaches this point, so the webhook and the sweeper can never send it twice. A failed email
+  // must never affect the completed state.
+  try {
+    if (t.user?.email && t.user.emailNotify) {
+      const timeStr = new Date().toLocaleString("en-US", {
+        timeZone: "Africa/Nairobi",
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+      await emailService.sendMpesaWithdrawEmail(
+        t.user.email,
+        t.cusdAmount != null ? t.cusdAmount.toString() : "0", // gross USDC debited
+        t.user.location === "KE" ? t.amount.toString() : null, // KES the user typed (fee included)
+        // Off-ramp settled payloads carry the real M-Pesa receipt (mpesa_receipt_number).
+        // Fall back to the order id if it is ever missing (e.g. a reconcile lookup without it).
+        String(body?.mpesa_receipt_number ?? "").trim() || t.transactionCode,
+        t.shortcode || body?.phone_number || "M-Pesa", // the phone number the payout went to
+        timeStr,
+      );
+    }
+  } catch (emailErr) {
+    console.error("[elementpay] withdrawal email failed", emailErr);
+  }
 
   // No Payment row here on purpose. The pretiumTransaction row IS the withdrawal in the activity list
   // (shown as "Withdraw"); a second Payment row showed up as a duplicate "Sent to M-Pesa".

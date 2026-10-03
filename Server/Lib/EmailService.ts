@@ -148,9 +148,9 @@ class EmailService {
 
   async sendPayoutEmail(email: string, amountUSDC: string, amountKES: string | null, chamaName: string, round: number) {
     try {
-      const amountDisplay = amountKES ? `${amountUSDC} USDC (approx. ${amountKES} KES)` : `${amountUSDC} USDC`;
+      const amountDisplay = amountKES ? `${amountKES} KES(approx. ${Number(amountUSDC).toFixed(3)} USDC)` : `${Number(amountUSDC).toFixed(3)} USDC`;
       const body = `
-        ${heading("Payout received")}
+        ${heading("Payout received 💰")}
         ${paragraph(
           `You've received a payout of <strong style="color:${INK};">${amountDisplay}</strong> for round ${round} of <strong style="color:${INK};">${chamaName}</strong>.`
         )}
@@ -199,7 +199,7 @@ class EmailService {
   ) {
     if (emails.length === 0) return { success: true };
     try {
-      const amountDisplay = amountKES ? `${amountUSDC} USDC (approx. ${amountKES} KES)` : `${amountUSDC} USDC`;
+      const amountDisplay = amountKES ? `${amountKES} KES(approx. ${Number(amountUSDC).toFixed(3)} USDC)` : `${Number(amountUSDC).toFixed(3)} USDC`;
       const body = `
         ${heading("Payout completed")}
         ${paragraph(`Cycle ${cycle}, Round ${round} of <strong style="color:${INK};">${chamaName}</strong> is complete.`)}
@@ -400,7 +400,7 @@ class EmailService {
 
   async sendMpesaDepositEmail(email: string, amountUSDC: string, amountKES: string | null, receiptNumber: string, phoneNumber: string, time: string) {
     try {
-      const amountDisplay = amountKES ? `${amountKES} KES (${amountUSDC} USDC)` : `${amountUSDC} USDC`;
+      const amountDisplay = amountKES ? `${amountKES} KES (${Number(amountUSDC).toFixed(3)} USDC)` : `${Number(amountUSDC).toFixed(3)} USDC`;
       const trimmedPhone = phoneNumber.length > 4 ? `...${phoneNumber.slice(-4)}` : phoneNumber;
       const body = `
         ${heading("M-Pesa Deposit Confirmed")}
@@ -458,9 +458,8 @@ class EmailService {
       
       const amountDisplay = amountKES 
         ? `${amountKESNumber.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} KES (${parseFloat(amountUSDC).toFixed(4)} USDC)` 
-        : `${parseFloat(amountUSDC).toFixed(4)} USDC`;
+        : `${parseFloat(amountUSDC).toFixed(3)} USDC`;
         
-      const trimmedPhone = phoneNumber.length > 4 ? `...${phoneNumber.slice(-4)}` : phoneNumber;
 
       const body = `
         ${heading("M-Pesa Withdrawal Confirmed")}
@@ -482,7 +481,7 @@ class EmailService {
             </tr>` : ''}
             <tr>
               <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Phone Number</td>
-              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${trimmedPhone}</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${phoneNumber}</td>
             </tr>
             <tr>
               <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Receipt Number</td>
@@ -512,9 +511,9 @@ class EmailService {
 
   async sendUSDCReceivedEmail(email: string, amountUSDC: string, amountKES: string | null, senderDisplayName: string, time: string) {
     try {
-      const amountDisplay = amountKES ? `${amountUSDC} USDC (approx. ${amountKES} KES)` : `${amountUSDC} USDC`;
+      const amountDisplay = amountKES ? `${amountKES} KES(approx. ${Number(amountUSDC).toFixed(3)} USDC)` : `${Number(amountUSDC).toFixed(3)} USDC`;
       const body = `
-        ${heading("USDC Received")}
+        ${heading("Cash Received")}
         ${paragraph(`You have received <strong style="color:${SUCCESS};">${amountDisplay}</strong> from ${senderDisplayName}.`)}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
@@ -588,7 +587,7 @@ class EmailService {
     try {
       const formatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
       const formattedDate = formatter.format(nextPayoutDate);
-      const amountDisplay = contributionAmountKES ? `${contributionAmountUSDC} USDC (approx. ${contributionAmountKES} KES)` : `${contributionAmountUSDC} USDC`;
+      const amountDisplay = contributionAmountKES ? ` ${contributionAmountKES} KES(approx. ${Number(contributionAmountUSDC).toFixed(3)} USDC)` : `${Number(contributionAmountUSDC).toFixed(3)} USDC`;
 
       const body = `
         ${heading("You've been added to a Chama 🎉")}
@@ -629,7 +628,7 @@ class EmailService {
   }
   async sendPaidForSomeoneEmail(email: string, payerName: string, amountUSDC: string, amountKES: string | null, chamaName: string) {
     try {
-      const amountDisplay = amountKES ? `${amountUSDC} USDC (approx. ${amountKES} KES)` : `${amountUSDC} USDC`;
+      const amountDisplay = amountKES ? `${amountKES} KES (approx. ${Number(amountUSDC).toFixed(3)} USDC)` : `${Number(amountUSDC).toFixed(3)} USDC`;
       const body = `
         ${heading("Payment Received on your behalf")}
         ${paragraph(
