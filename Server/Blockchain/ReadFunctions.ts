@@ -1,13 +1,10 @@
 // this file contains all the blockchain read functions
-import { createPublicClient, http } from 'viem'
-import { base } from 'viem/chains'
+import { getBasePublicClient } from './baseRpc' // ADJUST THIS PATH to wherever baseRpc.ts lives
 import { contractABI, USDCAddress, contractAddress, goalContractAddress, goalContractABI } from './Constants'
 import { erc20Abi } from 'viem'
- 
-const publicClient = createPublicClient({
-  chain: base,
-  transport: http(undefined, { timeout: 10_000 })
-})
+
+// shared client: same RPC endpoints, fallback and batching as the rest of the backend
+const publicClient = getBasePublicClient()
 
 // function to get a user's chama balance
 export const getUserChamaBalance = async (memberAddress: string, chamaBlockchainId: bigint) => {

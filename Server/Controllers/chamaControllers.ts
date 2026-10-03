@@ -145,6 +145,34 @@ export const createChama = async (
 const bigIntReplacer = (_key: string, value: any) =>
   typeof value === "bigint" ? value.toString() : value;
 
+// On-chain reads go through a short "fresh" cache and a longer "last good" copy. If the RPC
+// fails (e.g. the public Base node rate-limits us), we serve the last good value instead of
+// failing the whole request.
+const BALANCE_FRESH_TTL_MS = 30_000;
+const BALANCE_STALE_TTL_MS = 10 * 60_000;
+
+async function cachedOnchainRead<T>(
+  key: string,
+  read: () => Promise<T>,
+): Promise<{ value: T; stale: boolean }> {
+  const fresh = getCached<T>(key);
+  if (fresh !== undefined && fresh !== null) return { value: fresh, stale: false };
+
+  try {
+    const value = await read();
+    setCache(key, value, BALANCE_FRESH_TTL_MS);
+    setCache(`${key}:last-good`, value, BALANCE_STALE_TTL_MS);
+    return { value, stale: false };
+  } catch (err) {
+    const lastGood = getCached<T>(`${key}:last-good`);
+    if (lastGood !== undefined && lastGood !== null) {
+      console.warn(`[chama] on-chain read failed for ${key}; serving last known value`);
+      return { value: lastGood, stale: true };
+    }
+    throw err;
+  }
+}
+
 // get chama by slug
 export const getChamaBySlug = async (req: Request, res: Response) => {
   try {
@@ -244,30 +272,56 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, error: "Chama not found" });
     }
 
-    // add the blockchain details
-    const cacheKey = `chama-balances-${Number(chama.blockchainId)}-${user.smartAddress}`;
-    let cachedBalances = getCached<any>(cacheKey);
+    // add the blockchain details. The two reads are independent: if one fails we still return the
+    // chama (from the database) with the last known value, or a placeholder if there never was one.
+    const chainChamaId = BigInt(Number(chama.blockchainId));
+    const [userBalanceRes, memberBalancesRes] = await Promise.allSettled([
+      cachedOnchainRead(
+        `chama-user-balance-${Number(chama.blockchainId)}-${user.smartAddress}`,
+        async () =>
+          JSON.parse(
+            JSON.stringify(
+              await getUserChamaBalance(user.smartAddress, chainChamaId),
+              bigIntReplacer,
+            ),
+          ),
+      ),
+      // keyed per chama (not per user) so every member shares one read
+      cachedOnchainRead(
+        `chama-member-balances-${Number(chama.blockchainId)}`,
+        async () =>
+          JSON.parse(
+            JSON.stringify(await getEachMemberBalance(chainChamaId), bigIntReplacer),
+          ),
+      ),
+    ]);
 
-    if (!cachedBalances) {
-      const [userBalance, eachMemberBalance] = await Promise.all([
-        getUserChamaBalance(user.smartAddress, BigInt(Number(chama.blockchainId))),
-        getEachMemberBalance(BigInt(Number(chama.blockchainId))),
-      ]);
-
-      cachedBalances = {
-        userBalance: JSON.parse(JSON.stringify(userBalance, bigIntReplacer)),
-        eachMemberBalance: JSON.parse(JSON.stringify(eachMemberBalance, bigIntReplacer))
-      };
-      setCache(cacheKey, cachedBalances, 30_000); // cache for 30s
+    if (userBalanceRes.status === "rejected") {
+      console.warn("Failed to fetch user chama balance:", userBalanceRes.reason);
+    }
+    if (memberBalancesRes.status === "rejected") {
+      console.warn("Failed to fetch member balances:", memberBalancesRes.reason);
     }
 
     const finalChama = {
       ...chama,
-      userBalance: cachedBalances.userBalance,
-      eachMemberBalance: cachedBalances.eachMemberBalance,
+      userBalance: userBalanceRes.status === "fulfilled" ? userBalanceRes.value.value : "0",
+      eachMemberBalance:
+        memberBalancesRes.status === "fulfilled" ? memberBalancesRes.value.value : [],
     };
 
-    return res.status(200).json({ success: true, chama: finalChama });
+    return res.status(200).json({
+      success: true,
+      chama: finalChama,
+      // ok=false means the value is a placeholder (0 / []); stale=true means it is the last known value
+      onchain: {
+        userBalanceOk: userBalanceRes.status === "fulfilled",
+        memberBalancesOk: memberBalancesRes.status === "fulfilled",
+        stale:
+          (userBalanceRes.status === "fulfilled" && userBalanceRes.value.stale) ||
+          (memberBalancesRes.status === "fulfilled" && memberBalancesRes.value.stale),
+      },
+    });
   } catch (error) {
     console.error("Failed to get chama:", error);
     return res
