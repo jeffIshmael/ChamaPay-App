@@ -19,6 +19,7 @@ import { notifyAllChamaMembers, notifyUser } from "./prismaFunctions";
 import { formatUnits } from "viem";
 import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } from "./ExpoNotificationFunctions";
 import emailService from "./EmailService";
+import { buildPayoutSchedule, nextPayDate } from "./PayDateUtils";
 
 const prisma = new PrismaClient();
 
@@ -61,13 +62,17 @@ export const checkStartDate = async () => {
               throw new Error("Failed to set payout order");
             }
 
+            // payDay-aware: fixed day of month, or every cycleTime days
+            const scheduleDates = buildPayoutSchedule(
+              new Date(chama.payDate),
+              shuffledPayoutOrder.length,
+              chama.cycleTime,
+              chama.payDay
+            );
             const payoutOrder: PayoutOrder[] = shuffledPayoutOrder.map(
               (address, index) => ({
                 userAddress: address,
-                payDate: new Date(
-                  chama.payDate.getTime() +
-                  chama.cycleTime * 24 * 60 * 60 * 1000 * index
-                ),
+                payDate: scheduleDates[index],
                 paid: false,
                 amount: "0",
               })
@@ -80,8 +85,11 @@ export const checkStartDate = async () => {
               data: { payOutOrder: payoutOrderData },
             });
 
-            const firstAddress = payoutOrder[0];
-            const firstMember = chama.members.find((m: any) => m.user.smartAddress === firstAddress);
+            // payoutOrder[0] is an entry object; compare its address, not the object
+            const firstAddress = payoutOrder[0].userAddress;
+            const firstMember = chama.members.find(
+              (m: any) => m.user.smartAddress?.toLowerCase() === firstAddress.toLowerCase()
+            );
             const firstName = firstMember ? firstMember.user.userName : "Someone";
 
             await notifyAllChamaMembers(
@@ -220,15 +228,17 @@ async function processDisbursePayout(
 
   let finalPayoutOrder: PayoutOrder[];
 
+  // Next pay date, same rule as the contract's _nextPayDate (days-based or fixed day of month)
+  const newPayDate = nextPayDate(new Date(chama.payDate), chama.cycleTime, chama.payDay);
+
   if (chama.round === payoutOrder.length) {
+    // New cycle: the first payout of the cycle is the next pay date, then one step per member
+    const cycleDates = buildPayoutSchedule(newPayDate, payoutOrder.length, chama.cycleTime, chama.payDay);
     finalPayoutOrder = payoutOrder.map((order: PayoutOrder, index: number) => ({
       ...order,
       paid: false,
       amount: "0",
-      payDate: new Date(
-        chama.payDate.getTime() +
-        (index + 1) * chama.cycleTime * 24 * 60 * 60 * 1000
-      ),
+      payDate: cycleDates[index],
     }));
   } else {
     finalPayoutOrder = payoutOrder.map((order: PayoutOrder) => {
@@ -245,9 +255,7 @@ async function processDisbursePayout(
       payOutOrder: JSON.stringify(finalPayoutOrder),
       round: chama.round === chama.members.length ? 1 : chama.round + 1,
       cycle: chama.round === chama.members.length ? chama.cycle + 1 : chama.cycle,
-      payDate: new Date(
-        chama.payDate.getTime() + chama.cycleTime * 24 * 60 * 60 * 1000
-      ),
+      payDate: newPayDate,
     },
   });
 
@@ -278,10 +286,7 @@ async function processRefundPayout(chama: ChamaWithMembers) {
     if (!order.paid) {
       return {
         ...order,
-        payDate: new Date(
-          new Date(order.payDate).getTime() +
-          chama.cycleTime * 24 * 60 * 60 * 1000
-        ),
+        payDate: nextPayDate(new Date(order.payDate), chama.cycleTime, chama.payDay),
       };
     }
     return order;
@@ -291,9 +296,7 @@ async function processRefundPayout(chama: ChamaWithMembers) {
     where: { id: chama.id },
     data: {
       payOutOrder: JSON.stringify(updatedPayoutOrder),
-      payDate: new Date(
-        chama.payDate.getTime() + chama.cycleTime * 24 * 60 * 60 * 1000
-      ),
+      payDate: nextPayDate(new Date(chama.payDate), chama.cycleTime, chama.payDay),
     },
   });
 

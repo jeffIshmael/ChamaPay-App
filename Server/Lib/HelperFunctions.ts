@@ -219,3 +219,12 @@ export async function getCdpWallet(userId: number) {
     return null;
   }
 }
+
+// function to get the next payout date
+export const nextPayDate = (current: Date, cycleTime: number, payDay?: number | null) => {
+  if (!payDay) return new Date(current.getTime() + cycleTime * 86_400_000);
+  return new Date(Date.UTC(
+    current.getUTCFullYear(), current.getUTCMonth() + 1, payDay,
+    current.getUTCHours(), current.getUTCMinutes(), current.getUTCSeconds()
+  ));
+};

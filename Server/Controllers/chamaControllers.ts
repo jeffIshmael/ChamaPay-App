@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import { contractAddress } from "../Blockchain/Constants";
 import { bcGetTotalChamas, getEachMemberBalance, getUserChamaBalance } from "../Blockchain/ReadFunctions";
-import { bcAddMemberToPrivateChama, bcAdminSetPayoutOrder, bcCreateChama, bcDepositFundsForMember, bcDepositFundsToChama, bcUpdateChamaDetails, bcWithdrawFundsFromChama , bcLeaveChama } from "../Blockchain/WriteFunction";
+import { bcAddMemberToPrivateChama, bcAdminSetPayoutOrder, bcCreateChama, bcCreateChamaMonthly, bcDepositFundsForMember, bcDepositFundsToChama, bcUpdateChamaDetails, bcUpdateChamaBundle, bcWithdrawFundsFromChama , bcLeaveChama } from "../Blockchain/WriteFunction";
 import { approveTx } from "../Blockchain/erc20Functions";
 import emailService from "../Lib/EmailService";
 import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
@@ -11,6 +11,7 @@ import { getPrivateKey, generateUniqueSlug } from "../Lib/HelperFunctions";
 import { addMemberToPayout, notifyAllChamaMembers } from "../Lib/prismaFunctions";
 
 import { getCached, setCache } from "../Lib/cache";
+import { buildPayoutSchedule, fallsOnPayDayUtc } from "../Lib/PayDateUtils";
 
 const prisma = new PrismaClient();
 
@@ -24,6 +25,7 @@ interface CreateChamaRequestBody {
   maxNo: number;
   startDate: Date;
   collateralRequired: boolean;
+  payoutDayOfMonth?: number; // 1-28 = fixed day of month, omitted = days-based cycle
 }
 
 // create a chama
@@ -43,6 +45,7 @@ export const createChama = async (
       maxNo,
       startDate,
       collateralRequired,
+      payoutDayOfMonth,
     } = chamaData;
 
     const userId = req.user?.userId;
@@ -56,7 +59,26 @@ export const createChama = async (
       return res.status(401).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
-    const startDateInSecs = new Date(startDate).getTime() / 1000;
+    const startDateObj = new Date(startDate);
+    if (isNaN(startDateObj.getTime())) {
+      return res.status(400).json({ success: false, error: "Invalid start date." });
+    }
+    const startDateInSecs = Math.floor(startDateObj.getTime() / 1000);
+
+    // Fixed day-of-month chama (e.g. every 15th). null = classic days-based cycle.
+    const payDay = payoutDayOfMonth ? Number(payoutDayOfMonth) : null;
+    if (payDay !== null) {
+      if (!Number.isInteger(payDay) || payDay < 1 || payDay > 28) {
+        return res.status(400).json({ success: false, error: "Pay day must be between 1 and 28." });
+      }
+      // The contract checks the day in UTC, so we must too, otherwise the tx reverts.
+      if (startDateObj.getUTCDate() !== payDay) {
+        return res.status(400).json({
+          success: false,
+          error: `The first payout date must fall on day ${payDay} of the month (UTC). Try a different payout time.`,
+        });
+      }
+    }
     // the blockchain Id
     const blockchainId = await bcGetTotalChamas();
 
@@ -69,7 +91,10 @@ export const createChama = async (
     }
 
     // register in the blockchain
-    const creationTxHash = await bcCreateChama(user.cdpWalletId, amount, BigInt(Number(cycleTime)), BigInt(startDateInSecs), BigInt(Number(maxNo)), collateralRequired);
+    // fixed pay day -> createPrivateChamaMonthly, otherwise the original days-based function
+    const creationTxHash = payDay
+      ? await bcCreateChamaMonthly(user.cdpWalletId, amount, BigInt(startDateInSecs), payDay)
+      : await bcCreateChama(user.cdpWalletId, amount, BigInt(Number(cycleTime)), BigInt(startDateInSecs), BigInt(Number(maxNo)), collateralRequired);
     if (!creationTxHash) {
       return res.status(401).json({ success: false, error: "Failed to register onchain." });
     }
@@ -84,7 +109,8 @@ export const createChama = async (
         adminTerms: adminTerms,
         type: type,
         amount: amount, // amount in string
-        cycleTime: cycleTime,
+        cycleTime: payDay ? 30 : cycleTime, // the contract fixes duration at 30 for monthly chamas
+        payDay: payDay, // null = days-based
         maxNo: maxNo || 15,
         slug: uniqueSlug,
         payDate: new Date(startDate),
@@ -954,10 +980,28 @@ export const withdrawFromChamaBalance = async (req: Request, res: Response) => {
   }
 };
 
-// update chama details
+// update chama details, optionally the fixed pay day and the payout order.
+// Details + pay day + payout order are sent to the contract in ONE atomic
+// transaction (updateChamaDetails -> setPayDayOfMonth -> setPayoutOrder).
+const ordinalOf = (n: number) => {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  return `${n}${({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] || "th"}`;
+};
+
 export const updateChamaDetailsController = async (req: Request, res: Response) => {
   try {
-    const { chamaId, newName, newAmount, newDuration, newCycle, newRound, newPayDate } = req.body;
+    const {
+      chamaId,
+      newName,
+      newAmount,
+      newDuration,
+      newCycle,
+      newRound,
+      newPayDate, // ms timestamp (as sent by ChamaEditModal)
+      newPayoutDayOfMonth, // undefined = unchanged, null/0 = days-based, 1-28 = fixed day
+      payoutOrder, // optional: member smart addresses in the new payout order
+    } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -998,58 +1042,179 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
       return res.status(400).json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
-    // Call the blockchain function
-    const txHash = await bcUpdateChamaDetails(
-      user.cdpWalletId,
-      BigInt(Number(chama.blockchainId)),
-      newAmount.toString(),
-      Number(newCycle),
-      Number(newRound),
-      Number(newPayDate),
-      Number(newDuration)
-    );
-
-    if (!txHash) {
-      return res.status(400).json({ success: false, error: "Unable to update chama details onchain." });
+    // ---- 1. Work out the effective values -------------------------------
+    let newPayDateObj = new Date(Number(newPayDate));
+    if (isNaN(newPayDateObj.getTime())) {
+      return res.status(400).json({ success: false, error: "Invalid pay date." });
+    }
+    // The edit form only has minute precision. If the pay date is the same minute as
+    // the stored one, keep the stored value (with its seconds) so a save that did not
+    // touch the date is not treated as a pay date change.
+    const storedPayDate = new Date(chama.payDate);
+    if (Math.floor(newPayDateObj.getTime() / 60000) === Math.floor(storedPayDate.getTime() / 60000)) {
+      newPayDateObj = storedPayDate;
     }
 
-    // Update the database
+    const currentPayDay: number | null = chama.payDay ?? null;
+    let effectivePayDay: number | null = currentPayDay;
+    if (newPayoutDayOfMonth !== undefined) {
+      effectivePayDay = newPayoutDayOfMonth ? Number(newPayoutDayOfMonth) : null;
+    }
+    if (effectivePayDay !== null) {
+      if (!Number.isInteger(effectivePayDay) || effectivePayDay < 1 || effectivePayDay > 28) {
+        return res.status(400).json({ success: false, error: "Pay day must be between 1 and 28." });
+      }
+      // The contract validates the day in UTC. It must also stay in sync with the
+      // pay date, otherwise the next payout silently jumps to the old day.
+      if (!fallsOnPayDayUtc(newPayDateObj, effectivePayDay)) {
+        return res.status(400).json({
+          success: false,
+          error: `The pay date must fall on day ${effectivePayDay} of the month (UTC). Try a different payout time.`,
+        });
+      }
+    }
+    // The contract fixes duration at 30 for fixed-day chamas.
+    const effectiveCycleTime = effectivePayDay ? 30 : Number(newDuration);
+
+    // ---- 2. What actually changed? (compared with the DB, not trusting the client)
+    const nameChanged = !!newName && newName !== chama.name;
+    // compare at the contract's 6 decimals so float noise is not a change
+    const amountChanged = Math.round(Number(newAmount) * 1e6) !== Math.round(Number(chama.amount) * 1e6);
+    const effectiveAmount = amountChanged ? newAmount.toString() : chama.amount;
+    const cycleTimeChanged = effectiveCycleTime !== chama.cycleTime;
+    const cycleChanged = Number(newCycle) !== chama.cycle;
+    const roundChanged = Number(newRound) !== chama.round;
+    const payDateChanged = newPayDateObj.getTime() !== new Date(chama.payDate).getTime();
+    const payDayChanged = effectivePayDay !== currentPayDay;
+    // name is DB-only; these are the fields updateChamaDetails writes on-chain
+    const detailsOnchainChanged = amountChanged || cycleTimeChanged || cycleChanged || roundChanged || payDateChanged;
+
+    // ---- 3. Payout order (optional) -------------------------------------
+    const existingOrder: { userAddress: string }[] = chama.payOutOrder ? JSON.parse(chama.payOutOrder) : [];
+    let newOrderAddresses: `0x${string}`[] | null = null;
+    if (payoutOrder !== undefined && payoutOrder !== null) {
+      if (!Array.isArray(payoutOrder)) {
+        return res.status(400).json({ success: false, error: "Payout order must be a list of addresses." });
+      }
+      const memberAddresses = chama.members.map((m: any) => (m.user.smartAddress || "").toLowerCase());
+      const orderLower = payoutOrder.map((a: string) => String(a).toLowerCase());
+
+      if (orderLower.some((a: string) => !memberAddresses.includes(a))) {
+        return res.status(400).json({ success: false, error: "Payout order contains addresses that are not members of this chama." });
+      }
+      if (new Set(orderLower).size !== orderLower.length || orderLower.length !== memberAddresses.length) {
+        return res.status(400).json({ success: false, error: "Payout order must include every current member exactly once." });
+      }
+
+      const existingLower = existingOrder.map((o) => o.userAddress.toLowerCase());
+      const orderDiffers =
+        orderLower.length !== existingLower.length || orderLower.some((a: string, i: number) => a !== existingLower[i]);
+      if (orderDiffers) {
+        newOrderAddresses = payoutOrder as `0x${string}`[];
+      }
+    }
+    const orderChanged = newOrderAddresses !== null;
+
+    // ---- 4. Blockchain --------------------------------------------------
+    const onchainChanged = detailsOnchainChanged || payDayChanged || orderChanged;
+    if (onchainChanged && chama.round !== 1) {
+      return res.status(400).json({
+        success: false,
+        error: "Amount, schedule and payout order can only be changed during round 1 of a cycle.",
+      });
+    }
+
+    let txHash: string | undefined;
+    if (onchainChanged) {
+      txHash = await bcUpdateChamaBundle(user.cdpWalletId, BigInt(Number(chama.blockchainId)), {
+        ...(detailsOnchainChanged
+          ? {
+              details: {
+                newAmount: effectiveAmount,
+                newCycle: Number(newCycle),
+                newRound: Number(newRound),
+                newPayDate: Math.floor(newPayDateObj.getTime() / 1000), // contract uses seconds
+                newDuration: effectiveCycleTime,
+              },
+            }
+          : {}),
+        ...(payDayChanged ? { payDay: effectivePayDay ?? 0 } : {}),
+        ...(newOrderAddresses ? { payoutOrder: newOrderAddresses } : {}),
+      });
+      if (!txHash) {
+        return res.status(400).json({ success: false, error: "Unable to update chama onchain." });
+      }
+    } else if (!nameChanged) {
+      return res.status(200).json({ success: true, unchanged: true, chama });
+    }
+
+    // ---- 5. Database ----------------------------------------------------
+    // Rebuild the per-member payout dates whenever the order or the schedule changes.
+    // (Safe: edits only happen in round 1, so nobody has been paid yet.)
+    const finalOrderAddresses: string[] = newOrderAddresses
+      ? newOrderAddresses
+      : existingOrder.map((o) => o.userAddress);
+    let payOutOrderJson: string | undefined;
+    if (finalOrderAddresses.length > 0 && (orderChanged || payDateChanged || cycleTimeChanged || payDayChanged)) {
+      const dates = buildPayoutSchedule(newPayDateObj, finalOrderAddresses.length, effectiveCycleTime, effectivePayDay);
+      payOutOrderJson = JSON.stringify(
+        finalOrderAddresses.map((address, i) => ({
+          userAddress: address,
+          payDate: dates[i],
+          paid: false,
+          amount: "0",
+        }))
+      );
+    }
+
     const updatedChama = await prisma.chama.update({
       where: { id: Number(chamaId) },
       data: {
-        ...(newName ? { name: newName } : {}),
-        amount: newAmount.toString(),
-        cycleTime: Number(newDuration),
+        ...(nameChanged ? { name: newName } : {}),
+        amount: effectiveAmount,
+        cycleTime: effectiveCycleTime,
+        payDay: effectivePayDay,
         cycle: Number(newCycle),
         round: Number(newRound),
-        payDate: new Date(newPayDate),
+        payDate: newPayDateObj,
+        ...(payOutOrderJson ? { payOutOrder: payOutOrderJson } : {}),
       },
     });
 
-    // Build the dynamic notification message
+    // ---- 6. Notifications -----------------------------------------------
     const changes: string[] = [];
     const adminName = user.userName || "The admin";
 
-    if (newName && newName !== chama.name) {
+    if (nameChanged) {
       changes.push(`${adminName} changed the name of the chama from "${chama.name}" to "${newName}"`);
     }
-    if (newAmount && newAmount.toString() !== chama.amount) {
+    if (amountChanged) {
       changes.push(`${adminName} changed the contribution amount from ${chama.amount} USDC to ${newAmount} USDC`);
     }
-    if (newDuration && Number(newDuration) !== chama.cycleTime) {
-      changes.push(`${adminName} changed the cycle time from ${chama.cycleTime} days to ${newDuration} days`);
+    if (payDayChanged) {
+      changes.push(
+        effectivePayDay
+          ? `${adminName} switched payouts to the ${ordinalOf(effectivePayDay)} of every month`
+          : `${adminName} switched payouts to every ${effectiveCycleTime} days`
+      );
+    } else if (cycleTimeChanged) {
+      changes.push(`${adminName} changed the cycle time from ${chama.cycleTime} days to ${effectiveCycleTime} days`);
     }
-    if (newCycle && Number(newCycle) !== chama.cycle) {
+    if (cycleChanged) {
       changes.push(`${adminName} changed the cycle from ${chama.cycle} to ${newCycle}`);
     }
-    if (newRound && Number(newRound) !== chama.round) {
+    if (roundChanged) {
       changes.push(`${adminName} changed the round from ${chama.round} to ${newRound}`);
     }
-    
-    const oldPayDateStr = new Date(chama.payDate).toISOString().split('T')[0];
-    const newPayDateStr = new Date(newPayDate).toISOString().split('T')[0];
-    if (newPayDate && oldPayDateStr !== newPayDateStr) {
-      changes.push(`${adminName} changed the pay date from ${oldPayDateStr} to ${newPayDateStr}`);
+    if (payDateChanged) {
+      const oldPayDateStr = new Date(chama.payDate).toISOString().split('T')[0];
+      const newPayDateStr = newPayDateObj.toISOString().split('T')[0];
+      if (oldPayDateStr !== newPayDateStr) {
+        changes.push(`${adminName} changed the pay date from ${oldPayDateStr} to ${newPayDateStr}`);
+      }
+    }
+    if (orderChanged) {
+      changes.push(`${adminName} updated the payout order`);
     }
 
     let notificationMessage = "";
@@ -1075,7 +1240,7 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
       Number(chamaId)
     );
 
-    return res.status(200).json({ success: true, txHash, chama: updatedChama });
+    return res.status(200).json({ success: true, txHash, chama: updatedChama, orderUpdated: orderChanged });
   } catch (error: any) {
     console.error("Error updating chama details:", error);
     return res.status(500).json({ success: false, error: error.message || "Failed to update chama details" });
@@ -1132,6 +1297,10 @@ export const adminSetPayoutOrder = async (req: Request, res: Response) => {
     if (!user.cdpWalletId) {
       return res.status(400).json({ success: false, error: "Unable to get user CDP wallet." });
     }
+    // The contract only allows (re)setting the order in round 1 of a cycle.
+    if (chama.round !== 1) {
+      return res.status(400).json({ success: false, error: "The payout order can only be changed during round 1 of a cycle." });
+    }
     const formattedBcOrder = payoutOrder.map((address: string) => address as `0x${string}`);
     const payoutOrderTxHash = await bcAdminSetPayoutOrder(user.cdpWalletId, Number(chama.blockchainId), formattedBcOrder);
     if (!payoutOrderTxHash) {
@@ -1139,13 +1308,12 @@ export const adminSetPayoutOrder = async (req: Request, res: Response) => {
     }
 
     // Format and save the payout order into the database
+    // payDay-aware schedule (fixed day of month, or every cycleTime days)
+    const scheduleDates = buildPayoutSchedule(new Date(chama.payDate), payoutOrder.length, chama.cycleTime, chama.payDay);
     const formattedPayoutOrder = payoutOrder.map(
       (address: string, index: number) => ({
         userAddress: address,
-        payDate: new Date(
-          chama.payDate.getTime() +
-          chama.cycleTime * 24 * 60 * 60 * 1000 * index
-        ),
+        payDate: scheduleDates[index],
         paid: false,
         amount: "0",
       })
