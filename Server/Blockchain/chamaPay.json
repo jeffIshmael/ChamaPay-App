@@ -964,6 +964,29 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "_amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_firstPayoutDate",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint8",
+        "name": "_payDay",
+        "type": "uint8"
+      }
+    ],
+    "name": "createPrivateChamaMonthly",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "_chamaId",
         "type": "uint256"
       }
@@ -1420,6 +1443,25 @@
         "type": "uint256"
       }
     ],
+    "name": "payDayOfMonth",
+    "outputs": [
+      {
+        "internalType": "uint8",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
     "name": "payments",
     "outputs": [
       {
@@ -1536,6 +1578,24 @@
       }
     ],
     "name": "setChamaPayDate",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_chamaId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint8",
+        "name": "_day",
+        "type": "uint8"
+      }
+    ],
+    "name": "setPayDayOfMonth",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

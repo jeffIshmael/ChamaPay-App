@@ -109,6 +109,7 @@ model Chama {
   canJoin       Boolean        @default(true)
   payOutOrder   String?
   txHash        String?
+  payDay        Int?           // null = days-based (cycleTime), 1–28 = fixed day of month
   createdAt     DateTime       @default(now())
   admin         User           @relation("AdminChamas", fields: [adminId], references: [id])
   members       ChamaMember[]

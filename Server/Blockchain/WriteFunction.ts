@@ -1,554 +1,812 @@
 import { parseUnits, encodeFunctionData, erc20Abi, maxUint256 } from "viem";
 import {
-    contractABI,
-    contractAddress,
-    builderCodeDataSuffix,
-    USDCAddress,
-    moonwellUSDCAddress,
-    ERC20_APPROVE_ABI,
-    MOONWELL_MINT_ABI,
-    goalContractAddress,
-    goalContractABI,
+  contractABI,
+  contractAddress,
+  builderCodeDataSuffix,
+  USDCAddress,
+  moonwellUSDCAddress,
+  ERC20_APPROVE_ABI,
+  MOONWELL_MINT_ABI,
+  goalContractAddress,
+  goalContractABI,
 } from "./Constants";
 import { createEIP7702SmartAccount } from "./EIP7702Client";
 import {
-    getBasePublicClient,
-    withRpcRetry,
-    isRpcRateLimitError,
+  getBasePublicClient,
+  withRpcRetry,
+  isRpcRateLimitError,
 } from "./baseRpc";
 import { getTreasurySmartWallet } from "./AgentWallet";
 
 const publicClient = getBasePublicClient();
 
-export const bcCreateChama = async (cdpWalletId: string, chamaAmount: string, duration: bigint, startDate: bigint, maxMembers: bigint, isPublic: boolean) => {
-    try {
-        const amountInWei = parseUnits(chamaAmount, 6);
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        const hash = await smartAccountClient.writeContract({
-            address: contractAddress,
-            abi: contractABI,
-            functionName: 'registerChama',
-            args: [amountInWei, duration, startDate, maxMembers, isPublic],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
-        const transaction = await publicClient.waitForTransactionReceipt({ hash });
-        if (!transaction) throw new Error("Unable to create chama onchain.");
-        return transaction.transactionHash;
-    } catch (error) {
-        console.error("Error creating chama:", error);
-        throw error;
-    }
+export const bcCreateChama = async (
+  cdpWalletId: string,
+  chamaAmount: string,
+  duration: bigint,
+  startDate: bigint,
+  maxMembers: bigint,
+  isPublic: boolean,
+) => {
+  try {
+    const amountInWei = parseUnits(chamaAmount, 6);
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
+    const hash = await smartAccountClient.writeContract({
+      address: contractAddress,
+      abi: contractABI,
+      functionName: "registerChama",
+      args: [amountInWei, duration, startDate, maxMembers, isPublic],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+    const transaction = await publicClient.waitForTransactionReceipt({ hash });
+    if (!transaction) throw new Error("Unable to create chama onchain.");
+    return transaction.transactionHash;
+  } catch (error) {
+    console.error("Error creating chama:", error);
+    throw error;
+  }
 };
 
-export const bcAddMemberToPrivateChama = async (cdpWalletId: string, chamaBlockchainId: bigint, memberAddress: string) => {
-    try {
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        const hash = await smartAccountClient.writeContract({
-            address: contractAddress,
-            abi: contractABI,
-            functionName: 'addMember',
-            args: [memberAddress as `0x${string}`, chamaBlockchainId],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
-        const transaction = await publicClient.waitForTransactionReceipt({ hash });
-        if (!transaction) throw new Error("Unable to add member to private chama onchain.");
-        return transaction.transactionHash;
-    } catch (error) {
-        console.error("Error adding member to private chama:", error);
-        throw error;
+/**
+ * Creates a chama that pays out on a fixed day of the month (1-28).
+ * Contract: createPrivateChamaMonthly(uint _amount, uint _firstPayoutDate, uint8 _payDay)
+ * - firstPayoutDate must be in the future AND its calendar day (UTC) must equal payDay,
+ *   otherwise the contract reverts ("Pay date must fall on the pay day").
+ * - duration is fixed to 30 by the contract; maxMembers / isPublic are deprecated and no longer passed.
+ */
+export const bcCreateChamaMonthly = async (
+  cdpWalletId: string,
+  chamaAmount: string,
+  firstPayoutDate: bigint,
+  payDay: number,
+) => {
+  try {
+    if (!Number.isInteger(payDay) || payDay < 1 || payDay > 28) {
+      throw new Error("Pay day must be between 1 and 28.");
     }
+    const payoutDay = new Date(Number(firstPayoutDate) * 1000).getUTCDate();
+    if (payoutDay !== payDay) {
+      throw new Error(
+        "First payout date must fall on the selected pay day (UTC).",
+      );
+    }
+    const amountInWei = parseUnits(chamaAmount, 6);
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
+    const hash = await smartAccountClient.writeContract({
+      address: contractAddress,
+      abi: contractABI,
+      functionName: "createPrivateChamaMonthly",
+      args: [amountInWei, firstPayoutDate, payDay],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+    const transaction = await publicClient.waitForTransactionReceipt({ hash });
+    if (!transaction)
+      throw new Error("Unable to create monthly chama onchain.");
+    return transaction.transactionHash;
+  } catch (error) {
+    console.error("Error creating monthly chama:", error);
+    throw error;
+  }
 };
 
-export const bcDepositFundsToChama = async (cdpWalletId: string, chamaBlockchainId: bigint, amount: string) => {
-    try {
-        const amountInWei = parseUnits(amount, 6);
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        const hash = await smartAccountClient.sendTransaction({
-            calls: [
-                {
-                    to: USDCAddress as `0x${string}`,
-                    data: encodeFunctionData({
-                        abi: erc20Abi,
-                        functionName: 'approve',
-                        args: [contractAddress as `0x${string}`, amountInWei]
-                    })
-                },
-                {
-                    to: contractAddress as `0x${string}`,
-                    data: encodeFunctionData({
-                        abi: contractABI,
-                        functionName: 'depositCash',
-                        args: [chamaBlockchainId, amountInWei]
-                    })
-                }
+export const bcAddMemberToPrivateChama = async (
+  cdpWalletId: string,
+  chamaBlockchainId: bigint,
+  memberAddress: string,
+) => {
+  try {
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
+    const hash = await smartAccountClient.writeContract({
+      address: contractAddress,
+      abi: contractABI,
+      functionName: "addMember",
+      args: [memberAddress as `0x${string}`, chamaBlockchainId],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+    const transaction = await publicClient.waitForTransactionReceipt({ hash });
+    if (!transaction)
+      throw new Error("Unable to add member to private chama onchain.");
+    return transaction.transactionHash;
+  } catch (error) {
+    console.error("Error adding member to private chama:", error);
+    throw error;
+  }
+};
+
+export const bcDepositFundsToChama = async (
+  cdpWalletId: string,
+  chamaBlockchainId: bigint,
+  amount: string,
+) => {
+  try {
+    const amountInWei = parseUnits(amount, 6);
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
+    const hash = await smartAccountClient.sendTransaction({
+      calls: [
+        {
+          to: USDCAddress as `0x${string}`,
+          data: encodeFunctionData({
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [contractAddress as `0x${string}`, amountInWei],
+          }),
+        },
+        {
+          to: contractAddress as `0x${string}`,
+          data: encodeFunctionData({
+            abi: contractABI,
+            functionName: "depositCash",
+            args: [chamaBlockchainId, amountInWei],
+          }),
+        },
+      ],
+      dataSuffix: builderCodeDataSuffix,
+    });
+    const transaction = await publicClient.waitForTransactionReceipt({ hash });
+    if (!transaction)
+      throw new Error("Unable to deposit funds to chama onchain.");
+    return transaction.transactionHash;
+  } catch (error) {
+    console.error("Error depositing funds to chama:", error);
+    throw error;
+  }
+};
+
+export const bcDepositFundsForMember = async (
+  cdpWalletId: string,
+  chamaBlockchainId: bigint,
+  memberAddress: string,
+  amount: string,
+) => {
+  try {
+    const amountInWei = parseUnits(amount, 6);
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
+    const hash = await smartAccountClient.sendTransaction({
+      calls: [
+        {
+          to: USDCAddress as `0x${string}`,
+          data: encodeFunctionData({
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [contractAddress as `0x${string}`, amountInWei],
+          }),
+        },
+        {
+          to: contractAddress as `0x${string}`,
+          data: encodeFunctionData({
+            abi: contractABI,
+            functionName: "depositForMember",
+            args: [
+              memberAddress as `0x${string}`,
+              chamaBlockchainId,
+              amountInWei,
             ],
-            dataSuffix: builderCodeDataSuffix
-        });
-        const transaction = await publicClient.waitForTransactionReceipt({ hash });
-        if (!transaction) throw new Error("Unable to deposit funds to chama onchain.");
-        return transaction.transactionHash;
-    } catch (error) {
-        console.error("Error depositing funds to chama:", error);
-        throw error;
-    }
+          }),
+        },
+      ],
+      dataSuffix: builderCodeDataSuffix,
+    });
+    const transaction = await publicClient.waitForTransactionReceipt({ hash });
+    if (!transaction)
+      throw new Error("Unable to deposit funds for member onchain.");
+    return transaction.transactionHash;
+  } catch (error) {
+    console.error("Error depositing funds for member:", error);
+    throw error;
+  }
 };
 
-export const bcDepositFundsForMember = async (cdpWalletId: string, chamaBlockchainId: bigint, memberAddress: string, amount: string) => {
-    try {
-        const amountInWei = parseUnits(amount, 6);
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        const hash = await smartAccountClient.sendTransaction({
-            calls: [
-                {
-                    to: USDCAddress as `0x${string}`,
-                    data: encodeFunctionData({
-                        abi: erc20Abi,
-                        functionName: 'approve',
-                        args: [contractAddress as `0x${string}`, amountInWei]
-                    })
-                },
-                {
-                    to: contractAddress as `0x${string}`,
-                    data: encodeFunctionData({
-                        abi: contractABI,
-                        functionName: 'depositForMember',
-                        args: [memberAddress as `0x${string}`, chamaBlockchainId, amountInWei]
-                    })
-                }
-            ],
-            dataSuffix: builderCodeDataSuffix
-        });
-        const transaction = await publicClient.waitForTransactionReceipt({ hash });
-        if (!transaction) throw new Error("Unable to deposit funds for member onchain.");
-        return transaction.transactionHash;
-    } catch (error) {
-        console.error("Error depositing funds for member:", error);
-        throw error;
-    }
+export const bcLeaveChama = async (
+  cdpWalletId: string,
+  memberAddress: string,
+  chamaBlockchainId: number,
+) => {
+  try {
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
+    const hash = await smartAccountClient.writeContract({
+      address: contractAddress,
+      abi: contractABI,
+      functionName: "deleteMember",
+      args: [chamaBlockchainId, memberAddress as `0x${string}`],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+    const transaction = await publicClient.waitForTransactionReceipt({ hash });
+    if (!transaction) throw new Error("Unable to leave chama onchain.");
+    return transaction.transactionHash;
+  } catch (error) {
+    console.error("Error leaving chama:", error);
+    throw error;
+  }
 };
 
-export const bcLeaveChama = async (cdpWalletId: string, memberAddress: string, chamaBlockchainId: number) => {
-    try {
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        const hash = await smartAccountClient.writeContract({
-            address: contractAddress,
-            abi: contractABI,
-            functionName: 'deleteMember',
-            args: [chamaBlockchainId, memberAddress as `0x${string}`],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
-        const transaction = await publicClient.waitForTransactionReceipt({ hash });
-        if (!transaction) throw new Error("Unable to leave chama onchain.");
-        return transaction.transactionHash;
-    } catch (error) {
-        console.error("Error leaving chama:", error);
-        throw error;
-    }
+export const bcDeleteChama = async (
+  cdpWalletId: string,
+  chamaBlockchainId: number,
+) => {
+  try {
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
+    const hash = await smartAccountClient.writeContract({
+      address: contractAddress,
+      abi: contractABI,
+      functionName: "deleteChama",
+      args: [chamaBlockchainId],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+    const transaction = await publicClient.waitForTransactionReceipt({ hash });
+    if (!transaction) throw new Error("Unable to delete chama onchain.");
+    return transaction.transactionHash;
+  } catch (error) {
+    console.error("Error deleting chama:", error);
+    throw error;
+  }
 };
 
-export const bcDeleteChama = async (cdpWalletId: string, chamaBlockchainId: number) => {
-    try {
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        const hash = await smartAccountClient.writeContract({
-            address: contractAddress,
-            abi: contractABI,
-            functionName: 'deleteChama',
-            args: [chamaBlockchainId],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
-        const transaction = await publicClient.waitForTransactionReceipt({ hash });
-        if (!transaction) throw new Error("Unable to delete chama onchain.");
-        return transaction.transactionHash;
-    } catch (error) {
-        console.error("Error deleting chama:", error);
-        throw error;
-    }
+export const bcWithdrawFundsFromChama = async (
+  cdpWalletId: string,
+  chamaBlockchainId: number,
+  amount: string,
+) => {
+  try {
+    const amountInWei = parseUnits(amount, 6);
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
+    const hash = await smartAccountClient.writeContract({
+      address: contractAddress,
+      abi: contractABI,
+      functionName: "withdrawBalance",
+      args: [BigInt(chamaBlockchainId), amountInWei],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+    const transaction = await publicClient.waitForTransactionReceipt({ hash });
+    if (!transaction)
+      throw new Error("Unable to withdraw funds from chama onchain.");
+    return transaction.transactionHash;
+  } catch (error) {
+    console.error("Error withdrawing funds from chama:", error);
+    throw error;
+  }
 };
 
-export const bcWithdrawFundsFromChama = async (cdpWalletId: string, chamaBlockchainId: number, amount: string) => {
-    try {
-        const amountInWei = parseUnits(amount, 6);
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        const hash = await smartAccountClient.writeContract({
-            address: contractAddress,
-            abi: contractABI,
-            functionName: 'withdrawBalance',
-            args: [BigInt(chamaBlockchainId), amountInWei],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
-        const transaction = await publicClient.waitForTransactionReceipt({ hash });
-        if (!transaction) throw new Error("Unable to withdraw funds from chama onchain.");
-        return transaction.transactionHash;
-    } catch (error) {
-        console.error("Error withdrawing funds from chama:", error);
-        throw error;
-    }
-};
+export const bcMoonwellDeposit = async (
+  cdpWalletId: string,
+  amount: string,
+) => {
+  try {
+    const amountInWei = parseUnits(amount, 6);
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
 
-export const bcMoonwellDeposit = async (cdpWalletId: string, amount: string) => {
-    try {
-        const amountInWei = parseUnits(amount, 6);
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        
-        // 1. Approve USDC for Moonwell Market
-        const currentAllowance = await publicClient.readContract({
-            address: USDCAddress as `0x${string}`,
-            abi: ERC20_APPROVE_ABI.map(abi => abi.name === 'approve' ? {
+    // 1. Approve USDC for Moonwell Market
+    const currentAllowance = (await publicClient
+      .readContract({
+        address: USDCAddress as `0x${string}`,
+        abi: ERC20_APPROVE_ABI.map((abi) =>
+          abi.name === "approve"
+            ? {
                 inputs: [
-                    { internalType: "address", name: "owner", type: "address" },
-                    { internalType: "address", name: "spender", type: "address" }
+                  { internalType: "address", name: "owner", type: "address" },
+                  { internalType: "address", name: "spender", type: "address" },
                 ],
                 name: "allowance",
-                outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+                outputs: [
+                  { internalType: "uint256", name: "", type: "uint256" },
+                ],
                 stateMutability: "view",
-                type: "function"
-            } : abi), // Mock the ABI since we only have approve in the const, we should just define allowance ABI inline
-            functionName: 'allowance',
-            args: [cdpWalletId as `0x${string}`, moonwellUSDCAddress as `0x${string}`],
-        }).catch(() => BigInt(0)) as bigint; // Ignore error and assume 0 if it fails
+                type: "function",
+              }
+            : abi,
+        ), // Mock the ABI since we only have approve in the const, we should just define allowance ABI inline
+        functionName: "allowance",
+        args: [
+          cdpWalletId as `0x${string}`,
+          moonwellUSDCAddress as `0x${string}`,
+        ],
+      })
+      .catch(() => BigInt(0))) as bigint; // Ignore error and assume 0 if it fails
 
-        // Only approve if current allowance is less than the amount we want to deposit
-        if (currentAllowance < amountInWei) {
-            const approveHash = await smartAccountClient.writeContract({
-                address: USDCAddress as `0x${string}`,
-                abi: ERC20_APPROVE_ABI,
-                functionName: 'approve',
-                args: [moonwellUSDCAddress as `0x${string}`, amountInWei],
-                dataSuffix: builderCodeDataSuffix,
-            });
-            const approveTx = await publicClient.waitForTransactionReceipt({ hash: approveHash });
-            if (!approveTx || approveTx.status !== 'success') throw new Error("Unable to approve USDC for Moonwell.");
-            
-            // Poll for allowance to update to avoid RPC sync issues during gas estimation of mint
-            let newAllowance = currentAllowance;
-            let attempts = 0;
-            while (newAllowance < amountInWei && attempts < 10) {
-                await new Promise(r => setTimeout(r, 1000));
-                newAllowance = await publicClient.readContract({
-                    address: USDCAddress as `0x${string}`,
-                    abi: [{
-                        inputs: [
-                            { internalType: "address", name: "owner", type: "address" },
-                            { internalType: "address", name: "spender", type: "address" }
-                        ],
-                        name: "allowance",
-                        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-                        stateMutability: "view",
-                        type: "function"
-                    }],
-                    functionName: 'allowance',
-                    args: [cdpWalletId as `0x${string}`, moonwellUSDCAddress as `0x${string}`],
-                }) as bigint;
-                attempts++;
-            }
-        }
+    // Only approve if current allowance is less than the amount we want to deposit
+    if (currentAllowance < amountInWei) {
+      const approveHash = await smartAccountClient.writeContract({
+        address: USDCAddress as `0x${string}`,
+        abi: ERC20_APPROVE_ABI,
+        functionName: "approve",
+        args: [moonwellUSDCAddress as `0x${string}`, amountInWei],
+        dataSuffix: builderCodeDataSuffix,
+      });
+      const approveTx = await publicClient.waitForTransactionReceipt({
+        hash: approveHash,
+      });
+      if (!approveTx || approveTx.status !== "success")
+        throw new Error("Unable to approve USDC for Moonwell.");
 
-        // 2. Mint mUSDC (Supply to Moonwell)
-        const mintHash = await smartAccountClient.writeContract({
-            address: moonwellUSDCAddress as `0x${string}`,
-            abi: MOONWELL_MINT_ABI,
-            functionName: 'mint',
-            args: [amountInWei],
-            dataSuffix: builderCodeDataSuffix,
-        });
-        const mintTx = await publicClient.waitForTransactionReceipt({ hash: mintHash });
-        if (!mintTx || mintTx.status !== 'success') throw new Error("Unable to mint mUSDC on Moonwell.");
-
-        return mintTx.transactionHash;
-    } catch (error) {
-        console.error("Error depositing to Moonwell:", error);
-        throw error;
+      // Poll for allowance to update to avoid RPC sync issues during gas estimation of mint
+      let newAllowance = currentAllowance;
+      let attempts = 0;
+      while (newAllowance < amountInWei && attempts < 10) {
+        await new Promise((r) => setTimeout(r, 1000));
+        newAllowance = (await publicClient.readContract({
+          address: USDCAddress as `0x${string}`,
+          abi: [
+            {
+              inputs: [
+                { internalType: "address", name: "owner", type: "address" },
+                { internalType: "address", name: "spender", type: "address" },
+              ],
+              name: "allowance",
+              outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+              stateMutability: "view",
+              type: "function",
+            },
+          ],
+          functionName: "allowance",
+          args: [
+            cdpWalletId as `0x${string}`,
+            moonwellUSDCAddress as `0x${string}`,
+          ],
+        })) as bigint;
+        attempts++;
+      }
     }
+
+    // 2. Mint mUSDC (Supply to Moonwell)
+    const mintHash = await smartAccountClient.writeContract({
+      address: moonwellUSDCAddress as `0x${string}`,
+      abi: MOONWELL_MINT_ABI,
+      functionName: "mint",
+      args: [amountInWei],
+      dataSuffix: builderCodeDataSuffix,
+    });
+    const mintTx = await publicClient.waitForTransactionReceipt({
+      hash: mintHash,
+    });
+    if (!mintTx || mintTx.status !== "success")
+      throw new Error("Unable to mint mUSDC on Moonwell.");
+
+    return mintTx.transactionHash;
+  } catch (error) {
+    console.error("Error depositing to Moonwell:", error);
+    throw error;
+  }
 };
 
-const ERC20_BALANCE_ABI = [{
+const ERC20_BALANCE_ABI = [
+  {
     inputs: [{ internalType: "address", name: "owner", type: "address" }],
     name: "balanceOf",
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
-    type: "function"
-}] as const;
+    type: "function",
+  },
+] as const;
 
-const MOONWELL_REDEEM_ABI = [{
-    inputs: [{ internalType: "uint256", name: "redeemTokens", type: "uint256" }],
+const MOONWELL_REDEEM_ABI = [
+  {
+    inputs: [
+      { internalType: "uint256", name: "redeemTokens", type: "uint256" },
+    ],
     name: "redeem",
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "nonpayable",
-    type: "function"
-}] as const;
+    type: "function",
+  },
+] as const;
 
-const MOONWELL_REDEEM_UNDERLYING_ABI = [{
-    inputs: [{ internalType: "uint256", name: "redeemAmount", type: "uint256" }],
+const MOONWELL_REDEEM_UNDERLYING_ABI = [
+  {
+    inputs: [
+      { internalType: "uint256", name: "redeemAmount", type: "uint256" },
+    ],
     name: "redeemUnderlying",
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "nonpayable",
-    type: "function"
-}] as const;
+    type: "function",
+  },
+] as const;
 
-const MTOKEN_CASH_ABI = [{
+const MTOKEN_CASH_ABI = [
+  {
     inputs: [],
     name: "getCash",
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
-    type: "function"
-}, {
+    type: "function",
+  },
+  {
     inputs: [],
     name: "exchangeRateStored",
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
-    type: "function"
-}] as const;
+    type: "function",
+  },
+] as const;
 
 /** Moonwell Failure(uint error, uint info, uint detail) — docs error table */
 const MOONWELL_FAILURE_TOPIC =
-    "0x45b96fe442630264581b197e84bbada861235052c5a1aadfff9ea4e40a969aa0" as const;
+  "0x45b96fe442630264581b197e84bbada861235052c5a1aadfff9ea4e40a969aa0" as const;
 
 const MOONWELL_ERROR_NAMES: Record<number, string> = {
-    14: "TOKEN_INSUFFICIENT_CASH",
-    3: "COMPTROLLER_REJECTION",
-    10: "MARKET_NOT_FRESH",
-    16: "TOKEN_TRANSFER_OUT_FAILED",
+  14: "TOKEN_INSUFFICIENT_CASH",
+  3: "COMPTROLLER_REJECTION",
+  10: "MARKET_NOT_FRESH",
+  16: "TOKEN_TRANSFER_OUT_FAILED",
 };
 
 const LIQUIDITY_ERROR =
-    "Moonwell USDC market has no available liquidity right now (borrowers are using the cash). Your deposit is still safe in Moonwell — try again later when liquidity returns.";
+  "Moonwell USDC market has no available liquidity right now (borrowers are using the cash). Your deposit is still safe in Moonwell — try again later when liquidity returns.";
 
-function parseMoonwellFailure(receipt: { logs?: readonly { topics?: readonly string[]; data?: string; address?: string }[] }) {
-    for (const log of receipt.logs || []) {
-        if ((log.topics?.[0] || "").toLowerCase() !== MOONWELL_FAILURE_TOPIC) continue;
-        const data = (log.data || "0x").slice(2);
-        if (data.length < 64 * 3) continue;
-        const errorCode = Number(BigInt(`0x${data.slice(0, 64)}`));
-        const info = Number(BigInt(`0x${data.slice(64, 128)}`));
-        const detail = Number(BigInt(`0x${data.slice(128, 192)}`));
-        return { errorCode, info, detail, name: MOONWELL_ERROR_NAMES[errorCode] };
-    }
-    return null;
+function parseMoonwellFailure(receipt: {
+  logs?: readonly {
+    topics?: readonly string[];
+    data?: string;
+    address?: string;
+  }[];
+}) {
+  for (const log of receipt.logs || []) {
+    if ((log.topics?.[0] || "").toLowerCase() !== MOONWELL_FAILURE_TOPIC)
+      continue;
+    const data = (log.data || "0x").slice(2);
+    if (data.length < 64 * 3) continue;
+    const errorCode = Number(BigInt(`0x${data.slice(0, 64)}`));
+    const info = Number(BigInt(`0x${data.slice(64, 128)}`));
+    const detail = Number(BigInt(`0x${data.slice(128, 192)}`));
+    return { errorCode, info, detail, name: MOONWELL_ERROR_NAMES[errorCode] };
+  }
+  return null;
 }
 
 /** Truncate to USDC's 6 decimals so parseUnits never rejects float noise. */
 export const parseUsdcAmount = (amount: string | number): bigint => {
-    const raw = String(amount).trim();
-    if (!raw || raw === ".") throw new Error(`Invalid USDC amount: ${amount}`);
-    const negative = raw.startsWith("-");
-    const unsigned = negative ? raw.slice(1) : raw;
-    const [whole, frac = ""] = unsigned.split(".");
-    const truncated = `${whole || "0"}.${frac.slice(0, 6)}`;
-    const value = parseUnits(truncated, 6);
-    return negative ? -value : value;
+  const raw = String(amount).trim();
+  if (!raw || raw === ".") throw new Error(`Invalid USDC amount: ${amount}`);
+  const negative = raw.startsWith("-");
+  const unsigned = negative ? raw.slice(1) : raw;
+  const [whole, frac = ""] = unsigned.split(".");
+  const truncated = `${whole || "0"}.${frac.slice(0, 6)}`;
+  const value = parseUnits(truncated, 6);
+  return negative ? -value : value;
 };
 
 const readTokenBalance = async (token: `0x${string}`, owner: `0x${string}`) => {
-    return withRpcRetry(`balanceOf ${token.slice(0, 10)}…`, () =>
-        publicClient.readContract({
-            address: token,
-            abi: ERC20_BALANCE_ABI,
-            functionName: "balanceOf",
-            args: [owner],
-        }) as Promise<bigint>
-    );
+  return withRpcRetry(
+    `balanceOf ${token.slice(0, 10)}…`,
+    () =>
+      publicClient.readContract({
+        address: token,
+        abi: ERC20_BALANCE_ABI,
+        functionName: "balanceOf",
+        args: [owner],
+      }) as Promise<bigint>,
+  );
 };
 
 /**
  * Moonwell mTokens (Compound-style) often return a non-zero error code WITHOUT
  * reverting. A mined tx with status=success is not enough — verify balances moved.
  */
-export const bcMoonwellWithdraw = async (cdpWalletId: string, amount: string, isMax: boolean = false) => {
-    try {
-        const wallet = cdpWalletId as `0x${string}`;
-        const mToken = moonwellUSDCAddress as `0x${string}`;
-        const amountInWei = parseUsdcAmount(amount);
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
+export const bcMoonwellWithdraw = async (
+  cdpWalletId: string,
+  amount: string,
+  isMax: boolean = false,
+) => {
+  try {
+    const wallet = cdpWalletId as `0x${string}`;
+    const mToken = moonwellUSDCAddress as `0x${string}`;
+    const amountInWei = parseUsdcAmount(amount);
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
 
-        const mUsdcBefore = await readTokenBalance(mToken, wallet);
-        const usdcBefore = await readTokenBalance(USDCAddress as `0x${string}`, wallet);
+    const mUsdcBefore = await readTokenBalance(mToken, wallet);
+    const usdcBefore = await readTokenBalance(
+      USDCAddress as `0x${string}`,
+      wallet,
+    );
 
-        const [marketCash, exchangeRate] = await Promise.all([
-            withRpcRetry("mUSDC.getCash", () =>
-                publicClient.readContract({
-                    address: mToken,
-                    abi: MTOKEN_CASH_ABI,
-                    functionName: "getCash",
-                }) as Promise<bigint>
-            ),
-            withRpcRetry("mUSDC.exchangeRateStored", () =>
-                publicClient.readContract({
-                    address: mToken,
-                    abi: MTOKEN_CASH_ABI,
-                    functionName: "exchangeRateStored",
-                }) as Promise<bigint>
-            ),
-        ]);
+    const [marketCash, exchangeRate] = await Promise.all([
+      withRpcRetry(
+        "mUSDC.getCash",
+        () =>
+          publicClient.readContract({
+            address: mToken,
+            abi: MTOKEN_CASH_ABI,
+            functionName: "getCash",
+          }) as Promise<bigint>,
+      ),
+      withRpcRetry(
+        "mUSDC.exchangeRateStored",
+        () =>
+          publicClient.readContract({
+            address: mToken,
+            abi: MTOKEN_CASH_ABI,
+            functionName: "exchangeRateStored",
+          }) as Promise<bigint>,
+      ),
+    ]);
 
-        // underlying ≈ mTokenBalance * exchangeRate / 1e18
-        const underlyingFromMTokens =
-            mUsdcBefore > 0n ? (mUsdcBefore * exchangeRate) / 10n ** 18n : 0n;
-        const neededUnderlying = isMax ? underlyingFromMTokens : amountInWei;
+    // underlying ≈ mTokenBalance * exchangeRate / 1e18
+    const underlyingFromMTokens =
+      mUsdcBefore > 0n ? (mUsdcBefore * exchangeRate) / 10n ** 18n : 0n;
+    const neededUnderlying = isMax ? underlyingFromMTokens : amountInWei;
 
-        console.log("[Moonwell withdraw] balances before", {
-            wallet,
-            isMax,
-            amount,
-            amountInWei: amountInWei.toString(),
-            mUsdcBefore: mUsdcBefore.toString(),
-            usdcBefore: usdcBefore.toString(),
-            marketCash: marketCash.toString(),
-            neededUnderlying: neededUnderlying.toString(),
-        });
+    console.log("[Moonwell withdraw] balances before", {
+      wallet,
+      isMax,
+      amount,
+      amountInWei: amountInWei.toString(),
+      mUsdcBefore: mUsdcBefore.toString(),
+      usdcBefore: usdcBefore.toString(),
+      marketCash: marketCash.toString(),
+      neededUnderlying: neededUnderlying.toString(),
+    });
 
-        if (mUsdcBefore === 0n) {
-            throw new Error("No Moonwell mUSDC balance to withdraw");
-        }
-
-        // Error 14 TOKEN_INSUFFICIENT_CASH — market has no free USDC (currently over-utilized)
-        if (marketCash === 0n || marketCash < neededUnderlying) {
-            console.warn("[Moonwell withdraw] blocked: insufficient market cash", {
-                marketCash: marketCash.toString(),
-                neededUnderlying: neededUnderlying.toString(),
-            });
-            throw new Error(LIQUIDITY_ERROR);
-        }
-
-        let withdrawHash;
-
-        if (isMax) {
-            // Docs: pass type(uint).max to redeem entire mToken balance
-            withdrawHash = await smartAccountClient.writeContract({
-                address: mToken,
-                abi: MOONWELL_REDEEM_ABI,
-                functionName: "redeem",
-                args: [maxUint256],
-                dataSuffix: builderCodeDataSuffix,
-                ...(authorization ? { authorization } : {}),
-            });
-        } else {
-            if (amountInWei <= 0n) {
-                throw new Error("Withdraw amount must be greater than zero");
-            }
-            withdrawHash = await smartAccountClient.writeContract({
-                address: mToken,
-                abi: MOONWELL_REDEEM_UNDERLYING_ABI,
-                functionName: "redeemUnderlying",
-                args: [amountInWei],
-                dataSuffix: builderCodeDataSuffix,
-                ...(authorization ? { authorization } : {}),
-            });
-        }
-
-        const withdrawTx = await withRpcRetry("waitForTransactionReceipt", () =>
-            publicClient.waitForTransactionReceipt({ hash: withdrawHash })
-        );
-        if (!withdrawTx || withdrawTx.status !== "success") {
-            throw new Error("Unable to withdraw from Moonwell.");
-        }
-
-        const failure = parseMoonwellFailure(withdrawTx);
-        if (failure) {
-            console.error("[Moonwell withdraw] Failure event", failure);
-            if (failure.errorCode === 14) {
-                throw new Error(LIQUIDITY_ERROR);
-            }
-            throw new Error(
-                `Moonwell redeem failed (${failure.name || `error ${failure.errorCode}`}). Funds were not withdrawn.`
-            );
-        }
-
-        // Confirm mUSDC left Moonwell AND underlying USDC landed in the wallet.
-        let mUsdcAfter = mUsdcBefore;
-        let usdcAfter = usdcBefore;
-        for (let attempt = 0; attempt < 6; attempt++) {
-            if (attempt > 0) await new Promise((r) => setTimeout(r, 1200));
-            try {
-                mUsdcAfter = await readTokenBalance(mToken, wallet);
-                usdcAfter = await readTokenBalance(
-                    USDCAddress as `0x${string}`,
-                    wallet
-                );
-            } catch (error) {
-                if (isRpcRateLimitError(error) && attempt < 5) {
-                    console.warn(
-                        "[Moonwell withdraw] post-check rate limited, backing off"
-                    );
-                    continue;
-                }
-                throw error;
-            }
-            if (mUsdcAfter < mUsdcBefore && usdcAfter > usdcBefore) break;
-        }
-
-        console.log("[Moonwell withdraw] balances after", {
-            wallet,
-            txHash: withdrawTx.transactionHash,
-            mUsdcAfter: mUsdcAfter.toString(),
-            usdcAfter: usdcAfter.toString(),
-            mUsdcDelta: (mUsdcBefore - mUsdcAfter).toString(),
-            usdcDelta: (usdcAfter - usdcBefore).toString(),
-        });
-
-        if (mUsdcAfter >= mUsdcBefore) {
-            throw new Error(
-                "Moonwell redeem did not move mUSDC (likely silent error code). Funds were not withdrawn."
-            );
-        }
-
-        if (usdcAfter <= usdcBefore) {
-            throw new Error(
-                "Moonwell redeem burned mUSDC but USDC did not arrive in the wallet. Check Basescan and try again."
-            );
-        }
-
-        return withdrawTx.transactionHash;
-    } catch (error) {
-        console.error("Error withdrawing from Moonwell:", error);
-        throw error;
+    if (mUsdcBefore === 0n) {
+      throw new Error("No Moonwell mUSDC balance to withdraw");
     }
+
+    // Error 14 TOKEN_INSUFFICIENT_CASH — market has no free USDC (currently over-utilized)
+    if (marketCash === 0n || marketCash < neededUnderlying) {
+      console.warn("[Moonwell withdraw] blocked: insufficient market cash", {
+        marketCash: marketCash.toString(),
+        neededUnderlying: neededUnderlying.toString(),
+      });
+      throw new Error(LIQUIDITY_ERROR);
+    }
+
+    let withdrawHash;
+
+    if (isMax) {
+      // Docs: pass type(uint).max to redeem entire mToken balance
+      withdrawHash = await smartAccountClient.writeContract({
+        address: mToken,
+        abi: MOONWELL_REDEEM_ABI,
+        functionName: "redeem",
+        args: [maxUint256],
+        dataSuffix: builderCodeDataSuffix,
+        ...(authorization ? { authorization } : {}),
+      });
+    } else {
+      if (amountInWei <= 0n) {
+        throw new Error("Withdraw amount must be greater than zero");
+      }
+      withdrawHash = await smartAccountClient.writeContract({
+        address: mToken,
+        abi: MOONWELL_REDEEM_UNDERLYING_ABI,
+        functionName: "redeemUnderlying",
+        args: [amountInWei],
+        dataSuffix: builderCodeDataSuffix,
+        ...(authorization ? { authorization } : {}),
+      });
+    }
+
+    const withdrawTx = await withRpcRetry("waitForTransactionReceipt", () =>
+      publicClient.waitForTransactionReceipt({ hash: withdrawHash }),
+    );
+    if (!withdrawTx || withdrawTx.status !== "success") {
+      throw new Error("Unable to withdraw from Moonwell.");
+    }
+
+    const failure = parseMoonwellFailure(withdrawTx);
+    if (failure) {
+      console.error("[Moonwell withdraw] Failure event", failure);
+      if (failure.errorCode === 14) {
+        throw new Error(LIQUIDITY_ERROR);
+      }
+      throw new Error(
+        `Moonwell redeem failed (${failure.name || `error ${failure.errorCode}`}). Funds were not withdrawn.`,
+      );
+    }
+
+    // Confirm mUSDC left Moonwell AND underlying USDC landed in the wallet.
+    let mUsdcAfter = mUsdcBefore;
+    let usdcAfter = usdcBefore;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 1200));
+      try {
+        mUsdcAfter = await readTokenBalance(mToken, wallet);
+        usdcAfter = await readTokenBalance(
+          USDCAddress as `0x${string}`,
+          wallet,
+        );
+      } catch (error) {
+        if (isRpcRateLimitError(error) && attempt < 5) {
+          console.warn(
+            "[Moonwell withdraw] post-check rate limited, backing off",
+          );
+          continue;
+        }
+        throw error;
+      }
+      if (mUsdcAfter < mUsdcBefore && usdcAfter > usdcBefore) break;
+    }
+
+    console.log("[Moonwell withdraw] balances after", {
+      wallet,
+      txHash: withdrawTx.transactionHash,
+      mUsdcAfter: mUsdcAfter.toString(),
+      usdcAfter: usdcAfter.toString(),
+      mUsdcDelta: (mUsdcBefore - mUsdcAfter).toString(),
+      usdcDelta: (usdcAfter - usdcBefore).toString(),
+    });
+
+    if (mUsdcAfter >= mUsdcBefore) {
+      throw new Error(
+        "Moonwell redeem did not move mUSDC (likely silent error code). Funds were not withdrawn.",
+      );
+    }
+
+    if (usdcAfter <= usdcBefore) {
+      throw new Error(
+        "Moonwell redeem burned mUSDC but USDC did not arrive in the wallet. Check Basescan and try again.",
+      );
+    }
+
+    return withdrawTx.transactionHash;
+  } catch (error) {
+    console.error("Error withdrawing from Moonwell:", error);
+    throw error;
+  }
 };
 
-export const bcUpdateChamaDetails = async (cdpWalletId: string, chamaBlockchainId: bigint, newAmount: string, newCycle: number, newRound: number, newPayDate: number, newDuration: number) => {
-    try {
-        const amountInWei = parseUnits(newAmount, 6);
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        const hash = await smartAccountClient.writeContract({
-            address: contractAddress,
-            abi: contractABI,
-            functionName: 'updateChamaDetails',
-            args: [chamaBlockchainId, amountInWei, BigInt(newCycle), BigInt(newRound), BigInt(newPayDate), BigInt(newDuration)],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
-        const transaction = await publicClient.waitForTransactionReceipt({ hash });
-        if (!transaction) throw new Error("Unable to update chama details onchain.");
-        return transaction.transactionHash;
-    } catch (error) {
-        console.error("Error updating chama details:", error);
-        throw error;
+export const bcUpdateChamaDetails = async (
+  cdpWalletId: string,
+  chamaBlockchainId: bigint,
+  newAmount: string,
+  newCycle: number,
+  newRound: number,
+  newPayDate: number,
+  newDuration: number,
+) => {
+  try {
+    const amountInWei = parseUnits(newAmount, 6);
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
+    const hash = await smartAccountClient.writeContract({
+      address: contractAddress,
+      abi: contractABI,
+      functionName: "updateChamaDetails",
+      args: [
+        chamaBlockchainId,
+        amountInWei,
+        BigInt(newCycle),
+        BigInt(newRound),
+        BigInt(newPayDate),
+        BigInt(newDuration),
+      ],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+    const transaction = await publicClient.waitForTransactionReceipt({ hash });
+    if (!transaction)
+      throw new Error("Unable to update chama details onchain.");
+    return transaction.transactionHash;
+  } catch (error) {
+    console.error("Error updating chama details:", error);
+    throw error;
+  }
+};
+
+/**
+ * One atomic transaction that can do any of:
+ *  1. updateChamaDetails   (amount / cycle / round / payDate / duration)
+ *  2. setPayDayOfMonth     (fixed pay day, 0 clears it back to days-based)
+ *  3. setPayoutOrder       (new payout order)
+ * Order matters: details first (sets the new payDate), then the pay day
+ * (the contract validates it against the new payDate), then the payout order.
+ * All three require round == 1 on-chain. Because they are batched, either
+ * everything applies or nothing does.
+ */
+export const bcUpdateChamaBundle = async (
+  cdpWalletId: string,
+  chamaBlockchainId: bigint,
+  changes: {
+    details?: {
+      newAmount: string;
+      newCycle: number;
+      newRound: number;
+      newPayDate: number;
+      newDuration: number;
+    };
+    payDay?: number; // 0 = clear, 1-28 = fixed day. Omit to leave unchanged.
+    payoutOrder?: `0x${string}`[];
+  },
+) => {
+  try {
+    const calls: { to: `0x${string}`; data: `0x${string}` }[] = [];
+    const target = contractAddress as `0x${string}`;
+
+    if (changes.details) {
+      const d = changes.details;
+      calls.push({
+        to: target,
+        data: encodeFunctionData({
+          abi: contractABI,
+          functionName: "updateChamaDetails",
+          args: [
+            chamaBlockchainId,
+            parseUnits(d.newAmount, 6),
+            BigInt(d.newCycle),
+            BigInt(d.newRound),
+            BigInt(d.newPayDate),
+            BigInt(d.newDuration),
+          ],
+        }),
+      });
     }
+    if (changes.payDay !== undefined) {
+      calls.push({
+        to: target,
+        data: encodeFunctionData({
+          abi: contractABI,
+          functionName: "setPayDayOfMonth",
+          args: [chamaBlockchainId, changes.payDay],
+        }),
+      });
+    }
+    if (changes.payoutOrder) {
+      calls.push({
+        to: target,
+        data: encodeFunctionData({
+          abi: contractABI,
+          functionName: "setPayoutOrder",
+          args: [chamaBlockchainId, changes.payoutOrder],
+        }),
+      });
+    }
+    if (calls.length === 0) throw new Error("Nothing to update onchain.");
+
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
+    const hash = await smartAccountClient.sendTransaction({
+      calls,
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+    const transaction = await publicClient.waitForTransactionReceipt({ hash });
+    if (!transaction || transaction.status !== "success")
+      throw new Error("Unable to update chama onchain.");
+    return transaction.transactionHash;
+  } catch (error) {
+    console.error("Error updating chama onchain:", error);
+    throw error;
+  }
 };
 
 // for Casis's version only or maybe not
-export const  bcAdminSetPayoutOrder = async (cdpWalletId: string, chamaBlockchainId: number, payoutOrder: `0x${string}`[]) => {
-    try {
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        const hash = await smartAccountClient.writeContract({
-            address: contractAddress,
-            abi: contractABI,
-            functionName: 'setPayoutOrder',
-            args: [chamaBlockchainId, payoutOrder],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
-        const transaction = await publicClient.waitForTransactionReceipt({ hash });
-        if (!transaction) throw new Error("Unable to set payout order onchain.");
-        return transaction.transactionHash;
-    } catch (error) {
-        console.error("Error setting payout order:", error);
-        throw error;
-    }
+export const bcAdminSetPayoutOrder = async (
+  cdpWalletId: string,
+  chamaBlockchainId: number,
+  payoutOrder: `0x${string}`[],
+) => {
+  try {
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
+    const hash = await smartAccountClient.writeContract({
+      address: contractAddress,
+      abi: contractABI,
+      functionName: "setPayoutOrder",
+      args: [chamaBlockchainId, payoutOrder],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+    const transaction = await publicClient.waitForTransactionReceipt({ hash });
+    if (!transaction) throw new Error("Unable to set payout order onchain.");
+    return transaction.transactionHash;
+  } catch (error) {
+    console.error("Error setting payout order:", error);
+    throw error;
+  }
 };
 
 // ---------------------------------------------------------------------------
@@ -556,253 +814,269 @@ export const  bcAdminSetPayoutOrder = async (cdpWalletId: string, chamaBlockchai
 // ---------------------------------------------------------------------------
 
 export const bcCreateGoal = async (
-    cdpWalletId: string,
-    targetAmount: string,
-    endDateUnix: number,
-    yieldEnabled: boolean,
-    goalType: 0 | 1 | 2
+  cdpWalletId: string,
+  targetAmount: string,
+  endDateUnix: number,
+  yieldEnabled: boolean,
+  goalType: 0 | 1 | 2,
 ) => {
-    try {
-        const targetWei = parseUnits(targetAmount || "0", 6);
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        const hash = await smartAccountClient.writeContract({
-            address: goalContractAddress as `0x${string}`,
-            abi: goalContractABI,
-            functionName: "createGoal",
-            args: [targetWei, BigInt(endDateUnix), yieldEnabled, goalType],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
-        if (!receipt) throw new Error("Unable to create goal onchain.");
-        return receipt.transactionHash;
-    } catch (error) {
-        console.error("Error creating goal:", error);
-        throw error;
-    }
+  try {
+    const targetWei = parseUnits(targetAmount || "0", 6);
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
+    const hash = await smartAccountClient.writeContract({
+      address: goalContractAddress as `0x${string}`,
+      abi: goalContractABI,
+      functionName: "createGoal",
+      args: [targetWei, BigInt(endDateUnix), yieldEnabled, goalType],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (!receipt) throw new Error("Unable to create goal onchain.");
+    return receipt.transactionHash;
+  } catch (error) {
+    console.error("Error creating goal:", error);
+    throw error;
+  }
 };
 
 export const bcGoalAddMember = async (
-    cdpWalletId: string,
-    goalId: bigint,
-    memberAddress: string
+  cdpWalletId: string,
+  goalId: bigint,
+  memberAddress: string,
 ) => {
-    try {
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        const hash = await smartAccountClient.writeContract({
-            address: goalContractAddress as `0x${string}`,
-            abi: goalContractABI,
-            functionName: "addMember",
-            args: [goalId, memberAddress as `0x${string}`],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
-        if (!receipt) throw new Error("Unable to add goal member onchain.");
-        return receipt.transactionHash;
-    } catch (error) {
-        console.error("Error adding goal member:", error);
-        throw error;
-    }
+  try {
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
+    const hash = await smartAccountClient.writeContract({
+      address: goalContractAddress as `0x${string}`,
+      abi: goalContractABI,
+      functionName: "addMember",
+      args: [goalId, memberAddress as `0x${string}`],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (!receipt) throw new Error("Unable to add goal member onchain.");
+    return receipt.transactionHash;
+  } catch (error) {
+    console.error("Error adding goal member:", error);
+    throw error;
+  }
 };
 
-export const bcGoalContribute = async (cdpWalletId: string, goalId: bigint, amount: string) => {
-    try {
-        const amountWei = parseUnits(amount, 6);
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        const hash = await smartAccountClient.sendTransaction({
-            calls: [
-                {
-                    to: USDCAddress as `0x${string}`,
-                    data: encodeFunctionData({
-                        abi: erc20Abi,
-                        functionName: "approve",
-                        args: [goalContractAddress as `0x${string}`, amountWei],
-                    }),
-                },
-                {
-                    to: goalContractAddress as `0x${string}`,
-                    data: encodeFunctionData({
-                        abi: goalContractABI,
-                        functionName: "contribute",
-                        args: [goalId, amountWei],
-                    }),
-                },
-            ],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
-        if (!receipt) throw new Error("Unable to contribute to goal onchain.");
-        return receipt.transactionHash;
-    } catch (error) {
-        console.error("Error contributing to goal:", error);
-        throw error;
-    }
+export const bcGoalContribute = async (
+  cdpWalletId: string,
+  goalId: bigint,
+  amount: string,
+) => {
+  try {
+    const amountWei = parseUnits(amount, 6);
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
+    const hash = await smartAccountClient.sendTransaction({
+      calls: [
+        {
+          to: USDCAddress as `0x${string}`,
+          data: encodeFunctionData({
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [goalContractAddress as `0x${string}`, amountWei],
+          }),
+        },
+        {
+          to: goalContractAddress as `0x${string}`,
+          data: encodeFunctionData({
+            abi: goalContractABI,
+            functionName: "contribute",
+            args: [goalId, amountWei],
+          }),
+        },
+      ],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (!receipt) throw new Error("Unable to contribute to goal onchain.");
+    return receipt.transactionHash;
+  } catch (error) {
+    console.error("Error contributing to goal:", error);
+    throw error;
+  }
 };
 
 export const bcGoalContributeFor = async (
-    cdpWalletId: string,
-    goalId: bigint,
-    contributor: string,
-    amount: string
+  cdpWalletId: string,
+  goalId: bigint,
+  contributor: string,
+  amount: string,
 ) => {
-    try {
-        const amountWei = parseUnits(amount, 6);
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        const hash = await smartAccountClient.sendTransaction({
-            calls: [
-                {
-                    to: USDCAddress as `0x${string}`,
-                    data: encodeFunctionData({
-                        abi: erc20Abi,
-                        functionName: "approve",
-                        args: [goalContractAddress as `0x${string}`, amountWei],
-                    }),
-                },
-                {
-                    to: goalContractAddress as `0x${string}`,
-                    data: encodeFunctionData({
-                        abi: goalContractABI,
-                        functionName: "contributeFor",
-                        args: [goalId, contributor as `0x${string}`, amountWei],
-                    }),
-                },
-            ],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
-        if (!receipt) throw new Error("Unable to contributeFor on goal.");
-        return receipt.transactionHash;
-    } catch (error) {
-        console.error("Error contributeFor on goal:", error);
-        throw error;
-    }
+  try {
+    const amountWei = parseUnits(amount, 6);
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
+    const hash = await smartAccountClient.sendTransaction({
+      calls: [
+        {
+          to: USDCAddress as `0x${string}`,
+          data: encodeFunctionData({
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [goalContractAddress as `0x${string}`, amountWei],
+          }),
+        },
+        {
+          to: goalContractAddress as `0x${string}`,
+          data: encodeFunctionData({
+            abi: goalContractABI,
+            functionName: "contributeFor",
+            args: [goalId, contributor as `0x${string}`, amountWei],
+          }),
+        },
+      ],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (!receipt) throw new Error("Unable to contributeFor on goal.");
+    return receipt.transactionHash;
+  } catch (error) {
+    console.error("Error contributeFor on goal:", error);
+    throw error;
+  }
 };
 
 /** Guest / pay-link: treasury wallet pays into the goal (ledger shows treasury as payer). */
-export const bcTreasuryGoalContribute = async (goalId: bigint, amount: string) => {
-    try {
-        const amountWei = parseUnits(amount, 6);
-        const { smartAccountClient, authorization } = await getTreasurySmartWallet();
-        const hash = await smartAccountClient.sendTransaction({
-            calls: [
-                {
-                    to: USDCAddress as `0x${string}`,
-                    data: encodeFunctionData({
-                        abi: erc20Abi,
-                        functionName: "approve",
-                        args: [goalContractAddress as `0x${string}`, amountWei],
-                    }),
-                },
-                {
-                    to: goalContractAddress as `0x${string}`,
-                    data: encodeFunctionData({
-                        abi: goalContractABI,
-                        functionName: "contribute",
-                        args: [goalId, amountWei],
-                    }),
-                },
-            ],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
-        if (!receipt) throw new Error("Unable for treasury to contribute to goal.");
-        return receipt.transactionHash;
-    } catch (error) {
-        console.error("Error treasury goal contribute:", error);
-        throw error;
-    }
+export const bcTreasuryGoalContribute = async (
+  goalId: bigint,
+  amount: string,
+) => {
+  try {
+    const amountWei = parseUnits(amount, 6);
+    const { smartAccountClient, authorization } =
+      await getTreasurySmartWallet();
+    const hash = await smartAccountClient.sendTransaction({
+      calls: [
+        {
+          to: USDCAddress as `0x${string}`,
+          data: encodeFunctionData({
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [goalContractAddress as `0x${string}`, amountWei],
+          }),
+        },
+        {
+          to: goalContractAddress as `0x${string}`,
+          data: encodeFunctionData({
+            abi: goalContractABI,
+            functionName: "contribute",
+            args: [goalId, amountWei],
+          }),
+        },
+      ],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (!receipt) throw new Error("Unable for treasury to contribute to goal.");
+    return receipt.transactionHash;
+  } catch (error) {
+    console.error("Error treasury goal contribute:", error);
+    throw error;
+  }
 };
 
 /** Invite pay-link: treasury pays, credits a selected member. */
 export const bcTreasuryGoalContributeFor = async (
-    goalId: bigint,
-    memberContributor: string,
-    amount: string
+  goalId: bigint,
+  memberContributor: string,
+  amount: string,
 ) => {
-    try {
-        const amountWei = parseUnits(amount, 6);
-        const { smartAccountClient, authorization } = await getTreasurySmartWallet();
-        const hash = await smartAccountClient.sendTransaction({
-            calls: [
-                {
-                    to: USDCAddress as `0x${string}`,
-                    data: encodeFunctionData({
-                        abi: erc20Abi,
-                        functionName: "approve",
-                        args: [goalContractAddress as `0x${string}`, amountWei],
-                    }),
-                },
-                {
-                    to: goalContractAddress as `0x${string}`,
-                    data: encodeFunctionData({
-                        abi: goalContractABI,
-                        functionName: "contributeFor",
-                        args: [goalId, memberContributor as `0x${string}`, amountWei],
-                    }),
-                },
-            ],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
-        if (!receipt) throw new Error("Unable for treasury to contributeFor on goal.");
-        return receipt.transactionHash;
-    } catch (error) {
-        console.error("Error treasury goal contributeFor:", error);
-        throw error;
-    }
+  try {
+    const amountWei = parseUnits(amount, 6);
+    const { smartAccountClient, authorization } =
+      await getTreasurySmartWallet();
+    const hash = await smartAccountClient.sendTransaction({
+      calls: [
+        {
+          to: USDCAddress as `0x${string}`,
+          data: encodeFunctionData({
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [goalContractAddress as `0x${string}`, amountWei],
+          }),
+        },
+        {
+          to: goalContractAddress as `0x${string}`,
+          data: encodeFunctionData({
+            abi: goalContractABI,
+            functionName: "contributeFor",
+            args: [goalId, memberContributor as `0x${string}`, amountWei],
+          }),
+        },
+      ],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (!receipt)
+      throw new Error("Unable for treasury to contributeFor on goal.");
+    return receipt.transactionHash;
+  } catch (error) {
+    console.error("Error treasury goal contributeFor:", error);
+    throw error;
+  }
 };
 
 export const bcGoalSetYieldEnabled = async (
-    cdpWalletId: string,
-    goalId: bigint,
-    enabled: boolean
+  cdpWalletId: string,
+  goalId: bigint,
+  enabled: boolean,
 ) => {
-    try {
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        const hash = await smartAccountClient.writeContract({
-            address: goalContractAddress as `0x${string}`,
-            abi: goalContractABI,
-            functionName: "setYieldEnabled",
-            args: [goalId, enabled],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
-        if (!receipt) throw new Error("Unable to toggle goal yield.");
-        return receipt.transactionHash;
-    } catch (error) {
-        console.error("Error toggling goal yield:", error);
-        throw error;
-    }
+  try {
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
+    const hash = await smartAccountClient.writeContract({
+      address: goalContractAddress as `0x${string}`,
+      abi: goalContractABI,
+      functionName: "setYieldEnabled",
+      args: [goalId, enabled],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (!receipt) throw new Error("Unable to toggle goal yield.");
+    return receipt.transactionHash;
+  } catch (error) {
+    console.error("Error toggling goal yield:", error);
+    throw error;
+  }
 };
 
 export const bcGoalWithdraw = async (
-    cdpWalletId: string,
-    goalId: bigint,
-    amount: string,
-    mode: 0 | 1 | 2 | 3
+  cdpWalletId: string,
+  goalId: bigint,
+  amount: string,
+  mode: 0 | 1 | 2 | 3,
 ) => {
-    try {
-        const amountWei = mode === 3 ? parseUnits(amount, 6) : 0n;
-        const { smartAccountClient, authorization } = await createEIP7702SmartAccount(cdpWalletId);
-        const hash = await smartAccountClient.writeContract({
-            address: goalContractAddress as `0x${string}`,
-            abi: goalContractABI,
-            functionName: "withdraw",
-            args: [goalId, amountWei, mode],
-            dataSuffix: builderCodeDataSuffix,
-            ...(authorization ? { authorization } : {}),
-        });
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
-        if (!receipt) throw new Error("Unable to withdraw from goal.");
-        return receipt.transactionHash;
-    } catch (error) {
-        console.error("Error withdrawing from goal:", error);
-        throw error;
-    }
+  try {
+    const amountWei = mode === 3 ? parseUnits(amount, 6) : 0n;
+    const { smartAccountClient, authorization } =
+      await createEIP7702SmartAccount(cdpWalletId);
+    const hash = await smartAccountClient.writeContract({
+      address: goalContractAddress as `0x${string}`,
+      abi: goalContractABI,
+      functionName: "withdraw",
+      args: [goalId, amountWei, mode],
+      dataSuffix: builderCodeDataSuffix,
+      ...(authorization ? { authorization } : {}),
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (!receipt) throw new Error("Unable to withdraw from goal.");
+    return receipt.transactionHash;
+  } catch (error) {
+    console.error("Error withdrawing from goal:", error);
+    throw error;
+  }
 };
