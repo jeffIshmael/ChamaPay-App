@@ -454,6 +454,7 @@ export const getChamaPayments = async (req: Request, res: Response) => {
 };
 
 // get chamas user is a member of
+
 export const getChamasUserIsMemberOf = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
@@ -1189,7 +1190,7 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
       changes.push(`${adminName} changed the name of the chama from "${chama.name}" to "${newName}"`);
     }
     if (amountChanged) {
-      changes.push(`${adminName} changed the contribution amount from ${chama.amount} USDC to ${newAmount} USDC`);
+      changes.push(`${adminName} changed the contribution amount from ${(Number(chama.amount) * 132).toFixed(2)} KES to ${(Number(newAmount) * 132).toFixed(2)} KES.`);
     }
     if (payDayChanged) {
       changes.push(
