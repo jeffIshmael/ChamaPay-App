@@ -207,7 +207,7 @@ export const bcDepositFundsForMember = async (
 export const bcLeaveChama = async (
   cdpWalletId: string,
   memberAddress: string,
-  chamaBlockchainId: number,
+  chamaBlockchainId: bigint,
 ) => {
   try {
     const { smartAccountClient, authorization } =
@@ -808,6 +808,8 @@ export const bcAdminSetPayoutOrder = async (
     throw error;
   }
 };
+
+
 
 // ---------------------------------------------------------------------------
 // ChamaPayGoal (Save for Goal)

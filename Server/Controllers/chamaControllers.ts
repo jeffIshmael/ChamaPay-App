@@ -11,7 +11,7 @@ import { getPrivateKey, generateUniqueSlug } from "../Lib/HelperFunctions";
 import { addMemberToPayout, notifyAllChamaMembers } from "../Lib/prismaFunctions";
 
 import { getCached, setCache } from "../Lib/cache";
-import { buildPayoutSchedule, fallsOnPayDayUtc } from "../Lib/PayDateUtils";
+import { buildPayoutSchedule, fallsOnPayDayUtc, PayoutOrder, removeMemberFromPayoutSchedule } from "../Lib/PayDateUtils";
 
 const prisma = new PrismaClient();
 
@@ -1390,94 +1390,235 @@ export const getChamaPayouts = async (req: Request, res: Response) => {
 };
 
 
-// leave chama
+// leave chama or remove member called by admin
 export const leaveChamaController = async (req: Request, res: Response) => {
   try {
-    const { chamaId } = req.body;
-    const userId = req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
-    }
-    if (!chamaId) {
-      return res.status(400).json({ success: false, error: "Chama ID is required" });
+    const { chamaId, memberUserId } = req.body;
+    const requesterId = req.user?.userId;
+
+    if (!requesterId) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+      });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: Number(userId) } });
-    if (!user || !user.smartAddress) {
-      return res.status(404).json({ success: false, error: "User not found or missing wallet" });
+    if (!chamaId) {
+      return res.status(400).json({
+        success: false,
+        error: "Chama ID is required",
+      });
+    }
+
+    const requester = await prisma.user.findUnique({
+      where: { id: Number(requesterId) },
+    });
+
+    if (!requester || !requester.smartAddress) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found or missing wallet",
+      });
     }
 
     const chama = await prisma.chama.findUnique({
       where: { id: Number(chamaId) },
-      include: { members: { include: { user: true } }, admin: true },
+      include: {
+        members: {
+          include: {
+            user: true,
+          },
+        },
+        admin: true,
+      },
     });
 
     if (!chama) {
-      return res.status(404).json({ success: false, error: "Chama not found" });
+      return res.status(404).json({
+        success: false,
+        error: "Chama not found",
+      });
     }
 
-    if (chama.adminId === Number(userId)) {
-      return res.status(400).json({ success: false, error: "Admin cannot leave the chama" });
+    // ---------------------------------------------------------
+    // Determine whether this is:
+    // 1. A member leaving themselves
+    // 2. The admin removing another member
+    // ---------------------------------------------------------
+
+    const isAdmin = chama.adminId === Number(requesterId);
+
+    let targetUserId: number;
+
+    if (memberUserId !== undefined && memberUserId !== null) {
+      // Someone is being explicitly removed.
+      // Only the admin can do this.
+      if (!isAdmin) {
+        return res.status(403).json({
+          success: false,
+          error: "Only the admin can remove another member",
+        });
+      }
+
+      targetUserId = Number(memberUserId);
+    } else {
+      // No target supplied means the authenticated user
+      // is leaving themselves.
+      if (isAdmin) {
+        return res.status(400).json({
+          success: false,
+          error: "Admin cannot leave the chama",
+        });
+      }
+
+      targetUserId = Number(requesterId);
     }
+
+    // ---------------------------------------------------------
+    // Admin cannot be removed
+    // ---------------------------------------------------------
+
+    if (targetUserId === chama.adminId) {
+      return res.status(400).json({
+        success: false,
+        error: "Admin cannot be removed from the chama",
+      });
+    }
+
+    // ---------------------------------------------------------
+    // Only allow removal during round 1
+    // ---------------------------------------------------------
 
     if (chama.round > 1) {
-      return res.status(400).json({ success: false, error: "Cannot leave mid-payout cycle" });
+      return res.status(400).json({
+        success: false,
+        error: "Cannot leave or remove a member during an active payout cycle",
+      });
     }
 
-    const isMember = chama.members.some(m => m.userId === Number(userId));
-    if (!isMember) {
-      return res.status(400).json({ success: false, error: "You are not a member of this chama" });
+    // ---------------------------------------------------------
+    // Find the target member
+    // ---------------------------------------------------------
+
+    const targetMember = chama.members.find(
+      (member) => member.userId === targetUserId
+    );
+
+    if (!targetMember) {
+      return res.status(400).json({
+        success: false,
+        error: "User is not a member of this chama",
+      });
     }
 
-    // Call blockchain
+    const targetUser = targetMember.user;
+
+    if (!targetUser.smartAddress) {
+      return res.status(400).json({
+        success: false,
+        error: "Member does not have a wallet address",
+      });
+    }
+
+    // ---------------------------------------------------------
+    // Blockchain removal
+    //
+    // deleteMember() now handles:
+    // - refunding the member
+    // - removing them from members[]
+    // - removing them from payoutOrder[]
+    //
+    // Therefore we DO NOT call setPayoutOrder afterwards.
+    // ---------------------------------------------------------
+
     const adminUser = chama.admin;
+
     if (!adminUser.cdpWalletId) {
       throw new Error("Admin CDP wallet not found");
     }
 
     const txHash = await bcLeaveChama(
       adminUser.cdpWalletId,
-      user.smartAddress,
-      Number(chama.blockchainId)
+      targetUser.smartAddress,
+      BigInt(Number(chama.blockchainId))
     );
 
-    // Update database
-    // Remove from ChamaMember
+    // ---------------------------------------------------------
+    // Remove member from database
+    // ---------------------------------------------------------
+
     await prisma.chamaMember.deleteMany({
       where: {
         chamaId: Number(chamaId),
-        userId: Number(userId),
+        userId: targetUserId,
       },
     });
 
-    // Remove from payoutOrder offchain
-    let payoutOrder: string[] = [];
+    // ---------------------------------------------------------
+    // Rebuild payout schedule
+    // ---------------------------------------------------------
+
+    let payoutOrder: PayoutOrder[] = [];
+
     if (chama.payOutOrder) {
       try {
         payoutOrder = JSON.parse(chama.payOutOrder);
-      } catch (e) {}
-    }
-    
-    payoutOrder = payoutOrder.filter(address => address.toLowerCase() !== user.smartAddress?.toLowerCase());
+      } catch (error) {
+        console.error("Failed to parse payout order:", error);
 
-    // Update on-chain payout order
-    await bcAdminSetPayoutOrder(
-      adminUser.cdpWalletId,
-      Number(chama.blockchainId),
-      payoutOrder as `0x${string}`[]
+        return res.status(500).json({
+          success: false,
+          error: "Invalid payout order data",
+          txHash,
+        });
+      }
+    }
+
+    const firstPayDate =
+      payoutOrder.length > 0
+        ? new Date(payoutOrder[0].payDate)
+        : new Date(chama.payDate);
+
+    const updatedPayoutOrder = removeMemberFromPayoutSchedule(
+      payoutOrder,
+      targetUser.smartAddress,
+      firstPayDate,
+      chama.cycleTime,
+      chama.payDay
     );
+
+    // ---------------------------------------------------------
+    // Update payout schedule in database only.
+    //
+    // No blockchain setPayoutOrder call here.
+    // ---------------------------------------------------------
+
     await prisma.chama.update({
-      where: { id: Number(chamaId) },
+      where: {
+        id: Number(chamaId),
+      },
       data: {
-        payOutOrder: JSON.stringify(payoutOrder),
+        payOutOrder: JSON.stringify(updatedPayoutOrder),
       },
     });
 
-    // Notify other members
-    const notificationMessage = `${user.userName} has left the chama.`;
+    // ---------------------------------------------------------
+    // Notifications
+    // ---------------------------------------------------------
+
+    const isSelfLeave = targetUserId === Number(requesterId);
+
+    const notificationMessage = isSelfLeave
+      ? `${targetUser.userName} has left the chama.`
+      : `${targetUser.userName} has been removed from the chama.`;
+
     const remainingEmails = chama.members
-      .filter(m => m.userId !== Number(userId) && m.user.email)
-      .map(m => m.user.email!);
+      .filter(
+        (member) =>
+          member.userId !== targetUserId &&
+          member.user.email
+      )
+      .map((member) => member.user.email!);
 
     if (remainingEmails.length > 0) {
       await emailService.sendBulkChamaUpdateEmails(
@@ -1486,18 +1627,24 @@ export const leaveChamaController = async (req: Request, res: Response) => {
         notificationMessage
       );
     }
-    
-    // Send Push Notifications
+
     await sendExpoNotificationToAllChamaMembers(
-      "Member Left",
+      isSelfLeave ? "Member Left" : "Member Removed",
       notificationMessage,
       Number(chamaId)
     );
 
-    return res.status(200).json({ success: true, txHash });
-
+    return res.status(200).json({
+      success: true,
+      txHash,
+    });
   } catch (error: any) {
-    console.error("Error leaving chama:", error);
-    return res.status(500).json({ success: false, error: error.message || "Failed to leave chama" });
+    console.error("Error leaving/removing member:", error);
+
+    return res.status(500).json({
+      success: false,
+      error:
+        error.message || "Failed to leave or remove member",
+    });
   }
 };
