@@ -310,10 +310,11 @@ function parseUsdcInput(input: unknown): bigint | null {
 }
 
 // ---------------------------------------------------------------------------
-// Withdrawal pricing: the user types a gross KES amount. We use the live Element Pay rate to size
-// the USDC sent to Element Pay. Element Pay then applies its own quote fee and returns the actual
-// `user_receives` KES amount. ChamaPay's fee is deducted from that provider payout, and is collected
-// separately in USDC from the user's wallet.
+// Withdrawal pricing: the user types a gross KES amount. We use the live Element Pay rate to
+// calculate the gross USDC value, convert ChamaPay's fee to USDC, and remove that fee from the
+// user's USDC before creating the real Element Pay quote. Whatever `user_receives` Element Pay
+// returns is the authoritative M-Pesa payout. Element Pay's own fee is therefore the difference
+// between the gross KES amount, our ChamaPay fee, and the provider payout.
 // ---------------------------------------------------------------------------
 
 const OFFRAMP_MIN_KES: number = WITHDRAWAL_FEE_BRACKETS[0].min;
@@ -325,10 +326,10 @@ interface OfframpPlan {
   kesCents: string; // gross KES amount typed by the user
   feeKes: number; // ChamaPay fee (from the bracket table)
   elementPayFeeUsdc: string; // Element Pay's explicit quote fee, in USDC
-  elementPayFeeKes: number; // Element Pay fee expressed in KES using the quote rate
-  elementPayReceiveKes: number; // Element Pay's user_receives amount before our fee
-  receiveKes: number; // final M-Pesa amount after subtracting the ChamaPay fee
-  netUnits: string; // USDC sent to Element Pay
+  elementPayFeeKes: number; // Element Pay fee, derived so all KES amounts reconcile
+  elementPayReceiveKes: number; // Element Pay's authoritative user_receives amount
+  receiveKes: number; // final M-Pesa amount (same as Element Pay user_receives)
+  netUnits: string; // USDC sent to Element Pay after removing our fee
   feeUnits: string; // USDC the treasury keeps for the ChamaPay fee
   grossUnits: string; // total USDC debited from the user (net + ChamaPay fee)
   effectiveRate: string; // KES per USDC actually paid out by Element Pay
@@ -394,8 +395,8 @@ interface RefRate {
   expiresAt: number;
 }
 
-// Effective KES per USDC (after Element Pay's fees) from a reference-size quote. Same for every user,
-// so it is shared for 30s. Only used to size the real quote and to show the page rate.
+// Reference quote used only to obtain a live Element Pay provider rate for the withdrawal page.
+// The reference quote is never accepted.
 async function referenceOfframpRate(
   userId: number,
   payPhone: string,
@@ -437,8 +438,9 @@ async function referenceOfframpRate(
   return out;
 }
 
-// Binding price for a withdrawal. Sizes the USDC so Element Pay pays exactly (kes - fee) to M-Pesa
-// (never less, at most KES 1 more), re-quoting up to 3 times because their fee/rate may not be linear.
+// Binding price for a withdrawal. Remove ChamaPay's fee from the gross USDC value first, then
+// create one real Element Pay quote for the remaining USDC. Element Pay's user_receives is the
+// authoritative M-Pesa payout; its own fee is represented separately in the customer breakdown.
 async function priceOfframp(
   userId: number,
   payPhone: string,
@@ -448,16 +450,23 @@ async function priceOfframp(
 ): Promise<{ q: any; plan: OfframpPlan }> {
   const feeKes = withdrawalFeeKes(kesCents);
 
-  // The live provider rate is used only to size the USDC that the user is sending to
-  // Element Pay. We do NOT subtract our ChamaPay fee before this conversion.
+  // The user-entered KES amount is the gross value. Convert that gross value to USDC using
+  // the live Element Pay provider rate, then convert OUR fee to USDC and remove it before
+  // creating the Element Pay quote. This guarantees our fee is secured before any USDC
+  // becomes part of an Element Pay order.
   const ref = await referenceOfframpRate(userId, payPhone, provider, treasury);
-  const net = kesCentsToUsdcUnitsCeil(kesCents, ref.providerRate);
-  if (net <= 0n) {
+  const grossUnits = kesCentsToUsdcUnitsCeil(kesCents, ref.providerRate);
+  const feeUnits = kesCentsToUsdcUnitsCeil(
+    BigInt(feeKes) * 100n,
+    ref.providerRate,
+  );
+  const net = grossUnits - feeUnits;
+  if (grossUnits <= 0n || feeUnits <= 0n || net <= 0n) {
     throw new ElementPayError(400, "Amount is too small to withdraw");
   }
 
-  // Create the real binding quote. Element Pay's user_receives is authoritative for
-  // what its payout rail will deliver after Element Pay's own fee.
+  // Create the real binding quote with ONLY the USDC left after ChamaPay's fee. From this
+  // point onward, Element Pay controls the payout and its `user_receives` is authoritative.
   const q = await createQuote(
     await offrampQuoteBody(userId, payPhone, net, provider.id, treasury),
   );
@@ -480,27 +489,20 @@ async function priceOfframp(
     throw new ElementPayError(502, "Element Pay did not return its fee");
   }
 
-  // Element Pay reports its fee in USDC. Show the KES equivalent in the modal using
-  // the same provider rate that came with this binding quote.
-  const elementPayFeeKes =
-    Number(elementPayFeeUsdc) * Number(elementPayRate);
+  // Element Pay's explicit fee is already reflected in `user_receives`. For the UI, derive
+  // its KES equivalent as the residual so the customer-facing breakdown always reconciles:
+  // gross KES - ChamaPay fee - Element Pay fee = Element Pay user_receives.
+  const elementPayFeeKesRaw =
+    Number(kesCents) / 100 - feeKes - providerReceiveKes;
+  const elementPayFeeKes = Math.max(0, Number(elementPayFeeKesRaw.toFixed(2)));
 
-  // What the user finally receives is Element Pay's actual payout minus ChamaPay's fee.
-  const receiveKes = providerReceiveKes - feeKes;
+  // The final M-Pesa amount is exactly what Element Pay says the user receives. We do NOT
+  // subtract the ChamaPay fee again here because that fee was already removed from the
+  // user's USDC before the Element Pay quote was created.
+  const receiveKes = providerReceiveKes;
   if (receiveKes <= 0) {
     throw new ElementPayError(400, "Amount is too small to withdraw");
   }
-
-  // Collect our KES fee in USDC separately. This does not change the USDC sent to
-  // Element Pay; it is an additional debit from the user's wallet.
-  const feeRate = ratioString(providerReceiveKes, formatUnits(net, USDC_DECIMALS), 6);
-  if (!feeRate) {
-    throw new ElementPayError(502, "Could not calculate the ChamaPay fee");
-  }
-  const feeUnits = kesCentsToUsdcUnitsCeil(
-    BigInt(feeKes) * 100n,
-    feeRate,
-  );
 
   const netStr = formatUnits(net, USDC_DECIMALS);
   const effectiveRate = ratioString(providerReceiveKes, netStr, 6);
@@ -517,7 +519,7 @@ async function priceOfframp(
     receiveKes,
     netUnits: net.toString(),
     feeUnits: feeUnits.toString(),
-    grossUnits: (net + feeUnits).toString(),
+    grossUnits: grossUnits.toString(),
     effectiveRate,
     elementPayRate,
   };
@@ -539,7 +541,7 @@ function offrampPayload(
       amount: Number(plan.kesCents) / 100, // gross amount the user typed
       fee: plan.feeKes, // ChamaPay fee
       elementPayFee: plan.elementPayFeeKes, // Element Pay fee, converted from USDC to KES
-      elementPayReceive: plan.elementPayReceiveKes, // Element Pay payout before ChamaPay fee
+      elementPayReceive: plan.elementPayReceiveKes, // Element Pay's authoritative payout
       receive: plan.receiveKes, // final amount that should land in M-Pesa
     },
     usdc: {
@@ -1438,9 +1440,10 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
 // ---------------------------------------------------------------------------
 // POST  off-ramp initiate   body: { kesAmount, phoneNo, quoteId?, expectedUsdc? }
 //
-// kesAmount is what the user typed. Our fee comes from WITHDRAWAL_FEE_BRACKETS, Element Pay pays
-// (kesAmount - fee) to M-Pesa, and the USDC leaves the user's wallet in ONE transfer to the treasury.
-// The treasury keeps the fee and forwards the net to Element Pay's per-order deposit address.
+// kesAmount is what the user typed. ChamaPay's fee is converted to USDC and removed from the
+// user's gross USDC value BEFORE the Element Pay quote is created. The treasury keeps that fee
+// and forwards only the remaining USDC to Element Pay's per-order deposit address. Element Pay's
+// `user_receives` is the final M-Pesa amount.
 // If the quote the user confirmed has expired we re-price, and refuse (409 RATE_CHANGED) when that
 // would cost the user more than 0.5% extra USDC than the amount they confirmed (`expectedUsdc`).
 // ---------------------------------------------------------------------------
@@ -1657,7 +1660,8 @@ export async function initiateElementPayOfframp(req: Request, res: Response) {
           isOnramp: false,
           shortcode: String(phoneNo),
           // KES the user typed (fee included), e.g. 60. This is what the activity list shows;
-          // the fee (e.g. KES 5) is kept in `message` and what lands in M-Pesa is plan.receiveKes.
+          // ChamaPay's fee was already removed from the user's USDC before the Element Pay quote.
+          // What lands in M-Pesa is Element Pay's authoritative user_receives amount.
           amount: Number(plan.kesCents) / 100,
           type: "offramp",
           status: "PENDING",
