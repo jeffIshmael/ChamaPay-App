@@ -649,6 +649,46 @@ class EmailService {
       return { success: false };
     }
   }
+  async sendMemberRemovedEmail(email: string, chamaName: string, adminName: string) {
+    try {
+      const body = `
+        ${heading("You've been removed from a Chama")}
+        ${paragraph(
+          `You have been removed from <strong style="color:${INK};">${chamaName}</strong> by the admin, <strong>${adminName}</strong>.`
+        )}
+        <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="font-size:13px; color:${MUTED};">Chama</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${chamaName}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Removed by</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${adminName}</td>
+            </tr>
+          </table>
+        </div>
+        ${paragraph(
+          "Any funds you had in this Chama have been refunded to your wallet. You can check your balance anytime in the Chamapay app."
+        )}
+        ${paragraph(
+          `If you think this was a mistake, please reach out to ${adminName} directly. You're always welcome to join or create another Chama on Chamapay. 💚`
+        )}
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <welcome@chamapay.xyz>",
+        to: email,
+        subject: `You have been removed from ${chamaName}`,
+        html: wrapEmail(body, { preheader: `You were removed from ${chamaName} by ${adminName}` }),
+      });
+      if (error) console.error("Resend error:", error);
+      return { success: !error };
+    } catch (error) {
+      console.error("Error sending member removed email:", error);
+      return { success: false };
+    }
+  }
 }
 
 export default new EmailService();

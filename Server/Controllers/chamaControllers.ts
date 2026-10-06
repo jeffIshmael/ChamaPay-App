@@ -2,16 +2,42 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import { contractAddress } from "../Blockchain/Constants";
-import { bcGetTotalChamas, getEachMemberBalance, getUserChamaBalance } from "../Blockchain/ReadFunctions";
-import { bcAddMemberToPrivateChama, bcAdminSetPayoutOrder, bcCreateChama, bcCreateChamaMonthly, bcDepositFundsForMember, bcDepositFundsToChama, bcUpdateChamaDetails, bcUpdateChamaBundle, bcWithdrawFundsFromChama , bcLeaveChama } from "../Blockchain/WriteFunction";
+import {
+  bcGetTotalChamas,
+  getEachMemberBalance,
+  getUserChamaBalance,
+} from "../Blockchain/ReadFunctions";
+import {
+  bcAddMemberToPrivateChama,
+  bcAdminSetPayoutOrder,
+  bcCreateChama,
+  bcCreateChamaMonthly,
+  bcDepositFundsForMember,
+  bcDepositFundsToChama,
+  bcUpdateChamaDetails,
+  bcUpdateChamaBundle,
+  bcWithdrawFundsFromChama,
+  bcLeaveChama,
+} from "../Blockchain/WriteFunction";
 import { approveTx } from "../Blockchain/erc20Functions";
 import emailService from "../Lib/EmailService";
-import { sendExpoNotificationToAllChamaMembers, sendExpoNotificationToAUser } from "../Lib/ExpoNotificationFunctions";
+import {
+  sendExpoNotificationToAllChamaMembers,
+  sendExpoNotificationToAUser,
+} from "../Lib/ExpoNotificationFunctions";
 import { getPrivateKey, generateUniqueSlug } from "../Lib/HelperFunctions";
-import { addMemberToPayout, notifyAllChamaMembers } from "../Lib/prismaFunctions";
+import {
+  addMemberToPayout,
+  notifyAllChamaMembers,
+} from "../Lib/prismaFunctions";
 
 import { getCached, setCache } from "../Lib/cache";
-import { buildPayoutSchedule, fallsOnPayDayUtc, PayoutOrder, removeMemberFromPayoutSchedule } from "../Lib/PayDateUtils";
+import {
+  buildPayoutSchedule,
+  fallsOnPayDayUtc,
+  PayoutOrder,
+  removeMemberFromPayoutSchedule,
+} from "../Lib/PayDateUtils";
 
 const prisma = new PrismaClient();
 
@@ -31,7 +57,7 @@ interface CreateChamaRequestBody {
 // create a chama
 export const createChama = async (
   req: Request<{}, {}, CreateChamaRequestBody>,
-  res: Response
+  res: Response,
 ) => {
   const chamaData = req.body;
   try {
@@ -56,12 +82,16 @@ export const createChama = async (
     // get the cdp wallet of user
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user || !user.cdpWalletId) {
-      return res.status(401).json({ success: false, error: "Unable to get user CDP wallet." });
+      return res
+        .status(401)
+        .json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
     const startDateObj = new Date(startDate);
     if (isNaN(startDateObj.getTime())) {
-      return res.status(400).json({ success: false, error: "Invalid start date." });
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid start date." });
     }
     const startDateInSecs = Math.floor(startDateObj.getTime() / 1000);
 
@@ -69,7 +99,9 @@ export const createChama = async (
     const payDay = payoutDayOfMonth ? Number(payoutDayOfMonth) : null;
     if (payDay !== null) {
       if (!Number.isInteger(payDay) || payDay < 1 || payDay > 28) {
-        return res.status(400).json({ success: false, error: "Pay day must be between 1 and 28." });
+        return res
+          .status(400)
+          .json({ success: false, error: "Pay day must be between 1 and 28." });
       }
       // The contract checks the day in UTC, so we must too, otherwise the tx reverts.
       if (startDateObj.getUTCDate() !== payDay) {
@@ -84,19 +116,39 @@ export const createChama = async (
 
     // if its a public we need to first approve spending
     if (collateralRequired) {
-      const approveTxHash = await approveTx(user.cdpWalletId, (Number(amount) * maxNo).toString(), contractAddress as `0x${string}`);
+      const approveTxHash = await approveTx(
+        user.cdpWalletId,
+        (Number(amount) * maxNo).toString(),
+        contractAddress as `0x${string}`,
+      );
       if (!approveTxHash) {
-        return res.status(401).json({ success: false, error: "Approve transaction failed." });
+        return res
+          .status(401)
+          .json({ success: false, error: "Approve transaction failed." });
       }
     }
 
     // register in the blockchain
     // fixed pay day -> createPrivateChamaMonthly, otherwise the original days-based function
     const creationTxHash = payDay
-      ? await bcCreateChamaMonthly(user.cdpWalletId, amount, BigInt(startDateInSecs), payDay)
-      : await bcCreateChama(user.cdpWalletId, amount, BigInt(Number(cycleTime)), BigInt(startDateInSecs), BigInt(Number(maxNo)), collateralRequired);
+      ? await bcCreateChamaMonthly(
+          user.cdpWalletId,
+          amount,
+          BigInt(startDateInSecs),
+          payDay,
+        )
+      : await bcCreateChama(
+          user.cdpWalletId,
+          amount,
+          BigInt(Number(cycleTime)),
+          BigInt(startDateInSecs),
+          BigInt(Number(maxNo)),
+          collateralRequired,
+        );
     if (!creationTxHash) {
-      return res.status(401).json({ success: false, error: "Failed to register onchain." });
+      return res
+        .status(401)
+        .json({ success: false, error: "Failed to register onchain." });
     }
 
     // Generate unique slug from name
@@ -123,7 +175,9 @@ export const createChama = async (
       },
     });
     if (!chama) {
-      return res.status(401).json({ success: false, error: "Failed to save chama to database." });
+      return res
+        .status(401)
+        .json({ success: false, error: "Failed to save chama to database." });
     }
 
     // Then, make the admin a member
@@ -163,7 +217,9 @@ export const createChama = async (
     });
   } catch (error) {
     console.log(error);
-    return res.status(500).json({ success: false, error: "Failed to create chama" });
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to create chama" });
   }
 };
 
@@ -182,7 +238,8 @@ async function cachedOnchainRead<T>(
   read: () => Promise<T>,
 ): Promise<{ value: T; stale: boolean }> {
   const fresh = getCached<T>(key);
-  if (fresh !== undefined && fresh !== null) return { value: fresh, stale: false };
+  if (fresh !== undefined && fresh !== null)
+    return { value: fresh, stale: false };
 
   try {
     const value = await read();
@@ -192,7 +249,9 @@ async function cachedOnchainRead<T>(
   } catch (err) {
     const lastGood = getCached<T>(`${key}:last-good`);
     if (lastGood !== undefined && lastGood !== null) {
-      console.warn(`[chama] on-chain read failed for ${key}; serving last known value`);
+      console.warn(
+        `[chama] on-chain read failed for ${key}; serving last known value`,
+      );
       return { value: lastGood, stale: true };
     }
     throw err;
@@ -287,7 +346,7 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
             take: 20,
           },
         },
-      })
+      }),
     ]);
 
     if (!user) {
@@ -317,23 +376,37 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
         `chama-member-balances-${Number(chama.blockchainId)}`,
         async () =>
           JSON.parse(
-            JSON.stringify(await getEachMemberBalance(chainChamaId), bigIntReplacer),
+            JSON.stringify(
+              await getEachMemberBalance(chainChamaId),
+              bigIntReplacer,
+            ),
           ),
       ),
     ]);
 
     if (userBalanceRes.status === "rejected") {
-      console.warn("Failed to fetch user chama balance:", userBalanceRes.reason);
+      console.warn(
+        "Failed to fetch user chama balance:",
+        userBalanceRes.reason,
+      );
     }
     if (memberBalancesRes.status === "rejected") {
-      console.warn("Failed to fetch member balances:", memberBalancesRes.reason);
+      console.warn(
+        "Failed to fetch member balances:",
+        memberBalancesRes.reason,
+      );
     }
 
     const finalChama = {
       ...chama,
-      userBalance: userBalanceRes.status === "fulfilled" ? userBalanceRes.value.value : "0",
+      userBalance:
+        userBalanceRes.status === "fulfilled"
+          ? userBalanceRes.value.value
+          : "0",
       eachMemberBalance:
-        memberBalancesRes.status === "fulfilled" ? memberBalancesRes.value.value : [],
+        memberBalancesRes.status === "fulfilled"
+          ? memberBalancesRes.value.value
+          : [],
     };
 
     return res.status(200).json({
@@ -344,8 +417,10 @@ export const getChamaBySlug = async (req: Request, res: Response) => {
         userBalanceOk: userBalanceRes.status === "fulfilled",
         memberBalancesOk: memberBalancesRes.status === "fulfilled",
         stale:
-          (userBalanceRes.status === "fulfilled" && userBalanceRes.value.stale) ||
-          (memberBalancesRes.status === "fulfilled" && memberBalancesRes.value.stale),
+          (userBalanceRes.status === "fulfilled" &&
+            userBalanceRes.value.stale) ||
+          (memberBalancesRes.status === "fulfilled" &&
+            memberBalancesRes.value.stale),
       },
     });
   } catch (error) {
@@ -384,7 +459,9 @@ export const getChamaMessages = async (req: Request, res: Response) => {
     return res.status(200).json({ success: true, messages, nextCursor });
   } catch (error) {
     console.error("Failed to get messages:", error);
-    return res.status(500).json({ success: false, error: "Failed to get messages" });
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to get messages" });
   }
 };
 
@@ -437,19 +514,26 @@ export const getChamaPayments = async (req: Request, res: Response) => {
       txHash: t.txHash,
       cycle: t.cycle,
       round: t.round,
-      user: t.userId ? {
-        id: t.userId,
-        smartAddress: t.userSmartAddress,
-        userName: t.userUserName,
-        profileImageUrl: t.userProfileImageUrl,
-      } : null,
+      user: t.userId
+        ? {
+            id: t.userId,
+            smartAddress: t.userSmartAddress,
+            userName: t.userUserName,
+            profileImageUrl: t.userProfileImageUrl,
+          }
+        : null,
     }));
 
-    const nextCursor = formattedPayments.length === limit ? offset + limit : null;
-    return res.status(200).json({ success: true, payments: formattedPayments, nextCursor });
+    const nextCursor =
+      formattedPayments.length === limit ? offset + limit : null;
+    return res
+      .status(200)
+      .json({ success: true, payments: formattedPayments, nextCursor });
   } catch (error) {
     console.error("Failed to get payments:", error);
-    return res.status(500).json({ success: false, error: "Failed to get payments" });
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to get payments" });
   }
 };
 
@@ -496,15 +580,15 @@ export const getChamasUserIsMemberOf = async (req: Request, res: Response) => {
             },
           },
         });
-        
+
         return {
           ...member,
           chama: {
             ...member.chama,
             unreadMessages: unreadCount,
-          }
+          },
         };
-      })
+      }),
     );
 
     return res.status(200).json({ success: true, chamas: chamasWithUnread });
@@ -517,8 +601,7 @@ export const getChamasUserIsMemberOf = async (req: Request, res: Response) => {
   }
 };
 
-
-// 
+//
 // deposit funds to a chama
 export const depositToChama = async (req: Request, res: Response) => {
   try {
@@ -587,11 +670,20 @@ export const depositToChama = async (req: Request, res: Response) => {
         });
       }
 
-      const callerUser = await prisma.user.findUnique({ where: { id: userId } });
-      const targetUser = await prisma.user.findUnique({ where: { id: memberForId } });
+      const callerUser = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+      const targetUser = await prisma.user.findUnique({
+        where: { id: memberForId },
+      });
 
       if (!targetUser || !targetUser.smartAddress) {
-        return res.status(404).json({ success: false, error: "Target user smart address not found" });
+        return res
+          .status(404)
+          .json({
+            success: false,
+            error: "Target user smart address not found",
+          });
       }
 
       targetUserId = memberForId;
@@ -601,21 +693,36 @@ export const depositToChama = async (req: Request, res: Response) => {
       memberForAddress = targetUser.smartAddress;
     }
 
-    const callerUserForDeposit = await prisma.user.findUnique({ where: { id: userId } });
+    const callerUserForDeposit = await prisma.user.findUnique({
+      where: { id: userId },
+    });
     if (!callerUserForDeposit || !callerUserForDeposit.cdpWalletId) {
-      return res.status(401).json({ success: false, error: "Unable to get user CDP wallet." });
+      return res
+        .status(401)
+        .json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
     // do the batched approve and deposit onchain
     let depositTxHash;
     if (memberForId && memberForAddress) {
-      depositTxHash = await bcDepositFundsForMember(callerUserForDeposit.cdpWalletId, BigInt(Number(blockchainId)), memberForAddress, amount);
+      depositTxHash = await bcDepositFundsForMember(
+        callerUserForDeposit.cdpWalletId,
+        BigInt(Number(blockchainId)),
+        memberForAddress,
+        amount,
+      );
     } else {
-      depositTxHash = await bcDepositFundsToChama(callerUserForDeposit.cdpWalletId, BigInt(Number(blockchainId)), amount);
+      depositTxHash = await bcDepositFundsToChama(
+        callerUserForDeposit.cdpWalletId,
+        BigInt(Number(blockchainId)),
+        amount,
+      );
     }
 
     if (!depositTxHash) {
-      return res.status(401).json({ success: false, error: "Failed to deposit for chama." });
+      return res
+        .status(401)
+        .json({ success: false, error: "Failed to deposit for chama." });
     }
 
     // Record against the payer's wallet (money left their account).
@@ -644,15 +751,23 @@ export const depositToChama = async (req: Request, res: Response) => {
         },
       });
 
-      const targetUser = await prisma.user.findUnique({ where: { id: memberForId } });
+      const targetUser = await prisma.user.findUnique({
+        where: { id: memberForId },
+      });
       if (targetUser && targetUser.emailNotify) {
-        const amountKES = targetUser.location === "KE" ? (parseFloat(amount) * parseFloat(process.env.CHAMAPAY_RATE || "132")).toFixed(2) : null;
+        const amountKES =
+          targetUser.location === "KE"
+            ? (
+                parseFloat(amount) *
+                parseFloat(process.env.CHAMAPAY_RATE || "132")
+              ).toFixed(2)
+            : null;
         await emailService.sendPaidForSomeoneEmail(
           targetUser.email,
           callerUserName || "Someone",
           amount.toString(),
           amountKES,
-          chama.name
+          chama.name,
         );
       }
     }
@@ -690,20 +805,18 @@ export const addMemberToChama = async (req: Request, res: Response) => {
     // ensure user exists
     const user = await prisma.user.findUnique({
       where: {
-        id: Number(userId)
-      }
+        id: Number(userId),
+      },
     });
 
     if (!user) {
-      return res
-        .status(400)
-        .json({ success: false, error: "User not found." });
+      return res.status(400).json({ success: false, error: "User not found." });
     }
 
     const memberBeingAdded = await prisma.user.findUnique({
       where: {
-        id: Number(memberId)
-      }
+        id: Number(memberId),
+      },
     });
 
     if (!memberBeingAdded) {
@@ -714,13 +827,13 @@ export const addMemberToChama = async (req: Request, res: Response) => {
 
     const chama = await prisma.chama.findUnique({
       where: {
-        id: Number(chamaId)
+        id: Number(chamaId),
       },
       include: {
         members: {
-          include: { user: true }
-        }
-      }
+          include: { user: true },
+        },
+      },
     });
     if (!chama) {
       return res
@@ -730,13 +843,21 @@ export const addMemberToChama = async (req: Request, res: Response) => {
     if (chama.round !== 1) {
       return res
         .status(400)
-        .json({ success: false, error: "Cannot add user in the middle of cycle." });
+        .json({
+          success: false,
+          error: "Cannot add user in the middle of cycle.",
+        });
     }
 
     // check whether the one requesting is the admin
     const isAdmin = user.id === chama.adminId;
     if (!isAdmin) {
-      return res.status(400).json({ success: false, error: "You are not the admin of this chama." });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: "You are not the admin of this chama.",
+        });
     }
     if (!user.cdpWalletId) {
       return res
@@ -745,11 +866,18 @@ export const addMemberToChama = async (req: Request, res: Response) => {
     }
     // the main function of adding the member
     const chamaBlockchainId = BigInt(Number(chama.blockchainId));
-    const addingTxHash = await bcAddMemberToPrivateChama(user.cdpWalletId, chamaBlockchainId, memberBeingAdded.smartAddress as `0x${string}`);
+    const addingTxHash = await bcAddMemberToPrivateChama(
+      user.cdpWalletId,
+      chamaBlockchainId,
+      memberBeingAdded.smartAddress as `0x${string}`,
+    );
     if (!addingTxHash) {
       return res
         .status(400)
-        .json({ success: false, error: `Unable to add ${user.userName} to ${chama.name} chama onchain.` });
+        .json({
+          success: false,
+          error: `Unable to add ${user.userName} to ${chama.name} chama onchain.`,
+        });
     }
 
     const chamaMember = await prisma.chamaMember.create({
@@ -774,14 +902,14 @@ export const addMemberToChama = async (req: Request, res: Response) => {
       parseInt(chamaId),
       `A new member has joined ${chama.name} chama.`,
       "join",
-      memberBeingAdded.id
+      memberBeingAdded.id,
     );
 
     await sendExpoNotificationToAllChamaMembers(
       `New member joined.`,
       `A new member has joined ${chama.name} chama.`,
       parseInt(chamaId),
-      [memberBeingAdded.id]
+      [memberBeingAdded.id],
     );
 
     const emails = chama.members.map((m: any) => m.user.email);
@@ -790,14 +918,20 @@ export const addMemberToChama = async (req: Request, res: Response) => {
         emails,
         chama.name,
         memberBeingAdded.userName,
-        chama.members.length + 1
+        chama.members.length + 1,
       );
     }
 
     if (memberBeingAdded.email) {
       const user = await prisma.user.findUnique({ where: { id: userId } });
       const adminName = user?.userName || "the Admin";
-      const amountKES = memberBeingAdded.location === "KE" ? (parseFloat(chama.amount) * parseFloat(process.env.CHAMAPAY_RATE || "132")).toFixed(2) : null;
+      const amountKES =
+        memberBeingAdded.location === "KE"
+          ? (
+              parseFloat(chama.amount) *
+              parseFloat(process.env.CHAMAPAY_RATE || "132")
+            ).toFixed(2)
+          : null;
       await emailService.sendMemberAddedToNewMemberEmail(
         memberBeingAdded.email,
         chama.name,
@@ -805,7 +939,7 @@ export const addMemberToChama = async (req: Request, res: Response) => {
         chama.amount,
         amountKES,
         chama.cycleTime,
-        chama.payDate
+        chama.payDate,
       );
     }
 
@@ -837,8 +971,8 @@ export const sendChamaMessage = async (req: Request, res: Response) => {
 
     const chama = await prisma.chama.findUnique({
       where: {
-        id: Number(chamaId)
-      }
+        id: Number(chamaId),
+      },
     });
 
     if (!chama) {
@@ -859,7 +993,7 @@ export const sendChamaMessage = async (req: Request, res: Response) => {
       `New message`,
       `There’s a new message in the ${chama.name} chama.`,
       parseInt(chamaId),
-      Number(userId)
+      Number(userId),
     );
 
     return res
@@ -885,7 +1019,9 @@ export const markMessagesRead = async (req: Request, res: Response) => {
     }
 
     if (!chamaId) {
-      return res.status(400).json({ success: false, error: "Chama ID is required" });
+      return res
+        .status(400)
+        .json({ success: false, error: "Chama ID is required" });
     }
 
     const member = await prisma.chamaMember.findFirst({
@@ -896,7 +1032,9 @@ export const markMessagesRead = async (req: Request, res: Response) => {
     });
 
     if (!member) {
-      return res.status(404).json({ success: false, error: "Member not found" });
+      return res
+        .status(404)
+        .json({ success: false, error: "Member not found" });
     }
 
     await prisma.chamaMember.update({
@@ -908,10 +1046,14 @@ export const markMessagesRead = async (req: Request, res: Response) => {
       },
     });
 
-    return res.status(200).json({ success: true, message: "Messages marked as read" });
+    return res
+      .status(200)
+      .json({ success: true, message: "Messages marked as read" });
   } catch (error) {
     console.error("Error marking messages as read:", error);
-    return res.status(500).json({ success: false, error: "Failed to mark messages as read" });
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to mark messages as read" });
   }
 };
 
@@ -926,7 +1068,9 @@ export const withdrawFromChamaBalance = async (req: Request, res: Response) => {
     }
 
     if (!chamaId || !amount) {
-      return res.status(400).json({ success: false, error: "Chama ID and amount are required" });
+      return res
+        .status(400)
+        .json({ success: false, error: "Chama ID and amount are required" });
     }
 
     const user = await prisma.user.findUnique({
@@ -951,12 +1095,20 @@ export const withdrawFromChamaBalance = async (req: Request, res: Response) => {
 
     // the onchain function
     if (!user || !user.cdpWalletId) {
-      return res.status(400).json({ success: false, error: "Unable to get user CDP wallet." });
+      return res
+        .status(400)
+        .json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
-    const withdrawTxHash = await bcWithdrawFundsFromChama(user.cdpWalletId, Number(chama.blockchainId), amount);
+    const withdrawTxHash = await bcWithdrawFundsFromChama(
+      user.cdpWalletId,
+      Number(chama.blockchainId),
+      amount,
+    );
     if (!withdrawTxHash) {
-      return res.status(400).json({ success: false, error: "Unable to withdraw from chama." });
+      return res
+        .status(400)
+        .json({ success: false, error: "Unable to withdraw from chama." });
     }
 
     // record the transaction
@@ -971,13 +1123,17 @@ export const withdrawFromChamaBalance = async (req: Request, res: Response) => {
     });
 
     if (!payment) {
-      return res.status(400).json({ success: false, error: "Unable to record withdrawal." });
+      return res
+        .status(400)
+        .json({ success: false, error: "Unable to record withdrawal." });
     }
 
     return res.status(200).json({ success: true, withdrawal: payment });
   } catch (error) {
     console.error("Error withdrawing from chama:", error);
-    return res.status(500).json({ success: false, error: "Failed to withdraw from chama" });
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to withdraw from chama" });
   }
 };
 
@@ -990,7 +1146,10 @@ const ordinalOf = (n: number) => {
   return `${n}${({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] || "th"}`;
 };
 
-export const updateChamaDetailsController = async (req: Request, res: Response) => {
+export const updateChamaDetailsController = async (
+  req: Request,
+  res: Response,
+) => {
   try {
     const {
       chamaId,
@@ -1009,8 +1168,17 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
-    if (!chamaId || !newAmount || !newDuration || !newCycle || !newRound || !newPayDate) {
-      return res.status(400).json({ success: false, error: "All fields except name are required" });
+    if (
+      !chamaId ||
+      !newAmount ||
+      !newDuration ||
+      !newCycle ||
+      !newRound ||
+      !newPayDate
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, error: "All fields except name are required" });
     }
 
     const user = await prisma.user.findUnique({
@@ -1024,7 +1192,7 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
     const chama = await prisma.chama.findUnique({
       where: { id: Number(chamaId) },
       include: {
-        members: { include: { user: true } }
+        members: { include: { user: true } },
       },
     });
 
@@ -1035,35 +1203,55 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
     // Check if the user is the admin of the chama
     const isAdmin = chama.adminId === Number(userId);
     if (!isAdmin) {
-      return res.status(403).json({ success: false, error: "Only the admin can update chama details" });
+      return res
+        .status(403)
+        .json({
+          success: false,
+          error: "Only the admin can update chama details",
+        });
     }
 
     // Get the user's private key
     if (!user.cdpWalletId) {
-      return res.status(400).json({ success: false, error: "Unable to get user CDP wallet." });
+      return res
+        .status(400)
+        .json({ success: false, error: "Unable to get user CDP wallet." });
     }
 
     // ---- 1. Work out the effective values -------------------------------
     let newPayDateObj = new Date(Number(newPayDate));
     if (isNaN(newPayDateObj.getTime())) {
-      return res.status(400).json({ success: false, error: "Invalid pay date." });
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid pay date." });
     }
     // The edit form only has minute precision. If the pay date is the same minute as
     // the stored one, keep the stored value (with its seconds) so a save that did not
     // touch the date is not treated as a pay date change.
     const storedPayDate = new Date(chama.payDate);
-    if (Math.floor(newPayDateObj.getTime() / 60000) === Math.floor(storedPayDate.getTime() / 60000)) {
+    if (
+      Math.floor(newPayDateObj.getTime() / 60000) ===
+      Math.floor(storedPayDate.getTime() / 60000)
+    ) {
       newPayDateObj = storedPayDate;
     }
 
     const currentPayDay: number | null = chama.payDay ?? null;
     let effectivePayDay: number | null = currentPayDay;
     if (newPayoutDayOfMonth !== undefined) {
-      effectivePayDay = newPayoutDayOfMonth ? Number(newPayoutDayOfMonth) : null;
+      effectivePayDay = newPayoutDayOfMonth
+        ? Number(newPayoutDayOfMonth)
+        : null;
     }
     if (effectivePayDay !== null) {
-      if (!Number.isInteger(effectivePayDay) || effectivePayDay < 1 || effectivePayDay > 28) {
-        return res.status(400).json({ success: false, error: "Pay day must be between 1 and 28." });
+      if (
+        !Number.isInteger(effectivePayDay) ||
+        effectivePayDay < 1 ||
+        effectivePayDay > 28
+      ) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Pay day must be between 1 and 28." });
       }
       // The contract validates the day in UTC. It must also stay in sync with the
       // pay date, otherwise the next payout silently jumps to the old day.
@@ -1080,36 +1268,73 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
     // ---- 2. What actually changed? (compared with the DB, not trusting the client)
     const nameChanged = !!newName && newName !== chama.name;
     // compare at the contract's 6 decimals so float noise is not a change
-    const amountChanged = Math.round(Number(newAmount) * 1e6) !== Math.round(Number(chama.amount) * 1e6);
+    const amountChanged =
+      Math.round(Number(newAmount) * 1e6) !==
+      Math.round(Number(chama.amount) * 1e6);
     const effectiveAmount = amountChanged ? newAmount.toString() : chama.amount;
     const cycleTimeChanged = effectiveCycleTime !== chama.cycleTime;
     const cycleChanged = Number(newCycle) !== chama.cycle;
     const roundChanged = Number(newRound) !== chama.round;
-    const payDateChanged = newPayDateObj.getTime() !== new Date(chama.payDate).getTime();
+    const payDateChanged =
+      newPayDateObj.getTime() !== new Date(chama.payDate).getTime();
     const payDayChanged = effectivePayDay !== currentPayDay;
     // name is DB-only; these are the fields updateChamaDetails writes on-chain
-    const detailsOnchainChanged = amountChanged || cycleTimeChanged || cycleChanged || roundChanged || payDateChanged;
+    const detailsOnchainChanged =
+      amountChanged ||
+      cycleTimeChanged ||
+      cycleChanged ||
+      roundChanged ||
+      payDateChanged;
 
     // ---- 3. Payout order (optional) -------------------------------------
-    const existingOrder: { userAddress: string }[] = chama.payOutOrder ? JSON.parse(chama.payOutOrder) : [];
+    const existingOrder: { userAddress: string }[] = chama.payOutOrder
+      ? JSON.parse(chama.payOutOrder)
+      : [];
     let newOrderAddresses: `0x${string}`[] | null = null;
     if (payoutOrder !== undefined && payoutOrder !== null) {
       if (!Array.isArray(payoutOrder)) {
-        return res.status(400).json({ success: false, error: "Payout order must be a list of addresses." });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            error: "Payout order must be a list of addresses.",
+          });
       }
-      const memberAddresses = chama.members.map((m: any) => (m.user.smartAddress || "").toLowerCase());
-      const orderLower = payoutOrder.map((a: string) => String(a).toLowerCase());
+      const memberAddresses = chama.members.map((m: any) =>
+        (m.user.smartAddress || "").toLowerCase(),
+      );
+      const orderLower = payoutOrder.map((a: string) =>
+        String(a).toLowerCase(),
+      );
 
       if (orderLower.some((a: string) => !memberAddresses.includes(a))) {
-        return res.status(400).json({ success: false, error: "Payout order contains addresses that are not members of this chama." });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            error:
+              "Payout order contains addresses that are not members of this chama.",
+          });
       }
-      if (new Set(orderLower).size !== orderLower.length || orderLower.length !== memberAddresses.length) {
-        return res.status(400).json({ success: false, error: "Payout order must include every current member exactly once." });
+      if (
+        new Set(orderLower).size !== orderLower.length ||
+        orderLower.length !== memberAddresses.length
+      ) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            error:
+              "Payout order must include every current member exactly once.",
+          });
       }
 
-      const existingLower = existingOrder.map((o) => o.userAddress.toLowerCase());
+      const existingLower = existingOrder.map((o) =>
+        o.userAddress.toLowerCase(),
+      );
       const orderDiffers =
-        orderLower.length !== existingLower.length || orderLower.some((a: string, i: number) => a !== existingLower[i]);
+        orderLower.length !== existingLower.length ||
+        orderLower.some((a: string, i: number) => a !== existingLower[i]);
       if (orderDiffers) {
         newOrderAddresses = payoutOrder as `0x${string}`[];
       }
@@ -1117,33 +1342,41 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
     const orderChanged = newOrderAddresses !== null;
 
     // ---- 4. Blockchain --------------------------------------------------
-    const onchainChanged = detailsOnchainChanged || payDayChanged || orderChanged;
+    const onchainChanged =
+      detailsOnchainChanged || payDayChanged || orderChanged;
     if (onchainChanged && chama.round !== 1) {
       return res.status(400).json({
         success: false,
-        error: "Amount, schedule and payout order can only be changed during round 1 of a cycle.",
+        error:
+          "Amount, schedule and payout order can only be changed during round 1 of a cycle.",
       });
     }
 
     let txHash: string | undefined;
     if (onchainChanged) {
-      txHash = await bcUpdateChamaBundle(user.cdpWalletId, BigInt(Number(chama.blockchainId)), {
-        ...(detailsOnchainChanged
-          ? {
-              details: {
-                newAmount: effectiveAmount,
-                newCycle: Number(newCycle),
-                newRound: Number(newRound),
-                newPayDate: Math.floor(newPayDateObj.getTime() / 1000), // contract uses seconds
-                newDuration: effectiveCycleTime,
-              },
-            }
-          : {}),
-        ...(payDayChanged ? { payDay: effectivePayDay ?? 0 } : {}),
-        ...(newOrderAddresses ? { payoutOrder: newOrderAddresses } : {}),
-      });
+      txHash = await bcUpdateChamaBundle(
+        user.cdpWalletId,
+        BigInt(Number(chama.blockchainId)),
+        {
+          ...(detailsOnchainChanged
+            ? {
+                details: {
+                  newAmount: effectiveAmount,
+                  newCycle: Number(newCycle),
+                  newRound: Number(newRound),
+                  newPayDate: Math.floor(newPayDateObj.getTime() / 1000), // contract uses seconds
+                  newDuration: effectiveCycleTime,
+                },
+              }
+            : {}),
+          ...(payDayChanged ? { payDay: effectivePayDay ?? 0 } : {}),
+          ...(newOrderAddresses ? { payoutOrder: newOrderAddresses } : {}),
+        },
+      );
       if (!txHash) {
-        return res.status(400).json({ success: false, error: "Unable to update chama onchain." });
+        return res
+          .status(400)
+          .json({ success: false, error: "Unable to update chama onchain." });
       }
     } else if (!nameChanged) {
       return res.status(200).json({ success: true, unchanged: true, chama });
@@ -1156,15 +1389,23 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
       ? newOrderAddresses
       : existingOrder.map((o) => o.userAddress);
     let payOutOrderJson: string | undefined;
-    if (finalOrderAddresses.length > 0 && (orderChanged || payDateChanged || cycleTimeChanged || payDayChanged)) {
-      const dates = buildPayoutSchedule(newPayDateObj, finalOrderAddresses.length, effectiveCycleTime, effectivePayDay);
+    if (
+      finalOrderAddresses.length > 0 &&
+      (orderChanged || payDateChanged || cycleTimeChanged || payDayChanged)
+    ) {
+      const dates = buildPayoutSchedule(
+        newPayDateObj,
+        finalOrderAddresses.length,
+        effectiveCycleTime,
+        effectivePayDay,
+      );
       payOutOrderJson = JSON.stringify(
         finalOrderAddresses.map((address, i) => ({
           userAddress: address,
           payDate: dates[i],
           paid: false,
           amount: "0",
-        }))
+        })),
       );
     }
 
@@ -1187,31 +1428,43 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
     const adminName = user.userName || "The admin";
 
     if (nameChanged) {
-      changes.push(`${adminName} changed the name of the chama from "${chama.name}" to "${newName}"`);
+      changes.push(
+        `${adminName} changed the name of the chama from "${chama.name}" to "${newName}"`,
+      );
     }
     if (amountChanged) {
-      changes.push(`${adminName} changed the contribution amount from ${(Number(chama.amount) * 132).toFixed(2)} KES to ${(Number(newAmount) * 132).toFixed(2)} KES.`);
+      changes.push(
+        `${adminName} changed the contribution amount from ${(Number(chama.amount) * 132).toFixed(2)} KES to ${(Number(newAmount) * 132).toFixed(2)} KES.`,
+      );
     }
     if (payDayChanged) {
       changes.push(
         effectivePayDay
           ? `${adminName} switched payouts to the ${ordinalOf(effectivePayDay)} of every month`
-          : `${adminName} switched payouts to every ${effectiveCycleTime} days`
+          : `${adminName} switched payouts to every ${effectiveCycleTime} days`,
       );
     } else if (cycleTimeChanged) {
-      changes.push(`${adminName} changed the cycle time from ${chama.cycleTime} days to ${effectiveCycleTime} days`);
+      changes.push(
+        `${adminName} changed the cycle time from ${chama.cycleTime} days to ${effectiveCycleTime} days`,
+      );
     }
     if (cycleChanged) {
-      changes.push(`${adminName} changed the cycle from ${chama.cycle} to ${newCycle}`);
+      changes.push(
+        `${adminName} changed the cycle from ${chama.cycle} to ${newCycle}`,
+      );
     }
     if (roundChanged) {
-      changes.push(`${adminName} changed the round from ${chama.round} to ${newRound}`);
+      changes.push(
+        `${adminName} changed the round from ${chama.round} to ${newRound}`,
+      );
     }
     if (payDateChanged) {
-      const oldPayDateStr = new Date(chama.payDate).toISOString().split('T')[0];
-      const newPayDateStr = newPayDateObj.toISOString().split('T')[0];
+      const oldPayDateStr = new Date(chama.payDate).toISOString().split("T")[0];
+      const newPayDateStr = newPayDateObj.toISOString().split("T")[0];
       if (oldPayDateStr !== newPayDateStr) {
-        changes.push(`${adminName} changed the pay date from ${oldPayDateStr} to ${newPayDateStr}`);
+        changes.push(
+          `${adminName} changed the pay date from ${oldPayDateStr} to ${newPayDateStr}`,
+        );
       }
     }
     if (orderChanged) {
@@ -1230,7 +1483,7 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
       await emailService.sendBulkChamaUpdateEmails(
         emails,
         updatedChama.name,
-        notificationMessage
+        notificationMessage,
       );
     }
 
@@ -1238,13 +1491,25 @@ export const updateChamaDetailsController = async (req: Request, res: Response) 
     await sendExpoNotificationToAllChamaMembers(
       "Chama Details Updated",
       notificationMessage,
-      Number(chamaId)
+      Number(chamaId),
     );
 
-    return res.status(200).json({ success: true, txHash, chama: updatedChama, orderUpdated: orderChanged });
+    return res
+      .status(200)
+      .json({
+        success: true,
+        txHash,
+        chama: updatedChama,
+        orderUpdated: orderChanged,
+      });
   } catch (error: any) {
     console.error("Error updating chama details:", error);
-    return res.status(500).json({ success: false, error: error.message || "Failed to update chama details" });
+    return res
+      .status(500)
+      .json({
+        success: false,
+        error: error.message || "Failed to update chama details",
+      });
   }
 };
 
@@ -1257,7 +1522,12 @@ export const adminSetPayoutOrder = async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
     if (!chamaId || !payoutOrder) {
-      return res.status(400).json({ success: false, error: "Chama ID and payout order are required" });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: "Chama ID and payout order are required",
+        });
     }
     const user = await prisma.user.findUnique({
       where: { id: Number(userId) },
@@ -1270,54 +1540,95 @@ export const adminSetPayoutOrder = async (req: Request, res: Response) => {
       include: {
         members: {
           include: {
-            user: true
-          }
-        }
-      }
+            user: true,
+          },
+        },
+      },
     });
     if (!chama) {
       return res.status(404).json({ success: false, error: "Chama not found" });
     }
     const isAdmin = user.id === chama.adminId;
     if (!isAdmin) {
-      return res.status(400).json({ success: false, error: "You are not the admin of this chama." });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: "You are not the admin of this chama.",
+        });
     }
 
     // Ensure all provided addresses are members of the chama
-    const memberAddresses = chama.members.map((member: any) => member.user.smartAddress);
-    const invalidMembers = payoutOrder.filter((address: string) => !memberAddresses.includes(address));
+    const memberAddresses = chama.members.map(
+      (member: any) => member.user.smartAddress,
+    );
+    const invalidMembers = payoutOrder.filter(
+      (address: string) => !memberAddresses.includes(address),
+    );
 
     if (invalidMembers.length > 0) {
-      return res.status(400).json({ success: false, error: "Payout order contains addresses that are not members of this chama." });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error:
+            "Payout order contains addresses that are not members of this chama.",
+        });
     }
 
     if (payoutOrder.length !== memberAddresses.length) {
-      return res.status(400).json({ success: false, error: "Payout order must include all current members of the chama." });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: "Payout order must include all current members of the chama.",
+        });
     }
 
     if (!user.cdpWalletId) {
-      return res.status(400).json({ success: false, error: "Unable to get user CDP wallet." });
+      return res
+        .status(400)
+        .json({ success: false, error: "Unable to get user CDP wallet." });
     }
     // The contract only allows (re)setting the order in round 1 of a cycle.
     if (chama.round !== 1) {
-      return res.status(400).json({ success: false, error: "The payout order can only be changed during round 1 of a cycle." });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error:
+            "The payout order can only be changed during round 1 of a cycle.",
+        });
     }
-    const formattedBcOrder = payoutOrder.map((address: string) => address as `0x${string}`);
-    const payoutOrderTxHash = await bcAdminSetPayoutOrder(user.cdpWalletId, Number(chama.blockchainId), formattedBcOrder);
+    const formattedBcOrder = payoutOrder.map(
+      (address: string) => address as `0x${string}`,
+    );
+    const payoutOrderTxHash = await bcAdminSetPayoutOrder(
+      user.cdpWalletId,
+      Number(chama.blockchainId),
+      formattedBcOrder,
+    );
     if (!payoutOrderTxHash) {
-      return res.status(400).json({ success: false, error: "Unable to set payout order onchain." });
+      return res
+        .status(400)
+        .json({ success: false, error: "Unable to set payout order onchain." });
     }
 
     // Format and save the payout order into the database
     // payDay-aware schedule (fixed day of month, or every cycleTime days)
-    const scheduleDates = buildPayoutSchedule(new Date(chama.payDate), payoutOrder.length, chama.cycleTime, chama.payDay);
+    const scheduleDates = buildPayoutSchedule(
+      new Date(chama.payDate),
+      payoutOrder.length,
+      chama.cycleTime,
+      chama.payDay,
+    );
     const formattedPayoutOrder = payoutOrder.map(
       (address: string, index: number) => ({
         userAddress: address,
         payDate: scheduleDates[index],
         paid: false,
         amount: "0",
-      })
+      }),
     );
 
     await prisma.chama.update({
@@ -1326,36 +1637,37 @@ export const adminSetPayoutOrder = async (req: Request, res: Response) => {
     });
 
     const firstAddress = payoutOrder[0];
-    const firstMember = chama.members.find((m: any) => m.user.smartAddress === firstAddress);
+    const firstMember = chama.members.find(
+      (m: any) => m.user.smartAddress === firstAddress,
+    );
     const firstName = firstMember ? firstMember.user.userName : "Someone";
 
     await notifyAllChamaMembers(
       chama.id,
-      `Great news! The payout order for ${chama.name} is officially set. ${firstName} is up first! 🚀`
+      `Great news! The payout order for ${chama.name} is officially set. ${firstName} is up first! 🚀`,
     );
 
     await sendExpoNotificationToAllChamaMembers(
       `Payout Order Ready! 🎉`,
       `${firstName} will receive the first payout in ${chama.name} chama. Tap to view the full order!`,
       chama.id,
-      firstMember?.user.id
+      firstMember?.user.id,
     );
 
     await sendExpoNotificationToAUser(
       firstMember?.user.id!,
       `Payout Order Ready! 🎉`,
       `You are the first in the payout order for ${chama.name} chama. Tap to view the full order!`,
-    )
-
-
+    );
 
     return res.status(200).json({ success: true, payoutOrderTxHash });
   } catch (error) {
     console.error("Error setting payout order:", error);
-    return res.status(500).json({ success: false, error: "Failed to set payout order" });
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to set payout order" });
   }
 };
-
 
 // get chama payouts paginated
 export const getChamaPayouts = async (req: Request, res: Response) => {
@@ -1385,10 +1697,11 @@ export const getChamaPayouts = async (req: Request, res: Response) => {
     return res.status(200).json({ success: true, payouts, nextCursor });
   } catch (error) {
     console.error("Failed to get payouts:", error);
-    return res.status(500).json({ success: false, error: "Failed to get payouts" });
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to get payouts" });
   }
 };
-
 
 // leave chama or remove member called by admin
 export const leaveChamaController = async (req: Request, res: Response) => {
@@ -1501,7 +1814,7 @@ export const leaveChamaController = async (req: Request, res: Response) => {
     // ---------------------------------------------------------
 
     const targetMember = chama.members.find(
-      (member) => member.userId === targetUserId
+      (member) => member.userId === targetUserId,
     );
 
     if (!targetMember) {
@@ -1540,7 +1853,7 @@ export const leaveChamaController = async (req: Request, res: Response) => {
     const txHash = await bcLeaveChama(
       adminUser.cdpWalletId,
       targetUser.smartAddress,
-      BigInt(Number(chama.blockchainId))
+      BigInt(Number(chama.blockchainId)),
     );
 
     // ---------------------------------------------------------
@@ -1584,7 +1897,7 @@ export const leaveChamaController = async (req: Request, res: Response) => {
       targetUser.smartAddress,
       firstPayDate,
       chama.cycleTime,
-      chama.payDay
+      chama.payDay,
     );
 
     // ---------------------------------------------------------
@@ -1613,25 +1926,28 @@ export const leaveChamaController = async (req: Request, res: Response) => {
       : `${targetUser.userName} has been removed from the chama.`;
 
     const remainingEmails = chama.members
-      .filter(
-        (member) =>
-          member.userId !== targetUserId &&
-          member.user.email
-      )
+      .filter((member) => member.userId !== targetUserId && member.user.email)
       .map((member) => member.user.email!);
 
     if (remainingEmails.length > 0) {
       await emailService.sendBulkChamaUpdateEmails(
         remainingEmails,
         chama.name,
-        notificationMessage
+        notificationMessage,
       );
     }
+
+    // notify the one who has been removed
+    await emailService.sendMemberRemovedEmail(
+      targetUser.email,
+      chama.name,
+      adminUser.userName,
+    );
 
     await sendExpoNotificationToAllChamaMembers(
       isSelfLeave ? "Member Left" : "Member Removed",
       notificationMessage,
-      Number(chamaId)
+      Number(chamaId),
     );
 
     return res.status(200).json({
@@ -1643,8 +1959,7 @@ export const leaveChamaController = async (req: Request, res: Response) => {
 
     return res.status(500).json({
       success: false,
-      error:
-        error.message || "Failed to leave or remove member",
+      error: error.message || "Failed to leave or remove member",
     });
   }
 };
