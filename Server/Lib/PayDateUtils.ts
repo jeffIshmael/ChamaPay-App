@@ -5,10 +5,17 @@
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+export interface PayoutOrder {
+  userAddress: string;
+  payDate: Date | string;
+  paid: boolean;
+  amount: string;
+}
+
 export const nextPayDate = (
   current: Date,
   cycleTime: number,
-  payDay?: number | null
+  payDay?: number | null,
 ): Date => {
   if (!payDay) return new Date(current.getTime() + cycleTime * DAY_MS);
   return new Date(
@@ -19,8 +26,8 @@ export const nextPayDate = (
       current.getUTCHours(),
       current.getUTCMinutes(),
       current.getUTCSeconds(),
-      current.getUTCMilliseconds()
-    )
+      current.getUTCMilliseconds(),
+    ),
   );
 };
 
@@ -29,7 +36,7 @@ export const buildPayoutSchedule = (
   firstDate: Date,
   count: number,
   cycleTime: number,
-  payDay?: number | null
+  payDay?: number | null,
 ): Date[] => {
   const dates: Date[] = [];
   let current = new Date(firstDate);
@@ -43,3 +50,29 @@ export const buildPayoutSchedule = (
 /** True when `date` falls on `payDay` in UTC (what the contract checks). */
 export const fallsOnPayDayUtc = (date: Date, payDay: number): boolean =>
   date.getUTCDate() === payDay;
+
+export const removeMemberFromPayoutSchedule = (
+  payoutOrder: PayoutOrder[],
+  memberAddress: string,
+  firstPayDate: Date,
+  cycleTime: number,
+  payDay?: number | null,
+): PayoutOrder[] => {
+  const normalizedMemberAddress = memberAddress.toLowerCase();
+
+  const remainingMembers = payoutOrder.filter(
+    (item) => item.userAddress.toLowerCase() !== normalizedMemberAddress,
+  );
+
+  const scheduleDates = buildPayoutSchedule(
+    firstPayDate,
+    remainingMembers.length,
+    cycleTime,
+    payDay,
+  );
+
+  return remainingMembers.map((item, index) => ({
+    ...item,
+    payDate: scheduleDates[index],
+  }));
+};

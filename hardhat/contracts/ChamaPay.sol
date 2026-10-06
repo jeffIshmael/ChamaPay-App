@@ -15,6 +15,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import {DateTimeLib} from "solady/src/utils/DateTimeLib.sol";
 
 
 contract ChamaPay is 
@@ -81,6 +82,8 @@ contract ChamaPay is
 
     bool public migrationComplete;
     mapping(address => bool) public hasMigrated;
+    mapping(uint => uint8) public payDayOfMonth;   // 0 = old duration behaviour
+
 
     event ChamaRegistered(uint indexed id, uint amount, uint duration, uint maxMembers, uint startDate, bool _isPublic, address indexed admin);
     event CashDeposited(uint indexed chamaId, address indexed receiver, uint amount);
@@ -107,11 +110,28 @@ contract ChamaPay is
     event MigrationFinalized(uint256 timestamp);
     event ChamaPayDateUpdated(uint indexed chamaId, uint oldPayDate, uint newPayDate);
 
-    function createPrivateChama(
+   
+    // function to register a chama
+    function createPrivateChama(uint _amount, uint _duration, uint _firstPayoutDate)
+    public nonReentrant whenNotPaused
+    {
+        _createPrivateChama(_amount, _duration, _firstPayoutDate);
+    }
+
+    // New function for the "specific date every month" chamas
+    function createPrivateChamaMonthly(uint _amount, uint _firstPayoutDate, uint8 _payDay)
+        public nonReentrant whenNotPaused
+    {
+        _requireDayMatches(_firstPayoutDate, _payDay);
+        _createPrivateChama(_amount, 30, _firstPayoutDate);
+        payDayOfMonth[chamas.length - 1] = _payDay;   // the chama that was just created
+    }
+
+    function _createPrivateChama(
         uint _amount, 
         uint _duration, 
         uint _firstPayoutDate
-    ) public nonReentrant whenNotPaused {
+    ) internal {
         require(_firstPayoutDate >= block.timestamp, "First payout date must be in the future.");
         require(_duration > 0, "Duration must be greater than zero.");
         require(_amount > 0, "Amount must be greater than 0.");
@@ -142,6 +162,23 @@ contract ChamaPay is
             false,  
             msg.sender
         );
+    }
+
+    function _requireDayMatches(uint _date, uint8 _day) internal pure {
+    require(_day >= 1 && _day <= 28, "Pay day must be 1-28");
+    (, , uint d) = DateTimeLib.timestampToDate(_date);
+    require(d == _day, "Pay date must fall on the pay day");
+    }
+
+    function _nextPayDate(uint _chamaId) internal view returns (uint) {
+    Chama storage chama = chamas[_chamaId];
+    uint8 day = payDayOfMonth[_chamaId];
+    if (day == 0) return chama.payDate + chama.duration * 1 days;   // unchanged
+
+    (uint y, uint m, ) = DateTimeLib.timestampToDate(chama.payDate);
+    uint secondsOfDay = chama.payDate % 1 days;
+    if (++m > 12) { m = 1; y += 1; }
+    return DateTimeLib.dateToTimestamp(y, m, day) + secondsOfDay;
     }
 
     // Deprecated: use createPrivateChama instead
@@ -318,6 +355,19 @@ contract ChamaPay is
         emit PayoutOrderSet(_chamaId, _payoutOrder);
     }
 
+    // It's only used when an admin edits an existing chama's pay day. That covers three cases:
+    // from a days-based cycle to a fixed day, e.g. setPayDayOfMonth(id, 15)
+    // from one fixed day to another, e.g. 15 to 20
+    // from a fixed day back to a days-based cycle, setPayDayOfMonth(id, 0)
+    function setPayDayOfMonth(uint _chamaId, uint8 _day) public whenNotPaused {
+    require(_chamaId < totalChamas, "Chama does not exist");
+    Chama storage chama = chamas[_chamaId];
+    require(msg.sender == chama.admin || msg.sender == aiAgent, "Only admin or aiAgent");
+    require(chama.round == 1, "Cannot edit during an active cycle");
+    if (_day != 0) _requireDayMatches(chama.payDate, _day);   // 0 clears it
+    payDayOfMonth[_chamaId] = _day;
+    }
+
     function processPayout(address _receiver, uint _amount) internal {
         require(USDCToken.balanceOf(address(this)) >= _amount, "Contract does not have enough USDC");
 
@@ -411,42 +461,72 @@ contract ChamaPay is
         }
 
         // Move pay date
-        chama.payDate += chama.duration * 1 days;
+        chama.payDate = _nextPayDate(_chamaId);
 
         emit FundsDisbursed(_chamaId, recipient, totalPay);
     }
 
-    function deleteMember(uint _chamaId, address _member) public onlyMembers(_chamaId) {
-        Chama storage chama = chamas[_chamaId];
-        require(msg.sender == chama.admin || msg.sender == _member, "Only admin or the member can delete");
-        require(chama.members.length > 0, "No members to remove");
-        require(chama.round == 1, "Cannot delete member during an active cycle");
+   function deleteMember(uint _chamaId, address _member) public onlyMembers(_chamaId) {
+    Chama storage chama = chamas[_chamaId];
 
-        uint refundAmount = chama.balances[_member];
-        if (refundAmount > 0) {
-            processPayout(_member, refundAmount);
-            recordWithdrawal(_chamaId, _member, refundAmount);
-            chama.balances[_member] = 0;
-        }
+    require(
+        msg.sender == chama.admin || msg.sender == _member,
+        "Only admin or the member can delete"
+    );
 
-        for (uint i = 0; i < chama.members.length; i++) {
-            if (chama.members[i] == _member) {
-                chama.members[i] = chama.members[chama.members.length - 1];
-                chama.members.pop();
-                break;
-            }
-        }
-        
-        for (uint i = 0; i < chama.payoutOrder.length; i++) {
-            if (chama.payoutOrder[i] == _member) {
-                chama.payoutOrder[i] = chama.payoutOrder[chama.payoutOrder.length - 1];
-                chama.payoutOrder.pop();
-                break;
-            }
-        }
+    require(chama.members.length > 0, "No members to remove");
+    require(chama.round == 1, "Cannot delete member during an active cycle");
 
-        emit MemberRemoved(_chamaId, _member);
+    // The target must actually be a current member.
+    bool memberExists = false;
+
+    for (uint i = 0; i < chama.members.length; i++) {
+        if (chama.members[i] == _member) {
+            memberExists = true;
+            break;
+        }
     }
+
+    require(memberExists, "User is not a member");
+
+    // The admin cannot remove themselves.
+    require(_member != chama.admin, "Admin cannot be removed");
+
+    // Refund any balance belonging to the removed member.
+    uint refundAmount = chama.balances[_member];
+
+    if (refundAmount > 0) {
+        processPayout(_member, refundAmount);
+        recordWithdrawal(_chamaId, _member, refundAmount);
+        chama.balances[_member] = 0;
+    }
+
+    // Remove the member from the members array.
+    // Order of members is not used for payout ordering,
+    // so swap-and-pop is fine here.
+    for (uint i = 0; i < chama.members.length; i++) {
+        if (chama.members[i] == _member) {
+            chama.members[i] = chama.members[chama.members.length - 1];
+            chama.members.pop();
+            break;
+        }
+    }
+
+    // Remove the member from payoutOrder while preserving
+    // the order of all remaining members.
+    for (uint i = 0; i < chama.payoutOrder.length; i++) {
+        if (chama.payoutOrder[i] == _member) {
+            for (uint j = i; j < chama.payoutOrder.length - 1; j++) {
+                chama.payoutOrder[j] = chama.payoutOrder[j + 1];
+            }
+
+            chama.payoutOrder.pop();
+            break;
+        }
+    }
+
+    emit MemberRemoved(_chamaId, _member);
+}
 
     function deleteChama(uint _chamaId) public onlyAdmin(_chamaId) {
         Chama storage chama = chamas[_chamaId];
@@ -466,7 +546,11 @@ contract ChamaPay is
         chamas[_chamaId].admin = lastChama.admin;
         chamas[_chamaId].members = lastChama.members;
         chamas[_chamaId].payoutOrder = lastChama.payoutOrder;
+
+        payDayOfMonth[_chamaId] = payDayOfMonth[chamas.length - 1];
+        delete payDayOfMonth[chamas.length - 1];
         chamas.pop();
+        totalChamas--;
 
         emit ChamaDeleted(_chamaId);
     }
@@ -613,7 +697,7 @@ contract ChamaPay is
         for (uint i = 0; i < chama.members.length; i++) {
             chama.hasSent[chama.members[i]] = false;
         }   
-        chama.payDate += chama.duration * 24 * 60 * 60;
+        chama.payDate = _nextPayDate(_chamaId);
         emit RefundUpdated(_chamaId);
     }
 
