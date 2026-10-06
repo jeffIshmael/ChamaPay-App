@@ -310,8 +310,10 @@ function parseUsdcInput(input: unknown): bigint | null {
 }
 
 // ---------------------------------------------------------------------------
-// Withdrawal pricing: the user types KES, our fee comes from WITHDRAWAL_FEE_BRACKETS (KES), Element Pay
-// pays (KES - fee) to M-Pesa at its real rate, and we work out the USDC that has to leave the wallet.
+// Withdrawal pricing: the user types a gross KES amount. We use the live Element Pay rate to size
+// the USDC sent to Element Pay. Element Pay then applies its own quote fee and returns the actual
+// `user_receives` KES amount. ChamaPay's fee is deducted from that provider payout, and is collected
+// separately in USDC from the user's wallet.
 // ---------------------------------------------------------------------------
 
 const OFFRAMP_MIN_KES: number = WITHDRAWAL_FEE_BRACKETS[0].min;
@@ -320,13 +322,16 @@ const OFFRAMP_MAX_KES: number =
 const OFFRAMP_REF_KEY = "elementpay:ref:offramp";
 
 interface OfframpPlan {
-  kesCents: string; // what the user typed, in cents
-  feeKes: number; // our fee (from the bracket table)
-  receiveKes: number; // what Element Pay pays to M-Pesa (from the binding quote)
+  kesCents: string; // gross KES amount typed by the user
+  feeKes: number; // ChamaPay fee (from the bracket table)
+  elementPayFeeUsdc: string; // Element Pay's explicit quote fee, in USDC
+  elementPayFeeKes: number; // Element Pay fee expressed in KES using the quote rate
+  elementPayReceiveKes: number; // Element Pay's user_receives amount before our fee
+  receiveKes: number; // final M-Pesa amount after subtracting the ChamaPay fee
   netUnits: string; // USDC sent to Element Pay
-  feeUnits: string; // USDC the treasury keeps
-  grossUnits: string; // USDC debited from the user (net + fee)
-  effectiveRate: string; // KES per USDC that reaches Element Pay, after their fees
+  feeUnits: string; // USDC the treasury keeps for the ChamaPay fee
+  grossUnits: string; // total USDC debited from the user (net + ChamaPay fee)
+  effectiveRate: string; // KES per USDC actually paid out by Element Pay
   elementPayRate: string; // raw Element Pay amounts.rate for this binding quote
 }
 
@@ -442,65 +447,74 @@ async function priceOfframp(
   kesCents: bigint,
 ): Promise<{ q: any; plan: OfframpPlan }> {
   const feeKes = withdrawalFeeKes(kesCents);
-  const targetCents = kesCents - BigInt(feeKes) * 100n; // what M-Pesa must receive
-  if (targetCents <= 0n) {
+
+  // The live provider rate is used only to size the USDC that the user is sending to
+  // Element Pay. We do NOT subtract our ChamaPay fee before this conversion.
+  const ref = await referenceOfframpRate(userId, payPhone, provider, treasury);
+  const net = kesCentsToUsdcUnitsCeil(kesCents, ref.providerRate);
+  if (net <= 0n) {
     throw new ElementPayError(400, "Amount is too small to withdraw");
   }
 
-  const ref = await referenceOfframpRate(userId, payPhone, provider, treasury);
-  // Start from the same live provider rate shown in the withdrawal modal.
-  // The binding quote below remains the source of truth and may adjust this amount.
-  let net = kesCentsToUsdcUnitsCeil(targetCents, ref.providerRate);
+  // Create the real binding quote. Element Pay's user_receives is authoritative for
+  // what its payout rail will deliver after Element Pay's own fee.
+  const q = await createQuote(
+    await offrampQuoteBody(userId, payPhone, net, provider.id, treasury),
+  );
 
-  let q: any;
-  let payoutCents = 0n;
-  let ok = false;
-  for (let i = 0; i < 3; i++) {
-    q = await createQuote(
-      await offrampQuoteBody(userId, payPhone, net, provider.id, treasury),
-    );
-    payoutCents = kesToCents(q?.amounts?.user_receives?.amount);
-    const diff = targetCents - payoutCents; // > 0: they would pay us too little
-    if (diff <= 0n && diff > -100n) {
-      ok = true; // payout is within [target, target + KES 1)
-      break;
-    }
-    if (i === 2) break;
-    // payout moves by `listed rate` KES per USDC, so shift the USDC by diff / rate
-    const { n, scale } = parseDec(q?.amounts?.rate);
-    net += ceilDiv(diff * 10_000n * 10n ** BigInt(scale), n);
-    if (net <= 0n) {
-      throw new ElementPayError(400, "Amount is too small to withdraw");
-    }
-  }
-  if (!ok) {
-    throw new ElementPayError(
-      502,
-      "Could not price this withdrawal. Please try again.",
-    );
-  }
-
-  const netStr = formatUnits(net, USDC_DECIMALS);
-  const payoutKes = Number(payoutCents) / 100;
-  const effectiveRate = ratioString(payoutKes, netStr, 6);
-  if (!effectiveRate) {
-    throw new ElementPayError(502, "Element Pay did not return a rate");
-  }
-
+  const payoutCents = kesToCents(q?.amounts?.user_receives?.amount);
   const elementPayRate = String(q?.amounts?.rate ?? "").trim();
   if (!elementPayRate || Number(elementPayRate) <= 0) {
     throw new ElementPayError(502, "Element Pay did not return a provider rate");
   }
 
-  // our fee is a KES amount; collect it in USDC at the same effective rate, rounded up
+  const providerReceiveKes = Number(payoutCents) / 100;
+  if (!Number.isFinite(providerReceiveKes) || providerReceiveKes <= 0) {
+    throw new ElementPayError(502, "Element Pay did not return a payout amount");
+  }
+
+  const elementPayFeeUsdc = String(
+    q?.amounts?.fees?.fee_amount ?? "0",
+  ).trim();
+  if (!elementPayFeeUsdc || Number(elementPayFeeUsdc) < 0) {
+    throw new ElementPayError(502, "Element Pay did not return its fee");
+  }
+
+  // Element Pay reports its fee in USDC. Show the KES equivalent in the modal using
+  // the same provider rate that came with this binding quote.
+  const elementPayFeeKes =
+    Number(elementPayFeeUsdc) * Number(elementPayRate);
+
+  // What the user finally receives is Element Pay's actual payout minus ChamaPay's fee.
+  const receiveKes = providerReceiveKes - feeKes;
+  if (receiveKes <= 0) {
+    throw new ElementPayError(400, "Amount is too small to withdraw");
+  }
+
+  // Collect our KES fee in USDC separately. This does not change the USDC sent to
+  // Element Pay; it is an additional debit from the user's wallet.
+  const feeRate = ratioString(providerReceiveKes, formatUnits(net, USDC_DECIMALS), 6);
+  if (!feeRate) {
+    throw new ElementPayError(502, "Could not calculate the ChamaPay fee");
+  }
   const feeUnits = kesCentsToUsdcUnitsCeil(
     BigInt(feeKes) * 100n,
-    effectiveRate,
+    feeRate,
   );
+
+  const netStr = formatUnits(net, USDC_DECIMALS);
+  const effectiveRate = ratioString(providerReceiveKes, netStr, 6);
+  if (!effectiveRate) {
+    throw new ElementPayError(502, "Element Pay did not return a rate");
+  }
+
   const plan: OfframpPlan = {
     kesCents: kesCents.toString(),
     feeKes,
-    receiveKes: payoutKes,
+    elementPayFeeUsdc,
+    elementPayFeeKes,
+    elementPayReceiveKes: providerReceiveKes,
+    receiveKes,
     netUnits: net.toString(),
     feeUnits: feeUnits.toString(),
     grossUnits: (net + feeUnits).toString(),
@@ -522,16 +536,18 @@ function offrampPayload(
     quoteId,
     expiresAt: new Date(expiresAt).toISOString(),
     kes: {
-      amount: Number(plan.kesCents) / 100, // what the user typed
-      fee: plan.feeKes, // our fee
-      receive: plan.receiveKes, // what lands in M-Pesa
+      amount: Number(plan.kesCents) / 100, // gross amount the user typed
+      fee: plan.feeKes, // ChamaPay fee
+      elementPayFee: plan.elementPayFeeKes, // Element Pay fee, converted from USDC to KES
+      elementPayReceive: plan.elementPayReceiveKes, // Element Pay payout before ChamaPay fee
+      receive: plan.receiveKes, // final amount that should land in M-Pesa
     },
     usdc: {
-      gross: formatUnits(BigInt(plan.grossUnits), USDC_DECIMALS), // leaves the wallet
-      fee: formatUnits(BigInt(plan.feeUnits), USDC_DECIMALS),
-      net: formatUnits(BigInt(plan.netUnits), USDC_DECIMALS),
+      gross: formatUnits(BigInt(plan.grossUnits), USDC_DECIMALS), // total leaves the wallet
+      fee: formatUnits(BigInt(plan.feeUnits), USDC_DECIMALS), // ChamaPay fee
+      net: formatUnits(BigInt(plan.netUnits), USDC_DECIMALS), // sent to Element Pay
+      elementPayFee: plan.elementPayFeeUsdc, // Element Pay's own fee
     },
-    // Keep `rate` backwards-compatible, while exposing the raw provider rate separately.
     rate: plan.effectiveRate,
     elementPayRate: plan.elementPayRate,
   };
@@ -1104,9 +1120,9 @@ export async function getElementPayQuote(req: Request, res: Response) {
       });
     }
 
-    // off-ramp (KES in). Without `kesAmount` we return the reference effective rate, so the page can show
-    // "1 USDC = X KES" and the withdrawable balance. With `kesAmount` we return a BINDING quote: our fee
-    // from the bracket table, the KES the user receives and the exact USDC that will leave the wallet.
+    // off-ramp (KES in). Without `kesAmount` we return the live provider rate, so the page can show
+    // "1 USDC = X KES" and the withdrawable balance. With `kesAmount` we return a BINDING quote: the
+    // Element Pay fee, our ChamaPay fee, the final KES the user receives, and the exact USDC leaving the wallet.
     const provider = await getMpesaProvider("OffRamp");
     const hasAmount = String(req.body?.kesAmount ?? "").trim() !== "";
 
