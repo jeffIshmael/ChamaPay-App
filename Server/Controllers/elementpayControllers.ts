@@ -327,6 +327,7 @@ interface OfframpPlan {
   feeUnits: string; // USDC the treasury keeps
   grossUnits: string; // USDC debited from the user (net + fee)
   effectiveRate: string; // KES per USDC that reaches Element Pay, after their fees
+  elementPayRate: string; // raw Element Pay amounts.rate for this binding quote
 }
 
 // "500" | "500.5" | 500.25 -> cents. At most 2 decimals.
@@ -380,6 +381,9 @@ function withdrawalFeeKes(kesCents: bigint): number {
 }
 
 interface RefRate {
+  // Raw KES/USDC rate returned by Element Pay in amounts.rate.
+  providerRate: string;
+  // Effective rate after Element Pay fees, used only for backwards compatibility/internal pricing.
   effectiveRate: string;
   listedRate: unknown;
   expiresAt: number;
@@ -393,7 +397,10 @@ async function referenceOfframpRate(
   provider: Provider,
   treasury: string,
 ): Promise<RefRate> {
-  const cached = getCached<RefRate>(OFFRAMP_REF_KEY);
+  // The quote contains the user's KYC/customer data, so never share a cached
+  // reference quote between users. The rate can be similar, but the quote itself is user-specific.
+  const cacheKey = `${OFFRAMP_REF_KEY}:${userId}:${payPhone}:${provider.id}`;
+  const cached = getCached<RefRate>(cacheKey);
   if (cached) return cached;
 
   const refUnits = parseUsdcInput(
@@ -410,12 +417,18 @@ async function referenceOfframpRate(
   if (!effectiveRate) {
     throw new ElementPayError(502, "Element Pay did not return a rate");
   }
+  const providerRate = String(q?.amounts?.rate ?? "").trim();
+  if (!providerRate || Number(providerRate) <= 0) {
+    throw new ElementPayError(502, "Element Pay did not return a provider rate");
+  }
+
   const out: RefRate = {
+    providerRate,
     effectiveRate,
     listedRate: q?.amounts?.rate ?? null,
     expiresAt: Date.parse(q?.expires_at) || Date.now() + QUOTE_FALLBACK_TTL_MS,
   };
-  setCache(OFFRAMP_REF_KEY, out, 30_000);
+  setCache(cacheKey, out, 30_000);
   return out;
 }
 
@@ -435,7 +448,9 @@ async function priceOfframp(
   }
 
   const ref = await referenceOfframpRate(userId, payPhone, provider, treasury);
-  let net = kesCentsToUsdcUnitsCeil(targetCents, ref.effectiveRate);
+  // Start from the same live provider rate shown in the withdrawal modal.
+  // The binding quote below remains the source of truth and may adjust this amount.
+  let net = kesCentsToUsdcUnitsCeil(targetCents, ref.providerRate);
 
   let q: any;
   let payoutCents = 0n;
@@ -472,6 +487,11 @@ async function priceOfframp(
     throw new ElementPayError(502, "Element Pay did not return a rate");
   }
 
+  const elementPayRate = String(q?.amounts?.rate ?? "").trim();
+  if (!elementPayRate || Number(elementPayRate) <= 0) {
+    throw new ElementPayError(502, "Element Pay did not return a provider rate");
+  }
+
   // our fee is a KES amount; collect it in USDC at the same effective rate, rounded up
   const feeUnits = kesCentsToUsdcUnitsCeil(
     BigInt(feeKes) * 100n,
@@ -485,6 +505,7 @@ async function priceOfframp(
     feeUnits: feeUnits.toString(),
     grossUnits: (net + feeUnits).toString(),
     effectiveRate,
+    elementPayRate,
   };
   return { q, plan };
 }
@@ -510,7 +531,9 @@ function offrampPayload(
       fee: formatUnits(BigInt(plan.feeUnits), USDC_DECIMALS),
       net: formatUnits(BigInt(plan.netUnits), USDC_DECIMALS),
     },
+    // Keep `rate` backwards-compatible, while exposing the raw provider rate separately.
     rate: plan.effectiveRate,
+    elementPayRate: plan.elementPayRate,
   };
 }
 
@@ -1088,22 +1111,54 @@ export async function getElementPayQuote(req: Request, res: Response) {
     const hasAmount = String(req.body?.kesAmount ?? "").trim() !== "";
 
     if (!hasAmount) {
-      const ref = await referenceOfframpRate(
-        userId,
-        payPhone,
-        provider,
-        treasury,
-      );
-      return res.status(200).json({
-        success: true,
-        type: "offramp",
-        mode: "reference",
-        effectiveRate: ref.effectiveRate, // KES per 1 USDC, after Element Pay's fees
-        listedRate: ref.listedRate,
-        expiresAt: new Date(ref.expiresAt).toISOString(),
-        minKes: OFFRAMP_MIN_KES,
-        maxKes: OFFRAMP_MAX_KES,
-      });
+      try {
+        // Verified users get a real, unaccepted Element Pay quote. We only read
+        // amounts.rate from it; this quote is never accepted or used as a payout order.
+        const ref = await referenceOfframpRate(
+          userId,
+          payPhone,
+          provider,
+          treasury,
+        );
+        return res.status(200).json({
+          success: true,
+          type: "offramp",
+          mode: "reference",
+          rate: ref.providerRate,
+          elementPayRate: ref.providerRate,
+          effectiveRate: ref.effectiveRate,
+          listedRate: ref.listedRate,
+          expiresAt: new Date(ref.expiresAt).toISOString(),
+          minKes: OFFRAMP_MIN_KES,
+          maxKes: OFFRAMP_MAX_KES,
+        });
+      } catch (error) {
+        // Unverified users still get the existing indicative page rate, but never
+        // get a provider quote. The withdrawal button remains KYC-gated in the UI.
+        if (
+          error instanceof ElementPayError &&
+          (error.data as any)?.code === KYC_REQUIRED_CODE
+        ) {
+          const fallbackRate = String(
+            process.env.ELEMENTPAY_FALLBACK_OFFRAMP_RATE || "128.08",
+          ).trim();
+          if (!/^\d+(\.\d+)?$/.test(fallbackRate) || Number(fallbackRate) <= 0) {
+            throw new ElementPayError(500, "ELEMENTPAY_FALLBACK_OFFRAMP_RATE is invalid");
+          }
+          return res.status(200).json({
+            success: true,
+            type: "offramp",
+            mode: "fallback",
+            rate: fallbackRate,
+            effectiveRate: fallbackRate,
+            listedRate: fallbackRate,
+            expiresAt: new Date(Date.now() + 30_000).toISOString(),
+            minKes: OFFRAMP_MIN_KES,
+            maxKes: OFFRAMP_MAX_KES,
+          });
+        }
+        throw error;
+      }
     }
 
     const kesCents = parseKesInput(req.body?.kesAmount);
