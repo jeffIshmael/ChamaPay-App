@@ -213,6 +213,12 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // ---------------------------------------------------------------------------
 
 const USDC_DECIMALS = 6;
+
+// Element Pay keeps at most 3 decimals on an OffRamp crypto_amount. Its deposit instruction is
+// the source of truth, so whatever we send must already be exact at that precision. Any dust
+// below this step is moved into ChamaPay's fee (never charged on top of what the user confirmed).
+const EP_CRYPTO_DECIMALS = 3;
+const EP_CRYPTO_STEP = 10n ** BigInt(USDC_DECIMALS - EP_CRYPTO_DECIMALS); // 1000 units = 0.001 USDC
 type Dec = { n: bigint; scale: number }; // value = n / 10^scale
 
 function numberToPlain(n: number): string {
@@ -456,12 +462,18 @@ async function priceOfframp(
   // becomes part of an Element Pay order.
   const ref = await referenceOfframpRate(userId, payPhone, provider, treasury);
   const grossUnits = kesCentsToUsdcUnitsCeil(kesCents, ref.providerRate);
-  const feeUnits = kesCentsToUsdcUnitsCeil(
+  const rawFeeUnits = kesCentsToUsdcUnitsCeil(
     BigInt(feeKes) * 100n,
     ref.providerRate,
   );
-  const net = grossUnits - feeUnits;
-  if (grossUnits <= 0n || feeUnits <= 0n || net <= 0n) {
+
+  // Element Pay comes first: the amount we quote, deposit and send must be exactly what Element
+  // Pay will expect. Round the net DOWN to the precision it keeps, and let ChamaPay's fee absorb
+  // the dust. gross (what the user pays) is unchanged: gross = net + fee.
+  const rawNet = grossUnits - rawFeeUnits;
+  const net = (rawNet / EP_CRYPTO_STEP) * EP_CRYPTO_STEP;
+  const feeUnits = grossUnits - net;
+  if (grossUnits <= 0n || rawFeeUnits <= 0n || feeUnits <= 0n || net <= 0n) {
     throw new ElementPayError(400, "Amount is too small to withdraw");
   }
 
