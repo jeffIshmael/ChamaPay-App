@@ -89,7 +89,8 @@ export const transferWithFeeTx = async (
     const amountInWei = parseUnits(amount, 6);
     const feeInWei = parseUnits(fee, 6);
     if (amountInWei <= 0n) throw new Error("Invalid amount");
-  
+    if (feeInWei < 0n) throw new Error("Invalid fee");
+
     const balance = await publicClient.readContract({
       address: USDCAddress,
       abi: erc20Abi,
@@ -100,27 +101,31 @@ export const transferWithFeeTx = async (
     const { smartAccountClient, authorization } =
       await createEIP7702SmartAccount(cdpWalletId);
 
+    const calls = [
+      {
+        to: USDCAddress,
+        data: encodeFunctionData({
+          abi: erc20Abi,
+          functionName: "transfer",
+          args: [recipient, amountInWei],
+        }),
+      },
+    ];
+    // A break-even withdrawal has a zero fee: send nothing to the treasury instead of a
+    // pointless 0-USDC transfer (extra gas, and one more call that can fail).
+    if (feeInWei > 0n) {
+      calls.push({
+        to: USDCAddress,
+        data: encodeFunctionData({
+          abi: erc20Abi,
+          functionName: "transfer",
+          args: [treasuryWallet, feeInWei],
+        }),
+      });
+    }
+
     const hash = await smartAccountClient.sendTransaction({
-      calls: [
-        {
-          to: USDCAddress,
-          data: encodeFunctionData({
-            abi: erc20Abi,
-            functionName: "transfer",
-            args: [recipient, amountInWei],
-          }),
-        },
-
-        {
-          to: USDCAddress,
-          data: encodeFunctionData({
-            abi: erc20Abi,
-            functionName: "transfer",
-            args: [treasuryWallet, feeInWei],
-          }),
-        },
-      ],
-
+      calls,
       ...(authorization ? { authorization } : {}),
     });
 
