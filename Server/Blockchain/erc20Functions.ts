@@ -101,9 +101,10 @@ export const transferWithFeeTx = async (
     const { smartAccountClient, authorization } =
       await createEIP7702SmartAccount(cdpWalletId);
 
-    const calls = [
+    const usdc = USDCAddress as `0x${string}`;
+    const calls: { to: `0x${string}`; data: `0x${string}` }[] = [
       {
-        to: USDCAddress,
+        to: usdc,
         data: encodeFunctionData({
           abi: erc20Abi,
           functionName: "transfer",
@@ -115,7 +116,7 @@ export const transferWithFeeTx = async (
     // pointless 0-USDC transfer (extra gas, and one more call that can fail).
     if (feeInWei > 0n) {
       calls.push({
-        to: USDCAddress,
+        to: usdc,
         data: encodeFunctionData({
           abi: erc20Abi,
           functionName: "transfer",
