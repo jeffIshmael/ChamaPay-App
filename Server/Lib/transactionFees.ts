@@ -10,4 +10,6 @@ export const WITHDRAWAL_FEE_BRACKETS = [
     { min: 50001, max: 70000, fee: 180 }, // +35
     { min: 70001, max: 85000, fee: 215 }, // +35
     { min: 85001, max: 100000, fee: 250 }, // +35
+    { min: 100001, max: 125000, fee: 285 }, 
+    { min: 125001, max: 150000, fee: 320 }, 
   ] as const;

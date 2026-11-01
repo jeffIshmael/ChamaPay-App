@@ -30,7 +30,7 @@
 //   ELEMENTPAY_SANDBOX_OFFRAMP_OUTCOME   "Successful" (default) | "Failure": sandbox off-ramp outcome is driven by customer.name
 //                                        (only works with the inline customer, not a vault customer_id)
 //   ELEMENTPAY_OFFRAMP_ASSET_TOKEN / _CURRENCY / _NETWORK   default Base USDC. See the warning at OFFRAMP_ASSET.
-//   (off-ramp fee now comes from WITHDRAWAL_FEE_BRACKETS, in KES; ELEMENTPAY_OFFRAMP_FEE_BPS is no longer used)
+//   (off-ramp fee is a flat 2.5% of the KES the user types, see WITHDRAWAL_FEE_BPS; the old fee-bracket table and ELEMENTPAY_OFFRAMP_FEE_BPS are no longer used)
 //   ELEMENTPAY_OFFRAMP_ONCHAIN=true      run the on-chain legs in sandbox too (they always run in production)
 //   ELEMENTPAY_ENV=production            LIVE: uses ELEMENTPAY_URL (default https://api.elementpay.net) / ELEMENTPAY_API_KEY and the live key's webhook secret
 //   ELEMENTPAY_REFERENCE_USDC            sample size for the page-load off-ramp rate quote. Default 10
@@ -48,8 +48,6 @@ import {
   bcTreasuryGoalContribute,
 } from "../Blockchain/WriteFunction";
 import { transferTx, transferWithFeeTx } from "../Blockchain/erc20Functions";
-// KES fee table. ADJUST THIS PATH to wherever WITHDRAWAL_FEE_BRACKETS lives in your backend.
-import { WITHDRAWAL_FEE_BRACKETS } from "../Lib/transactionFees";
 import emailService from "../Lib/EmailService";
 import { getCached, setCache } from "../Lib/cache";
 import { treasuryTransferToUser } from "../Lib/pimlicoAgent";
@@ -316,27 +314,37 @@ function parseUsdcInput(input: unknown): bigint | null {
 }
 
 // ---------------------------------------------------------------------------
-// Withdrawal pricing: the user types a gross KES amount. We use the live Element Pay rate to
-// calculate the gross USDC value, convert ChamaPay's fee to USDC, and remove that fee from the
-// user's USDC before creating the real Element Pay quote. Whatever `user_receives` Element Pay
-// returns is the authoritative M-Pesa payout. Element Pay's own fee is therefore the difference
-// between the gross KES amount, our ChamaPay fee, and the provider payout.
+// Withdrawal pricing (flat 2.5%, platform rate CHAMAPAY_RATE = 132).
+//
+//   A  = KES the user typed (100%)
+//   R  = A - 2.5% of A                      <- the amount the user is SHOWN and must RECEIVE
+//   gross USDC = A / 132                    <- everything that leaves the user's wallet
+//   net   USDC = enough for Element Pay to pay out R = R / (Element Pay's live rate). When that
+//                rate is exactly 132 this is simply R / 132. The Element Pay quote is created on it.
+//   fee   USDC = gross - net                <- what is left over; it goes to the treasury
+//
+// The 2.5% therefore covers Element Pay's exchange-rate spread AND ChamaPay's own fee. We then
+// check Element Pay's real quote: its `user_receives` must equal R. If it is short we re-quote once
+// with a larger net. Break-even (net == gross, treasury fee 0) is allowed; if the net would EXCEED
+// the gross the treasury would have to top up the withdrawal, so we refuse instead.
+// A zero treasury fee is handled downstream: no fee transfer is sent (see transferWithFeeTx).
 // ---------------------------------------------------------------------------
 
-const OFFRAMP_MIN_KES: number = WITHDRAWAL_FEE_BRACKETS[0].min;
-const OFFRAMP_MAX_KES: number =
-  WITHDRAWAL_FEE_BRACKETS[WITHDRAWAL_FEE_BRACKETS.length - 1].max;
+const WITHDRAWAL_FEE_BPS = 250n; // 2.5%. Keep in sync with FEE_PERCENT in WithdrawModal.tsx
+const OFFRAMP_MIN_KES = 60; // keep in sync with MIN_KES in WithdrawModal.tsx
+const OFFRAMP_MAX_KES = 100_000; // keep in sync with MAX_KES in WithdrawModal.tsx
+const OFFRAMP_PAYOUT_TOLERANCE_CENTS = 1n; // Element Pay may be at most 1 cent below the shown amount
 const OFFRAMP_REF_KEY = "elementpay:ref:offramp";
 
 interface OfframpPlan {
   kesCents: string; // gross KES amount typed by the user
-  feeKes: number; // ChamaPay fee (from the bracket table)
+  feeKes: number; // the 2.5% transaction fee shown to the user, in KES
   elementPayFeeUsdc: string; // Element Pay's explicit quote fee, in USDC
   elementPayFeeKes: number; // Element Pay fee, derived so all KES amounts reconcile
   elementPayReceiveKes: number; // Element Pay's authoritative user_receives amount
   receiveKes: number; // final M-Pesa amount (same as Element Pay user_receives)
   netUnits: string; // USDC sent to Element Pay after removing our fee
-  feeUnits: string; // USDC the treasury keeps for the ChamaPay fee
+  feeUnits: string; // USDC the treasury keeps (gross - net); 0 at break-even
   grossUnits: string; // total USDC debited from the user (net + ChamaPay fee)
   effectiveRate: string; // KES per USDC actually paid out by Element Pay
   elementPayRate: string; // raw Element Pay amounts.rate for this binding quote
@@ -377,19 +385,14 @@ function kesCentsToUsdcUnitsCeil(kesCents: bigint, rate: string): bigint {
   return ceilDiv(kesCents * 10_000n * 10n ** BigInt(scale), n);
 }
 
-// Our fee for paying out `kesCents` (the whole amount the user typed).
-function withdrawalFeeKes(kesCents: bigint): number {
-  const kes = Math.ceil(Number(kesCents) / 100); // brackets have gaps like 500 -> 501
-  const bracket = WITHDRAWAL_FEE_BRACKETS.find(
-    (b) => kes >= b.min && kes <= b.max,
-  );
-  if (!bracket) {
-    throw new ElementPayError(
-      400,
-      `Withdrawals must be between KES ${OFFRAMP_MIN_KES.toLocaleString()} and KES ${OFFRAMP_MAX_KES.toLocaleString()}`,
-    );
-  }
-  return bracket.fee;
+// 2.5% of what the user typed, in cents, rounded half-up (WithdrawModal computes it the same way).
+function withdrawalFeeCents(kesCents: bigint): bigint {
+  return (kesCents * WITHDRAWAL_FEE_BPS + 5000n) / 10000n;
+}
+
+// Round a USDC amount UP to the precision Element Pay keeps, so its payout is never below target.
+function ceilToEpStep(units: bigint): bigint {
+  return ((units + EP_CRYPTO_STEP - 1n) / EP_CRYPTO_STEP) * EP_CRYPTO_STEP;
 }
 
 interface RefRate {
@@ -444,9 +447,9 @@ async function referenceOfframpRate(
   return out;
 }
 
-// Binding price for a withdrawal. Remove ChamaPay's fee from the gross USDC value first, then
-// create one real Element Pay quote for the remaining USDC. Element Pay's user_receives is the
-// authoritative M-Pesa payout; its own fee is represented separately in the customer breakdown.
+// Binding price for a withdrawal. See the pricing note above: the user is shown R (typed amount
+// minus 2.5%), Element Pay is quoted on just enough USDC to pay out R, and the rest of the
+// user's USDC (gross - net) stays with the treasury.
 async function priceOfframp(
   userId: number,
   payPhone: string,
@@ -454,66 +457,81 @@ async function priceOfframp(
   treasury: string,
   kesCents: bigint,
 ): Promise<{ q: any; plan: OfframpPlan }> {
-  const feeKes = withdrawalFeeKes(kesCents);
+  const kesWhole = Math.ceil(Number(kesCents) / 100); // brackets used to have gaps like 500 -> 501
+  if (kesWhole < OFFRAMP_MIN_KES || kesWhole > OFFRAMP_MAX_KES) {
+    throw new ElementPayError(
+      400,
+      `Withdrawals must be between KES ${OFFRAMP_MIN_KES.toLocaleString()} and KES ${OFFRAMP_MAX_KES.toLocaleString()}`,
+    );
+  }
 
-  // The user-entered KES amount is the gross value. Convert that gross value to USDC using
-  // the live Element Pay provider rate, then convert OUR fee to USDC and remove it before
-  // creating the Element Pay quote. This guarantees our fee is secured before any USDC
-  // becomes part of an Element Pay order.
-  const ref = await referenceOfframpRate(userId, payPhone, provider, treasury);
-  const grossUnits = kesCentsToUsdcUnitsCeil(kesCents, ref.providerRate);
-  const rawFeeUnits = kesCentsToUsdcUnitsCeil(
-    BigInt(feeKes) * 100n,
-    ref.providerRate,
-  );
-
-  // Element Pay comes first: the amount we quote, deposit and send must be exactly what Element
-  // Pay will expect. Round the net DOWN to the precision it keeps, and let ChamaPay's fee absorb
-  // the dust. gross (what the user pays) is unchanged: gross = net + fee.
-  const rawNet = grossUnits - rawFeeUnits;
-  const net = (rawNet / EP_CRYPTO_STEP) * EP_CRYPTO_STEP;
-  const feeUnits = grossUnits - net;
-  if (grossUnits <= 0n || rawFeeUnits <= 0n || feeUnits <= 0n || net <= 0n) {
+  // 1) What the user is shown and must receive
+  const feeCents = withdrawalFeeCents(kesCents);
+  const receiveCents = kesCents - feeCents;
+  if (feeCents <= 0n || receiveCents <= 0n) {
     throw new ElementPayError(400, "Amount is too small to withdraw");
   }
 
-  // Create the real binding quote with ONLY the USDC left after ChamaPay's fee. From this
-  // point onward, Element Pay controls the payout and its `user_receives` is authoritative.
-  const q = await createQuote(
-    await offrampQuoteBody(userId, payPhone, net, provider.id, treasury),
-  );
+  // 2) Everything that leaves the user's wallet: typed amount at the platform rate (132)
+  const platform = platformRate();
+  const grossUnits = kesCentsToUsdcUnitsCeil(kesCents, platform);
 
-  const payoutCents = kesToCents(q?.amounts?.user_receives?.amount);
+  // 3) The USDC Element Pay needs to pay out R, at Element Pay's live rate (R / 132 when that rate
+  // is 132). A lower rate needs more USDC for the same KES; a higher one needs less, and the
+  // difference stays with the treasury.
+  const ref = await referenceOfframpRate(userId, payPhone, provider, treasury);
+  const quoteRate = ref.providerRate;
+
+  let net = ceilToEpStep(kesCentsToUsdcUnitsCeil(receiveCents, quoteRate));
+  let q: any = null;
+  let payoutCents = 0n;
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    // Break-even (fee 0) is fine, but never pay Element Pay more than the user's own USDC:
+    // that would be taken from the treasury.
+    if (net > grossUnits) {
+      throw new ElementPayError(
+        503,
+        "Withdrawals are temporarily unavailable at the current exchange rate. Please try again shortly.",
+      );
+    }
+
+    q = await createQuote(
+      await offrampQuoteBody(userId, payPhone, net, provider.id, treasury),
+    );
+    payoutCents = kesToCents(q?.amounts?.user_receives?.amount);
+
+    // Element Pay's payout must equal the amount we showed the user (R)
+    if (payoutCents + OFFRAMP_PAYOUT_TOLERANCE_CENTS >= receiveCents) break;
+
+    if (attempt === 2) {
+      throw new ElementPayError(
+        502,
+        "Could not secure the withdrawal amount. Please try again.",
+      );
+    }
+    // Short: scale the net up by R / payout (plus one step) and quote once more
+    const scaled = ceilDiv(net * receiveCents, payoutCents > 0n ? payoutCents : 1n);
+    net = ceilToEpStep(scaled) + EP_CRYPTO_STEP;
+  }
+
+  const feeUnits = grossUnits - net;
+  if (grossUnits <= 0n || net <= 0n || feeUnits < 0n) {
+    throw new ElementPayError(400, "Amount is too small to withdraw");
+  }
+
   const elementPayRate = String(q?.amounts?.rate ?? "").trim();
   if (!elementPayRate || Number(elementPayRate) <= 0) {
     throw new ElementPayError(502, "Element Pay did not return a provider rate");
   }
+  // Element Pay removed its own fee; keep the field for the logs but never fail on it
+  const elementPayFeeUsdc = String(q?.amounts?.fees?.fee_amount ?? "0").trim() || "0";
 
   const providerReceiveKes = Number(payoutCents) / 100;
-  if (!Number.isFinite(providerReceiveKes) || providerReceiveKes <= 0) {
-    throw new ElementPayError(502, "Element Pay did not return a payout amount");
-  }
-
-  const elementPayFeeUsdc = String(
-    q?.amounts?.fees?.fee_amount ?? "0",
-  ).trim();
-  if (!elementPayFeeUsdc || Number(elementPayFeeUsdc) < 0) {
-    throw new ElementPayError(502, "Element Pay did not return its fee");
-  }
-
-  // Element Pay's explicit fee is already reflected in `user_receives`. For the UI, derive
-  // its KES equivalent as the residual so the customer-facing breakdown always reconciles:
-  // gross KES - ChamaPay fee - Element Pay fee = Element Pay user_receives.
-  const elementPayFeeKesRaw =
-    Number(kesCents) / 100 - feeKes - providerReceiveKes;
-  const elementPayFeeKes = Math.max(0, Number(elementPayFeeKesRaw.toFixed(2)));
-
-  // The final M-Pesa amount is exactly what Element Pay says the user receives. We do NOT
-  // subtract the ChamaPay fee again here because that fee was already removed from the
-  // user's USDC before the Element Pay quote was created.
-  const receiveKes = providerReceiveKes;
-  if (receiveKes <= 0) {
-    throw new ElementPayError(400, "Amount is too small to withdraw");
+  if (payoutCents > receiveCents + 100n) {
+    console.warn(
+      `[elementpay] off-ramp payout KES ${providerReceiveKes} is above the amount shown (KES ${Number(receiveCents) / 100}); Element Pay rate ${elementPayRate} vs quote rate ${quoteRate}`,
+    );
   }
 
   const netStr = formatUnits(net, USDC_DECIMALS);
@@ -524,11 +542,11 @@ async function priceOfframp(
 
   const plan: OfframpPlan = {
     kesCents: kesCents.toString(),
-    feeKes,
+    feeKes: Number(feeCents) / 100,
     elementPayFeeUsdc,
-    elementPayFeeKes,
+    elementPayFeeKes: 0,
     elementPayReceiveKes: providerReceiveKes,
-    receiveKes,
+    receiveKes: Number(receiveCents) / 100, // the amount shown to the user
     netUnits: net.toString(),
     feeUnits: feeUnits.toString(),
     grossUnits: grossUnits.toString(),
@@ -551,14 +569,14 @@ function offrampPayload(
     expiresAt: new Date(expiresAt).toISOString(),
     kes: {
       amount: Number(plan.kesCents) / 100, // gross amount the user typed
-      fee: plan.feeKes, // ChamaPay fee
-      elementPayFee: plan.elementPayFeeKes, // Element Pay fee, converted from USDC to KES
+      fee: plan.feeKes, // the 2.5% transaction fee
+      elementPayFee: plan.elementPayFeeKes, // 0: Element Pay no longer charges a fee
       elementPayReceive: plan.elementPayReceiveKes, // Element Pay's authoritative payout
-      receive: plan.receiveKes, // final amount that should land in M-Pesa
+      receive: plan.receiveKes, // amount shown to the user (typed amount minus 2.5%)
     },
     usdc: {
       gross: formatUnits(BigInt(plan.grossUnits), USDC_DECIMALS), // total leaves the wallet
-      fee: formatUnits(BigInt(plan.feeUnits), USDC_DECIMALS), // ChamaPay fee
+      fee: formatUnits(BigInt(plan.feeUnits), USDC_DECIMALS), // gross - net, kept by the treasury
       net: formatUnits(BigInt(plan.netUnits), USDC_DECIMALS), // sent to Element Pay
       elementPayFee: plan.elementPayFeeUsdc, // Element Pay's own fee
     },
@@ -1314,8 +1332,8 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
     // 1) Quote (reuse the one the user was shown if it is still valid)
     let quoteId: string;
     let quotedAt: number;
-    let elementpayRate: number;
-    let amountElementpayGives: number;
+    let elementpayRate: number | undefined;
+    let amountElementpayGives: number | undefined;
     let treasuryUnits: bigint | null;
     const reuse = takeReusableQuote(
       clientQuoteId,
@@ -1350,14 +1368,12 @@ export async function initiateElementPayOnramp(req: Request, res: Response) {
       treasuryUnits = receivesUnits(q);
     }
 
-    console.log("elementpay rate is", elementpayRate!);
-    console.log(
-      `amount user needs: ${usdcToCredit} USDC. Elelemntpay gives: ${amountElementpayGives!} USDC.`,
-    );
-    if (Number(amountElementpayGives!) < Number(usdcToCredit)) {
+    if (amountElementpayGives !== undefined) {
       console.log(
-        `we are about to add this ${Number(usdcToCredit) - Number(amountElementpayGives!)} USDC`,
+        `elementpay rate ${elementpayRate!}; user needs ${usdcToCredit} USDC, Element Pay gives ${amountElementpayGives} USDC`,
       );
+    } else {
+      console.log(`reusing the pre-fetched quote ${quoteId} (no new quote needed)`);
     }
 
     // Visibility into FX-reserve exposure: what the treasury receives vs. what we owe the user
@@ -1739,6 +1755,17 @@ async function refundOfframpFee(t: any, reason: string): Promise<boolean> {
     },
   });
   if (claim.count === 0) return false; // already refunded, never twice
+
+  // Break-even withdrawal: no fee was taken, so there is nothing to refund
+  if (t.feeUsdc !== undefined && t.feeUsdc !== null && Number(t.feeUsdc) === 0) {
+    await prisma.pretiumTransaction
+      .update({
+        where: { id: t.id },
+        data: { message: `No fee was charged: ${reason}`.slice(0, 250) },
+      })
+      .catch(() => {});
+    return true;
+  }
 
   try {
     const tx = await treasuryTransferToUser(
