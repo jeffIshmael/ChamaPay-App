@@ -114,37 +114,63 @@ class EmailService {
   }
 
 
-  async sendResendOTPEmail(email: string, code: string) {
-    try {
-      const body = `
-        ${heading("Verify it's you")}
-        ${paragraph("Use the code below to finish signing in to Chamapay. It expires in 10 minutes.")}
-        <div style="background-color:${SURFACE}; border-radius:12px; padding:20px; text-align:center; margin:24px 0;">
-          <span style="font-size:32px; font-weight:700; letter-spacing:8px; color:${ACCENT};">${code}</span>
-        </div>
-        <p style="margin:0; font-size:13px; line-height:20px; color:${MUTED};">
-          Didn't request this? You can safely ignore this email.
-        </p>
-      `;
+async sendResendOTPEmail(email: string, code: string) {
+  try {
+    const body = `
+      ${heading("Your Chamapay verification code")}
 
-      const { data, error } = await resend.emails.send({
-        from: "Chamapay <noreply@chamapay.xyz>",
-        to: email,
-        subject: "Your Chamapay verification code",
-        html: wrapEmail(body, { preheader: `Your verification code is ${code}` }),
-      });
+      <p style="margin:0 0 16px; font-size:15px; line-height:24px; color:${MUTED};">
+        Use the verification code below to finish signing in to Chamapay.
+        This code expires in 10 minutes.
+      </p>
 
-      if (error) {
-        console.error("Resend error:", error);
-        return { success: false, error: error.message };
-      }
+      <div style="
+        background-color:${SURFACE};
+        border-radius:12px;
+        padding:24px 20px;
+        text-align:center;
+        margin:20px 0;
+      ">
+        <span style="
+          display:inline-block;
+          font-size:32px;
+          font-weight:700;
+          letter-spacing:8px;
+          color:${ACCENT};
+          font-family:monospace;
+        ">${code}</span>
+      </div>
 
-      return { success: true, messageId: data?.id };
-    } catch (error) {
-      console.error("Error sending OTP email:", error);
-      return { success: false, error: "Failed to send email" };
+      <p style="
+        margin:0;
+        font-size:13px;
+        line-height:20px;
+        color:${MUTED};
+      ">
+        Didn't request this? You can safely ignore this email.
+      </p>
+    `;
+
+    const { data, error } = await resend.emails.send({
+      from: "Chamapay <noreply@chamapay.xyz>",
+      to: email,
+      subject: `${code} is your Chamapay verification code`,
+      html: wrapEmail(body, {
+        preheader: `${code} is your Chamapay verification code. Expires in 10 minutes.`,
+      }),
+    });
+
+    if (error) {
+      console.error("Resend error:", error);
+      return { success: false, error: error.message };
     }
+
+    return { success: true, messageId: data?.id };
+  } catch (error) {
+    console.error("Error sending OTP email:", error);
+    return { success: false, error: "Failed to send email" };
   }
+}
 
   async sendPayoutEmail(email: string, amountUSDC: string, amountKES: string | null, chamaName: string, round: number) {
     try {
