@@ -5,7 +5,7 @@ import { Resend } from "resend";
 configDotenv();
 
 const resendApi = process.env.RESEND_API_KEY;
-  /**
+/**
  * Shared layout for all Chamapay transactional emails.
  * Keeps every email visually consistent: logo header, one accent color
  * used sparingly, plenty of whitespace, muted footer. Inline styles +
@@ -108,77 +108,114 @@ class EmailService {
   async sendOTPEmail(
     email: string,
     otp: string,
-    name: string = "User"
+    name: string = "User",
   ): Promise<EmailResult> {
     return this.sendResendOTPEmail(email, otp);
   }
 
-
-async sendResendOTPEmail(email: string, code: string) {
-  try {
-    const body = `
-      ${heading("Your Chamapay verification code")}
-
-      <p style="margin:0 0 16px; font-size:15px; line-height:24px; color:${MUTED};">
-        Use the verification code below to finish signing in to Chamapay.
-        This code expires in 10 minutes.
-      </p>
-
-      <div style="
-        background-color:${SURFACE};
-        border-radius:12px;
-        padding:24px 20px;
-        text-align:center;
-        margin:20px 0;
-      ">
-        <span style="
-          display:inline-block;
-          font-size:32px;
-          font-weight:700;
-          letter-spacing:8px;
-          color:${ACCENT};
-          font-family:monospace;
-        ">${code}</span>
-      </div>
-
-      <p style="
-        margin:0;
-        font-size:13px;
-        line-height:20px;
-        color:${MUTED};
-      ">
-        Didn't request this? You can safely ignore this email.
-      </p>
-    `;
-
-    const { data, error } = await resend.emails.send({
-      from: "Chamapay <noreply@chamapay.xyz>",
-      to: email,
-      subject: `${code} is your Chamapay verification code`,
-      html: wrapEmail(body, {
-        preheader: `${code} is your Chamapay verification code. Expires in 10 minutes.`,
-      }),
-    });
-
-    if (error) {
-      console.error("Resend error:", error);
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, messageId: data?.id };
-  } catch (error) {
-    console.error("Error sending OTP email:", error);
-    return { success: false, error: "Failed to send email" };
-  }
-}
-
-  async sendPayoutEmail(email: string, amountUSDC: string, amountKES: string | null, chamaName: string, round: number) {
+  async sendResendOTPEmail(email: string, code: string) {
     try {
-      const amountDisplay = amountKES ? `${amountKES} KES(approx. ${Number(amountUSDC).toFixed(3)} USDC)` : `${Number(amountUSDC).toFixed(3)} USDC`;
+      const body = `
+        ${heading("Your Chamapay verification code")}
+  
+        <p style="
+          margin:0 0 16px;
+          font-size:15px;
+          line-height:24px;
+          color:${MUTED};
+        ">
+          Use the verification code below to finish signing in to Chamapay.
+          This code expires in 10 minutes.
+        </p>
+  
+        <div style="
+          background-color:${SURFACE};
+          border-radius:12px;
+          padding:24px 20px;
+          text-align:center;
+          margin:20px 0;
+        ">
+          <span style="
+            display:inline-block;
+            font-size:32px;
+            font-weight:700;
+            letter-spacing:8px;
+            color:${ACCENT};
+            font-family:monospace;
+          ">${code}</span>
+        </div>
+  
+        <p style="
+          margin:0;
+          font-size:13px;
+          line-height:20px;
+          color:${MUTED};
+        ">
+          Didn't request this? You can safely ignore this email.
+        </p>
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <noreply@chamapay.xyz>",
+        to: email,
+
+        subject: "Your Chamapay login code",
+
+        // Plain-text version for email clients
+        text: [
+          "Your Chamapay verification code is:",
+          "",
+          code,
+          "",
+          "Use this code to finish signing in to Chamapay.",
+          "This code expires in 10 minutes.",
+          "",
+          "Didn't request this? You can safely ignore this email.",
+        ].join("\n"),
+
+        // HTML version
+        html: wrapEmail(body, {
+          preheader: `Your Chamapay verification code is ${code}. Expires in 10 minutes.`,
+        }),
+      });
+
+      if (error) {
+        console.error("Resend error:", error);
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+
+      return {
+        success: true,
+        messageId: data?.id,
+      };
+    } catch (error) {
+      console.error("Error sending OTP email:", error);
+
+      return {
+        success: false,
+        error: "Failed to send email",
+      };
+    }
+  }
+
+  async sendPayoutEmail(
+    email: string,
+    amountUSDC: string,
+    amountKES: string | null,
+    chamaName: string,
+    round: number,
+  ) {
+    try {
+      const amountDisplay = amountKES
+        ? `${amountKES} KES(approx. ${Number(amountUSDC).toFixed(3)} USDC)`
+        : `${Number(amountUSDC).toFixed(3)} USDC`;
       const body = `
         ${heading("Payout received 💰")}
         ${paragraph(
-          `You've received a payout of <strong style="color:${INK};">${amountDisplay}</strong> for round ${round} of <strong style="color:${INK};">${chamaName}</strong>.`
+          `You've received a payout of <strong style="color:${INK};">${amountDisplay}</strong> for round ${round} of <strong style="color:${INK};">${chamaName}</strong>.`,
         )}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
@@ -203,7 +240,9 @@ async sendResendOTPEmail(email: string, code: string) {
         from: "Chamapay <updates@chamapay.xyz>",
         to: email,
         subject: `Payout received — ${chamaName}`,
-        html: wrapEmail(body, { preheader: `You received ${amountUSDC} USDC from ${chamaName}` }),
+        html: wrapEmail(body, {
+          preheader: `You received ${amountUSDC} USDC from ${chamaName}`,
+        }),
       });
       if (error) console.error("Resend error:", error);
       return { success: !error };
@@ -213,7 +252,6 @@ async sendResendOTPEmail(email: string, code: string) {
     }
   }
 
-
   async sendBulkPayoutCompletedEmails(
     emails: string[],
     chamaName: string,
@@ -221,11 +259,13 @@ async sendResendOTPEmail(email: string, code: string) {
     round: number,
     recipientName: string,
     amountUSDC: string,
-    amountKES: string | null
+    amountKES: string | null,
   ) {
     if (emails.length === 0) return { success: true };
     try {
-      const amountDisplay = amountKES ? `${amountKES} KES(approx. ${Number(amountUSDC).toFixed(3)} USDC)` : `${Number(amountUSDC).toFixed(3)} USDC`;
+      const amountDisplay = amountKES
+        ? `${amountKES} KES(approx. ${Number(amountUSDC).toFixed(3)} USDC)`
+        : `${Number(amountUSDC).toFixed(3)} USDC`;
       const body = `
         ${heading("Payout completed")}
         ${paragraph(`Cycle ${cycle}, Round ${round} of <strong style="color:${INK};">${chamaName}</strong> is complete.`)}
@@ -252,7 +292,9 @@ async sendResendOTPEmail(email: string, code: string) {
         from: "Chamapay <updates@chamapay.xyz>",
         to: email,
         subject: `Payout completed — ${chamaName}`,
-        html: wrapEmail(body, { preheader: `${recipientName} received ${amountUSDC} USDC from ${chamaName}` }),
+        html: wrapEmail(body, {
+          preheader: `${recipientName} received ${amountUSDC} USDC from ${chamaName}`,
+        }),
       }));
 
       const batches = [];
@@ -272,14 +314,14 @@ async sendResendOTPEmail(email: string, code: string) {
     emails: string[],
     chamaName: string,
     cycle: number,
-    round: number
+    round: number,
   ) {
     if (emails.length === 0) return { success: true };
     try {
       const body = `
         ${heading("Payout skipped — funds refunded")}
         ${paragraph(
-          `Cycle ${cycle}, Round ${round} of <strong style="color:${INK};">${chamaName}</strong> didn't go through because some members didn't contribute.`
+          `Cycle ${cycle}, Round ${round} of <strong style="color:${INK};">${chamaName}</strong> didn't go through because some members didn't contribute.`,
         )}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
@@ -326,7 +368,7 @@ async sendResendOTPEmail(email: string, code: string) {
     emails: string[],
     chamaName: string,
     daysLeft: number,
-    payoutDate?: Date | string
+    payoutDate?: Date | string,
   ) {
     if (emails.length === 0) return { success: true };
     try {
@@ -345,7 +387,7 @@ async sendResendOTPEmail(email: string, code: string) {
       const body = `
         ${heading(`Payout in ${daysLeft} days`)}
         ${paragraph(
-          `The next payout for <strong style="color:${INK};">${chamaName}</strong> is in <strong style="color:${ACCENT_SOFT};">${daysLeft} day${daysLeft === 1 ? "" : "s"}</strong>.`
+          `The next payout for <strong style="color:${INK};">${chamaName}</strong> is in <strong style="color:${ACCENT_SOFT};">${daysLeft} day${daysLeft === 1 ? "" : "s"}</strong>.`,
         )}
         ${
           payoutDateLabel
@@ -364,7 +406,7 @@ async sendResendOTPEmail(email: string, code: string) {
             : ""
         }
         ${paragraph(
-          "Please make sure your contribution is in <strong>before</strong> this date and time. Late or missing contributions can cause the payout to be skipped and funds refunded."
+          "Please make sure your contribution is in <strong>before</strong> this date and time. Late or missing contributions can cause the payout to be skipped and funds refunded.",
         )}
       `;
 
@@ -393,7 +435,11 @@ async sendResendOTPEmail(email: string, code: string) {
     }
   }
 
-  async sendBulkChamaUpdateEmails(emails: string[], chamaName: string, message: string) {
+  async sendBulkChamaUpdateEmails(
+    emails: string[],
+    chamaName: string,
+    message: string,
+  ) {
     if (emails.length === 0) return { success: true };
     try {
       const body = `
@@ -424,10 +470,20 @@ async sendResendOTPEmail(email: string, code: string) {
     }
   }
 
-  async sendMpesaDepositEmail(email: string, amountUSDC: string, amountKES: string | null, receiptNumber: string, phoneNumber: string, time: string) {
+  async sendMpesaDepositEmail(
+    email: string,
+    amountUSDC: string,
+    amountKES: string | null,
+    receiptNumber: string,
+    phoneNumber: string,
+    time: string,
+  ) {
     try {
-      const amountDisplay = amountKES ? `${amountKES} KES (${Number(amountUSDC).toFixed(3)} USDC)` : `${Number(amountUSDC).toFixed(3)} USDC`;
-      const trimmedPhone = phoneNumber.length > 4 ? `...${phoneNumber.slice(-4)}` : phoneNumber;
+      const amountDisplay = amountKES
+        ? `${amountKES} KES (${Number(amountUSDC).toFixed(3)} USDC)`
+        : `${Number(amountUSDC).toFixed(3)} USDC`;
+      const trimmedPhone =
+        phoneNumber.length > 4 ? `...${phoneNumber.slice(-4)}` : phoneNumber;
       const body = `
         ${heading("M-Pesa Deposit Confirmed")}
         ${paragraph(`You have successfully deposited <strong style="color:${SUCCESS};">${amountDisplay}</strong> via M-Pesa.`)}
@@ -453,7 +509,9 @@ async sendResendOTPEmail(email: string, code: string) {
         from: "Chamapay <deposits@chamapay.xyz>",
         to: email,
         subject: "M-Pesa deposit received",
-        html: wrapEmail(body, { preheader: `${amountKES ? `${amountKES} KES` : `${amountUSDC} USDC`} deposited to your wallet via M-Pesa` }),
+        html: wrapEmail(body, {
+          preheader: `${amountKES ? `${amountKES} KES` : `${amountUSDC} USDC`} deposited to your wallet via M-Pesa`,
+        }),
       });
       if (error) console.error("Resend error:", error);
       return { success: !error };
@@ -463,7 +521,14 @@ async sendResendOTPEmail(email: string, code: string) {
     }
   }
 
-  async sendMpesaWithdrawEmail(email: string, amountUSDC: string, amountKES: string | null, receiptNumber: string, phoneNumber: string, time: string) {
+  async sendMpesaWithdrawEmail(
+    email: string,
+    amountUSDC: string,
+    amountKES: string | null,
+    receiptNumber: string,
+    phoneNumber: string,
+    time: string,
+  ) {
     try {
       let fee = 0;
       let amountKESNumber = 0;
@@ -481,11 +546,10 @@ async sendResendOTPEmail(email: string, code: string) {
         else if (amountKESNumber <= 70000) fee = 220;
         else fee = 300;
       }
-      
-      const amountDisplay = amountKES 
-        ? `${amountKESNumber.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} KES (${parseFloat(amountUSDC).toFixed(4)} USDC)` 
+
+      const amountDisplay = amountKES
+        ? `${amountKESNumber.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES (${parseFloat(amountUSDC).toFixed(4)} USDC)`
         : `${parseFloat(amountUSDC).toFixed(3)} USDC`;
-        
 
       const body = `
         ${heading("M-Pesa Withdrawal Confirmed")}
@@ -494,17 +558,21 @@ async sendResendOTPEmail(email: string, code: string) {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td style="font-size:13px; color:${MUTED};">Amount Withdrawn</td>
-              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${amountKES ? `${amountKESNumber.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} KES` : `${parseFloat(amountUSDC).toFixed(4)} USDC`}</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${amountKES ? `${amountKESNumber.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES` : `${parseFloat(amountUSDC).toFixed(4)} USDC`}</td>
             </tr>
-            ${amountKES ? `
+            ${
+              amountKES
+                ? `
             <tr>
               <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Processing Fee</td>
-              <td style="font-size:13px; color:#d97706; text-align:right; font-weight:600; padding-top:8px;">- ${fee.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} KES</td>
+              <td style="font-size:13px; color:#d97706; text-align:right; font-weight:600; padding-top:8px;">- ${fee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES</td>
             </tr>
             <tr>
               <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Amount Received</td>
-              <td style="font-size:13px; color:${SUCCESS}; text-align:right; font-weight:600; padding-top:8px;">${(amountKESNumber - fee).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} KES</td>
-            </tr>` : ''}
+              <td style="font-size:13px; color:${SUCCESS}; text-align:right; font-weight:600; padding-top:8px;">${(amountKESNumber - fee).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES</td>
+            </tr>`
+                : ""
+            }
             <tr>
               <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Phone Number</td>
               <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${phoneNumber}</td>
@@ -525,7 +593,9 @@ async sendResendOTPEmail(email: string, code: string) {
         from: "Chamapay <withdrawals@chamapay.xyz>",
         to: email,
         subject: "M-Pesa withdrawal processed",
-        html: wrapEmail(body, { preheader: `${amountKES ? `${amountKES} KES` : `${amountUSDC} USDC`} successfully withdrawn via M-Pesa` }),
+        html: wrapEmail(body, {
+          preheader: `${amountKES ? `${amountKES} KES` : `${amountUSDC} USDC`} successfully withdrawn via M-Pesa`,
+        }),
       });
       if (error) console.error("Resend error:", error);
       return { success: !error };
@@ -535,9 +605,17 @@ async sendResendOTPEmail(email: string, code: string) {
     }
   }
 
-  async sendUSDCReceivedEmail(email: string, amountUSDC: string, amountKES: string | null, senderDisplayName: string, time: string) {
+  async sendUSDCReceivedEmail(
+    email: string,
+    amountUSDC: string,
+    amountKES: string | null,
+    senderDisplayName: string,
+    time: string,
+  ) {
     try {
-      const amountDisplay = amountKES ? `${amountKES} KES(approx. ${Number(amountUSDC).toFixed(3)} USDC)` : `${Number(amountUSDC).toFixed(3)} USDC`;
+      const amountDisplay = amountKES
+        ? `${amountKES} KES(approx. ${Number(amountUSDC).toFixed(3)} USDC)`
+        : `${Number(amountUSDC).toFixed(3)} USDC`;
       const body = `
         ${heading("Cash Received")}
         ${paragraph(`You have received <strong style="color:${SUCCESS};">${amountDisplay}</strong> from ${senderDisplayName}.`)}
@@ -559,7 +637,9 @@ async sendResendOTPEmail(email: string, code: string) {
         from: "Chamapay <transfers@chamapay.xyz>",
         to: email,
         subject: "USDC received",
-        html: wrapEmail(body, { preheader: `${amountUSDC} USDC received from ${senderDisplayName}` }),
+        html: wrapEmail(body, {
+          preheader: `${amountUSDC} USDC received from ${senderDisplayName}`,
+        }),
       });
       if (error) console.error("Resend error:", error);
       return { success: !error };
@@ -568,12 +648,17 @@ async sendResendOTPEmail(email: string, code: string) {
       return { success: false };
     }
   }
-  async sendMemberAddedToExistingMembersEmail(emails: string[], chamaName: string, newMemberName: string, totalMembers: number) {
+  async sendMemberAddedToExistingMembersEmail(
+    emails: string[],
+    chamaName: string,
+    newMemberName: string,
+    totalMembers: number,
+  ) {
     try {
       const body = `
         ${heading("New member joined")}
         ${paragraph(
-          `<strong style="color:${INK};">${newMemberName}</strong> has just been added to <strong style="color:${INK};">${chamaName}</strong>.`
+          `<strong style="color:${INK};">${newMemberName}</strong> has just been added to <strong style="color:${INK};">${chamaName}</strong>.`,
         )}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
@@ -593,7 +678,9 @@ async sendResendOTPEmail(email: string, code: string) {
         from: "Chamapay <updates@chamapay.xyz>",
         to: email,
         subject: `New member joined — ${chamaName}`,
-        html: wrapEmail(body, { preheader: `${newMemberName} joined ${chamaName}` }),
+        html: wrapEmail(body, {
+          preheader: `${newMemberName} joined ${chamaName}`,
+        }),
       }));
 
       const batches = [];
@@ -609,16 +696,30 @@ async sendResendOTPEmail(email: string, code: string) {
     }
   }
 
-  async sendMemberAddedToNewMemberEmail(email: string, chamaName: string, adminName: string, contributionAmountUSDC: string, contributionAmountKES: string | null, cycleDays: number, nextPayoutDate: Date) {
+  async sendMemberAddedToNewMemberEmail(
+    email: string,
+    chamaName: string,
+    adminName: string,
+    contributionAmountUSDC: string,
+    contributionAmountKES: string | null,
+    cycleDays: number,
+    nextPayoutDate: Date,
+  ) {
     try {
-      const formatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+      const formatter = new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
       const formattedDate = formatter.format(nextPayoutDate);
-      const amountDisplay = contributionAmountKES ? ` ${contributionAmountKES} KES(approx. ${Number(contributionAmountUSDC).toFixed(3)} USDC)` : `${Number(contributionAmountUSDC).toFixed(3)} USDC`;
+      const amountDisplay = contributionAmountKES
+        ? ` ${contributionAmountKES} KES(approx. ${Number(contributionAmountUSDC).toFixed(3)} USDC)`
+        : `${Number(contributionAmountUSDC).toFixed(3)} USDC`;
 
       const body = `
         ${heading("You've been added to a Chama 🎉")}
         ${paragraph(
-          `Congratulations! You have been added to <strong style="color:${INK};">${chamaName}</strong> by <strong>${adminName}</strong>.`
+          `Congratulations! You have been added to <strong style="color:${INK};">${chamaName}</strong> by <strong>${adminName}</strong>.`,
         )}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
@@ -643,7 +744,9 @@ async sendResendOTPEmail(email: string, code: string) {
         from: "Chamapay <welcome@chamapay.xyz>",
         to: email,
         subject: `You have been added to ${chamaName}`,
-        html: wrapEmail(body, { preheader: `You were added to ${chamaName} by ${adminName}` }),
+        html: wrapEmail(body, {
+          preheader: `You were added to ${chamaName} by ${adminName}`,
+        }),
       });
       if (error) console.error("Resend error:", error);
       return { success: !error };
@@ -652,13 +755,21 @@ async sendResendOTPEmail(email: string, code: string) {
       return { success: false };
     }
   }
-  async sendPaidForSomeoneEmail(email: string, payerName: string, amountUSDC: string, amountKES: string | null, chamaName: string) {
+  async sendPaidForSomeoneEmail(
+    email: string,
+    payerName: string,
+    amountUSDC: string,
+    amountKES: string | null,
+    chamaName: string,
+  ) {
     try {
-      const amountDisplay = amountKES ? `${amountKES} KES (approx. ${Number(amountUSDC).toFixed(3)} USDC)` : `${Number(amountUSDC).toFixed(3)} USDC`;
+      const amountDisplay = amountKES
+        ? `${amountKES} KES (approx. ${Number(amountUSDC).toFixed(3)} USDC)`
+        : `${Number(amountUSDC).toFixed(3)} USDC`;
       const body = `
         ${heading("Payment Received on your behalf")}
         ${paragraph(
-          `<strong style="color:${INK};">${payerName}</strong> has paid <strong style="color:${SUCCESS};">${amountDisplay}</strong> for your contribution to <strong style="color:${INK};">${chamaName}</strong>.`
+          `<strong style="color:${INK};">${payerName}</strong> has paid <strong style="color:${SUCCESS};">${amountDisplay}</strong> for your contribution to <strong style="color:${INK};">${chamaName}</strong>.`,
         )}
       `;
 
@@ -666,7 +777,9 @@ async sendResendOTPEmail(email: string, code: string) {
         from: "Chamapay <updates@chamapay.xyz>",
         to: email,
         subject: `Payment received for ${chamaName}`,
-        html: wrapEmail(body, { preheader: `${payerName} paid your contribution for ${chamaName}` }),
+        html: wrapEmail(body, {
+          preheader: `${payerName} paid your contribution for ${chamaName}`,
+        }),
       });
       if (error) console.error("Resend error:", error);
       return { success: !error };
@@ -675,12 +788,16 @@ async sendResendOTPEmail(email: string, code: string) {
       return { success: false };
     }
   }
-  async sendMemberRemovedEmail(email: string, chamaName: string, adminName: string) {
+  async sendMemberRemovedEmail(
+    email: string,
+    chamaName: string,
+    adminName: string,
+  ) {
     try {
       const body = `
         ${heading("You've been removed from a Chama")}
         ${paragraph(
-          `You have been removed from <strong style="color:${INK};">${chamaName}</strong> by the admin, <strong>${adminName}</strong>.`
+          `You have been removed from <strong style="color:${INK};">${chamaName}</strong> by the admin, <strong>${adminName}</strong>.`,
         )}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
@@ -695,10 +812,10 @@ async sendResendOTPEmail(email: string, code: string) {
           </table>
         </div>
         ${paragraph(
-          "Any funds you had in this Chama have been refunded to your wallet. You can check your balance anytime in the Chamapay app."
+          "Any funds you had in this Chama have been refunded to your wallet. You can check your balance anytime in the Chamapay app.",
         )}
         ${paragraph(
-          `If you think this was a mistake, please reach out to ${adminName} directly. You're always welcome to join or create another Chama on Chamapay. 💚`
+          `If you think this was a mistake, please reach out to ${adminName} directly. You're always welcome to join or create another Chama on Chamapay. 💚`,
         )}
       `;
 
@@ -706,7 +823,9 @@ async sendResendOTPEmail(email: string, code: string) {
         from: "Chamapay <welcome@chamapay.xyz>",
         to: email,
         subject: `You have been removed from ${chamaName}`,
-        html: wrapEmail(body, { preheader: `You were removed from ${chamaName} by ${adminName}` }),
+        html: wrapEmail(body, {
+          preheader: `You were removed from ${chamaName} by ${adminName}`,
+        }),
       });
       if (error) console.error("Resend error:", error);
       return { success: !error };
