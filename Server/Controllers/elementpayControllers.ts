@@ -650,12 +650,12 @@ async function getMpesaProvider(orderType: OrderType): Promise<Provider> {
   const cacheKey = `elementpay:ke-mpesa-provider:${orderType}`;
   const cached = getCached<Provider>(cacheKey);
   if (cached) return cached;
-
+  console.log("The order type is", orderType);
   const res = await epRequest(
     "GET",
     `/partner/catalog?country=KE&order_type=${orderType}`,
   );
-  console.log("The response from the request to the catalog", JSON.stringify(res?.data.offramp));
+  console.log("The response from the request to the catalog", JSON.stringify(res?.data));
   const providers = findKenyaProviders(res?.data, orderType);
   console.log("providers that have been found", providers);
   const mpesa = providers.find(
