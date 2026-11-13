@@ -654,9 +654,20 @@ async function getMpesaProvider(orderType: OrderType): Promise<Provider> {
   console.log("The order type is", orderType);
   const res = await epRequest(
     "GET",
-    `/partner/catalog?country=KE&order_type=${orderType}`,
+    // currency=KES is REQUIRED: without it Element Pay defaults to USD and returns
+    // empty mobile_money/bank providers (only a SWIFT rail) for Kenya.
+    `/partner/catalog?country=KE&currency=KES&order_type=${orderType}`,
   );
   console.log("The response from the request to the catalog", JSON.stringify(res?.data));
+  {
+    const dirNode = res?.data?.african_markets?.[orderType.toLowerCase()] ?? res?.data?.[orderType.toLowerCase()];
+    const keNode = dirNode?.countries?.KE ?? dirNode?.countries?.ke;
+    if (keNode?.currency && keNode.currency !== "KES") {
+      console.error(
+        `[elementpay] catalog returned currency ${keNode.currency} for KE (expected KES); providers will likely be empty`,
+      );
+    }
+  }
   const providers = findKenyaProviders(res?.data, orderType);
   console.log("providers that have been found", providers);
   const mpesa = providers.find(
