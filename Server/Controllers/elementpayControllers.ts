@@ -656,6 +656,7 @@ async function getMpesaProvider(orderType: OrderType): Promise<Provider> {
     `/partner/catalog?country=KE&order_type=${orderType}`,
   );
   const providers = findKenyaProviders(res?.data, orderType);
+  console.log("providers that have been found", providers);
   const mpesa = providers.find(
     (p) =>
       p?.enabled !== false &&
