@@ -134,6 +134,7 @@ async function epRequest<T = any>(
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
     });
+    console.log("The response from the request to see it", JSON.stringify(resp));
     const text = await resp.text();
     let json: any = null;
     try {
