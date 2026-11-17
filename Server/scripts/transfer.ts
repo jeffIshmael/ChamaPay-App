@@ -5,7 +5,7 @@ import { treasuryTransferToUser } from "../Lib/pimlicoAgent";
 import { USDCAddress } from "../Blockchain/Constants";
 
 const TO = "0x38da082aA15F974b3D09E61d928775247aE086D4" as `0x${string}`;
-const AMOUNT = "1";
+const AMOUNT = "0.56";
 
 async function main() {
   const treasury = process.env.TREASURY_WALLET as `0x${string}`;

@@ -534,17 +534,8 @@ class EmailService {
       let amountKESNumber = 0;
       if (amountKES) {
         amountKESNumber = parseFloat(amountKES);
-        if (amountKESNumber < 100) fee = 5;
-        else if (amountKESNumber <= 500) fee = 5;
-        else if (amountKESNumber <= 1000) fee = 10;
-        else if (amountKESNumber <= 2500) fee = 15;
-        else if (amountKESNumber <= 5000) fee = 25;
-        else if (amountKESNumber <= 10000) fee = 40;
-        else if (amountKESNumber <= 20000) fee = 60;
-        else if (amountKESNumber <= 35000) fee = 100;
-        else if (amountKESNumber <= 50000) fee = 150;
-        else if (amountKESNumber <= 70000) fee = 220;
-        else fee = 300;
+        // get the 2.5% fee of the amount
+        fee = Number(((2.5 / 100) * amountKESNumber).toFixed(2));
       }
 
       const amountDisplay = amountKES

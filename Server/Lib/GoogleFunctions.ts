@@ -1,18 +1,17 @@
 import { OAuth2Client, TokenPayload } from 'google-auth-library';
 
-// Google OAuth2 client
-const client: OAuth2Client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
 // Verify Google ID token
 export async function verifyGoogleToken(token: string): Promise<TokenPayload | undefined> {
   try {
-    if (!process.env.GOOGLE_CLIENT_ID) {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
       throw new Error('Google Client ID not configured');
     }
 
+    const client = new OAuth2Client(clientId);
     const ticket = await client.verifyIdToken({
       idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: clientId,
     });
     
     const payload: TokenPayload | undefined = ticket.getPayload();
