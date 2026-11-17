@@ -9,6 +9,7 @@ import emailService from "../Lib/EmailService";
 import Encryption from "../Lib/Encryption";
 import { sendWhatsAppOTP } from "../Lib/WhatsAppService";
 import { cdp } from "../Lib/HelperFunctions";
+import { verifyGoogleToken } from "../Lib/GoogleFunctions";
 import {
   normalizePhoneE164,
   phonePlaceholderEmail,
@@ -460,13 +461,89 @@ export const verifyWhatsAppCode = async (
   }
 };
 
-// Google/Apple OAuth authentication for existing users
+// Google/Apple OAuth authentication for existing & new users
 export const oauthAuthenticate = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const { email, provider } = req.body;
+    let { email, provider, idToken, accessToken, name, picture } = req.body;
+
+    // If email is not passed directly, attempt to resolve from Google tokens
+    if (!email && (idToken || accessToken)) {
+      if (idToken) {
+        // 1. Try google-auth-library if GOOGLE_CLIENT_ID is set
+        if (process.env.GOOGLE_CLIENT_ID) {
+          try {
+            const payload = await verifyGoogleToken(idToken);
+            if (payload?.email) {
+              email = payload.email;
+              name = name || payload.name;
+              picture = picture || payload.picture;
+            }
+          } catch (err) {
+            console.warn("[oauthAuthenticate] verifyGoogleToken failed, trying fallback:", err);
+          }
+        }
+
+        // 2. Fallback: Google tokeninfo API endpoint
+        if (!email) {
+          try {
+            const resp = await fetch(
+              `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`
+            );
+            if (resp.ok) {
+              const payload = (await resp.json()) as any;
+              if (payload?.email) {
+                email = payload.email;
+                name = name || payload.name;
+                picture = picture || payload.picture;
+              }
+            }
+          } catch (err) {
+            console.warn("[oauthAuthenticate] Google tokeninfo fallback failed:", err);
+          }
+        }
+
+        // 3. Fallback: Parse unverified JWT payload
+        if (!email) {
+          try {
+            const parts = idToken.split(".");
+            if (parts.length === 3) {
+              const payload = JSON.parse(
+                Buffer.from(parts[1], "base64").toString("utf-8")
+              );
+              if (payload?.email) {
+                email = payload.email;
+                name = name || payload.name;
+                picture = picture || payload.picture;
+              }
+            }
+          } catch (err) {
+            console.warn("[oauthAuthenticate] Token decode fallback failed:", err);
+          }
+        }
+      } else if (accessToken) {
+        try {
+          const resp = await fetch(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            }
+          );
+          if (resp.ok) {
+            const info = (await resp.json()) as any;
+            if (info?.email) {
+              email = info.email;
+              name = name || info.name;
+              picture = picture || info.picture;
+            }
+          }
+        } catch (err) {
+          console.warn("[oauthAuthenticate] Google userinfo fallback failed:", err);
+        }
+      }
+    }
 
     if (!email) {
       res.status(400).json({
@@ -484,14 +561,16 @@ export const oauthAuthenticate = async (
     });
 
     if (!user) {
-      res.status(404).json({
-        success: false,
-        message: "User not found. Please complete registration first.",
+      res.status(200).json({
+        success: true,
+        isNewUser: true,
+        email: formattedEmail,
+        name: name || null,
+        picture: picture || null,
+        message: "Please complete registration",
       });
       return;
     }
-
-
 
     if (!process.env.JWT_SECRET) {
       throw new Error("JWT_SECRET not configured");
@@ -512,10 +591,11 @@ export const oauthAuthenticate = async (
 
     res.status(200).json({
       success: true,
-      message: `${provider} authentication successful`,
+      message: `${provider || "google"} authentication successful`,
       token,
       refreshToken,
       user: excludeSensitiveData(user),
+      isNewUser: false,
     });
   } catch (error) {
     console.error("OAuth authenticate error:", error);
