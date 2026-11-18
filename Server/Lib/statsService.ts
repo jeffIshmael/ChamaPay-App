@@ -20,6 +20,7 @@ export type ChamapayStats = {
     };
     activeChamas: number;
     activeUsers: number;
+    totalUsers: number;
     usdcVolume: {
         total: number;
         contributions: number;
@@ -176,6 +177,7 @@ export const getPlatformStats = async (): Promise<ChamapayStats> => {
         },
         activeChamas: activeChamaIds.length,
         activeUsers: Number(activeUserIds[0]?.count ?? 0),
+        totalUsers: Number(totalUsers),
         usdcVolume: {
             total: Math.round(totalExternalUsdcInflow),
             contributions: Math.round(contributions),
