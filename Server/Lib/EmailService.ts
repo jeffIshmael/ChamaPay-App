@@ -40,10 +40,9 @@ interface EmailResult {
 function wrapEmail(bodyHtml: string, opts?: { preheader?: string }) {
   return `
   <div style="background-color:#f4f5f7; padding:40px 16px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-    ${
-      opts?.preheader
-        ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${opts.preheader}</div>`
-        : ""
+    ${opts?.preheader
+      ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${opts.preheader}</div>`
+      : ""
     }
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px; margin:0 auto;">
       <tr>
@@ -82,6 +81,45 @@ function heading(text: string) {
 
 function paragraph(text: string) {
   return `<p style="margin:0 0 16px; font-size:15px; line-height:22px; color:#374151;">${text}</p>`;
+}
+
+function escapeEmailHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[char];
+  });
+}
+
+function formatEmailTimestamp(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return new Intl.DateTimeFormat("en-KE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Africa/Nairobi",
+  }).format(date);
+}
+
+function emailActionButton(label: string, url: string): string {
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0 8px;">
+      <tr>
+        <td style="background-color:${ACCENT}; border-radius:8px;">
+          <a href="${escapeEmailHtml(url)}"
+             style="display:inline-block; padding:12px 22px; color:#ffffff; text-decoration:none; font-size:14px; line-height:20px; font-weight:600;">
+            ${escapeEmailHtml(label)}
+          </a>
+        </td>
+      </tr>
+    </table>
+  `;
 }
 
 class EmailService {
@@ -215,8 +253,8 @@ class EmailService {
       const body = `
         ${heading("Payout received 💰")}
         ${paragraph(
-          `You've received a payout of <strong style="color:${INK};">${amountDisplay}</strong> for round ${round} of <strong style="color:${INK};">${chamaName}</strong>.`,
-        )}
+        `You've received a payout of <strong style="color:${INK};">${amountDisplay}</strong> for round ${round} of <strong style="color:${INK};">${chamaName}</strong>.`,
+      )}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
@@ -321,8 +359,8 @@ class EmailService {
       const body = `
         ${heading("Payout skipped — funds refunded")}
         ${paragraph(
-          `Cycle ${cycle}, Round ${round} of <strong style="color:${INK};">${chamaName}</strong> didn't go through because some members didn't contribute.`,
-        )}
+        `Cycle ${cycle}, Round ${round} of <strong style="color:${INK};">${chamaName}</strong> didn't go through because some members didn't contribute.`,
+      )}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
@@ -374,24 +412,23 @@ class EmailService {
     try {
       const payoutDateLabel = payoutDate
         ? new Date(payoutDate).toLocaleString("en-US", {
-            weekday: "short",
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-          })
+          weekday: "short",
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        })
         : null;
 
       const body = `
         ${heading(`Payout in ${daysLeft} days`)}
         ${paragraph(
-          `The next payout for <strong style="color:${INK};">${chamaName}</strong> is in <strong style="color:${ACCENT_SOFT};">${daysLeft} day${daysLeft === 1 ? "" : "s"}</strong>.`,
-        )}
-        ${
-          payoutDateLabel
-            ? `<div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
+        `The next payout for <strong style="color:${INK};">${chamaName}</strong> is in <strong style="color:${ACCENT_SOFT};">${daysLeft} day${daysLeft === 1 ? "" : "s"}</strong>.`,
+      )}
+        ${payoutDateLabel
+          ? `<div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td style="font-size:13px; color:${MUTED};">Chama</td>
@@ -403,7 +440,7 @@ class EmailService {
             </tr>
           </table>
         </div>`
-            : ""
+          : ""
         }
         ${paragraph(
           "Please make sure your contribution is in <strong>before</strong> this date and time. Late or missing contributions can cause the payout to be skipped and funds refunded.",
@@ -551,9 +588,8 @@ class EmailService {
               <td style="font-size:13px; color:${MUTED};">Amount Withdrawn</td>
               <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${amountKES ? `${amountKESNumber.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES` : `${parseFloat(amountUSDC).toFixed(4)} USDC`}</td>
             </tr>
-            ${
-              amountKES
-                ? `
+            ${amountKES
+          ? `
             <tr>
               <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Processing Fee</td>
               <td style="font-size:13px; color:#d97706; text-align:right; font-weight:600; padding-top:8px;">- ${fee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES</td>
@@ -562,8 +598,8 @@ class EmailService {
               <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Amount Received</td>
               <td style="font-size:13px; color:${SUCCESS}; text-align:right; font-weight:600; padding-top:8px;">${(amountKESNumber - fee).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES</td>
             </tr>`
-                : ""
-            }
+          : ""
+        }
             <tr>
               <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Phone Number</td>
               <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${phoneNumber}</td>
@@ -649,8 +685,8 @@ class EmailService {
       const body = `
         ${heading("New member joined")}
         ${paragraph(
-          `<strong style="color:${INK};">${newMemberName}</strong> has just been added to <strong style="color:${INK};">${chamaName}</strong>.`,
-        )}
+        `<strong style="color:${INK};">${newMemberName}</strong> has just been added to <strong style="color:${INK};">${chamaName}</strong>.`,
+      )}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
@@ -710,8 +746,8 @@ class EmailService {
       const body = `
         ${heading("You've been added to a Chama 🎉")}
         ${paragraph(
-          `Congratulations! You have been added to <strong style="color:${INK};">${chamaName}</strong> by <strong>${adminName}</strong>.`,
-        )}
+        `Congratulations! You have been added to <strong style="color:${INK};">${chamaName}</strong> by <strong>${adminName}</strong>.`,
+      )}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
@@ -760,8 +796,8 @@ class EmailService {
       const body = `
         ${heading("Payment Received on your behalf")}
         ${paragraph(
-          `<strong style="color:${INK};">${payerName}</strong> has paid <strong style="color:${SUCCESS};">${amountDisplay}</strong> for your contribution to <strong style="color:${INK};">${chamaName}</strong>.`,
-        )}
+        `<strong style="color:${INK};">${payerName}</strong> has paid <strong style="color:${SUCCESS};">${amountDisplay}</strong> for your contribution to <strong style="color:${INK};">${chamaName}</strong>.`,
+      )}
       `;
 
       const { data, error } = await resend.emails.send({
@@ -788,8 +824,8 @@ class EmailService {
       const body = `
         ${heading("You've been removed from a Chama")}
         ${paragraph(
-          `You have been removed from <strong style="color:${INK};">${chamaName}</strong> by the admin, <strong>${adminName}</strong>.`,
-        )}
+        `You have been removed from <strong style="color:${INK};">${chamaName}</strong> by the admin, <strong>${adminName}</strong>.`,
+      )}
         <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
@@ -803,11 +839,11 @@ class EmailService {
           </table>
         </div>
         ${paragraph(
-          "Any funds you had in this Chama have been refunded to your wallet. You can check your balance anytime in the Chamapay app.",
-        )}
+        "Any funds you had in this Chama have been refunded to your wallet. You can check your balance anytime in the Chamapay app.",
+      )}
         ${paragraph(
-          `If you think this was a mistake, please reach out to ${adminName} directly. You're always welcome to join or create another Chama on Chamapay. 💚`,
-        )}
+        `If you think this was a mistake, please reach out to ${adminName} directly. You're always welcome to join or create another Chama on Chamapay. 💚`,
+      )}
       `;
 
       const { data, error } = await resend.emails.send({
@@ -823,6 +859,876 @@ class EmailService {
     } catch (error) {
       console.error("Error sending member removed email:", error);
       return { success: false };
+    }
+  }
+
+  // additional emails 
+  // Welcome email- sending to a new user
+  // created - both for a chama and a goal
+  // kyc submitted
+  // kyc verified
+  // kyc rejected
+  // Goal contribution - should show percentage done
+  // Goal half, 75% and completely done - More like congratulatory and giving morale
+  // Goal withdraw - Should mention that the person withdrew from the goal, the amount and the time.
+  // Failed deposit
+  // Failed withdrawal. - Should bhave timestamp
+  // Personal follow up email
+  // Reminder email - idle chama, goals and users
+  // 1. New account welcome email
+  async sendWelcomeEmail(
+    email: string,
+    name: string,
+    appUrl: string = "https://chamapay.xyz",
+  ): Promise<EmailResult> {
+    try {
+      const safeName = escapeEmailHtml(name || "there");
+      const body = `
+        ${heading(`Welcome to Chamapay, ${safeName}!`)}
+        ${paragraph("We're glad to have you here. Chamapay brings the traditional rotational savings (ROSCAs) into the digital age and makes it easy for group saving.")}
+        ${paragraph("You can create a Chama/ merry-go-round with friends or colleagues, or set up a personal/ group's savings goal and track your progress along the way.")}
+        ${emailActionButton("Explore Chamapay", appUrl)}
+        ${paragraph("If you have any questions as you get started, just reply to this email. We're happy to help.")}
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <welcome@chamapay.xyz>",
+        to: email,
+        subject: "Welcome to Chamapay!",
+        html: wrapEmail(body, {
+          preheader: "Your saving journey starts here. Welcome to Chamapay!",
+        }),
+        text: `Hi ${name || "there"},\n\nWelcome to Chamapay! Create a Chama with people you trust or set up a personal/ group savings goal.\n\nExplore Chamapay: ${appUrl}\n\nIf you need help, simply reply to this email.`,
+      });
+
+      if (error) {
+        console.error("Error sending welcome email:", error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      console.error("Error sending welcome email:", error);
+      return { success: false, error: "Failed to send welcome email" };
+    }
+  }
+
+  // 2. Chama created confirmation
+  async sendChamaCreatedEmail(
+    email: string,
+    name: string,
+    chamaName: string,
+    contributionAmount: string,
+    contributionFrequency: string,
+    appUrl: string = "https://chamapay.xyz",
+  ): Promise<EmailResult> {
+    try {
+      const safeChamaName = escapeEmailHtml(chamaName);
+      const body = `
+        ${heading("Your Chama is ready!")}
+        ${paragraph(`Hi ${escapeEmailHtml(name || "there")}, you've successfully created <strong style="color:${INK};">${safeChamaName}</strong> chama. You can now invite the people you want to save with.`)}
+        <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="font-size:13px; color:${MUTED};">Chama</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${safeChamaName}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Contribution</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${escapeEmailHtml(contributionAmount)}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Frequency</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${escapeEmailHtml(contributionFrequency)}</td>
+            </tr>
+          </table>
+        </div>
+        ${paragraph("Your Chama is private, so only the people you invite can be part of it.")}
+        ${emailActionButton("View your Chama", appUrl)}
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <updates@chamapay.xyz>",
+        to: email,
+        subject: `Your Chama "${chamaName}" has been created`,
+        html: wrapEmail(body, { preheader: `${chamaName} is ready. Invite your members to get started.` }),
+        text: `Hi ${name || "there"},\n\nYour Chama "${chamaName}" has been created.\nContribution: ${contributionAmount}\nFrequency: ${contributionFrequency}\n\nView your Chama: ${appUrl}`,
+      });
+
+      if (error) {
+        console.error("Error sending Chama created email:", error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      console.error("Error sending Chama created email:", error);
+      return { success: false, error: "Failed to send Chama created email" };
+    }
+  }
+
+  // 3. Savings goal created confirmation
+  async sendGoalCreatedEmail(
+    email: string,
+    name: string,
+    goalName: string,
+    targetAmount: string,
+    targetDate?: Date | string | null,
+    appUrl: string = "https://chamapay.xyz",
+  ): Promise<EmailResult> {
+    try {
+      const targetDateLabel = targetDate ? formatEmailTimestamp(targetDate) : null;
+      const body = `
+        ${heading("Your savings goal is set!")}
+        ${paragraph(`Hi ${escapeEmailHtml(name || "there")}, you've created a new goal: <strong style="color:${INK};">${escapeEmailHtml(goalName)}</strong>. Every contribution brings you closer to what you're working towards.`)}
+        <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="font-size:13px; color:${MUTED};">Goal</td>
+              <td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${escapeEmailHtml(goalName)}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px; color:${MUTED}; padding-top:8px;">Target amount</td>
+              <td style="font-size:13px; color:${ACCENT}; text-align:right; font-weight:700; padding-top:8px;">${escapeEmailHtml(targetAmount)}</td>
+            </tr>
+            ${targetDateLabel ? `<tr><td style="font-size:13px; color:${MUTED}; padding-top:8px;">Target date</td><td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${escapeEmailHtml(targetDateLabel)}</td></tr>` : ""}
+          </table>
+        </div>
+        ${emailActionButton("View your goal", appUrl)}
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <updates@chamapay.xyz>",
+        to: email,
+        subject: `Your savings goal "${goalName}" has been created`,
+        html: wrapEmail(body, { preheader: `Your ${goalName} savings goal is ready. Let's make it happen.` }),
+        text: `Hi ${name || "there"},\n\nYour savings goal "${goalName}" has been created.\nTarget: ${targetAmount}${targetDateLabel ? `\nTarget date: ${targetDateLabel}` : ""}\n\nView your goal: ${appUrl}`,
+      });
+
+      if (error) {
+        console.error("Error sending goal created email:", error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      console.error("Error sending goal created email:", error);
+      return { success: false, error: "Failed to send goal created email" };
+    }
+  }
+
+  // 4. KYC submitted confirmation
+  async sendKycSubmittedEmail(
+    email: string,
+    name: string,
+  ): Promise<EmailResult> {
+    try {
+      const body = `
+        ${heading("We've received your verification details")}
+        ${paragraph(`Hi ${escapeEmailHtml(name || "there")}, your identity verification details have been submitted successfully.`)}
+        ${paragraph("Our verification process will review the information. We'll send you another email when there's an update.")}
+        ${paragraph("You don't need to submit your details again unless we ask you to.")}
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <updates@chamapay.xyz>",
+        to: email,
+        subject: "Your Chamapay verification is being reviewed",
+        html: wrapEmail(body, { preheader: "We've received your identity verification details." }),
+        text: `Hi ${name || "there"},\n\nWe've received your identity verification details. We'll email you when there's an update. You don't need to submit them again unless we ask you to.`,
+      });
+
+      if (error) {
+        console.error("Error sending KYC submitted email:", error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      console.error("Error sending KYC submitted email:", error);
+      return { success: false, error: "Failed to send KYC submitted email" };
+    }
+  }
+
+  // 5. KYC verified confirmation
+  async sendKycVerifiedEmail(
+    email: string,
+    name: string,
+    appUrl: string = "https://chamapay.xyz",
+  ): Promise<EmailResult> {
+    try {
+      const body = `
+        ${heading("Your identity has been verified!")}
+        ${paragraph(`Good news, ${escapeEmailHtml(name || "there")}! Your identity verification was successful.`)}
+        ${paragraph("You can now deposit and withdraw. Head to your account to continue exploring the features available to you.")}
+        ${emailActionButton("Open Chamapay", appUrl)}
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <updates@chamapay.xyz>",
+        to: email,
+        subject: "Your Chamapay identity is verified",
+        html: wrapEmail(body, { preheader: "Your identity verification was successful." }),
+        text: `Hi ${name || "there"},\n\nYour identity verification was successful. Open Chamapay to continue: ${appUrl}`,
+      });
+
+      if (error) {
+        console.error("Error sending KYC verified email:", error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      console.error("Error sending KYC verified email:", error);
+      return { success: false, error: "Failed to send KYC verified email" };
+    }
+  }
+
+  // 6. KYC rejected / action required
+  async sendKycRejectedEmail(
+    email: string,
+    name: string,
+    reason: string,
+    resubmissionUrl: string = "https://chamapay.xyz",
+  ): Promise<EmailResult> {
+    try {
+      const body = `
+        ${heading("We couldn't verify your identity")}
+        ${paragraph(`Hi ${escapeEmailHtml(name || "there")}, we were unable to complete your identity verification.`)}
+        ${paragraph(`Reason provided: <strong style="color:${INK};">${escapeEmailHtml(reason)}</strong>`)}
+        ${paragraph("Please review the details and follow the instructions to correct them. If you believe this decision was made in error, contact our support team.")}
+        ${emailActionButton("Review your details", resubmissionUrl)}
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <updates@chamapay.xyz>",
+        to: email,
+        subject: "Action needed: Chamapay identity verification",
+        html: wrapEmail(body, { preheader: "Your identity verification needs another look." }),
+        text: `Hi ${name || "there"},\n\nWe couldn't verify your identity.\nReason: ${reason}\n\nPlease review your details: ${resubmissionUrl}\nIf you believe this is an error, contact support.`,
+      });
+
+      if (error) {
+        console.error("Error sending KYC rejected email:", error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      console.error("Error sending KYC rejected email:", error);
+      return { success: false, error: "Failed to send KYC rejected email" };
+    }
+  }
+
+  // 7. Goal contribution confirmation with progress
+  async sendGoalContributionEmail(
+    email: string,
+    name: string,
+    goalName: string,
+    contributionAmount: string,
+    totalSaved: number,
+    targetAmount: number,
+    currency: string = "KES",
+    appUrl: string = "https://chamapay.xyz",
+  ): Promise<EmailResult> {
+    try {
+      const percentage = targetAmount > 0
+        ? Math.min(100, Math.max(0, Math.round((totalSaved / targetAmount) * 100)))
+        : 0;
+      const remaining = Math.max(0, targetAmount - totalSaved);
+      const formatAmount = (amount: number) =>
+        `${currency} ${amount.toLocaleString("en-KE", { maximumFractionDigits: 2 })}`;
+      const body = `
+        ${heading("Your goal contribution is in!")}
+        ${paragraph(`Hi ${escapeEmailHtml(name || "there")}, Contribution of <strong style="color:${SUCCESS};">${escapeEmailHtml(contributionAmount)}</strong> to <strong style="color:${INK};">${escapeEmailHtml(goalName)}</strong> was successful. Keep it up!`)}
+        <div style="background-color:${SURFACE}; border-radius:12px; padding:18px 20px; margin:24px 0;">
+          <div style="font-size:13px; color:${MUTED}; margin-bottom:8px;">Goal progress</div>
+          <div style="font-size:28px; line-height:34px; font-weight:700; color:${ACCENT}; margin-bottom:12px;">${percentage}%</div>
+          <div style="height:10px; background-color:#d1d5db; border-radius:99px; overflow:hidden;">
+            <div style="height:10px; width:${percentage}%; background-color:${ACCENT}; border-radius:99px;"></div>
+          </div>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;">
+            <tr>
+              <td style="font-size:12px; color:${MUTED};">Saved: ${formatAmount(totalSaved)}</td>
+              <td style="font-size:12px; color:${MUTED}; text-align:right;">Target: ${formatAmount(targetAmount)}</td>
+            </tr>
+          </table>
+          <div style="font-size:13px; color:${INK}; margin-top:12px; font-weight:600;">${remaining > 0 ? `${formatAmount(remaining)} left to reach your goal.` : "You've reached your target!"}</div>
+        </div>
+        ${emailActionButton("View your goal", appUrl)}
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <updates@chamapay.xyz>",
+        to: email,
+        subject: `Contribution added to ${goalName}`,
+        html: wrapEmail(body, { preheader: `Your ${goalName} goal is now ${percentage}% complete.` }),
+        text: `Hi ${name || "there"},\n\nYour contribution of ${contributionAmount} was added to ${goalName}.\nProgress: ${percentage}%\nSaved: ${formatAmount(totalSaved)}\nTarget: ${formatAmount(targetAmount)}\nRemaining: ${formatAmount(remaining)}\n\nView your goal: ${appUrl}`,
+      });
+
+      if (error) {
+        console.error("Error sending goal contribution email:", error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      console.error("Error sending goal contribution email:", error);
+      return { success: false, error: "Failed to send goal contribution email" };
+    }
+  }
+
+  // 8. Goal milestone celebration (call at 50, 75, or 100 only)
+  async sendGoalMilestoneEmail(
+    email: string,
+    name: string,
+    goalName: string,
+    milestone: 50 | 75 | 100,
+    totalSaved: string,
+    targetAmount: string,
+    appUrl: string = "https://chamapay.xyz",
+  ): Promise<EmailResult> {
+    try {
+      const milestoneMessages: Record<50 | 75 | 100, { title: string; message: string }> = {
+        50: {
+          title: "You're halfway there!",
+          message: "You've reached 50% of your savings goal. That's real progress. Keep your momentum going, one contribution at a time.",
+        },
+        75: {
+          title: "You're so close!",
+          message: "You've reached 75% of your savings goal. The finish line is getting closer. Keep going, you've got this!",
+        },
+        100: {
+          title: "You did it! Goal achieved!",
+          message: "You've reached 100% of your savings goal. Congratulations on seeing it through. Take a moment to celebrate what you've achieved!",
+        },
+      };
+      const milestoneContent = milestoneMessages[milestone];
+      const body = `
+        ${heading(milestoneContent.title)}
+        ${paragraph(`Congratulations, ${escapeEmailHtml(name || "there")}! You've reached a new milestone for <strong style="color:${INK};">${escapeEmailHtml(goalName)}</strong>.`)}
+        <div style="background-color:${SURFACE}; border-radius:12px; padding:20px; margin:24px 0; text-align:center;">
+          <div style="font-size:36px; line-height:42px; font-weight:700; color:${ACCENT};">${milestone}%</div>
+          <div style="font-size:13px; color:${MUTED}; margin-top:4px;">of your goal completed</div>
+          <div style="height:10px; background-color:#d1d5db; border-radius:99px; overflow:hidden; margin-top:16px;">
+            <div style="height:10px; width:${milestone}%; background-color:${ACCENT}; border-radius:99px;"></div>
+          </div>
+          <div style="font-size:13px; color:${INK}; margin-top:14px;">Saved <strong>${escapeEmailHtml(totalSaved)}</strong> of <strong>${escapeEmailHtml(targetAmount)}</strong></div>
+        </div>
+        ${paragraph(milestoneContent.message)}
+        ${milestone === 100 ? paragraph("Thank you for making saving a priority. You can create another goal whenever you're ready.") : paragraph("Every step counts. Keep building your saving habit!")}
+        ${emailActionButton("View your goal", appUrl)}
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <updates@chamapay.xyz>",
+        to: email,
+        subject: `${milestone === 100 ? "Goal achieved" : `${milestone}% of your goal reached`} — ${goalName}`,
+        html: wrapEmail(body, { preheader: `${goalName}: you've reached ${milestone}% of your target. Congratulations!` }),
+        text: `Congratulations ${name || "there"}!\n\n${milestoneContent.title}\nYou've reached ${milestone}% of your ${goalName} goal.\nSaved: ${totalSaved}\nTarget: ${targetAmount}\n\n${milestoneContent.message}\n\nView your goal: ${appUrl}`,
+      });
+
+      if (error) {
+        console.error("Error sending goal milestone email:", error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      console.error("Error sending goal milestone email:", error);
+      return { success: false, error: "Failed to send goal milestone email" };
+    }
+  }
+
+  // 9. Goal withdrawal confirmation
+  async sendGoalWithdrawalEmail(
+    email: string,
+    name: string,
+    goalName: string,
+    amountWithdrawn: string,
+    transactionTime: Date | string,
+    remainingSaved?: string,
+  ): Promise<EmailResult> {
+    try {
+      const timeLabel = formatEmailTimestamp(transactionTime);
+      const body = `
+        ${heading("Goal withdrawal completed")}
+        ${paragraph(`Hi ${escapeEmailHtml(name || "there")}, your withdrawal of <strong style="color:${INK};">${escapeEmailHtml(amountWithdrawn)}</strong> from <strong style="color:${INK};">${escapeEmailHtml(goalName)}</strong> has been recorded.`)}
+        <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="font-size:13px; color:${MUTED};">Goal</td><td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${escapeEmailHtml(goalName)}</td></tr>
+            <tr><td style="font-size:13px; color:${MUTED}; padding-top:8px;">Amount withdrawn</td><td style="font-size:13px; color:${INK}; text-align:right; font-weight:700; padding-top:8px;">${escapeEmailHtml(amountWithdrawn)}</td></tr>
+            <tr><td style="font-size:13px; color:${MUTED}; padding-top:8px;">Date and time</td><td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${escapeEmailHtml(timeLabel)}</td></tr>
+            ${remainingSaved ? `<tr><td style="font-size:13px; color:${MUTED}; padding-top:8px;">Remaining in goal</td><td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${escapeEmailHtml(remainingSaved)}</td></tr>` : ""}
+          </table>
+        </div>
+        ${paragraph("If you didn't make this withdrawal, please contact our support team as soon as possible.")}
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <updates@chamapay.xyz>",
+        to: email,
+        subject: `Withdrawal from ${goalName}`,
+        html: wrapEmail(body, { preheader: `${amountWithdrawn} withdrawn from ${goalName} on ${timeLabel}.` }),
+        text: `Hi ${name || "there"},\n\nA withdrawal of ${amountWithdrawn} was made from ${goalName}.\nDate and time: ${timeLabel}${remainingSaved ? `\nRemaining in goal: ${remainingSaved}` : ""}\n\nIf you didn't make this withdrawal, contact support.`,
+      });
+
+      if (error) {
+        console.error("Error sending goal withdrawal email:", error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      console.error("Error sending goal withdrawal email:", error);
+      return { success: false, error: "Failed to send goal withdrawal email" };
+    }
+  }
+
+  // 10. Failed M-Pesa deposit
+  async sendMpesaDepositFailedEmail(
+    email: string,
+    name: string,
+    amountKES: string,
+    transactionTime: Date | string,
+    reason?: string,
+    retryUrl: string = "https://chamapay.xyz",
+  ): Promise<EmailResult> {
+    try {
+      const timeLabel = formatEmailTimestamp(transactionTime);
+      const reasonBlock = reason
+        ? paragraph(`Reason provided: <strong style="color:${INK};">${escapeEmailHtml(reason)}</strong>`)
+        : paragraph("The payment was not completed. This can happen if the payment prompt was cancelled, timed out, or wasn't approved.");
+      const body = `
+        ${heading("Your M-Pesa deposit didn't go through")}
+        ${paragraph(`Hi ${escapeEmailHtml(name || "there")}, your attempted deposit of <strong style="color:${INK};">${escapeEmailHtml(amountKES)} KES</strong> was not completed.`)}
+        <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="font-size:13px; color:${MUTED};">Amount attempted</td><td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${escapeEmailHtml(amountKES)} KES</td></tr>
+            <tr><td style="font-size:13px; color:${MUTED}; padding-top:8px;">Date and time</td><td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${escapeEmailHtml(timeLabel)}</td></tr>
+          </table>
+        </div>
+        ${reasonBlock}
+        ${paragraph("If you still want to make the deposit, you can try again from your Chamapay wallet.")}
+        ${emailActionButton("Try again", retryUrl)}
+        ${paragraph("If money was deducted from your M-Pesa account despite this status, please contact us before trying again.")}
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <deposits@chamapay.xyz>",
+        to: email,
+        subject: "Your M-Pesa deposit was not completed",
+        html: wrapEmail(body, { preheader: `Your attempted deposit of ${amountKES} KES did not complete.` }),
+        text: `Hi ${name || "there"},\n\nYour attempted deposit of ${amountKES} KES was not completed.\nDate and time: ${timeLabel}\n${reason ? `Reason: ${reason}\n` : ""}\nYou can try again: ${retryUrl}\n\nIf money was deducted from M-Pesa despite this status, contact us before trying again.`,
+      });
+
+      if (error) {
+        console.error("Error sending failed M-Pesa deposit email:", error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      console.error("Error sending failed M-Pesa deposit email:", error);
+      return { success: false, error: "Failed to send failed deposit email" };
+    }
+  }
+
+  // 11. Failed M-Pesa withdrawal
+  async sendMpesaWithdrawFailedEmail(
+    email: string,
+    name: string,
+    amountKES: string,
+    transactionTime: Date | string,
+    reason?: string,
+    appUrl: string = "https://chamapay.xyz",
+  ): Promise<EmailResult> {
+    try {
+      const timeLabel = formatEmailTimestamp(transactionTime);
+      const body = `
+        ${heading("Your M-Pesa withdrawal wasn't completed")}
+        ${paragraph(`Hi ${escapeEmailHtml(name || "there")}, your withdrawal request for <strong style="color:${INK};">${escapeEmailHtml(amountKES)} KES</strong> was not completed.`)}
+        <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="font-size:13px; color:${MUTED};">Amount requested</td><td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${escapeEmailHtml(amountKES)} KES</td></tr>
+            <tr><td style="font-size:13px; color:${MUTED}; padding-top:8px;">Date and time</td><td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${escapeEmailHtml(timeLabel)}</td></tr>
+            ${reason ? `<tr><td style="font-size:13px; color:${MUTED}; padding-top:8px;">Reason</td><td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${escapeEmailHtml(reason)}</td></tr>` : ""}
+          </table>
+        </div>
+        ${paragraph("If your wallet balance has not been updated or you're unsure about the transaction status, please contact support before retrying.")}
+        ${emailActionButton("Open Chamapay", appUrl)}
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <withdrawals@chamapay.xyz>",
+        to: email,
+        subject: "Your M-Pesa withdrawal was not completed",
+        html: wrapEmail(body, { preheader: `Your withdrawal request for ${amountKES} KES was not completed.` }),
+        text: `Hi ${name || "there"},\n\nYour withdrawal request for ${amountKES} KES was not completed.\nDate and time: ${timeLabel}${reason ? `\nReason: ${reason}` : ""}\n\nIf your wallet balance has not been updated or you're unsure about the status, contact support before retrying.\n${appUrl}`,
+      });
+
+      if (error) {
+        console.error("Error sending failed M-Pesa withdrawal email:", error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      console.error("Error sending failed M-Pesa withdrawal email:", error);
+      return { success: false, error: "Failed to send failed withdrawal email" };
+    }
+  }
+
+  // 12. Personal follow-up email (founder / support outreach)
+
+  async sendPersonalFollowUpEmail(
+    email: string,
+    recipientName: string,
+    subject: string,
+    message: string,
+    senderName: string = "Jeff",
+    senderTitle: string = "Founder, Chamapay",
+    whatsappNumber: string = "254757149628",
+  ): Promise<EmailResult> {
+    try {
+      const cleanNumber = whatsappNumber.replace(/\D/g, "");
+
+      const whatsappMessage = encodeURIComponent(
+        "Hi Jeff, I need some help with Chamapay."
+      );
+
+      const whatsappUrl = `https://wa.me/${cleanNumber}?text=${whatsappMessage}`;
+
+      const safeName = escapeEmailHtml(recipientName || "there");
+      const safeMessage = escapeEmailHtml(message).replace(/\n/g, "<br />");
+
+      const html = `
+      <div style="
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 15px;
+        line-height: 1.7;
+        color: #333333;
+        max-width: 600px;
+      ">
+        <p>Hi ${safeName},</p>
+
+        <p>${safeMessage}</p>
+
+        <p>
+          If you have any questions or need help, feel free to
+          reach out to me directly on WhatsApp.
+        </p>
+
+        <table cellpadding="0" cellspacing="0" border="0"
+          style="margin: 20px 0;">
+          <tr>
+            <td bgcolor="#25D366" style="border-radius: 6px;">
+              <a href="${whatsappUrl}"
+                target="_blank"
+                style="
+                  display: inline-block;
+                  padding: 12px 20px;
+                  color: #ffffff;
+                  text-decoration: none;
+                  font-family: Arial, Helvetica, sans-serif;
+                  font-size: 14px;
+                  font-weight: bold;
+                  border-radius: 6px;
+                ">
+                <img
+                  src="https://cdn.simpleicons.org/whatsapp/FFFFFF"
+                  width="18"
+                  height="18"
+                  alt="WhatsApp"
+                  style="
+                    vertical-align: middle;
+                    margin-right: 8px;
+                    border: 0;
+                  "
+                />
+                Chat with me on WhatsApp
+              </a>
+            </td>
+          </tr>
+        </table>
+
+        <p>
+          Best regards,<br />
+          ${escapeEmailHtml(senderName)}<br />
+          ${escapeEmailHtml(senderTitle)}
+        </p>
+      </div>
+    `;
+
+      const text = `Hi ${recipientName || "there"},
+
+${message}
+
+If you have any questions or need help, feel free to reach out to me directly on WhatsApp:
+
+${whatsappUrl}
+
+Best regards,
+${senderName}
+${senderTitle}`;
+
+      const { data, error } = await resend.emails.send({
+        from: `Jeff from Chamapay <jeff.ishmael@chamapay.xyz>`,
+        to: email,
+        subject,
+        html,
+        text,
+      });
+
+      if (error) {
+        console.error("Error sending personal follow-up email:", error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      console.error("Error sending personal follow-up email:", error);
+      return {
+        success: false,
+        error: "Failed to send personal follow-up email",
+      };
+    }
+  }
+
+
+  async sendTransactionFollowUpEmail(
+    email: string,
+    recipientName: string,
+    whatsappNumber: string = "254757149628",
+  ): Promise<EmailResult> {
+    try {
+      const cleanNumber = whatsappNumber.replace(/\D/g, "");
+
+      const whatsappMessage = encodeURIComponent(
+        "Hi Jeff, I received your email about my Chamapay transactions. I'd like to discuss my experience."
+      );
+
+      const whatsappUrl = `https://wa.me/${cleanNumber}?text=${whatsappMessage}`;
+
+      const safeName = escapeEmailHtml(recipientName || "there");
+
+      const html = `
+      <div style="
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 15px;
+        line-height: 1.7;
+        color: #333333;
+        max-width: 600px;
+      ">
+        <p>Hi ${safeName},</p>
+
+        <p>
+          I'm Jeff, the founder of Chamapay.
+        </p>
+
+        <p>
+          I noticed that you've made several transactions on Chamapay.
+          Some were successful, while others didn't go through.
+        </p>
+
+        <p>
+          I wanted to reach out personally to check how your experience
+          has been so far and whether you've encountered any difficulties
+          while using the platform.
+        </p>
+
+        <p>
+          I'd really appreciate hearing from you. If something isn't
+          working as expected, or if you have any questions, please
+          feel free to contact me directly. I'd be happy to help.
+        </p>
+
+        <table cellpadding="0" cellspacing="0" border="0"
+          style="margin: 20px 0;">
+          <tr>
+            <td bgcolor="#25D366" style="border-radius: 6px;">
+              <a href="${whatsappUrl}"
+                target="_blank"
+                style="
+                  display: inline-block;
+                  padding: 12px 20px;
+                  color: #ffffff;
+                  text-decoration: none;
+                  font-family: Arial, Helvetica, sans-serif;
+                  font-size: 14px;
+                  font-weight: bold;
+                  border-radius: 6px;
+                ">
+                <img
+                  src="https://cdn.simpleicons.org/whatsapp/FFFFFF"
+                  width="18"
+                  height="18"
+                  alt="WhatsApp"
+                  style="
+                    vertical-align: middle;
+                    margin-right: 8px;
+                    border: 0;
+                  "
+                />
+                Chat with me on WhatsApp
+              </a>
+            </td>
+          </tr>
+        </table>
+
+        <p>
+          Thanks for giving Chamapay a try. I look forward to hearing
+          from you.
+        </p>
+
+        <p>
+          Best regards,<br />
+          Jeff<br />
+          Founder, Chamapay
+        </p>
+      </div>
+    `;
+
+      const text = `Hi ${recipientName || "there"},
+
+I'm Jeff, the founder of Chamapay.
+
+I noticed that you've made several transactions on Chamapay. Some were successful, while others didn't go through.
+
+I wanted to reach out personally to check how your experience has been so far and whether you've encountered any difficulties while using the platform.
+
+I'd really appreciate hearing from you. If something isn't working as expected, or if you have any questions, please feel free to contact me directly. I'd be happy to help.
+
+You can reach me on WhatsApp:
+${whatsappUrl}
+
+Thanks for giving Chamapay a try. I look forward to hearing from you.
+
+Best regards,
+Jeff
+Founder, Chamapay`;
+
+      const { data, error } = await resend.emails.send({
+        from: `Jeff from Chamapay <jeff.muchiri@chamapay.xyz>`,
+        to: email,
+        subject: "A quick personal check-in from Chamapay",
+        html,
+        text,
+      });
+
+      if (error) {
+        console.error("Error sending transaction follow-up email:", error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      console.error("Error sending transaction follow-up email:", error);
+      return {
+        success: false,
+        error: "Failed to send transaction follow-up email",
+      };
+    }
+  }
+
+  // 13. Reminder for an inactive Chama (send to each targeted member)
+  async sendIdleChamaReminderEmail(
+    email: string,
+    name: string,
+    chamaName: string,
+    daysInactive: number,
+    appUrl: string = "https://chamapay.xyz",
+  ): Promise<EmailResult> {
+    try {
+      const body = `
+        ${heading("Your Chama is waiting for you")}
+        ${paragraph(`Hi ${escapeEmailHtml(name || "there")}, it's been ${daysInactive} days since there was activity in <strong style="color:${INK};">${escapeEmailHtml(chamaName)}</strong>.`)}
+        ${paragraph("A little consistency can make a big difference. Check in with your members, agree on the next step, and keep your shared savings moving.")}
+        ${emailActionButton("Open your Chama", appUrl)}
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <reminders@chamapay.xyz>",
+        to: email,
+        subject: `A reminder about ${chamaName}`,
+        html: wrapEmail(body, { preheader: `It's been a while since ${chamaName} had activity.` }),
+        text: `Hi ${name || "there"},\n\nIt's been ${daysInactive} days since there was activity in ${chamaName}. Check in with your members and agree on the next step.\n\nOpen your Chama: ${appUrl}`,
+      });
+
+      if (error) {
+        console.error("Error sending idle Chama reminder:", error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      console.error("Error sending idle Chama reminder:", error);
+      return { success: false, error: "Failed to send idle Chama reminder" };
+    }
+  }
+
+  // 14. Reminder for an inactive savings goal
+  async sendIdleGoalReminderEmail(
+    email: string,
+    name: string,
+    goalName: string,
+    savedAmount: string,
+    targetAmount: string,
+    daysInactive: number,
+    appUrl: string = "https://chamapay.xyz",
+  ): Promise<EmailResult> {
+    try {
+      const body = `
+        ${heading("A little progress goes a long way")}
+        ${paragraph(`Hi ${escapeEmailHtml(name || "there")}, your <strong style="color:${INK};">${escapeEmailHtml(goalName)}</strong> goal is still there whenever you're ready to continue.`)}
+        <div style="background-color:${SURFACE}; border-radius:12px; padding:16px 20px; margin:24px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="font-size:13px; color:${MUTED};">Saved so far</td><td style="font-size:13px; color:${INK}; text-align:right; font-weight:600;">${escapeEmailHtml(savedAmount)}</td></tr>
+            <tr><td style="font-size:13px; color:${MUTED}; padding-top:8px;">Your target</td><td style="font-size:13px; color:${INK}; text-align:right; font-weight:600; padding-top:8px;">${escapeEmailHtml(targetAmount)}</td></tr>
+          </table>
+        </div>
+        ${paragraph(`It's been ${daysInactive} days since your last activity on this goal. You don't have to do it all at once. Pick up where you left off, at a pace that works for you.`)}
+        ${emailActionButton("Continue saving", appUrl)}
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <reminders@chamapay.xyz>",
+        to: email,
+        subject: `Keep going with your ${goalName} goal`,
+        html: wrapEmail(body, { preheader: `Your ${goalName} goal is ready when you are.` }),
+        text: `Hi ${name || "there"},\n\nYour ${goalName} goal is still waiting for you.\nSaved: ${savedAmount}\nTarget: ${targetAmount}\nIt's been ${daysInactive} days since your last activity. Continue when you're ready.\n\nContinue saving: ${appUrl}`,
+      });
+
+      if (error) {
+        console.error("Error sending idle goal reminder:", error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      console.error("Error sending idle goal reminder:", error);
+      return { success: false, error: "Failed to send idle goal reminder" };
+    }
+  }
+  // 15. Reminder for a user who has not recently used Chamapay
+  async sendInactiveUserReminderEmail(
+    email: string,
+    name: string,
+    daysInactive: number,
+    appUrl: string = "https://chamapay.xyz",
+  ): Promise<EmailResult> {
+    try {
+      const body = `
+        ${heading("It's been a while!")}
+        ${paragraph(`Hi ${escapeEmailHtml(name || "there")}, we haven't seen you on Chamapay in ${daysInactive} days. We wanted to check in and let you know your account is here whenever you're ready.`)}
+        ${paragraph("Whether you want to continue a savings goal, check on your Chama, or start something new, you can pick up right where you left off.")}
+        ${emailActionButton("Return to Chamapay", appUrl)}
+        ${paragraph("If you need a hand with anything, simply reply to this email.")}
+      `;
+
+      const { data, error } = await resend.emails.send({
+        from: "Chamapay <reminders@chamapay.xyz>",
+        to: email,
+        subject: "Your savings journey is still here",
+        html: wrapEmail(body, { preheader: "Come back to Chamapay whenever you're ready." }),
+        text: `Hi ${name || "there"},\n\nWe haven't seen you on Chamapay in ${daysInactive} days. Your account is here whenever you're ready. Continue a goal, check on your Chama, or start something new.\n\nReturn to Chamapay: ${appUrl}\n\nNeed help? Reply to this email.`,
+      });
+
+      if (error) {
+        console.error("Error sending inactive user reminder:", error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      console.error("Error sending inactive user reminder:", error);
+      return { success: false, error: "Failed to send inactive user reminder" };
     }
   }
 }

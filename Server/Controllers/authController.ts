@@ -607,25 +607,27 @@ export const oauthAuthenticate = async (
 };
 
 // Register new user (with username and wallet setup)
+
 export const registerUser = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-
     const { email, userName, profileImageUrl, phoneE164: rawPhone } = req.body;
 
-    // getting user's location
-    let country: string = "";
-    if (req.headers["cf-ipcountry"]) {
-      const theCountry = req.headers["cf-ipcountry"];
-      // if its string [] get the first element
-      if (theCountry instanceof Array) {
-        country = theCountry[0] as string;
-      } else {
-        country = theCountry as string;
-      }
+    // Get user's country from Cloudflare
+    const cfCountry = req.headers["cf-ipcountry"];
+
+    let country: string | null = null;
+
+    if (cfCountry) {
+      const rawCountry = Array.isArray(cfCountry)
+        ? cfCountry[0]
+        : cfCountry;
+
+      country = rawCountry?.trim().toUpperCase() || null;
     }
+
     if (!email || !userName) {
       res.status(400).json({
         success: false,
@@ -635,7 +637,9 @@ export const registerUser = async (
     }
 
     const formattedEmail = email.toLowerCase().trim();
-    const phoneE164 = rawPhone ? normalizePhoneE164(String(rawPhone)) : null;
+    const phoneE164 = rawPhone
+      ? normalizePhoneE164(String(rawPhone))
+      : null;
 
     // Check if user already exists
     const existingUser = await prisma.user.findFirst({
@@ -673,13 +677,18 @@ export const registerUser = async (
       return;
     }
 
-    // create the wallet using CDP Server-Signer
+    // Create wallet using CDP Server-Signer
     const cdpAccount = await cdp.evm.createAccount();
 
     let phoneNo: number | null = null;
+
     if (phoneE164?.startsWith("254") && phoneE164.length === 12) {
       const national = Number(phoneE164.slice(3));
-      if (Number.isSafeInteger(national) && national <= 2147483647) {
+
+      if (
+        Number.isSafeInteger(national) &&
+        national <= 2147483647
+      ) {
         phoneNo = national;
       }
     }
@@ -695,7 +704,7 @@ export const registerUser = async (
         profileImageUrl: profileImageUrl || null,
         hashedPrivkey: "", // Deprecated
         hashedPassphrase: "", // Deprecated
-        location: country || (phoneE164?.startsWith("254") ? "KE" : country) || null,
+        location: country,
         phoneE164: phoneE164 || undefined,
         phoneNo,
       },
@@ -709,10 +718,11 @@ export const registerUser = async (
       return;
     }
 
-    // add user's wallet to alchemy webhook
+    // Add user's wallet to Alchemy webhook
     const webhookResult = await addAddressToWebhook(newUser.smartAddress);
+
     if (!webhookResult) {
-      console.error("Failed to add user's wallet to alchemy webhook");
+      console.error("Failed to add user's wallet to Alchemy webhook");
     }
 
     if (!process.env.JWT_SECRET) {
@@ -739,14 +749,17 @@ export const registerUser = async (
       refreshToken,
       user: excludeSensitiveData(newUser),
     });
+
   } catch (error) {
     console.error("Registration error:", error);
+
     res.status(500).json({
       success: false,
       message: "Registration failed",
     });
   }
 };
+
 
 // Refresh access token
 export const refreshToken = async (
