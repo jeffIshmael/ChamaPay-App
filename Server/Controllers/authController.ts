@@ -742,6 +742,13 @@ export const registerUser = async (
       { expiresIn: "30d" }
     );
 
+    // send welcome email
+    try {
+      await emailService.sendWelcomeEmail(newUser.email, newUser.userName)
+    } catch (error) {
+      console.error("Failed to send welcome email", error)
+    }
+
     res.status(201).json({
       success: true,
       message: "User registered successfully",

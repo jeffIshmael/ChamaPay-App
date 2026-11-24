@@ -132,19 +132,19 @@ export const createChama = async (
     // fixed pay day -> createPrivateChamaMonthly, otherwise the original days-based function
     const creationTxHash = payDay
       ? await bcCreateChamaMonthly(
-          user.cdpWalletId,
-          amount,
-          BigInt(startDateInSecs),
-          payDay,
-        )
+        user.cdpWalletId,
+        amount,
+        BigInt(startDateInSecs),
+        payDay,
+      )
       : await bcCreateChama(
-          user.cdpWalletId,
-          amount,
-          BigInt(Number(cycleTime)),
-          BigInt(startDateInSecs),
-          BigInt(Number(maxNo)),
-          collateralRequired,
-        );
+        user.cdpWalletId,
+        amount,
+        BigInt(Number(cycleTime)),
+        BigInt(startDateInSecs),
+        BigInt(Number(maxNo)),
+        collateralRequired,
+      );
     if (!creationTxHash) {
       return res
         .status(401)
@@ -207,6 +207,27 @@ export const createChama = async (
           userId: userId,
         },
       });
+    }
+
+    // send email to admin
+    const amountToShow = user.location == "KE" ? `KES ${Number(chama.amount) * 132}(${Number(chama.amount)} USDC)` : `${Number(chama.amount)} USDC`;
+    const cycleTimeToShow = chama.payDay
+      ? `Monthly (day ${chama.payDay} of the month)`
+      : chama.cycleTime === 1
+        ? "Daily"
+        : chama.cycleTime === 7
+          ? "Weekly"
+          : chama.cycleTime === 14
+            ? "2 weeks"
+            : chama.cycleTime === 21
+              ? "3 weeks"
+              : chama.cycleTime === 30
+                ? "1 month"
+                : `${chama.cycleTime} days`;
+    try {
+      await emailService.sendChamaCreatedEmail(user.email, user.userName, chama.name, amountToShow, cycleTimeToShow, "https://chamapay.xyz", `https://chamapay.xyz/${chama.slug}`);
+    } catch (error) {
+      console.error("Failed to send chama created email", error)
     }
 
     return res.status(201).json({
@@ -516,11 +537,11 @@ export const getChamaPayments = async (req: Request, res: Response) => {
       round: t.round,
       user: t.userId
         ? {
-            id: t.userId,
-            smartAddress: t.userSmartAddress,
-            userName: t.userUserName,
-            profileImageUrl: t.userProfileImageUrl,
-          }
+          id: t.userId,
+          smartAddress: t.userSmartAddress,
+          userName: t.userUserName,
+          profileImageUrl: t.userProfileImageUrl,
+        }
         : null,
     }));
 
@@ -758,9 +779,9 @@ export const depositToChama = async (req: Request, res: Response) => {
         const amountKES =
           targetUser.location === "KE"
             ? (
-                parseFloat(amount) *
-                parseFloat(process.env.CHAMAPAY_RATE || "132")
-              ).toFixed(2)
+              parseFloat(amount) *
+              parseFloat(process.env.CHAMAPAY_RATE || "132")
+            ).toFixed(2)
             : null;
         await emailService.sendPaidForSomeoneEmail(
           targetUser.email,
@@ -928,9 +949,9 @@ export const addMemberToChama = async (req: Request, res: Response) => {
       const amountKES =
         memberBeingAdded.location === "KE"
           ? (
-              parseFloat(chama.amount) *
-              parseFloat(process.env.CHAMAPAY_RATE || "132")
-            ).toFixed(2)
+            parseFloat(chama.amount) *
+            parseFloat(process.env.CHAMAPAY_RATE || "132")
+          ).toFixed(2)
           : null;
       await emailService.sendMemberAddedToNewMemberEmail(
         memberBeingAdded.email,
@@ -1360,14 +1381,14 @@ export const updateChamaDetailsController = async (
         {
           ...(detailsOnchainChanged
             ? {
-                details: {
-                  newAmount: effectiveAmount,
-                  newCycle: Number(newCycle),
-                  newRound: Number(newRound),
-                  newPayDate: Math.floor(newPayDateObj.getTime() / 1000), // contract uses seconds
-                  newDuration: effectiveCycleTime,
-                },
-              }
+              details: {
+                newAmount: effectiveAmount,
+                newCycle: Number(newCycle),
+                newRound: Number(newRound),
+                newPayDate: Math.floor(newPayDateObj.getTime() / 1000), // contract uses seconds
+                newDuration: effectiveCycleTime,
+              },
+            }
             : {}),
           ...(payDayChanged ? { payDay: effectivePayDay ?? 0 } : {}),
           ...(newOrderAddresses ? { payoutOrder: newOrderAddresses } : {}),
