@@ -457,6 +457,33 @@ export const getChamaMessages = async (req: Request, res: Response) => {
   try {
     const { chamaId } = req.params;
     const { cursor } = req.query;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
+    const chama = await prisma.chama.findUnique({
+      where: { id: Number(chamaId) },
+      select: { adminId: true },
+    });
+
+    if (!chama) {
+      return res.status(404).json({ success: false, error: "Chama not found" });
+    }
+
+    const isMember = await prisma.chamaMember.findFirst({
+      where: {
+        chamaId: Number(chamaId),
+        userId: Number(userId),
+      },
+    });
+
+    if (!isMember && chama.adminId !== Number(userId)) {
+      return res
+        .status(403)
+        .json({ success: false, error: "Only members can view messages." });
+    }
 
     const messages = await prisma.message.findMany({
       where: { chamaId: Number(chamaId) },
@@ -1000,6 +1027,19 @@ export const sendChamaMessage = async (req: Request, res: Response) => {
       return res
         .status(400)
         .json({ success: false, error: "Chama not found." });
+    }
+
+    const isMember = await prisma.chamaMember.findFirst({
+      where: {
+        chamaId: Number(chamaId),
+        userId: Number(userId),
+      },
+    });
+
+    if (!isMember && chama.adminId !== Number(userId)) {
+      return res
+        .status(403)
+        .json({ success: false, error: "Only members can send messages to this Chama." });
     }
 
     const messages = await prisma.message.create({
