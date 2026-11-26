@@ -284,6 +284,30 @@ export async function createKycSession(req: Request, res: Response) {
         ? req.body.countryCode.trim().toUpperCase()
         : undefined;
 
+    // Optional phone number update without requiring unique block
+    if (req.body?.phone) {
+      try {
+        const normalized = normalizePhoneE164(req.body.phone, req.body?.dialCode || "254");
+        if (normalized) {
+          const existingHolder = await prisma.user.findFirst({
+            where: { phoneE164: normalized, NOT: { id: userId } },
+          });
+          if (existingHolder) {
+            await prisma.user.update({
+              where: { id: existingHolder.id },
+              data: { phoneE164: null },
+            });
+          }
+          await prisma.user.update({
+            where: { id: userId },
+            data: { phoneE164: normalized },
+          });
+        }
+      } catch (err) {
+        console.warn("[KYC] Optional phone update error:", err);
+      }
+    }
+
     const sessionBody: Record<string, unknown> = {
       workflow_id: workflowId,
       vendor_data: String(userId),
@@ -814,21 +838,6 @@ export async function sendKycPhoneOtp(req: Request, res: Response) {
       });
     }
 
-    // Check if another user already has this phone
-    const existingPhoneUser = await prisma.user.findFirst({
-      where: {
-        phoneE164,
-        NOT: { id: userId },
-      },
-    });
-
-    if (existingPhoneUser) {
-      return res.status(409).json({
-        success: false,
-        error: "This phone number is already registered to another account",
-      });
-    }
-
     const otp = crypto.randomInt(100000, 999999).toString();
     const expiresAt = Date.now() + 10 * 60 * 1000;
     kycPhoneVerificationCodes.set(`kyc_phone_${userId}`, {
@@ -899,6 +908,17 @@ export async function verifyKycPhoneOtp(req: Request, res: Response) {
 
     const phoneE164 = stored.phoneE164;
     kycPhoneVerificationCodes.delete(`kyc_phone_${userId}`);
+
+    // Free phone from prior account if needed to satisfy unique constraint
+    const existingHolder = await prisma.user.findFirst({
+      where: { phoneE164, NOT: { id: userId } },
+    });
+    if (existingHolder) {
+      await prisma.user.update({
+        where: { id: existingHolder.id },
+        data: { phoneE164: null },
+      });
+    }
 
     // Update user's verified phone
     await prisma.user.update({
