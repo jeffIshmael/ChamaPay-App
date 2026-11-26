@@ -1345,6 +1345,7 @@ export const updateKycDetails = async (
       return;
     }
 
+    // If another account currently holds this phoneE164, free it so unique constraint is satisfied
     const existingPhoneUser = await prisma.user.findFirst({
       where: {
         phoneE164,
@@ -1355,10 +1356,10 @@ export const updateKycDetails = async (
     });
 
     if (existingPhoneUser) {
-      res.status(409).json({
-        error: "This phone number is already registered to another account",
+      await prisma.user.update({
+        where: { id: existingPhoneUser.id },
+        data: { phoneE164: null },
       });
-      return;
     }
 
     if (existing.kycStatus === "approved") {
