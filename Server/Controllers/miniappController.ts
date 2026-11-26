@@ -521,6 +521,18 @@ export const miniappSendJoinRequest = async (req: Request, res: Response) => {
             return res.status(404).json({ success: false, error: "Requesting user not found" });
         }
 
+        const existingPending = await prisma.chamaRequest.findFirst({
+            where: {
+                userId: requestingUser.id,
+                chamaId: Number(chamaId),
+                status: "pending",
+            },
+        });
+
+        if (existingPending) {
+            return res.status(200).json({ success: true, request: existingPending, alreadyExists: true });
+        }
+
         const request = await requestToJoin(requestingUser.id, Number(chamaId));
         if (!request) {
             return res.status(400).json({ success: false, error: "Failed to send request" });
@@ -533,7 +545,7 @@ export const miniappSendJoinRequest = async (req: Request, res: Response) => {
             `${requestingUser.userName} wants to join ${chama.name}. Tap to review.`
         );
 
-        return res.status(200).json({ success: true, request });
+        return res.status(200).json({ success: true, request, alreadyExists: false });
     } catch (error) {
         console.error("Miniapp send join request error:", error);
         return res.status(500).json({ success: false, error: "Internal server error" });
@@ -582,6 +594,26 @@ export const miniappSendMessage = async (req: Request, res: Response) => {
         const { chamaId, userId, message } = req.body;
         if (!chamaId || !userId || !message) {
             return res.status(400).json({ success: false, error: "chamaId, userId, and message are required" });
+        }
+
+        const chama = await prisma.chama.findUnique({
+            where: { id: Number(chamaId) },
+            select: { id: true, name: true, adminId: true }
+        });
+
+        if (!chama) {
+            return res.status(404).json({ success: false, error: "Chama not found" });
+        }
+
+        const isMember = await prisma.chamaMember.findFirst({
+            where: {
+                chamaId: Number(chamaId),
+                userId: Number(userId),
+            },
+        });
+
+        if (!isMember && chama.adminId !== Number(userId)) {
+            return res.status(403).json({ success: false, error: "Only members can send messages to this Chama." });
         }
 
         const newMessage = await prisma.message.create({

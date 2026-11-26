@@ -1137,10 +1137,10 @@ class EmailService {
     `;
 
     return sendEmail({
-      label: "USDC received email",
+      label: "Cash received email",
       from: "Chamapay <transfers@chamapay.xyz>",
       to: email,
-      subject: "USDC received",
+      subject: "Cash received",
       body,
       preheader: `${amountUSDC} USDC received from ${senderDisplayName}`,
     });
