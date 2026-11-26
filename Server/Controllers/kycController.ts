@@ -16,8 +16,15 @@ import {
   verifySignatureSimple,
   verifySignatureV2,
 } from "../Lib/diditWebhook";
+import { normalizePhoneE164 } from "../Lib/phoneAuth";
+import { sendWhatsAppOTP } from "../Lib/WhatsAppService";
 
 const prisma = new PrismaClient();
+
+const kycPhoneVerificationCodes = new Map<
+  string,
+  { code: string; phoneE164: string; expiresAt: number }
+>();
 
 const DIDIT_SESSION_URL = "https://verification.didit.me/v3/session/";
 
@@ -272,16 +279,31 @@ export async function createKycSession(req: Request, res: Response) {
     }
 
     const sandboxScenario = resolveSandboxScenario(req.body);
+    const countryCode =
+      typeof req.body?.countryCode === "string" && req.body.countryCode.trim().length > 0
+        ? req.body.countryCode.trim().toUpperCase()
+        : undefined;
+
     const sessionBody: Record<string, unknown> = {
       workflow_id: workflowId,
       vendor_data: String(userId),
-      // Prefill document country picker (ISO-3). Alters the user-facing select-document step.
-      expected_details: {
-        id_country: process.env.DIDIT_DEFAULT_ID_COUNTRY?.trim() || "KEN",
-      },
+      // Prefill document country picker (ISO-3) if specified; otherwise let Didit present all countries.
+      ...(countryCode
+        ? {
+            expected_details: {
+              id_country: countryCode,
+            },
+          }
+        : process.env.DIDIT_DEFAULT_ID_COUNTRY?.trim()
+          ? {
+              expected_details: {
+                id_country: process.env.DIDIT_DEFAULT_ID_COUNTRY.trim(),
+              },
+            }
+          : {}),
       metadata: {
         source: "chamapay",
-        platform: "mobile",
+        platform: req.body?.platform || "web",
         environment: isDiditSandbox() ? "sandbox" : "live",
       },
     };
@@ -367,11 +389,17 @@ export async function createKycSession(req: Request, res: Response) {
       data: { kycStatus: "pending" },
     });
 
+    const sessionUrl =
+      typeof session.url === "string" && session.url.length > 0
+        ? session.url
+        : `https://verify.didit.me/session/${sessionId}`;
+
     return res.status(200).json({
       success: true,
       jobId: sessionId,
       sessionId,
       sessionToken,
+      url: sessionUrl,
       sandbox: isDiditSandbox(),
       localMock: false,
       sandboxScenario: sandboxScenario || null,
@@ -760,5 +788,131 @@ export async function getKycJob(req: Request, res: Response) {
   } catch (error) {
     console.error("getKycJob error:", error);
     return res.status(500).json({ success: false, error: "Failed to load job" });
+  }
+}
+
+/**
+ * POST /kyc/send-phone-otp — sends WhatsApp OTP to confirm phone for KYC.
+ */
+export async function sendKycPhoneOtp(req: Request, res: Response) {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
+    const { phone, dialCode } = req.body || {};
+    if (!phone) {
+      return res.status(400).json({ success: false, error: "Phone number is required" });
+    }
+
+    const phoneE164 = normalizePhoneE164(phone, dialCode || "254");
+    if (!phoneE164) {
+      return res.status(400).json({
+        success: false,
+        error: "Enter a valid phone number for the selected country",
+      });
+    }
+
+    // Check if another user already has this phone
+    const existingPhoneUser = await prisma.user.findFirst({
+      where: {
+        phoneE164,
+        NOT: { id: userId },
+      },
+    });
+
+    if (existingPhoneUser) {
+      return res.status(409).json({
+        success: false,
+        error: "This phone number is already registered to another account",
+      });
+    }
+
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = Date.now() + 10 * 60 * 1000;
+    kycPhoneVerificationCodes.set(`kyc_phone_${userId}`, {
+      code: otp,
+      phoneE164,
+      expiresAt,
+    });
+
+    const sendRes = await sendWhatsAppOTP(phoneE164, otp);
+    if (!sendRes.success) {
+      kycPhoneVerificationCodes.delete(`kyc_phone_${userId}`);
+      return res.status(500).json({
+        success: false,
+        error: sendRes.error || "Failed to send verification code via WhatsApp",
+      });
+    }
+
+    const payload: Record<string, unknown> = {
+      success: true,
+      message: "Verification code sent via WhatsApp",
+      phoneE164,
+    };
+    if (process.env.WHATSAPP_OTP_DEBUG === "true") {
+      payload.otp = otp;
+    }
+
+    return res.status(200).json(payload);
+  } catch (error) {
+    console.error("sendKycPhoneOtp error:", error);
+    return res.status(500).json({ success: false, error: "Failed to send code" });
+  }
+}
+
+/**
+ * POST /kyc/verify-phone-otp — verifies WhatsApp OTP and links phone to user.
+ */
+export async function verifyKycPhoneOtp(req: Request, res: Response) {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
+    const { code } = req.body || {};
+    if (!code) {
+      return res.status(400).json({ success: false, error: "Verification code is required" });
+    }
+
+    const stored = kycPhoneVerificationCodes.get(`kyc_phone_${userId}`);
+    if (!stored) {
+      return res.status(400).json({
+        success: false,
+        error: "No code found. Please request a new code.",
+      });
+    }
+
+    if (Date.now() > stored.expiresAt) {
+      kycPhoneVerificationCodes.delete(`kyc_phone_${userId}`);
+      return res.status(400).json({
+        success: false,
+        error: "Verification code expired. Please request a new one.",
+      });
+    }
+
+    if (stored.code !== String(code).trim()) {
+      return res.status(400).json({ success: false, error: "Invalid verification code" });
+    }
+
+    const phoneE164 = stored.phoneE164;
+    kycPhoneVerificationCodes.delete(`kyc_phone_${userId}`);
+
+    // Update user's verified phone
+    await prisma.user.update({
+      where: { id: userId },
+      data: { phoneE164 },
+    });
+
+    return res.status(200).json({
+      success: true,
+      phoneE164,
+      message: "Phone number verified successfully",
+    });
+  } catch (error) {
+    console.error("verifyKycPhoneOtp error:", error);
+    return res.status(500).json({ success: false, error: "Failed to verify phone" });
   }
 }

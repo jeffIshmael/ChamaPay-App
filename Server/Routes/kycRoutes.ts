@@ -7,6 +7,8 @@ import {
   getKycStatus,
   reportClientKycResult,
   sandboxApproveKyc,
+  sendKycPhoneOtp,
+  verifyKycPhoneOtp,
 } from "../Controllers/kycController";
 
 const kycRoutes = Router();
@@ -19,5 +21,7 @@ kycRoutes.post("/session", authenticate, createKycSession as any);
 kycRoutes.get("/jobs/:jobId", authenticate, getKycJob as any);
 kycRoutes.post("/jobs/:jobId/client-result", authenticate, reportClientKycResult as any);
 kycRoutes.post("/sandbox/approve", authenticate, sandboxApproveKyc as any);
+kycRoutes.post("/send-phone-otp", authenticate, sendKycPhoneOtp as any);
+kycRoutes.post("/verify-phone-otp", authenticate, verifyKycPhoneOtp as any);
 
 export default kycRoutes;
