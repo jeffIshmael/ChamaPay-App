@@ -26,11 +26,11 @@ kycRoutes.post("/jobs/:jobId/client-result", authenticate, reportClientKycResult
 kycRoutes.post("/sandbox/approve", authenticate, sandboxApproveKyc as any);
 kycRoutes.post("/send-phone-otp", authenticate, sendKycPhoneOtp as any);
 kycRoutes.post("/verify-phone-otp", authenticate, verifyKycPhoneOtp as any);
-kycRoutes.get("/manual/challenge", authenticate, getManualChallenge);
-kycRoutes.get("/manual/status", authenticate, getManualStatus);
-kycRoutes.post("/manual/submit", authenticate, kycUpload, submitManualKyc);
-kycRoutes.get("/admin/kyc/queue", authenticate, requireKycAdmin, adminKycQueue);
-kycRoutes.get("/admin/kyc/:id", authenticate, requireKycAdmin, adminKycDetail);
-kycRoutes.post("/admin/kyc/:id/decision", authenticate, requireKycAdmin, adminKycDecision);
+kycRoutes.get("/manual/challenge", authenticate, getManualChallenge as any);
+kycRoutes.get("/manual/status", authenticate, getManualStatus as any);
+kycRoutes.post("/manual/submit", authenticate, kycUpload, submitManualKyc as any);
+kycRoutes.get("/admin/kyc/queue", authenticate, requireKycAdmin, adminKycQueue as any);
+kycRoutes.get("/admin/kyc/:id", authenticate, requireKycAdmin, adminKycDetail as any);
+kycRoutes.post("/admin/kyc/:id/decision", authenticate, requireKycAdmin, adminKycDecision as any);
 
 export default kycRoutes;
