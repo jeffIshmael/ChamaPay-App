@@ -185,7 +185,7 @@ export async function getKycStatus(req: Request, res: Response) {
       tier2LimitKes: getTier2MonthlyKes(),
       sandbox: isDiditSandbox(),
       localMock: isLocalMock(),
-      provider: "didit",
+      provider: process.env.KYC_PROVIDER || "didit",
       phoneE164: user.phoneE164,
       phoneNo: user.phoneNo,
       identity: {
@@ -487,7 +487,7 @@ export async function reportClientKycResult(req: Request, res: Response) {
   }
 }
 
-async function applyJobDecision(
+export async function applyJobDecision(
   jobId: string,
   decision: "approved" | "rejected" | "in_review",
   rawResultRef?: string,
