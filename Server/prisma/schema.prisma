@@ -57,13 +57,14 @@ model User {
   goalContributions   GoalContribution[]   @relation("GoalContributor")
   goalContributionPays GoalContribution[]  @relation("GoalPayer")
   goalWithdrawals     GoalWithdrawal[]
+  kycSubmissions      KycSubmission[]
 }
 
 model KycJob {
   id           Int      @id @default(autoincrement())
   userId       Int
-  provider     String   @default("didit")
-  /** Didit session_id (or local sandbox job id) */
+  provider     String   @default("didit")   // didit | manual
+  /** Didit session_id, or manual job id (man_<userId>_<ts>_<rand>) */
   jobId        String   @unique
   documentType String
   /** pending | processing | approved | rejected | error */
@@ -72,9 +73,49 @@ model KycJob {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   user         User     @relation(fields: [userId], references: [id])
+  submission   KycSubmission?
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([status])
+}
+
+
+model KycSubmission {
+  id             Int       @id @default(autoincrement())
+  userId         Int
+  /** Links 1:1 to KycJob.jobId — KycJob.status is the source of truth for review state */
+  jobId          String    @unique
+  /** id_card | passport */
+  docType        String
+  /** ISO 3166-1 alpha-3 of the issuing country */
+  country        String
+  firstName      String
+  lastName       String
+  /** YYYY-MM-DD, as typed by the user (reviewer checks it against the ID) */
+  dateOfBirth    String
+  /** AES-encrypted via Lib/kycPii.ts */
+  docNumberEnc   String
+  /** HMAC-SHA256 of country + normalized number — duplicate detection only */
+  docNumberHash  String
+  /** R2 object keys (private bucket). Nulled once purged after retention period. */
+  frontKey       String?
+  backKey        String?
+  selfieKey      String?
+  /** The liveness prompt the user was asked to perform in the selfie */
+  livenessPrompt String
+  /** e.g. ["resubmitted_after_rejection"] */
+  flags          Json?
+  reviewedBy     Int?
+  rejectReason   String?
+  reviewedAt     DateTime?
+  imagesPurgedAt DateTime?
+  createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id])
+  job            KycJob    @relation(fields: [jobId], references: [jobId])
+
+  @@index([docNumberHash])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([reviewedAt])
 }
 
 model MoonwellYield {
