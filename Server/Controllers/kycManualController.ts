@@ -155,6 +155,23 @@ function verifyChallenge(userId: number, token: unknown): string | null {
   return LIVENESS_PROMPTS[idx];
 }
 
+/** Normalizes a typed phone number to +<digits>. Returns null if it can't be valid. */
+function toE164(phone: unknown, dialCode: unknown): string | null {
+  const raw = String(phone ?? "").trim();
+  let d = raw.replace(/\D/g, "");
+  if (!d) return null;
+  const dial = String(dialCode ?? "").replace(/\D/g, "");
+  if (raw.startsWith("+")) {
+    // already international
+  } else if (raw.startsWith("00")) {
+    d = d.slice(2);
+  } else {
+    d = d.replace(/^0+/, "");
+    if (dial && !d.startsWith(dial)) d = dial + d;
+  }
+  return d.length >= 8 && d.length <= 15 ? `+${d}` : null;
+}
+
 function fail(res: Response, status: number, error: string) {
   return res.status(status).json({ success: false, error });
 }
@@ -248,10 +265,6 @@ export async function submitManualKyc(req: Request, res: Response) {
       });
     }
 
-    if (!user.phoneE164) {
-      return fail(res, 400, "Please verify your phone number first.");
-    }
-
     // One open submission at a time
     const open = await prisma.kycJob.findFirst({
       where: { userId, provider: "manual", status: "processing" },
@@ -281,6 +294,9 @@ export async function submitManualKyc(req: Request, res: Response) {
     if (!/^[A-Z]{3}$/.test(country)) {
       return fail(res, 400, "Select the country that issued your document.");
     }
+
+    const phone = toE164(body.phone || user.phoneE164, body.dialCode);
+    if (!phone) return fail(res, 400, "Enter a valid phone number.");
 
     const dob = parseDob(body.dateOfBirth);
     if (!dob) return fail(res, 400, "Enter a valid date of birth.");
@@ -384,6 +400,7 @@ export async function submitManualKyc(req: Request, res: Response) {
           jobId,
           docType,
           country,
+          phoneE164: phone,
           firstName,
           lastName,
           dateOfBirth: dob.iso,
@@ -494,6 +511,7 @@ export async function adminKycDetail(req: Request, res: Response) {
         lastName: sub.lastName,
         dateOfBirth: sub.dateOfBirth,
         documentNumber: decryptKycDocumentNumber(sub.docNumberEnc),
+        phone: sub.phoneE164,
         livenessPrompt: sub.livenessPrompt,
         flags: sub.flags,
         submittedAt: sub.createdAt,
