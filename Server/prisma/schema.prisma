@@ -73,7 +73,7 @@ model KycJob {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   user         User     @relation(fields: [userId], references: [id])
-  submission   KycSubmission?
+  submission   KycSubmission?                // <-- ADD
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([status])
@@ -89,6 +89,8 @@ model KycSubmission {
   docType        String
   /** ISO 3166-1 alpha-3 of the issuing country */
   country        String
+  /** Typed by the user, NOT verified (contact info for the reviewer) */
+  phoneE164      String?
   firstName      String
   lastName       String
   /** YYYY-MM-DD, as typed by the user (reviewer checks it against the ID) */
